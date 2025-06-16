@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
 
-export function FormRenderer({ schema, initialValues = {}, overrideValues, onSubmit, mode = 'edit', debug = false }) {
-  const { values, visible, read_only, required, errors, setValue, submit } = useFormEngine(schema, initialValues, overrideValues);
+export function FormRenderer({ schema, initialValues = {}, overrideValues, onSubmit, mode = 'edit', debug = false, onSchemaReady }) {
+  const { values, visible, read_only, required, errors, setValue, submit, schema: finalSchema } = useFormEngine(schema, initialValues, overrideValues);
+
+    useEffect(() => {
+        if (onSchemaReady) onSchemaReady(finalSchema);
+    }, [finalSchema]);
 
   const elements = schema.form?.elements || [];
 

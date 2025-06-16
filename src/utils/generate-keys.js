@@ -1,11 +1,9 @@
 export function generateKey(dataName) {
-    // Browser-friendly version: mimic the structure used in form0-core
-    const text = dataName + Date.now();
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      const char = text.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash |= 0;
+    // FNV-1a hash + hex output
+    let hash = 2166136261;
+    for (let i = 0; i < dataName.length; i++) {
+      hash ^= dataName.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
     }
-    return Math.abs(hash).toString(36).slice(0, 5);
+    return Math.abs(hash >>> 0).toString(16).slice(0, 8); // base 16
 }

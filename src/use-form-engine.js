@@ -12,12 +12,30 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
   });
 
   const engineRef = useRef(null);
+  const schemaCopy = JSON.parse(JSON.stringify(schema));
 
   useEffect(() => {
-    const schemaCopy = JSON.parse(JSON.stringify(schema));
-    ensureKeys(schemaCopy.form.elements);
+  
+    // Only add keys if missing (to avoid overwriting consistent ones)
+    let needsKeys = false;
+    const checkForMissingKeys = (elements) => {
+      for (const el of elements) {
+        if (!el.key && el.data_name) {
+          needsKeys = true;
+          return;
+        }
+        if (el.type === 'Section') {
+          checkForMissingKeys(el.elements || []);
+        }
+      }
+    };
+    checkForMissingKeys(schemaCopy.form.elements);
+    if (needsKeys) {
+      ensureKeys(schemaCopy.form.elements);
+    }
+  
     validateSchema(schemaCopy.form);
-
+  
     engineRef.current = createFormEngine({
       schema: schemaCopy,
       initialValues: { ...initialValues },
@@ -28,9 +46,10 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
 
   const setValue = (field, value) => {
     if (!engineRef.current) return;
-    engineRef.current.getState().values[field] = value;
+    const state = engineRef.current.getState();
+    state.values[field] = value;
     engineRef.current.eval();
-    setState(engineRef.current.getState());
+    setState(engineRef.current.getState()); // ✅ Re-eval to apply rules
   };
 
   if (overrideValues && engineRef.current) {
@@ -43,5 +62,6 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
     ...state,
     setValue,
     submit: () => engineRef.current?.getState().values || {},
+    schema: schemaCopy
   };
 }
