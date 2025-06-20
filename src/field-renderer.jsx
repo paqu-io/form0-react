@@ -41,11 +41,6 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
                 type="number"
                 step={field.format === 'integer' ? '1' : 'any'} // ✅ block decimals at input level
                 value={value === null || value === undefined ? '' : value}
-                // onChange={(e) => {
-                //     const raw = e.target.value;
-                //     const val = raw === '' ? null : Number(raw);
-                //     onChange(val);
-                // }}
                 onChange={(e) => {
                     const raw = e.target.value;
                     if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;

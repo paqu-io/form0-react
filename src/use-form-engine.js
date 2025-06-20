@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { createFormEngine, validateSchema } from 'form0';
+import { createFormEngine, validateSchema } from 'form0-core';
 import { ensureKeys } from './utils/ensure-keys';
 
 export function useFormEngine(schema, initialValues = {}, overrideValues) {
