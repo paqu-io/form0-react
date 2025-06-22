@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
+import * as styles from './form-renderer.css.js';
+import { standardThemeLight, standardThemeDark, modalThemeLight, modalThemeDark, simplifiedThemeLight, simplifiedThemeDark } from './theme.css.js';
 
 export function FormRenderer({
   schema,
@@ -10,7 +12,12 @@ export function FormRenderer({
   mode = 'edit',
   debug = false,
   onSchemaReady,
+  theme = 'standard',
+  colorMode = 'light',
+  className = '',
+  ...rest
 }) {
+  console.log('FormRenderer received theme prop:', theme);
   const [activeSection, setActiveSection] = useState(null);
   const {
     values,
@@ -34,6 +41,40 @@ export function FormRenderer({
     }
   };
 
+  const themeMap = {
+    'standard-light': standardThemeLight,
+    'standard-dark': standardThemeDark,
+    'modal-light': modalThemeLight,
+    'modal-dark': modalThemeDark,
+    'simplified-light': simplifiedThemeLight,
+    'simplified-dark': simplifiedThemeDark,
+  };
+
+  const [systemDark, setSystemDark] = useState(false);
+
+  useEffect(() => {
+    if (colorMode === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      setSystemDark(mq.matches);
+      const handler = (e) => setSystemDark(e.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [colorMode]);
+
+  const effectiveColorMode =
+    colorMode === 'system' ? (systemDark ? 'dark' : 'light') : colorMode;
+
+  // If theme is a string, use the map. If it's a class name, use it directly.
+  let themeClass;
+  if (typeof theme === 'string') {
+    const effectiveThemeKey = `${theme}-${effectiveColorMode}`;
+    themeClass = themeMap[effectiveThemeKey] || standardThemeLight;
+  } else {
+    // Assume it's a class name (custom theme)
+    themeClass = theme;
+  }
+
   const renderElements = (elements) => {
     return elements.map((field) => {
       if (field.type === 'Section') {
@@ -45,15 +86,14 @@ export function FormRenderer({
             return (
               <div
                 key={field.key || field.data_name}
-                className="p-4 rounded border border-gray-400 bg-gray-100 dark:bg-gray-800"
+                className={styles.drilldownInactive}
               >
-                <div className="flex flex-row items-center justify-between gap-2 w-full">
-                  <span className="text-lg font-semibold text-red-500 bg-yellow-100 whitespace-nowrap">
+                <div>
+                  <span className={styles.sectionHeader}>
                     📛 {field.label}
                   </span>
                   <button
                     type="button"
-                    className="inline-flex text-sm text-blue-600 underline bg-green-100"
                     onClick={() => setActiveSection(field.data_name)}
                   >
                     View &gt;
@@ -65,14 +105,13 @@ export function FormRenderer({
 
           // Section is active
           return (
-            <div key={field.key || field.data_name} className="space-y-4">
+            <div key={field.key || field.data_name} className={styles.drilldownActive}>
               <button
-                className="text-sm text-gray-500 underline mb-2"
                 onClick={() => setActiveSection(null)}
               >
                 &lt; Back
               </button>
-              <h3 className="text-xl font-bold">{field.label}</h3>
+              <h3 className={styles.sectionHeader}>{field.label}</h3>
               {renderElements(field.elements || [])}
             </div>
           );
@@ -82,9 +121,9 @@ export function FormRenderer({
         return (
           <div
             key={field.key || field.data_name}
-            className="p-4 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 space-y-4"
+            className={styles.section}
           >
-            <h3 className="text-lg font-semibold">{field.label}</h3>
+            <h3 className={styles.sectionHeader}>{field.label}</h3>
             {renderElements(field.elements || [])}
           </div>
         );
@@ -107,7 +146,7 @@ export function FormRenderer({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className={`${styles.form} ${themeClass} ${className}`} {...rest}>
       {/* {renderElements(schema.form?.elements || [])} */}
       {renderElements(
         activeSection
@@ -115,12 +154,12 @@ export function FormRenderer({
           : schema.form?.elements || []
       )}
       {mode !== 'readonly' && (
-        <button type="submit" className="bg-black text-white px-4 py-2 rounded">
+        <button type="submit">
           Submit
         </button>
       )}
       {debug && (
-        <pre className="bg-gray-100 p-2 text-sm border mt-4 overflow-auto">
+        <pre>
           {JSON.stringify({ values, visible, read_only, required, errors }, null, 2)}
         </pre>
       )}

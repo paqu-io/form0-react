@@ -1,4 +1,5 @@
 import React from 'react';
+import * as styles from './field-renderer.css.js';
 
 function formatDisplayValue(value, style) {
   if (value == null) return '';
@@ -20,12 +21,11 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
     name: field.data_name,
     disabled: readOnly,
     required,
-    className: 'border rounded px-2 py-1 w-full',
   };
 
   return (
-    <div>
-      <label htmlFor={field.key} className="block font-medium mb-1">
+    <div className={styles.fieldWrapper}>
+      <label htmlFor={field.key} className={styles.label}>
         {field.label} {required && '*'}
       </label>
 
@@ -35,6 +35,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           readOnly={readOnly}
+          className={styles.input}
           {...commonProps}
         />
       )}
@@ -56,6 +57,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
             }
           }}
           readOnly={readOnly}
+          className={styles.input}
           {...commonProps}
         />
       )}
@@ -65,13 +67,14 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
           type="text"
           value={formatDisplayValue(value, field.display?.style)}
           readOnly
+          className={styles.input}
           {...commonProps}
         />
       )}
 
       {/* Future support: ChoiceField, DateField, etc. */}
 
-      <div style={{ color: 'red' }}>{error}</div>
+      <div className={styles.error}>{error}</div>
     </div>
   );
 }
