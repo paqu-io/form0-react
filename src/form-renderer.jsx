@@ -2,7 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
 import * as styles from './form-renderer.css.js';
-import { standardThemeLight, standardThemeDark, modalThemeLight, modalThemeDark, simplifiedThemeLight, simplifiedThemeDark } from './theme.css.js';
+import {
+  standardThemeLight,
+  standardThemeDark,
+  modalThemeLight,
+  modalThemeDark,
+  simplifiedThemeLight,
+  simplifiedThemeDark,
+  spotlightThemeLight,
+  spotlightThemeDark,
+} from './theme.css.js';
 
 export function FormRenderer({
   schema,
@@ -17,7 +26,7 @@ export function FormRenderer({
   className = '',
   ...rest
 }) {
-  console.log('FormRenderer received theme prop:', theme);
+  //console.log('FormRenderer received theme prop:', theme);
   const [activeSection, setActiveSection] = useState(null);
   const {
     values,
@@ -48,6 +57,8 @@ export function FormRenderer({
     'modal-dark': modalThemeDark,
     'simplified-light': simplifiedThemeLight,
     'simplified-dark': simplifiedThemeDark,
+    'spotlight-light': spotlightThemeLight,
+    'spotlight-dark': spotlightThemeDark,
   };
 
   const [systemDark, setSystemDark] = useState(false);
@@ -62,8 +73,7 @@ export function FormRenderer({
     }
   }, [colorMode]);
 
-  const effectiveColorMode =
-    colorMode === 'system' ? (systemDark ? 'dark' : 'light') : colorMode;
+  const effectiveColorMode = colorMode === 'system' ? (systemDark ? 'dark' : 'light') : colorMode;
 
   // If theme is a string, use the map. If it's a class name, use it directly.
   let themeClass;
@@ -84,18 +94,10 @@ export function FormRenderer({
         if (display === 'drilldown') {
           if (activeSection !== field.data_name) {
             return (
-              <div
-                key={field.key || field.data_name}
-                className={styles.drilldownInactive}
-              >
+              <div key={field.key || field.data_name} className={styles.drilldownInactive}>
                 <div>
-                  <span className={styles.sectionHeader}>
-                    📛 {field.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSection(field.data_name)}
-                  >
+                  <span className={styles.sectionHeader}>📛 {field.label}</span>
+                  <button type="button" onClick={() => setActiveSection(field.data_name)}>
                     View &gt;
                   </button>
                 </div>
@@ -106,11 +108,7 @@ export function FormRenderer({
           // Section is active
           return (
             <div key={field.key || field.data_name} className={styles.drilldownActive}>
-              <button
-                onClick={() => setActiveSection(null)}
-              >
-                &lt; Back
-              </button>
+              <button onClick={() => setActiveSection(null)}>&lt; Back</button>
               <h3 className={styles.sectionHeader}>{field.label}</h3>
               {renderElements(field.elements || [])}
             </div>
@@ -119,10 +117,7 @@ export function FormRenderer({
 
         // 🧱 INLINE
         return (
-          <div
-            key={field.key || field.data_name}
-            className={styles.section}
-          >
+          <div key={field.key || field.data_name} className={styles.section}>
             <h3 className={styles.sectionHeader}>{field.label}</h3>
             {renderElements(field.elements || [])}
           </div>
@@ -153,15 +148,9 @@ export function FormRenderer({
           ? (schema.form?.elements || []).filter((e) => e.data_name === activeSection)
           : schema.form?.elements || []
       )}
-      {mode !== 'readonly' && (
-        <button type="submit">
-          Submit
-        </button>
-      )}
+      {mode !== 'readonly' && <button type="submit">Submit</button>}
       {debug && (
-        <pre>
-          {JSON.stringify({ values, visible, read_only, required, errors }, null, 2)}
-        </pre>
+        <pre>{JSON.stringify({ values, visible, read_only, required, errors }, null, 2)}</pre>
       )}
     </form>
   );

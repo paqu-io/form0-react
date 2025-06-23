@@ -174,3 +174,53 @@ export const simplifiedThemeDark = createTheme(vars, {
     lg: '2rem',
   },
 });
+
+// Spotlight theme (light)
+export const spotlightThemeLight = createTheme(vars, {
+  color: {
+    background: '#fff',
+    foreground: '#111',
+    border: '#e5e7eb',
+    primary: '#111',
+    error: '#e11d48',
+    section: '#f9fafb',
+    sectionBorder: '#e5e7eb',
+    sectionHeader: '#111',
+  },
+  borderRadius: '8px',
+  fontSize: {
+    base: '1rem',
+    label: '1rem',
+    section: '1.125rem',
+  },
+  spacing: {
+    sm: '0.5rem',
+    md: '1rem',
+    lg: '2rem',
+  },
+});
+
+// Spotlight theme (dark)
+export const spotlightThemeDark = createTheme(vars, {
+  color: {
+    background: '#18181b',
+    foreground: '#f3f4f6',
+    border: '#27272a',
+    primary: '#38bdf8',
+    error: '#f87171',
+    section: '#232326',
+    sectionBorder: '#27272a',
+    sectionHeader: '#38bdf8',
+  },
+  borderRadius: '8px',
+  fontSize: {
+    base: '1rem',
+    label: '1rem',
+    section: '1.125rem',
+  },
+  spacing: {
+    sm: '0.5rem',
+    md: '1rem',
+    lg: '2rem',
+  },
+});
