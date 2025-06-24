@@ -24,6 +24,9 @@ export function FormRenderer({
   theme = 'standard',
   colorMode = 'light',
   className = '',
+  labelPosition = 'top',
+  labelWidthPercent = 30,
+  formWidth = '30vw', //Accepts 30vw or 50%
   ...rest
 }) {
   //console.log('FormRenderer received theme prop:', theme);
@@ -97,7 +100,7 @@ export function FormRenderer({
               <div key={field.key || field.data_name} className={styles.drilldownInactive}>
                 <div>
                   <span className={styles.sectionHeader}>📛 {field.label}</span>
-                  <button type="button" onClick={() => setActiveSection(field.data_name)}>
+                  <button type="button" className={styles.drilldownButton} onClick={() => setActiveSection(field.data_name)}>
                     View &gt;
                   </button>
                 </div>
@@ -108,7 +111,7 @@ export function FormRenderer({
           // Section is active
           return (
             <div key={field.key || field.data_name} className={styles.drilldownActive}>
-              <button onClick={() => setActiveSection(null)}>&lt; Back</button>
+              <button className={styles.backButton} onClick={() => setActiveSection(null)}>&lt; Back</button>
               <h3 className={styles.sectionHeader}>{field.label}</h3>
               {renderElements(field.elements || [])}
             </div>
@@ -134,6 +137,8 @@ export function FormRenderer({
             required={required[field.data_name]}
             error={errors[field.data_name]}
             onChange={(val) => setValue(field.data_name, val)}
+            labelPosition={labelPosition}
+            labelWidthPercent={labelWidthPercent}
           />
         )
       );
@@ -141,14 +146,24 @@ export function FormRenderer({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`${styles.form} ${themeClass} ${className}`} {...rest}>
+    <form
+      onSubmit={handleSubmit}
+      className={`${styles.form} ${themeClass} ${className}`}
+      //style={{ '--label-width': `${labelWidthPercent}%` }}
+      //style={{ width: formWidth }}
+      {...rest}
+    >
       {/* {renderElements(schema.form?.elements || [])} */}
       {renderElements(
         activeSection
           ? (schema.form?.elements || []).filter((e) => e.data_name === activeSection)
           : schema.form?.elements || []
       )}
-      {mode !== 'readonly' && <button type="submit">Submit</button>}
+      {mode !== 'readonly' && (
+        <button type="submit" className={styles.button}>
+          Submit
+        </button>
+      )}
       {debug && (
         <pre>{JSON.stringify({ values, visible, read_only, required, errors }, null, 2)}</pre>
       )}

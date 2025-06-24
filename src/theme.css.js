@@ -11,6 +11,18 @@ export const vars = createThemeContract({
     section: '',
     sectionBorder: '',
     sectionHeader: '',
+    // Add button colors
+    buttonBg: '',
+    buttonFg: '',
+    buttonBorder: '',
+    buttonHoverBg: '',
+    buttonHoverFg: '',
+    buttonHoverBorder: '',
+    // Optionally, add special drilldown/back button colors
+    drilldownButtonBg: '',
+    drilldownButtonFg: '',
+    backButtonBg: '',
+    backButtonFg: '',
   },
   borderRadius: '',
   fontSize: {
@@ -36,6 +48,16 @@ export const standardThemeLight = createTheme(vars, {
     section: '#f9fafb',
     sectionBorder: '#e5e7eb',
     sectionHeader: '#111',
+    buttonBg: '#ff007a', // vivid pink
+    buttonFg: '#fff',
+    buttonBorder: '#ff007a',
+    buttonHoverBg: '#d6006b',
+    buttonHoverFg: '#fff',
+    buttonHoverBorder: '#d6006b',
+    drilldownButtonBg: '#00c2ff', // vivid cyan
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ffe600', // vivid yellow
+    backButtonFg: '#111',
   },
   borderRadius: '8px',
   fontSize: {
@@ -61,6 +83,16 @@ export const standardThemeDark = createTheme(vars, {
     section: '#232326',
     sectionBorder: '#27272a',
     sectionHeader: '#38bdf8',
+    buttonBg: '#00ffae', // vivid green
+    buttonFg: '#18181b',
+    buttonBorder: '#00ffae',
+    buttonHoverBg: '#00c98a',
+    buttonHoverFg: '#18181b',
+    buttonHoverBorder: '#00c98a',
+    drilldownButtonBg: '#ff5e00', // vivid orange
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ff00e6', // vivid magenta
+    backButtonFg: '#fff',
   },
   borderRadius: '8px',
   fontSize: {
@@ -86,6 +118,16 @@ export const modalThemeLight = createTheme(vars, {
     section: '#fff',
     sectionBorder: '#d1d5db',
     sectionHeader: '#2563eb',
+    buttonBg: '#ff007a', // vivid pink
+    buttonFg: '#fff',
+    buttonBorder: '#ff007a',
+    buttonHoverBg: '#d6006b',
+    buttonHoverFg: '#fff',
+    buttonHoverBorder: '#d6006b',
+    drilldownButtonBg: '#00c2ff', // vivid cyan
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ffe600', // vivid yellow
+    backButtonFg: '#111',
   },
   borderRadius: '12px',
   fontSize: {
@@ -111,6 +153,16 @@ export const modalThemeDark = createTheme(vars, {
     section: '#18181b',
     sectionBorder: '#27272a',
     sectionHeader: '#60a5fa',
+    buttonBg: '#00ffae', // vivid green
+    buttonFg: '#18181b',
+    buttonBorder: '#00ffae',
+    buttonHoverBg: '#00c98a',
+    buttonHoverFg: '#18181b',
+    buttonHoverBorder: '#00c98a',
+    drilldownButtonBg: '#ff5e00', // vivid orange
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ff00e6', // vivid magenta
+    backButtonFg: '#fff',
   },
   borderRadius: '12px',
   fontSize: {
@@ -136,6 +188,16 @@ export const simplifiedThemeLight = createTheme(vars, {
     section: '#f0fdf4',
     sectionBorder: '#a7f3d0',
     sectionHeader: '#10b981',
+    buttonBg: '#ff007a', // vivid pink
+    buttonFg: '#fff',
+    buttonBorder: '#ff007a',
+    buttonHoverBg: '#d6006b',
+    buttonHoverFg: '#fff',
+    buttonHoverBorder: '#d6006b',
+    drilldownButtonBg: '#00c2ff', // vivid cyan
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ffe600', // vivid yellow
+    backButtonFg: '#111',
   },
   borderRadius: '6px',
   fontSize: {
@@ -161,6 +223,16 @@ export const simplifiedThemeDark = createTheme(vars, {
     section: '#134e4a',
     sectionBorder: '#10b981',
     sectionHeader: '#6ee7b7',
+    buttonBg: '#00ffae', // vivid green
+    buttonFg: '#18181b',
+    buttonBorder: '#00ffae',
+    buttonHoverBg: '#00c98a',
+    buttonHoverFg: '#18181b',
+    buttonHoverBorder: '#00c98a',
+    drilldownButtonBg: '#ff5e00', // vivid orange
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ff00e6', // vivid magenta
+    backButtonFg: '#fff',
   },
   borderRadius: '6px',
   fontSize: {
@@ -186,6 +258,16 @@ export const spotlightThemeLight = createTheme(vars, {
     section: '#f9fafb',
     sectionBorder: '#e5e7eb',
     sectionHeader: '#111',
+    buttonBg: '#ff007a', // vivid pink
+    buttonFg: '#fff',
+    buttonBorder: '#ff007a',
+    buttonHoverBg: '#d6006b',
+    buttonHoverFg: '#fff',
+    buttonHoverBorder: '#d6006b',
+    drilldownButtonBg: '#00c2ff', // vivid cyan
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ffe600', // vivid yellow
+    backButtonFg: '#111',
   },
   borderRadius: '8px',
   fontSize: {
@@ -211,6 +293,16 @@ export const spotlightThemeDark = createTheme(vars, {
     section: '#232326',
     sectionBorder: '#27272a',
     sectionHeader: '#38bdf8',
+    buttonBg: '#00ffae', // vivid green
+    buttonFg: '#18181b',
+    buttonBorder: '#00ffae',
+    buttonHoverBg: '#00c98a',
+    buttonHoverFg: '#18181b',
+    buttonHoverBorder: '#00c98a',
+    drilldownButtonBg: '#ff5e00', // vivid orange
+    drilldownButtonFg: '#fff',
+    backButtonBg: '#ff00e6', // vivid magenta
+    backButtonFg: '#fff',
   },
   borderRadius: '8px',
   fontSize: {
