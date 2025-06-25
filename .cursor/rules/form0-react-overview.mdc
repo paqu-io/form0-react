@@ -1,0 +1,67 @@
+---
+description: form0-react package overview and key concepts
+globs: 
+alwaysApply: false
+---
+# form0-react Package Overview
+
+## Purpose
+form0-react is a React binding package for the form0 engine, providing React components and hooks to render dynamic forms based on JSON schemas. It enables declarative form creation with built-in validation, conditional logic, and theming support.
+
+## Architecture
+
+### Core Components
+- **[FormRenderer](mdc:form0-core/src/form-renderer.jsx)**: Main form component that renders the entire form based on schema
+- **[FieldRenderer](mdc:form0-core/src/field-renderer.jsx)**: Individual field component that renders specific field types
+- **[useFormEngine](mdc:form0-core/src/use-form-engine.js)**: React hook that integrates with form0-core engine
+
+### Key Features
+- **Dynamic Form Rendering**: Renders forms from JSON schemas with sections, fields, and conditional logic
+- **Theme System**: Multiple built-in themes (standard, modal, simplified, spotlight) with light/dark variants
+- **Section Display Modes**: Supports inline and drilldown section layouts
+- **Form Engine Integration**: Uses form0-core for validation, calculations, and conditional logic
+- **CSS-in-JS**: Uses vanilla-extract for styling with themeable components
+
+### Entry Point
+The main entry point is [index.js](mdc:form0-core/src/index.js) which exports the FormRenderer component and imports CSS styles.
+
+### Dependencies
+- **form0-core**: Core form engine for validation and logic
+- **React 18/19**: Peer dependency for React components
+- **@vanilla-extract/css**: CSS-in-JS styling solution
+- **@radix-ui**: UI primitives for form components
+
+### Build System
+- **tsup**: Used for building the package with both ESM and CJS outputs
+- **vanilla-extract**: CSS extraction and processing
+- **TypeScript**: Type checking and development support
+
+### Key Utilities
+- **[ensure-keys.js](mdc:form0-core/src/utils/ensure-keys.js)**: Ensures form elements have unique keys
+- **[generate-keys.js](mdc:form0-core/src/utils/generate-keys.js)**: Generates unique keys for form elements
+
+## Usage Pattern
+```jsx
+import { FormRenderer } from 'form0-react';
+
+<FormRenderer
+  schema={formSchema}
+  initialValues={{}}
+  onSubmit={handleSubmit}
+  theme="standard"
+  colorMode="light"
+/>
+```
+
+## Theme System
+The package includes multiple theme variants accessible through [theme.css.js](mdc:form0-core/src/theme.css.js):
+- Standard (light/dark)
+- Modal (light/dark) 
+- Simplified (light/dark)
+- Spotlight (light/dark)
+
+## Development
+- Build: `npm run build`
+- Format: `npm run format`
+- Type checking: TypeScript configuration included
+

@@ -83,3 +83,37 @@ export const backButton = style([
     color: vars.color.backButtonFg,
   },
 ]);
+
+// Simplified mode styles
+export const simplifiedProgress = style({
+  marginBottom: '2rem',
+  textAlign: 'center',
+  fontSize: '0.875rem',
+  color: vars.color.foreground,
+  opacity: 0.8,
+});
+
+export const simplifiedNavigation = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  marginTop: '2rem',
+  gap: '1rem',
+});
+
+export const simplifiedButton = style([
+  button,
+  {
+    minWidth: '100px',
+    transition: 'all 0.2s ease',
+  },
+]);
+
+export const simplifiedButtonDisabled = style({
+  opacity: 0.5,
+  cursor: 'not-allowed',
+  ':hover': {
+    background: vars.color.buttonBg,
+    color: vars.color.buttonFg,
+    border: `1px solid ${vars.color.buttonBorder}`,
+  },
+});

@@ -15,12 +15,26 @@ function formatDisplayValue(value, style) {
   }
 }
 
-export function FieldRenderer({ field, value, onChange, readOnly, required, error, labelPosition = 'top' }) {
+export function FieldRenderer({ field, value, onChange, readOnly, required, error, labelPosition = 'top', onKeyDown }) {
   const commonProps = {
     id: field.key,
     name: field.data_name,
     disabled: readOnly,
     required,
+  };
+
+  // Handle Enter key for simplified mode
+  const handleInputKeyDown = (e) => {
+    // Preserve existing NumericField logic
+    if (field.type === 'NumericField' && field.format === 'integer' && (e.key === '.' || e.key === ',')) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Call custom onKeyDown if provided
+    if (onKeyDown) {
+      onKeyDown(e);
+    }
   };
 
   return (
@@ -40,6 +54,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
                 type="text"
                 value={value ?? ''}
                 onChange={(e) => onChange(e.target.value)}
+                onKeyDown={handleInputKeyDown}
                 readOnly={readOnly}
                 className={styles.input}
                 {...commonProps}
@@ -56,11 +71,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
                   const val = raw === '' ? null : Number(raw);
                   onChange(val);
                 }}
-                onKeyDown={(e) => {
-                  if (field.format === 'integer' && (e.key === '.' || e.key === ',')) {
-                    e.preventDefault();
-                  }
-                }}
+                onKeyDown={handleInputKeyDown}
                 readOnly={readOnly}
                 className={styles.input}
                 {...commonProps}
@@ -70,6 +81,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
               <input
                 type="text"
                 value={formatDisplayValue(value, field.display?.style)}
+                onKeyDown={handleInputKeyDown}
                 readOnly
                 className={styles.input}
                 {...commonProps}
@@ -87,6 +99,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
               type="text"
               value={value ?? ''}
               onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleInputKeyDown}
               readOnly={readOnly}
               className={styles.input}
               {...commonProps}
@@ -103,11 +116,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
                 const val = raw === '' ? null : Number(raw);
                 onChange(val);
               }}
-              onKeyDown={(e) => {
-                if (field.format === 'integer' && (e.key === '.' || e.key === ',')) {
-                  e.preventDefault();
-                }
-              }}
+              onKeyDown={handleInputKeyDown}
               readOnly={readOnly}
               className={styles.input}
               {...commonProps}
@@ -117,6 +126,7 @@ export function FieldRenderer({ field, value, onChange, readOnly, required, erro
             <input
               type="text"
               value={formatDisplayValue(value, field.display?.style)}
+              onKeyDown={handleInputKeyDown}
               readOnly
               className={styles.input}
               {...commonProps}
