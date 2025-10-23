@@ -330,7 +330,7 @@ export function FormRenderer({
       }
 
       return (
-        visible[field.data_name] !== false && (
+        visible[field.data_name] === true && (
           <FieldRenderer
             key={field.key || field.data_name}
             field={field}

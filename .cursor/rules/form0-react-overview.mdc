@@ -5,7 +5,6 @@ alwaysApply: false
 ---
 # form0-react Package Overview
 
-## Purpose
 form0-react is a React binding package for the form0 engine, providing React components and hooks to render dynamic forms based on JSON schemas. It enables declarative form creation with built-in validation, conditional logic, and theming support.
 
 ## Architecture
