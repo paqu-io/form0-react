@@ -34,7 +34,7 @@
       "name": "aragornii"
     }
   ],
-  "license": "GPL-3.0-only",
+  "license": "MIT",
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
