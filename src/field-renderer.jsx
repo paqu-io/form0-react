@@ -1,79 +1,140 @@
 import React from 'react';
+import * as styles from './field-renderer.css.js';
 
 function formatDisplayValue(value, style) {
-    if (value == null) return '';
-    switch (style) {
-      case 'currency': return `$${parseFloat(value).toFixed(2)}`;
-      case 'date': return new Date(value).toLocaleDateString();
-      case 'numeric': return Number(value);
-      default: return String(value);
-    }
+  if (value == null) return '';
+  switch (style) {
+    case 'currency':
+      return `$${parseFloat(value).toFixed(2)}`;
+    case 'date':
+      return new Date(value).toLocaleDateString();
+    case 'numeric':
+      return Number(value);
+    default:
+      return String(value);
+  }
 }
-  
-export function FieldRenderer({ field, value, onChange, readOnly, required, error }) {
-    
+
+export function FieldRenderer({ field, value, onChange, readOnly, required, error, labelPosition = 'top', onKeyDown }) {
   const commonProps = {
     id: field.key,
     name: field.data_name,
     disabled: readOnly,
     required,
-    className: 'border rounded px-2 py-1 w-full'
+  };
+
+  // Handle Enter key for simplified mode
+  const handleInputKeyDown = (e) => {
+    // Preserve existing NumericField logic
+    if (field.type === 'NumericField' && field.format === 'integer' && (e.key === '.' || e.key === ',')) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Call custom onKeyDown if provided
+    if (onKeyDown) {
+      onKeyDown(e);
+    }
   };
 
   return (
-    <div>
-        <label htmlFor={field.key} className="block font-medium mb-1">
+    <div
+      className={`${styles.fieldWrapper} ${
+        labelPosition === 'side' ? styles.labelSide : styles.labelTop
+      }`}
+    >
+      {labelPosition === 'side' ? (
+        <div className={styles.labelInputRow}>
+          <label htmlFor={field.key} className={`${styles.label} ${styles.labelSideFixed}`}>
             {field.label} {required && '*'}
-        </label>
-
-        {field.type === 'TextField' && (
-            <input
+          </label>
+          <div className={styles.inputWrapper}>
+            {field.type === 'TextField' && (
+              <input
                 type="text"
                 value={value ?? ''}
                 onChange={(e) => onChange(e.target.value)}
+                onKeyDown={handleInputKeyDown}
                 readOnly={readOnly}
+                className={styles.input}
                 {...commonProps}
-            />
-        )}
-
-        {field.type === 'NumericField' && (
-            <input
+              />
+            )}
+            {field.type === 'NumericField' && (
+              <input
                 type="number"
-                step={field.format === 'integer' ? '1' : 'any'} // ✅ block decimals at input level
+                step={field.format === 'integer' ? '1' : 'any'}
                 value={value === null || value === undefined ? '' : value}
-                // onChange={(e) => {
-                //     const raw = e.target.value;
-                //     const val = raw === '' ? null : Number(raw);
-                //     onChange(val);
-                // }}
                 onChange={(e) => {
-                    const raw = e.target.value;
-                    if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;
-                    const val = raw === '' ? null : Number(raw);
-                    onChange(val);
+                  const raw = e.target.value;
+                  if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;
+                  const val = raw === '' ? null : Number(raw);
+                  onChange(val);
                 }}
-                onKeyDown={(e) => {
-                    if (field.format === 'integer' && (e.key === '.' || e.key === ',')) {
-                      e.preventDefault();
-                    }
-                }}
+                onKeyDown={handleInputKeyDown}
                 readOnly={readOnly}
+                className={styles.input}
                 {...commonProps}
-            />
-        )}
-
-        {field.type === 'CalculatedField' && (
-            <input
+              />
+            )}
+            {field.type === 'CalculatedField' && (
+              <input
                 type="text"
                 value={formatDisplayValue(value, field.display?.style)}
+                onKeyDown={handleInputKeyDown}
                 readOnly
+                className={styles.input}
                 {...commonProps}
+              />
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <label htmlFor={field.key} className={styles.label}>
+            {field.label} {required && '*'}
+          </label>
+          {field.type === 'TextField' && (
+            <input
+              type="text"
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              readOnly={readOnly}
+              className={styles.input}
+              {...commonProps}
             />
-        )}
-
-        {/* Future support: ChoiceField, DateField, etc. */}
-
-        <div style={{ color: 'red' }}>{error}</div>
+          )}
+          {field.type === 'NumericField' && (
+            <input
+              type="number"
+              step={field.format === 'integer' ? '1' : 'any'}
+              value={value === null || value === undefined ? '' : value}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;
+                const val = raw === '' ? null : Number(raw);
+                onChange(val);
+              }}
+              onKeyDown={handleInputKeyDown}
+              readOnly={readOnly}
+              className={styles.input}
+              {...commonProps}
+            />
+          )}
+          {field.type === 'CalculatedField' && (
+            <input
+              type="text"
+              value={formatDisplayValue(value, field.display?.style)}
+              onKeyDown={handleInputKeyDown}
+              readOnly
+              className={styles.input}
+              {...commonProps}
+            />
+          )}
+        </>
+      )}
+      <div className={styles.error}>{error}</div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { createFormEngine, validateSchema } from 'form0';
+import { createFormEngine, validateSchema } from 'form0-core';
 import { ensureKeys } from './utils/ensure-keys';
 
 export function useFormEngine(schema, initialValues = {}, overrideValues) {
@@ -15,7 +15,6 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
   const schemaCopy = JSON.parse(JSON.stringify(schema));
 
   useEffect(() => {
-  
     // Only add keys if missing (to avoid overwriting consistent ones)
     let needsKeys = false;
     const checkForMissingKeys = (elements) => {
@@ -33,9 +32,9 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
     if (needsKeys) {
       ensureKeys(schemaCopy.form.elements);
     }
-  
+
     validateSchema(schemaCopy.form);
-  
+
     engineRef.current = createFormEngine({
       schema: schemaCopy,
       initialValues: { ...initialValues },
@@ -62,6 +61,6 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
     ...state,
     setValue,
     submit: () => engineRef.current?.getState().values || {},
-    schema: schemaCopy
+    schema: schemaCopy,
   };
 }
