@@ -1,0 +1,54 @@
+# form0-react Roadmap
+
+This roadmap captures the current priorities for evolving `form0-react` so it can sit alongside `form0-core` and the CLI as a production-ready rendering layer. We can refine/update this document as work progresses.
+
+## 1. Stabilize Engine Integration
+- [ ] **Refactor `useFormEngine`**  
+  - Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
+  - Expose stable setters (`setValue`, `reset`, `overrideValues`) that don’t mutate engine state during render.  
+  - Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.
+- [ ] **Schema utilities package**  
+  - Re-export shared helpers (key generation, schema cloning) from a `form0-react/utils` entry to avoid ad-hoc structured clones in consuming apps.
+
+## 2. Expand Field Surface Through a Registry
+- [ ] **Introduce a field component registry**  
+  - Generate the registry from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
+  - Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
+  - Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
+- [ ] **Field-level validation & messaging**  
+  - Display validation errors from the engine per field, with hooks for custom messages.
+
+## 3. Layouts, Modes, and Accessibility
+- [ ] **Finish existing modes**  
+  - Simplified mode: respect engine visibility/required state, remove direct `document` listeners (support SSR/React 19).  
+  - Drilldown/spotlight: support breadcrumbs, section metadata, and optional multi-column layouts.
+- [ ] **Accessibility audit**  
+  - Ensure ARIA attributes, focus management, and keyboard navigation are correct across all modes (especially modal/drawer contexts).
+
+## 4. Theming & Styling Contract
+- [ ] **Expose full design tokens** via vanilla-extract so designers can override typography, spacing, and component states.  
+- [ ] **Honor layout props** (`formWidth`, `labelWidthPercent`, `labelPosition`) by applying the CSS custom properties already scaffolded in the demo apps.  
+- [ ] **Document custom theme creation** with examples (light/dark, brand palette) and ensure React Native parity via a shared token schema.
+
+## 5. Developer Experience & Tooling
+- [ ] **Storybook / Component catalog**  
+  - New docs workspace that imports `form0-react` (and eventually `form0-react-native`) with stories for every field + mode.  
+  - Integrate visual regression or interaction tests to guard against UI regressions.
+- [ ] **CLI integration**  
+  - `form0-cli forge react --template <stack>` command that scaffolds production apps, copies schemas, and wires `form0-react` with sample routing.  
+  - Include multi-schema switching examples and notes on reform-only capabilities.
+- [ ] **Testing strategy**  
+  - Add component tests (React Testing Library) for critical field behaviors.  
+  - Smoke tests that mount real schemas and assert engine <> UI synchronization.
+
+## 6. Documentation & Communication
+- [ ] **Public API reference** describing props (`FormRenderer`, hooks, utilities) and extension points.  
+- [ ] **Feature matrix** highlighting OSS vs reform-only support, published outside the CLI UI so it’s easy to track.  
+- [ ] **Migration guide** for teams moving from the CLI preview to a production React/React Native app.
+
+---
+
+**Open Questions / Future Investigations**
+- Shared metadata package between web and native renderers (vs. duplication).  
+- Event handling story (custom handlers, async submission, integration with connector packages).  
+- Performance profiling for large schemas (virtualization, memoized subtrees).

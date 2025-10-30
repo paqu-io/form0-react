@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-switch": "^1.2.5"
+    "@radix-ui/react-switch": "^1.2.5",
+    "form0-core": "file:../form0-core"
   }
 }
