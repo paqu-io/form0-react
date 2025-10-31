@@ -161,11 +161,6 @@ export function FormRenderer({
     }
   }, [simplifiedMode, currentFieldIndex, isCurrentFieldValid, hasCurrentFieldError, flattenedElements.length]);
 
-  const handleFieldChange = (fieldName, value) => {
-    setValue(fieldName, value);
-    
-  };
-
   const themeMap = {
     'standard-light': standardThemeLight,
     'standard-dark': standardThemeDark,
@@ -234,7 +229,7 @@ export function FormRenderer({
             readOnly={read_only[currentField.data_name] || mode === 'readonly'}
             required={required[currentField.data_name]}
             error={errors[currentField.data_name]}
-            onChange={(val) => handleFieldChange(currentField.data_name, val)}
+            onChange={(val) => setValue(currentField.data_name, val)}
             onKeyDown={handleKeyDown}
             labelPosition="top"
             labelWidthPercent={100}

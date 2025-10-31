@@ -6,5 +6,6 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   outDir: 'dist',
   esbuildPlugins: [vanillaExtractPlugin()],
-  watch: true,
+  watch: process.env.TSUP_WATCH === 'true',
+  //watch: true,
 });

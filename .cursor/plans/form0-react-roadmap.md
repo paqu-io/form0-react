@@ -12,9 +12,10 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 
 ## 2. Expand Field Surface Through a Registry
 - [ ] **Introduce a field component registry**  
-  - Generate the registry from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
-  - Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
-  - Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
+  - [x] Establish registry infrastructure with default components (TextField, NumericField, CalculatedField) and expose public registration helpers.  
+  - [ ] Generate default mappings from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
+  - [ ] Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
+  - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
 - [ ] **Field-level validation & messaging**  
   - Display validation errors from the engine per field, with hooks for custom messages.
 

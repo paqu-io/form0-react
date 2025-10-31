@@ -1,137 +1,93 @@
 import React from 'react';
 import * as styles from './field-renderer.css.js';
+import { getFieldComponent } from './field-registry.js';
 
-function formatDisplayValue(value, style) {
-  if (value == null) return '';
-  switch (style) {
-    case 'currency':
-      return `$${parseFloat(value).toFixed(2)}`;
-    case 'date':
-      return new Date(value).toLocaleDateString();
-    case 'numeric':
-      return Number(value);
-    default:
-      return String(value);
+const LABEL_SIDE = 'side';
+
+export function FieldRenderer({
+  field,
+  value,
+  onChange,
+  readOnly,
+  required,
+  error,
+  labelPosition = 'top',
+  labelWidthPercent = 30,
+  onKeyDown,
+}) {
+  const FieldComponent = getFieldComponent(field.type);
+  const elementKey = field.key || field.data_name;
+
+  if (!FieldComponent) {
+    return (
+      <div
+        className={`${styles.fieldWrapper} ${styles.labelTop}`}
+        role="group"
+        aria-labelledby={`${elementKey}-label`}
+      >
+        <label id={`${elementKey}-label`} className={styles.label}>
+          {field.label}
+        </label>
+        <div className={styles.error}>Unsupported field type: {field.type}</div>
+      </div>
+    );
   }
-}
 
-export function FieldRenderer({ field, value, onChange, readOnly, required, error, labelPosition = 'top', onKeyDown }) {
-  const commonProps = {
+  const wrapperClass =
+    labelPosition === LABEL_SIDE ? styles.labelSide : styles.labelTop;
+  const labelClass =
+    labelPosition === LABEL_SIDE
+      ? `${styles.label} ${styles.labelSideFixed}`
+      : styles.label;
+  const wrapperStyle =
+    labelPosition === LABEL_SIDE
+      ? { '--label-width': `${labelWidthPercent}%` }
+      : undefined;
+
+  const inputProps = {
     id: field.key,
     name: field.data_name,
-    disabled: readOnly,
+    readOnly,
     required,
+    disabled: readOnly,
   };
 
-  // Handle Enter key for simplified mode
-  const handleInputKeyDown = (e) => {
-    // Preserve existing NumericField logic
-    if (field.type === 'NumericField' && field.format === 'integer' && (e.key === '.' || e.key === ',')) {
-      e.preventDefault();
-      return;
-    }
-    
-    // Call custom onKeyDown if provided
-    if (onKeyDown) {
-      onKeyDown(e);
-    }
-  };
+  const handleChange =
+    onChange &&
+    ((nextValue) => {
+      onChange(nextValue);
+    });
+
+  const fieldInput = (
+    <FieldComponent
+      field={field}
+      value={value}
+      onChange={handleChange}
+      onKeyDown={onKeyDown}
+      readOnly={readOnly}
+      inputProps={inputProps}
+      className={styles.input}
+    />
+  );
 
   return (
     <div
-      className={`${styles.fieldWrapper} ${
-        labelPosition === 'side' ? styles.labelSide : styles.labelTop
-      }`}
+      className={`${styles.fieldWrapper} ${wrapperClass}`}
+      style={wrapperStyle}
     >
-      {labelPosition === 'side' ? (
+      {labelPosition === LABEL_SIDE ? (
         <div className={styles.labelInputRow}>
-          <label htmlFor={field.key} className={`${styles.label} ${styles.labelSideFixed}`}>
+          <label htmlFor={field.key} className={labelClass}>
             {field.label} {required && '*'}
           </label>
-          <div className={styles.inputWrapper}>
-            {field.type === 'TextField' && (
-              <input
-                type="text"
-                value={value ?? ''}
-                onChange={(e) => onChange(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                readOnly={readOnly}
-                className={styles.input}
-                {...commonProps}
-              />
-            )}
-            {field.type === 'NumericField' && (
-              <input
-                type="number"
-                step={field.format === 'integer' ? '1' : 'any'}
-                value={value === null || value === undefined ? '' : value}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;
-                  const val = raw === '' ? null : Number(raw);
-                  onChange(val);
-                }}
-                onKeyDown={handleInputKeyDown}
-                readOnly={readOnly}
-                className={styles.input}
-                {...commonProps}
-              />
-            )}
-            {field.type === 'CalculatedField' && (
-              <input
-                type="text"
-                value={formatDisplayValue(value, field.display?.style)}
-                onKeyDown={handleInputKeyDown}
-                readOnly
-                className={styles.input}
-                {...commonProps}
-              />
-            )}
-          </div>
+          <div className={styles.inputWrapper}>{fieldInput}</div>
         </div>
       ) : (
         <>
-          <label htmlFor={field.key} className={styles.label}>
+          <label htmlFor={field.key} className={labelClass}>
             {field.label} {required && '*'}
           </label>
-          {field.type === 'TextField' && (
-            <input
-              type="text"
-              value={value ?? ''}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={handleInputKeyDown}
-              readOnly={readOnly}
-              className={styles.input}
-              {...commonProps}
-            />
-          )}
-          {field.type === 'NumericField' && (
-            <input
-              type="number"
-              step={field.format === 'integer' ? '1' : 'any'}
-              value={value === null || value === undefined ? '' : value}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (field.format === 'integer' && (raw.includes('.') || raw.includes(','))) return;
-                const val = raw === '' ? null : Number(raw);
-                onChange(val);
-              }}
-              onKeyDown={handleInputKeyDown}
-              readOnly={readOnly}
-              className={styles.input}
-              {...commonProps}
-            />
-          )}
-          {field.type === 'CalculatedField' && (
-            <input
-              type="text"
-              value={formatDisplayValue(value, field.display?.style)}
-              onKeyDown={handleInputKeyDown}
-              readOnly
-              className={styles.input}
-              {...commonProps}
-            />
-          )}
+          {fieldInput}
         </>
       )}
       <div className={styles.error}>{error}</div>
