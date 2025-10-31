@@ -51,8 +51,10 @@ export function FormRenderer({
   }, [finalSchema]);
 
   // Flatten form elements for simplified mode
+  const schemaForRender = finalSchema || schema;
+
   const flattenedElements = simplifiedMode 
-    ? flattenFormElements(schema.form?.elements || [])
+    ? flattenFormElements(schemaForRender?.form?.elements || [])
     : [];
 
   // Get current field in simplified mode
@@ -357,8 +359,8 @@ export function FormRenderer({
     >
       {renderElements(
         activeSection
-          ? (schema.form?.elements || []).filter((e) => e.data_name === activeSection)
-          : schema.form?.elements || []
+          ? (schemaForRender?.form?.elements || []).filter((e) => e.data_name === activeSection)
+          : schemaForRender?.form?.elements || []
       )}
       {mode !== 'readonly' && (
         <button type="submit" className={styles.button}>

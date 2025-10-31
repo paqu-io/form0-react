@@ -4,9 +4,9 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 
 ## 1. Stabilize Engine Integration
 - [ ] **Refactor `useFormEngine`**  
-  - Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
-  - Expose stable setters (`setValue`, `reset`, `overrideValues`) that don’t mutate engine state during render.  
-  - Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.
+  - [x] Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
+  - [x] Expose stable setters (`setValue`, `setValues`, `reset`, `submit`) that don’t mutate engine state during render.  
+  - [ ] Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.
 - [ ] **Schema utilities package**  
   - Re-export shared helpers (key generation, schema cloning) from a `form0-react/utils` entry to avoid ad-hoc structured clones in consuming apps.
 
@@ -37,9 +37,14 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 - [ ] **CLI integration**  
   - `form0-cli forge react --template <stack>` command that scaffolds production apps, copies schemas, and wires `form0-react` with sample routing.  
   - Include multi-schema switching examples and notes on reform-only capabilities.
+  - Decision pending: confirm whether the CLI should generate a sibling app template (preferred path today) or support in-place workspace mutation once we prototype both experiences.
 - [ ] **Testing strategy**  
   - Add component tests (React Testing Library) for critical field behaviors.  
   - Smoke tests that mount real schemas and assert engine <> UI synchronization.
+- **Vite example template**  
+  - Treat `form0-test1` as the canonical starter app once it matches production expectations (theme modes, multi-schema routing, connector examples).  
+  - Keep the template in-repo/GitHub for now; no need to publish an npm package unless distribution via npm proves necessary.  
+  - When CLI scaffolding is ready, have `form0-cli` copy/clone this template so developers get the same baseline experience.
 
 ## 6. Documentation & Communication
 - [ ] **Public API reference** describing props (`FormRenderer`, hooks, utilities) and extension points.  
