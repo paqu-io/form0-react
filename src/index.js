@@ -6,5 +6,11 @@ export {
   getFieldComponent,
   listRegisteredFieldTypes,
 } from './field-registry.js';
+export {
+  cloneDeep,
+  cloneSchema,
+  prepareSchema,
+  ensureSchemaKeys,
+} from './utils/schema.js';
 import './form-renderer.css.js';
 import './field-renderer.css.js';

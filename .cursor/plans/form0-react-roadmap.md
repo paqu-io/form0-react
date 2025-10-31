@@ -6,9 +6,13 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 - [ ] **Refactor `useFormEngine`**  
   - [x] Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
   - [x] Expose stable setters (`setValue`, `setValues`, `reset`, `submit`) that don’t mutate engine state during render.  
-  - [ ] Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.
+  - [ ] Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.  
+    - [x] Invoke `onUpdate` callback after state syncs.  
+    - [x] Bridge engine warning system to `onWarning` handlers with automatic cleanup.  
+    - [ ] Design event subscription interface aligned with form0-core event manager.
 - [ ] **Schema utilities package**  
-  - Re-export shared helpers (key generation, schema cloning) from a `form0-react/utils` entry to avoid ad-hoc structured clones in consuming apps.
+  - [x] Provide shared cloning/key helpers (`cloneDeep`, `cloneSchema`, `ensureSchemaKeys`, `prepareSchema`) and export them for consumers.  
+  - [ ] Revisit additional helpers as more schema tooling is identified (parsing, validation summaries, etc.).
 
 ## 2. Expand Field Surface Through a Registry
 - [ ] **Introduce a field component registry**  

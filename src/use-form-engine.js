@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createFormEngine, validateSchema } from 'form0-core';
-import { ensureKeys } from './utils/ensure-keys.js';
+import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 
 const createEmptyState = () => ({
   values: {},
@@ -10,45 +10,27 @@ const createEmptyState = () => ({
   errors: {},
 });
 
-const deepClone = (value) => {
-  if (value == null) return value;
-  if (typeof structuredClone === 'function') {
-    return structuredClone(value);
-  }
-  return JSON.parse(JSON.stringify(value));
-};
-
-const ensureSchemaKeys = (elements = []) => {
-  let needsKeys = false;
-  const stack = [...elements];
-  while (stack.length > 0) {
-    const element = stack.pop();
-    if (!element) continue;
-    if (!element.key && element.data_name) {
-      needsKeys = true;
-    }
-    if (element.elements && element.elements.length > 0) {
-      stack.push(...element.elements);
-    }
-  }
-  if (needsKeys) {
-    ensureKeys(elements);
-  }
-};
-
-export function useFormEngine(schema, initialValues = {}, overrideValues) {
+export function useFormEngine(schema, initialValues = {}, overrideValues, options = {}) {
   const [state, setState] = useState(createEmptyState);
+  const [engineVersion, setEngineVersion] = useState(0);
   const engineRef = useRef(null);
   const initialValuesRef = useRef(initialValues || {});
   const initialValuesSignatureRef = useRef(null);
+  const optionsRef = useRef(options || {});
+  const warningCleanupRef = useRef(null);
+
+  useEffect(() => {
+    optionsRef.current = options || {};
+  }, [options]);
 
   const preparedSchema = useMemo(() => {
     if (!schema) return null;
-    const copy = deepClone(schema);
+    const copy = prepareSchema(schema);
     const form = copy?.form;
     if (!form || !Array.isArray(form.elements)) {
       throw new Error('form0-react: schema.form.elements must be defined');
     }
+    // ensureSchemaKeys is invoked within prepareSchema, but call defensively
     ensureSchemaKeys(form.elements);
     validateSchema(form);
     return copy;
@@ -80,16 +62,17 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
         setState(createEmptyState());
         return;
       }
-      const engine = createFormEngine({
-        schema: preparedSchema,
-        initialValues: { ...(seedValues || {}) },
-      });
-      engineRef.current = engine;
-      engine.eval();
-      syncState();
-    },
-    [preparedSchema, syncState]
-  );
+    const engine = createFormEngine({
+      schema: preparedSchema,
+      initialValues: { ...(seedValues || {}) },
+    });
+    engineRef.current = engine;
+    engine.eval();
+    syncState();
+    setEngineVersion((version) => version + 1);
+  },
+  [preparedSchema, syncState]
+);
 
   const evaluateAndSync = useCallback(() => {
     if (!engineRef.current) return;
@@ -136,7 +119,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
   const submit = useCallback(() => {
     if (!engineRef.current) return {};
     const { values } = engineRef.current.getState();
-    return deepClone(values) || {};
+    return cloneDeep(values) || {};
   }, []);
 
   const overrideSignature = useMemo(
@@ -178,6 +161,55 @@ export function useFormEngine(schema, initialValues = {}, overrideValues) {
     if (!overrideValues || !engineRef.current) return;
     setValues(overrideValues);
   }, [overrideSignature, overrideValues, setValues]);
+
+  useEffect(() => {
+    const handler = optionsRef.current.onUpdate;
+    if (typeof handler === 'function' && engineRef.current) {
+      handler({ ...state }, engineRef.current);
+    }
+  }, [state]);
+
+  useEffect(() => {
+    const warningSystem = engineRef.current?.getWarningSystem?.();
+    const warningHandler = optionsRef.current.onWarning;
+
+    if (warningCleanupRef.current) {
+      warningCleanupRef.current();
+      warningCleanupRef.current = null;
+    }
+
+    if (!warningSystem || typeof warningHandler !== 'function') {
+      return;
+    }
+
+    const proxy = (warning) => {
+      const latest = optionsRef.current.onWarning;
+      if (typeof latest === 'function') {
+        latest(warning);
+      }
+    };
+
+    warningSystem.addWarningHandler(proxy);
+    warningCleanupRef.current = () => warningSystem.removeWarningHandler(proxy);
+
+    return () => {
+      if (warningCleanupRef.current) {
+        warningCleanupRef.current();
+        warningCleanupRef.current = null;
+      } else {
+        warningSystem.removeWarningHandler(proxy);
+      }
+    };
+  }, [engineVersion, options.onWarning]);
+
+  useEffect(() => {
+    return () => {
+      if (warningCleanupRef.current) {
+        warningCleanupRef.current();
+        warningCleanupRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     ...state,
