@@ -87,6 +87,23 @@ export const choiceOtherInput = style({
   width: '100%',
 });
 
+export const multiChoiceGroup = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
+export const multiChoiceOption = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+});
+
+export const multiChoiceOtherInput = style({
+  marginTop: vars.spacing.xs,
+  width: '100%',
+});
+
 export const booleanSegmented = style({
   display: 'inline-flex',
   borderRadius: vars.borderRadius,

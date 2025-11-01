@@ -44,13 +44,25 @@ export function FieldRenderer({
       ? { '--label-width': `${labelWidthPercent}%` }
       : undefined;
 
+  const baseId = field.key || field.data_name;
+  const labelId = `${baseId}-label`;
+  const isGroupedControl =
+    (field.type === 'SingleChoiceField' && field.display === 'radio') ||
+    (field.type === 'MultiChoiceField' && field.display === 'checkbox') ||
+    field.type === 'BooleanField';
+
   const inputProps = {
-    id: field.key,
     name: field.data_name,
     readOnly,
     required,
     disabled: readOnly,
   };
+
+  if (isGroupedControl) {
+    inputProps['aria-labelledby'] = labelId;
+  } else {
+    inputProps.id = baseId;
+  }
 
   const handleChange =
     onChange &&
@@ -77,14 +89,22 @@ export function FieldRenderer({
     >
       {labelPosition === LABEL_SIDE ? (
         <div className={styles.labelInputRow}>
-          <label htmlFor={field.key} className={labelClass}>
+          <label
+            className={labelClass}
+            id={labelId}
+            {...(isGroupedControl ? {} : { htmlFor: baseId })}
+          >
             {field.label} {required && '*'}
           </label>
           <div className={styles.inputWrapper}>{fieldInput}</div>
         </div>
       ) : (
         <>
-          <label htmlFor={field.key} className={labelClass}>
+          <label
+            className={labelClass}
+            id={labelId}
+            {...(isGroupedControl ? {} : { htmlFor: baseId })}
+          >
             {field.label} {required && '*'}
           </label>
           {fieldInput}

@@ -18,6 +18,7 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 - [ ] **Introduce a field component registry**  
   - [x] Establish registry infrastructure with default components (TextField, NumericField, CalculatedField) and expose public registration helpers.  
   - [x] Add built-in renderers for `SingleChoiceField` (select/radio, with “other” support) and `BooleanField`; surface warnings for unhandled field types via `FIELD_SPECS`.  
+  - [x] Implement `MultiChoiceField` (multi-select & checkboxes with “other” handling) plus `DateField`/`TimeField` inputs (including `default_value: 'now'` support).  
   - [ ] Generate default mappings from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
   - [ ] Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
   - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
@@ -30,6 +31,8 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - Drilldown/spotlight: support breadcrumbs, section metadata, and optional multi-column layouts.
 - [ ] **Accessibility audit**  
   - Ensure ARIA attributes, focus management, and keyboard navigation are correct across all modes (especially modal/drawer contexts).
+- [ ] **Layout configuration**  
+  - Provide a lightweight configuration surface (label placement, widths, spacing) so apps – including the CLI scaffold – can set defaults without forking components.
 
 ## 4. Theming & Styling Contract
 - [ ] **Expose full design tokens** via vanilla-extract so designers can override typography, spacing, and component states.  

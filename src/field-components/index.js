@@ -3,6 +3,9 @@ import { NumericFieldComponent } from './numeric-field.jsx';
 import { CalculatedFieldComponent } from './calculated-field.jsx';
 import { SingleChoiceFieldComponent } from './single-choice-field.jsx';
 import { BooleanFieldComponent } from './boolean-field.jsx';
+import { MultiChoiceFieldComponent } from './multi-choice-field.jsx';
+import { DateFieldComponent } from './date-field.jsx';
+import { TimeFieldComponent } from './time-field.jsx';
 
 export {
   TextFieldComponent,
@@ -10,6 +13,9 @@ export {
   CalculatedFieldComponent,
   SingleChoiceFieldComponent,
   BooleanFieldComponent,
+  MultiChoiceFieldComponent,
+  DateFieldComponent,
+  TimeFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -18,4 +24,7 @@ export const defaultFieldComponents = {
   CalculatedField: CalculatedFieldComponent,
   SingleChoiceField: SingleChoiceFieldComponent,
   BooleanField: BooleanFieldComponent,
+  MultiChoiceField: MultiChoiceFieldComponent,
+  DateField: DateFieldComponent,
+  TimeField: TimeFieldComponent,
 };

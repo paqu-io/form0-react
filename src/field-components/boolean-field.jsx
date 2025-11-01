@@ -43,7 +43,7 @@ export function BooleanFieldComponent({
     <div
       className={styles.booleanSegmented}
       role="radiogroup"
-      aria-labelledby={inputProps.id}
+      aria-labelledby={inputProps['aria-labelledby']}
     >
       {choices.map((choice, index) => {
         const isSelected = selectedChoice === choice.value;

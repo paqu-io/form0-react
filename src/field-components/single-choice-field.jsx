@@ -83,7 +83,11 @@ export function SingleChoiceFieldComponent({
     const isOtherSelected = hasOtherSelection;
 
     return (
-      <div className={styles.choiceGroup} role="radiogroup" aria-labelledby={inputProps.id}>
+      <div
+        className={styles.choiceGroup}
+        role="radiogroup"
+        aria-labelledby={inputProps['aria-labelledby']}
+      >
         {choices.map((choice) => {
           const radioId = `${inputProps.id || field.data_name}_${choice.value}`;
           return (
