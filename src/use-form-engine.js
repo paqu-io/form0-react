@@ -62,17 +62,17 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         setState(createEmptyState());
         return;
       }
-    const engine = createFormEngine({
-      schema: preparedSchema,
-      initialValues: { ...(seedValues || {}) },
-    });
-    engineRef.current = engine;
-    engine.eval();
-    syncState();
-    setEngineVersion((version) => version + 1);
-  },
-  [preparedSchema, syncState]
-);
+      const engine = createFormEngine({
+        schema: preparedSchema,
+        initialValues: { ...(seedValues || {}) },
+      });
+      engineRef.current = engine;
+      engine.eval();
+      syncState();
+      setEngineVersion((version) => version + 1);
+    },
+    [preparedSchema, syncState]
+  );
 
   const evaluateAndSync = useCallback(() => {
     if (!engineRef.current) return;

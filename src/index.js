@@ -5,6 +5,7 @@ export {
   resetFieldComponents,
   getFieldComponent,
   listRegisteredFieldTypes,
+  getMissingFieldComponentTypes,
 } from './field-registry.js';
 export {
   cloneDeep,

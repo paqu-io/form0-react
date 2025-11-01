@@ -9,7 +9,7 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - [ ] Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.  
     - [x] Invoke `onUpdate` callback after state syncs.  
     - [x] Bridge engine warning system to `onWarning` handlers with automatic cleanup.  
-    - [ ] Design event subscription interface aligned with form0-core event manager.
+    - [ ] Revisit event subscription interface once we decide whether to expose engine listeners in the React API.
 - [ ] **Schema utilities package**  
   - [x] Provide shared cloning/key helpers (`cloneDeep`, `cloneSchema`, `ensureSchemaKeys`, `prepareSchema`) and export them for consumers.  
   - [ ] Revisit additional helpers as more schema tooling is identified (parsing, validation summaries, etc.).
@@ -17,6 +17,7 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 ## 2. Expand Field Surface Through a Registry
 - [ ] **Introduce a field component registry**  
   - [x] Establish registry infrastructure with default components (TextField, NumericField, CalculatedField) and expose public registration helpers.  
+  - [x] Add built-in renderers for `SingleChoiceField` (select/radio, with “other” support) and `BooleanField`; surface warnings for unhandled field types via `FIELD_SPECS`.  
   - [ ] Generate default mappings from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
   - [ ] Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
   - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.

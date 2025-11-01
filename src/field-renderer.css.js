@@ -69,3 +69,55 @@ export const inputWrapper = style({
   flex: 1,
   width: '100%',
 });
+
+export const choiceGroup = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const choiceOption = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+});
+
+export const choiceOtherInput = style({
+  marginTop: vars.spacing.xs,
+  width: '100%',
+});
+
+export const booleanSegmented = style({
+  display: 'inline-flex',
+  borderRadius: vars.borderRadius,
+  border: `1px solid ${vars.color.border}`,
+  overflow: 'hidden',
+});
+
+export const booleanOption = style({
+  appearance: 'none',
+  background: vars.color.background,
+  border: 'none',
+  borderRight: `1px solid ${vars.color.border}`,
+  padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+  cursor: 'pointer',
+  fontSize: vars.fontSize.base,
+  color: vars.color.foreground,
+  selectors: {
+    '&:hover': {
+      background: vars.color.section,
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+    '&:last-child': {
+      borderRight: 'none',
+    },
+  },
+});
+
+export const booleanOptionSelected = style({
+  background: vars.color.primary,
+  color: vars.color.buttonFg,
+});
