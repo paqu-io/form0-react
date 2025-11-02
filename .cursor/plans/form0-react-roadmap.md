@@ -19,7 +19,8 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - [x] Establish registry infrastructure with default components (TextField, NumericField, CalculatedField) and expose public registration helpers.  
   - [x] Add built-in renderers for `SingleChoiceField` (select/radio, with “other” support) and `BooleanField`; surface warnings for unhandled field types via `FIELD_SPECS`.  
   - [x] Implement `MultiChoiceField` (multi-select & checkboxes with “other” handling) plus `DateField`/`TimeField` inputs (including `default_value: 'now'` support).  
-  - [ ] Generate default mappings from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
+  - [x] Generate default mappings from `form0-core` field metadata (`FIELD_SPECS`) so supported types stay in sync.  
+    - The registry now auto-syncs with `FIELD_SPECS` and logs the current renderer gaps: `LabelField`, `SignatureField`, `PhotoField`, `VideoField`, `FormLinkField`, `StatusField`, `TitleField`.  
   - [ ] Allow downstream apps to register overrides or custom fields (with clear reform-only gaps flagged).  
   - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
 - [ ] **Field-level validation & messaging**  

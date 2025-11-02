@@ -3,6 +3,8 @@ import { FIELD_SPECS } from 'form0-core';
 
 const registry = new Map();
 const warnedFieldTypes = new Set();
+const missingDefaultFieldTypes = new Set();
+let lastMissingWarningKey = null;
 const NON_RENDERED_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPlanSection']);
 const ALL_KNOWN_FIELD_TYPES = Object.keys(FIELD_SPECS).filter(
   (type) => !NON_RENDERED_TYPES.has(type)
@@ -22,10 +24,12 @@ function assertValidRegistration(type, component) {
 export function registerFieldComponent(type, component) {
   assertValidRegistration(type, component);
   registry.set(type, component);
+  recomputeMissingFieldTypes();
 }
 
 export function unregisterFieldComponent(type) {
   registry.delete(type);
+  recomputeMissingFieldTypes();
 }
 
 export function getFieldComponent(type) {
@@ -57,6 +61,43 @@ function registerDefaultFieldComponents() {
   Object.entries(defaultFieldComponents).forEach(([type, component]) => {
     registry.set(type, component);
   });
+  recomputeMissingFieldTypes();
+}
+
+function recomputeMissingFieldTypes() {
+  missingDefaultFieldTypes.clear();
+  ALL_KNOWN_FIELD_TYPES.forEach((type) => {
+    if (!registry.has(type)) {
+      missingDefaultFieldTypes.add(type);
+    }
+  });
+  warnAboutMissingDefaultFieldTypes();
+}
+
+function warnAboutMissingDefaultFieldTypes() {
+  if (process.env.NODE_ENV === 'production' || missingDefaultFieldTypes.size === 0) {
+    lastMissingWarningKey = null;
+    return;
+  }
+
+  const missing = Array.from(missingDefaultFieldTypes).sort();
+  const warningKey = missing.join(',');
+
+  if (warningKey === lastMissingWarningKey) {
+    return;
+  }
+
+  lastMissingWarningKey = warningKey;
+
+  console.warn(
+    [
+      'form0-react:',
+      'no built-in renderer registered for field type(s) defined in form0-core FIELD_SPECS:',
+      missing.join(', '),
+      '.',
+      'Use registerFieldComponent(type, component) to supply custom renderers.',
+    ].join(' ')
+  );
 }
 
 registerDefaultFieldComponents();
