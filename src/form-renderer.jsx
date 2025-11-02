@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
 import * as styles from './form-renderer.css.js';
@@ -52,9 +52,144 @@ export function FormRenderer({
 
   // Flatten form elements for simplified mode
   const schemaForRender = finalSchema || schema;
+  const titleField = schemaForRender?.form?.title_field || null;
+  const baseElements = schemaForRender?.form?.elements || [];
 
-  const flattenedElements = simplifiedMode 
-    ? flattenFormElements(schemaForRender?.form?.elements || [])
+  const fieldLookup = useMemo(() => {
+    const byKey = new Map();
+    const byDataName = new Map();
+
+    const collect = (elements) => {
+      if (!Array.isArray(elements)) return;
+      for (const element of elements) {
+        if (!element) continue;
+        if (element.type === 'Section') {
+          collect(element.elements);
+        } else {
+          if (element.key) {
+            byKey.set(element.key, element);
+          }
+          if (element.data_name) {
+            byDataName.set(element.data_name, element);
+          }
+        }
+      }
+    };
+
+    collect(baseElements);
+    return { byKey, byDataName };
+  }, [baseElements]);
+
+  const titleValue = useMemo(() => {
+    if (!titleField || !Array.isArray(titleField.elements)) {
+      return '';
+    }
+
+    const getChoiceLabel = (fieldDef, choice) => {
+      if (!choice) return '';
+      if (typeof choice.label === 'string' && choice.label.trim() !== '') {
+        return choice.label.trim();
+      }
+      if (choice.value != null) {
+        const match = (fieldDef.choices || []).find((c) => c.value === choice.value);
+        if (match && typeof match.label === 'string' && match.label.trim() !== '') {
+          return match.label.trim();
+        }
+        return String(choice.value);
+      }
+      return '';
+    };
+
+    const collectOtherEntries = (entries) => {
+      if (!Array.isArray(entries) || entries.length === 0) return [];
+      const results = [];
+      for (const entry of entries) {
+        if (!entry) continue;
+        if (typeof entry === 'string') {
+          const trimmed = entry.trim();
+          if (trimmed) results.push(trimmed);
+        } else if (typeof entry.label === 'string') {
+          const trimmed = entry.label.trim();
+          if (trimmed) results.push(trimmed);
+        } else if (entry.value != null) {
+          const valueString = String(entry.value).trim();
+          if (valueString) results.push(valueString);
+        }
+      }
+      return results;
+    };
+
+    const resolveSingleChoiceText = (fieldDef, value) => {
+      if (value == null) return '';
+      if (typeof value !== 'object') {
+        return String(value).trim();
+      }
+      const labels = [];
+      const choiceArray = Array.isArray(value.choice) ? value.choice : [];
+      if (choiceArray.length > 0) {
+        labels.push(getChoiceLabel(fieldDef, choiceArray[0]));
+      }
+      labels.push(...collectOtherEntries(value.other));
+      return labels.filter(Boolean).join(', ');
+    };
+
+    const resolveMultiChoiceText = (fieldDef, value) => {
+      if (value == null) return '';
+      if (typeof value !== 'object') {
+        return String(value).trim();
+      }
+      const labels = [];
+      const choiceArray = Array.isArray(value.choices) ? value.choices : [];
+      for (const choice of choiceArray) {
+        labels.push(getChoiceLabel(fieldDef, choice));
+      }
+      labels.push(...collectOtherEntries(value.other));
+      return labels.filter(Boolean).join(', ');
+    };
+
+    const parts = [];
+    for (const ref of titleField.elements) {
+      if (typeof ref !== 'string') continue;
+      const referencedField =
+        fieldLookup.byKey.get(ref) || fieldLookup.byDataName.get(ref);
+      if (!referencedField || !referencedField.data_name) continue;
+      const rawValue = values[referencedField.data_name];
+      if (rawValue == null) continue;
+      let text = '';
+      if (referencedField.type === 'SingleChoiceField' || referencedField.type === 'BooleanField') {
+        text = resolveSingleChoiceText(referencedField, rawValue);
+      } else if (referencedField.type === 'MultiChoiceField') {
+        text = resolveMultiChoiceText(referencedField, rawValue);
+      } else if (
+        typeof rawValue === 'string' ||
+        typeof rawValue === 'number' ||
+        typeof rawValue === 'boolean'
+      ) {
+        text = String(rawValue);
+      } else if (rawValue instanceof Date) {
+        text = rawValue.toISOString();
+      } else if (rawValue && typeof rawValue === 'object' && 'value' in rawValue) {
+        text = String(rawValue.value);
+      }
+      if (text && typeof text === 'string' && text.trim() !== '') {
+        parts.push(text.trim());
+      }
+    }
+    return parts.join(', ');
+  }, [fieldLookup, titleField, values]);
+
+  const displayValues = useMemo(() => {
+    if (!titleField) return values;
+    return {
+      ...values,
+      [titleField.data_name]: titleValue,
+    };
+  }, [titleField, titleValue, values]);
+
+  const elementsWithTitle = titleField ? [titleField, ...baseElements] : baseElements;
+
+  const flattenedElements = simplifiedMode
+    ? flattenFormElements(elementsWithTitle)
     : [];
 
   // Get current field in simplified mode
@@ -73,13 +208,14 @@ export function FormRenderer({
     : false;
 
   // Check if current field is required and has value
-  const isCurrentFieldValid = currentField 
-    ? !required[currentField.data_name] || (
-        values[currentField.data_name] !== null && 
-        values[currentField.data_name] !== undefined && 
-        values[currentField.data_name] !== '' &&
-        (typeof values[currentField.data_name] === 'string' ? values[currentField.data_name].trim() !== '' : true)
-      )
+  const isCurrentFieldValid = currentField
+    ? !required[currentField.data_name] ||
+        (displayValues[currentField.data_name] !== null &&
+          displayValues[currentField.data_name] !== undefined &&
+          displayValues[currentField.data_name] !== '' &&
+          (typeof displayValues[currentField.data_name] === 'string'
+            ? displayValues[currentField.data_name].trim() !== ''
+            : true))
     : true;
 
   const handleSubmit = (e) => {
@@ -208,6 +344,16 @@ export function FormRenderer({
 
     const isLastField = currentFieldIndex === flattenedElements.length - 1;
 
+    const currentFieldValue = displayValues[currentField.data_name];
+    const currentFieldReadOnly =
+      mode === 'readonly' ||
+      read_only[currentField.data_name] === true ||
+      currentField.type === 'TitleField';
+    const currentFieldChangeHandler =
+      currentField.type === 'TitleField'
+        ? undefined
+        : (val) => setValue(currentField.data_name, val);
+
     return (
       <form
         onSubmit={handleSubmit}
@@ -225,11 +371,11 @@ export function FormRenderer({
           <FieldRenderer
             key={currentField.key || currentField.data_name}
             field={currentField}
-            value={values[currentField.data_name]}
-            readOnly={read_only[currentField.data_name] || mode === 'readonly'}
+            value={currentFieldValue}
+            readOnly={currentFieldReadOnly}
             required={required[currentField.data_name]}
             error={errors[currentField.data_name]}
-            onChange={(val) => setValue(currentField.data_name, val)}
+            onChange={currentFieldChangeHandler}
             onKeyDown={handleKeyDown}
             labelPosition="top"
             labelWidthPercent={100}
@@ -269,7 +415,7 @@ export function FormRenderer({
 
         {debug && (
           <pre>{JSON.stringify({ 
-            values, 
+            values: displayValues, 
             visible, 
             read_only, 
             required, 
@@ -287,8 +433,10 @@ export function FormRenderer({
   }
 
   // Regular mode rendering (existing logic)
-  const renderElements = (elements) => {
+  const renderElements = (elements = []) => {
     return elements.map((field) => {
+      if (!field) return null;
+
       if (field.type === 'Section') {
         const display = field.display || 'inline';
 
@@ -326,20 +474,34 @@ export function FormRenderer({
         );
       }
 
+      const hasVisibility = Object.prototype.hasOwnProperty.call(visible, field.data_name);
+      const isVisible = hasVisibility ? visible[field.data_name] !== false : field.visible !== false;
+      if (!isVisible) {
+        return null;
+      }
+
+      const fieldValue = displayValues[field.data_name];
+      const fieldReadOnly =
+        mode === 'readonly' ||
+        read_only[field.data_name] === true ||
+        field.type === 'TitleField';
+      const handleFieldChange =
+        field.type === 'TitleField'
+          ? undefined
+          : (val) => setValue(field.data_name, val);
+
       return (
-        visible[field.data_name] === true && (
-          <FieldRenderer
-            key={field.key || field.data_name}
-            field={field}
-            value={values[field.data_name]}
-            readOnly={read_only[field.data_name] || mode === 'readonly'}
-            required={required[field.data_name]}
-            error={errors[field.data_name]}
-            onChange={(val) => setValue(field.data_name, val)}
-            labelPosition={labelPosition}
-            labelWidthPercent={labelWidthPercent}
-          />
-        )
+        <FieldRenderer
+          key={field.key || field.data_name}
+          field={field}
+          value={fieldValue}
+          readOnly={fieldReadOnly}
+          required={required[field.data_name]}
+          error={errors[field.data_name]}
+          onChange={handleFieldChange}
+          labelPosition={labelPosition}
+          labelWidthPercent={labelWidthPercent}
+        />
       );
     });
   };
@@ -353,9 +515,16 @@ export function FormRenderer({
       {...rest}
     >
       {renderElements(
-        activeSection
-          ? (schemaForRender?.form?.elements || []).filter((e) => e.data_name === activeSection)
-          : schemaForRender?.form?.elements || []
+        titleField
+          ? [
+              titleField,
+              ...(activeSection
+                ? baseElements.filter((e) => e.data_name === activeSection)
+                : baseElements),
+            ]
+          : activeSection
+          ? baseElements.filter((e) => e.data_name === activeSection)
+          : baseElements
       )}
       {mode !== 'readonly' && (
         <button type="submit" className={styles.button}>
@@ -363,7 +532,7 @@ export function FormRenderer({
         </button>
       )}
       {debug && (
-        <pre>{JSON.stringify({ values, visible, read_only, required, errors }, null, 2)}</pre>
+        <pre>{JSON.stringify({ values: displayValues, visible, read_only, required, errors }, null, 2)}</pre>
       )}
     </form>
   );
