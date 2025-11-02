@@ -91,6 +91,37 @@ export const labelFieldLabel = style({
   wordBreak: 'break-word',
 });
 
+export const statusField = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
+});
+
+export const statusSelect = style({
+  flex: '1 1 auto',
+});
+
+export const statusPill = style({
+  width: '0.75rem',
+  height: '0.75rem',
+  borderRadius: '999px',
+  background: 'var(--status-color, #9ca3af)',
+  border: '1px solid rgba(0, 0, 0, 0.1)',
+  flexShrink: 0,
+});
+
+export const statusReadOnly = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
+  minHeight: '2.25rem',
+});
+
+export const statusText = style({
+  fontWeight: 500,
+  color: vars.color.foreground,
+});
+
 export const infoIconButton = style({
   appearance: 'none',
   border: 'none',

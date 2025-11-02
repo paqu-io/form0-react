@@ -8,6 +8,7 @@ import { DateFieldComponent } from './date-field.jsx';
 import { TimeFieldComponent } from './time-field.jsx';
 import { LabelFieldComponent } from './label-field.jsx';
 import { TitleFieldComponent } from './title-field.jsx';
+import { StatusFieldComponent } from './status-field.jsx';
 
 export {
   TextFieldComponent,
@@ -20,6 +21,7 @@ export {
   TimeFieldComponent,
   LabelFieldComponent,
   TitleFieldComponent,
+  StatusFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -33,4 +35,5 @@ export const defaultFieldComponents = {
   TimeField: TimeFieldComponent,
   LabelField: LabelFieldComponent,
   TitleField: TitleFieldComponent,
+  StatusField: StatusFieldComponent,
 };

@@ -53,7 +53,70 @@ export function FormRenderer({
   // Flatten form elements for simplified mode
   const schemaForRender = finalSchema || schema;
   const titleField = schemaForRender?.form?.title_field || null;
+  const statusField = schemaForRender?.form?.status_field || null;
   const baseElements = schemaForRender?.form?.elements || [];
+
+  const headerFields = useMemo(() => {
+    const fields = [];
+    if (statusField) {
+      fields.push(statusField);
+    }
+    if (titleField) {
+      fields.push(titleField);
+    }
+    return fields;
+  }, [statusField, titleField]);
+
+  const statusFieldName = statusField?.data_name || null;
+
+  const overrideStatusSignature = useMemo(() => {
+    if (!statusFieldName || !overrideValues) {
+      return '__no_override__';
+    }
+    if (!Object.prototype.hasOwnProperty.call(overrideValues, statusFieldName)) {
+      return '__no_override__';
+    }
+    return JSON.stringify(overrideValues[statusFieldName]);
+  }, [statusFieldName, overrideValues]);
+
+  const initialStatusSignature = useMemo(() => {
+    if (!statusFieldName || !initialValues) {
+      return '__no_initial__';
+    }
+    if (!Object.prototype.hasOwnProperty.call(initialValues, statusFieldName)) {
+      return '__no_initial__';
+    }
+    return JSON.stringify(initialValues[statusFieldName]);
+  }, [statusFieldName, initialValues]);
+
+  const computeStatusSourceValue = () => {
+    if (!statusField || !statusFieldName) {
+      return null;
+    }
+    if (overrideValues && Object.prototype.hasOwnProperty.call(overrideValues, statusFieldName)) {
+      return overrideValues[statusFieldName];
+    }
+    if (initialValues && Object.prototype.hasOwnProperty.call(initialValues, statusFieldName)) {
+      return initialValues[statusFieldName];
+    }
+    if (statusField.default_value !== undefined) {
+      return statusField.default_value;
+    }
+    return null;
+  };
+
+  const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
+
+  useEffect(() => {
+    if (!statusField || !statusFieldName) {
+      if (statusValue !== null) {
+        setStatusValue(null);
+      }
+      return;
+    }
+    const next = computeStatusSourceValue();
+    setStatusValue((prev) => (Object.is(prev, next) ? prev : next));
+  }, [statusField, statusFieldName, overrideStatusSignature, initialStatusSignature]);
 
   const fieldLookup = useMemo(() => {
     const byKey = new Map();
@@ -179,18 +242,60 @@ export function FormRenderer({
   }, [fieldLookup, titleField, values]);
 
   const displayValues = useMemo(() => {
-    if (!titleField) return values;
-    return {
-      ...values,
-      [titleField.data_name]: titleValue,
-    };
-  }, [titleField, titleValue, values]);
+    let next = values;
+    if (statusFieldName) {
+      next = {
+        ...next,
+        [statusFieldName]: statusValue ?? null,
+      };
+    }
+    if (titleField) {
+      next = {
+        ...next,
+        [titleField.data_name]: titleValue,
+      };
+    }
+    return next;
+  }, [statusFieldName, statusValue, titleField, titleValue, values]);
 
-  const elementsWithTitle = titleField ? [titleField, ...baseElements] : baseElements;
+  const elementsForFlattening = headerFields.length > 0 ? [...headerFields, ...baseElements] : baseElements;
 
-  const flattenedElements = simplifiedMode
-    ? flattenFormElements(elementsWithTitle)
+  const flattenedElements = simplifiedMode 
+    ? flattenFormElements(elementsForFlattening)
     : [];
+
+  const resolveFieldVisibility = (field) => {
+    if (!field || !field.data_name) {
+      return false;
+    }
+    const key = field.data_name;
+    if (Object.prototype.hasOwnProperty.call(visible, key)) {
+      return visible[key] !== false;
+    }
+    return field.visible !== false;
+  };
+
+  const resolveFieldReadOnly = (field) => {
+    if (!field || !field.data_name) {
+      return false;
+    }
+    const key = field.data_name;
+    if (Object.prototype.hasOwnProperty.call(read_only, key)) {
+      return read_only[key] === true;
+    }
+    return field.read_only === true;
+  };
+
+  const resolveFieldRequired = (field) => {
+    if (!field || !field.data_name) {
+      return false;
+    }
+    const key = field.data_name;
+    if (Object.prototype.hasOwnProperty.call(required, key)) {
+      return required[key];
+    }
+    return !!field.required;
+  };
 
   // Get current field in simplified mode
   const currentField = simplifiedMode && flattenedElements.length > 0 
@@ -198,9 +303,7 @@ export function FormRenderer({
     : null;
 
   // Check if current field is visible
-  const isCurrentFieldVisible = currentField 
-    ? visible[currentField.data_name] !== false 
-    : true;
+  const isCurrentFieldVisible = currentField ? resolveFieldVisibility(currentField) : true;
 
   // Check if current field has errors
   const hasCurrentFieldError = currentField 
@@ -208,8 +311,10 @@ export function FormRenderer({
     : false;
 
   // Check if current field is required and has value
+  const currentFieldRequired = currentField ? resolveFieldRequired(currentField) : false;
+
   const isCurrentFieldValid = currentField
-    ? !required[currentField.data_name] ||
+    ? !currentFieldRequired ||
         (displayValues[currentField.data_name] !== null &&
           displayValues[currentField.data_name] !== undefined &&
           displayValues[currentField.data_name] !== '' &&
@@ -221,7 +326,12 @@ export function FormRenderer({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (onSubmit) {
-      onSubmit(submit());
+      const submission = submit();
+      const result =
+        statusFieldName && statusFieldName.length > 0
+          ? { ...submission, [statusFieldName]: statusValue ?? null }
+          : submission;
+      onSubmit(result);
     }
   };
 
@@ -347,11 +457,13 @@ export function FormRenderer({
     const currentFieldValue = displayValues[currentField.data_name];
     const currentFieldReadOnly =
       mode === 'readonly' ||
-      read_only[currentField.data_name] === true ||
+      resolveFieldReadOnly(currentField) ||
       currentField.type === 'TitleField';
     const currentFieldChangeHandler =
       currentField.type === 'TitleField'
         ? undefined
+        : currentField.type === 'StatusField'
+        ? (val) => setStatusValue(val)
         : (val) => setValue(currentField.data_name, val);
 
     return (
@@ -371,9 +483,9 @@ export function FormRenderer({
           <FieldRenderer
             key={currentField.key || currentField.data_name}
             field={currentField}
-            value={currentFieldValue}
-            readOnly={currentFieldReadOnly}
-            required={required[currentField.data_name]}
+           value={currentFieldValue}
+           readOnly={currentFieldReadOnly}
+            required={currentFieldRequired}
             error={errors[currentField.data_name]}
             onChange={currentFieldChangeHandler}
             onKeyDown={handleKeyDown}
@@ -474,21 +586,22 @@ export function FormRenderer({
         );
       }
 
-      const hasVisibility = Object.prototype.hasOwnProperty.call(visible, field.data_name);
-      const isVisible = hasVisibility ? visible[field.data_name] !== false : field.visible !== false;
-      if (!isVisible) {
+      if (!resolveFieldVisibility(field)) {
         return null;
       }
 
       const fieldValue = displayValues[field.data_name];
       const fieldReadOnly =
         mode === 'readonly' ||
-        read_only[field.data_name] === true ||
+        resolveFieldReadOnly(field) ||
         field.type === 'TitleField';
       const handleFieldChange =
         field.type === 'TitleField'
           ? undefined
+          : field.type === 'StatusField'
+          ? (val) => setStatusValue(val)
           : (val) => setValue(field.data_name, val);
+      const fieldRequired = resolveFieldRequired(field);
 
       return (
         <FieldRenderer
@@ -496,7 +609,7 @@ export function FormRenderer({
           field={field}
           value={fieldValue}
           readOnly={fieldReadOnly}
-          required={required[field.data_name]}
+          required={fieldRequired}
           error={errors[field.data_name]}
           onChange={handleFieldChange}
           labelPosition={labelPosition}
@@ -515,9 +628,9 @@ export function FormRenderer({
       {...rest}
     >
       {renderElements(
-        titleField
+        headerFields.length > 0
           ? [
-              titleField,
+              ...headerFields,
               ...(activeSection
                 ? baseElements.filter((e) => e.data_name === activeSection)
                 : baseElements),
