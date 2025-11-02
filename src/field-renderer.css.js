@@ -70,6 +70,102 @@ export const inputWrapper = style({
   width: '100%',
 });
 
+export const labelRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+});
+
+export const labelText = style({
+  flex: '1 1 auto',
+});
+
+export const infoIconButton = style({
+  appearance: 'none',
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  fontSize: '1rem',
+  color: vars.color.foreground,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  selectors: {
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});
+
+export const subtext = style({
+  fontSize: '0.9rem',
+  color: vars.color.foreground,
+  opacity: 0.8,
+  marginTop: '0.25rem',
+});
+
+export const supportingImage = style({
+  display: 'block',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  marginTop: '12px',
+  marginBottom: '12px',
+  maxWidth: '100%',
+  height: '400px',
+  objectFit: 'contain',
+});
+
+const dialogBase = style({
+  border: 'none',
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.md,
+  background: vars.color.background,
+  color: vars.color.foreground,
+  boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
+  maxWidth: 'min(480px, 90vw)',
+  width: '100%',
+  selectors: {
+    '&::backdrop': {
+      background: 'rgba(0,0,0,0.45)',
+    },
+  },
+});
+
+export const descriptionDialog = style([dialogBase]);
+
+export const descriptionDialogContent = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const supportingImageDialog = style([dialogBase]);
+
+export const supportingImageDialogContent = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const dialogCloseButton = style({
+  alignSelf: 'flex-end',
+  appearance: 'none',
+  border: 'none',
+  background: 'transparent',
+  fontSize: '1.5rem',
+  cursor: 'pointer',
+  lineHeight: 1,
+  padding: 0,
+  selectors: {
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});
+
 export const choiceGroup = style({
   display: 'flex',
   flexDirection: 'column',

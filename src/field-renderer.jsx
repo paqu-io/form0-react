@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import * as styles from './field-renderer.css.js';
 import { getFieldComponent } from './field-registry.js';
 
 const LABEL_SIDE = 'side';
+const INFO_ICON = 'ℹ️';
+const IMAGE_ICON = '🖼️';
 
 export function FieldRenderer({
   field,
@@ -70,6 +72,110 @@ export function FieldRenderer({
       onChange(nextValue);
     });
 
+  const supportingImage = useMemo(() => {
+    if (!field.supporting_image) return null;
+    if (!field.supporting_image_path) return null;
+    const displayMode = field.supporting_image_display || 'default';
+    return { path: field.supporting_image_path, displayMode };
+  }, [field.supporting_image, field.supporting_image_path, field.supporting_image_display]);
+
+  const [isDescriptionOpen, setDescriptionOpen] = useState(false);
+  const [isImageOpen, setImageOpen] = useState(false);
+
+  const descriptionMode = field.description_mode || 'default';
+  const hasDialogDescription =
+    field.description && descriptionMode !== 'subtext' && typeof field.description === 'string';
+  const hasSubtextDescription =
+    field.description && descriptionMode === 'subtext' && typeof field.description === 'string';
+
+  const hasDialogImage =
+    supportingImage && supportingImage.displayMode === 'dialog';
+  const showInlineImage =
+    supportingImage && supportingImage.displayMode !== 'dialog';
+
+  const descriptionDialogRef = useRef(null);
+  const imageDialogRef = useRef(null);
+
+  useEffect(() => {
+    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
+    const dialog = descriptionDialogRef.current;
+    if (dialog && isDescriptionOpen) {
+      dialog.showModal();
+      dialog.addEventListener(
+        'close',
+        () => {
+          setDescriptionOpen(false);
+          previousActiveElement?.focus?.();
+        },
+        { once: true }
+      );
+    }
+    return () => {
+      if (dialog && dialog.open) {
+        dialog.close();
+      }
+    };
+  }, [isDescriptionOpen]);
+
+  useEffect(() => {
+    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
+    const dialog = imageDialogRef.current;
+    if (dialog && isImageOpen) {
+      dialog.showModal();
+      dialog.addEventListener(
+        'close',
+        () => {
+          setImageOpen(false);
+          previousActiveElement?.focus?.();
+        },
+        { once: true }
+      );
+    }
+    return () => {
+      if (dialog && dialog.open) {
+        dialog.close();
+      }
+    };
+  }, [isImageOpen]);
+
+  const renderLabelControls = () => {
+    const controls = [];
+
+    if (supportingImage && supportingImage.displayMode === 'dialog') {
+      controls.push(
+        <button
+          key="supporting-image"
+          type="button"
+          className={styles.infoIconButton}
+          onClick={() => setImageOpen(true)}
+          aria-label={`View supporting image for ${field.label || field.data_name}`}
+          aria-haspopup="dialog"
+          aria-expanded={isImageOpen}
+        >
+          {IMAGE_ICON}
+        </button>
+      );
+    }
+
+    if (hasDialogDescription) {
+      controls.push(
+        <button
+          key="description"
+          type="button"
+          className={styles.infoIconButton}
+          onClick={() => setDescriptionOpen(true)}
+          aria-label={`View description for ${field.label || field.data_name}`}
+          aria-haspopup="dialog"
+          aria-expanded={isDescriptionOpen}
+        >
+          {INFO_ICON}
+        </button>
+      );
+    }
+
+    return controls;
+  };
+
   const fieldInput = (
     <FieldComponent
       field={field}
@@ -89,27 +195,105 @@ export function FieldRenderer({
     >
       {labelPosition === LABEL_SIDE ? (
         <div className={styles.labelInputRow}>
-          <label
-            className={labelClass}
-            id={labelId}
-            {...(isGroupedControl ? {} : { htmlFor: baseId })}
-          >
-            {field.label} {required && '*'}
-          </label>
+          <div className={styles.labelRow}>
+            <label
+              className={`${labelClass} ${styles.labelText}`}
+              id={labelId}
+              {...(isGroupedControl ? {} : { htmlFor: baseId })}
+            >
+              {field.label} {required && '*'}
+            </label>
+            {renderLabelControls()}
+          </div>
           <div className={styles.inputWrapper}>{fieldInput}</div>
         </div>
       ) : (
         <>
-          <label
-            className={labelClass}
-            id={labelId}
-            {...(isGroupedControl ? {} : { htmlFor: baseId })}
-          >
-            {field.label} {required && '*'}
-          </label>
+          <div className={styles.labelRow}>
+            <label
+              className={`${labelClass} ${styles.labelText}`}
+              id={labelId}
+              {...(isGroupedControl ? {} : { htmlFor: baseId })}
+            >
+              {field.label} {required && '*'}
+            </label>
+            {renderLabelControls()}
+          </div>
           {fieldInput}
         </>
       )}
+
+      {hasSubtextDescription && (
+        <div className={styles.subtext}>{field.description}</div>
+      )}
+
+      {showInlineImage && (
+        <img
+          src={
+            supportingImage.path.startsWith('http')
+              ? supportingImage.path
+              : `/supporting-images/${supportingImage.path}`
+          }
+          alt={field.label || field.data_name}
+          className={styles.supportingImage}
+        />
+      )}
+
+      {hasDialogDescription && (
+        <dialog
+          ref={descriptionDialogRef}
+          className={styles.descriptionDialog}
+          aria-labelledby={`${labelId}-desc-title`}
+        >
+          <div className={styles.descriptionDialogContent}>
+            <button
+              type="button"
+              className={styles.dialogCloseButton}
+              onClick={() => descriptionDialogRef.current?.close()}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 id={`${labelId}-desc-title`}>
+              {field.label || field.data_name}
+            </h3>
+            <p>{field.description}</p>
+          </div>
+        </dialog>
+      )}
+
+      {hasDialogImage && (
+        <dialog
+          ref={imageDialogRef}
+          className={styles.supportingImageDialog}
+          aria-labelledby={`${labelId}-img-title`}
+        >
+          <div className={styles.supportingImageDialogContent}>
+            <button
+              type="button"
+              className={styles.dialogCloseButton}
+              onClick={() => imageDialogRef.current?.close()}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h3 id={`${labelId}-img-title`}>
+              {field.label || field.data_name}
+            </h3>
+            <img
+              src={
+                supportingImage.path.startsWith('http')
+                  ? supportingImage.path
+                  : `/supporting-images/${supportingImage.path}`
+              }
+              alt={field.label || field.data_name}
+              className={styles.supportingImage}
+              style={{ height: 'auto' }}
+            />
+          </div>
+        </dialog>
+      )}
+
       <div className={styles.error}>{error}</div>
     </div>
   );
