@@ -6,6 +6,7 @@ import { BooleanFieldComponent } from './boolean-field.jsx';
 import { MultiChoiceFieldComponent } from './multi-choice-field.jsx';
 import { DateFieldComponent } from './date-field.jsx';
 import { TimeFieldComponent } from './time-field.jsx';
+import { LabelFieldComponent } from './label-field.jsx';
 
 export {
   TextFieldComponent,
@@ -16,6 +17,7 @@ export {
   MultiChoiceFieldComponent,
   DateFieldComponent,
   TimeFieldComponent,
+  LabelFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -27,4 +29,5 @@ export const defaultFieldComponents = {
   MultiChoiceField: MultiChoiceFieldComponent,
   DateField: DateFieldComponent,
   TimeField: TimeFieldComponent,
+  LabelField: LabelFieldComponent,
 };

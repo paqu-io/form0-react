@@ -80,6 +80,17 @@ export const labelText = style({
   flex: '1 1 auto',
 });
 
+export const labelFieldLabel = style({
+  display: 'block',
+  fontWeight: 400,
+  fontStyle: 'italic',
+  fontSize: vars.fontSize.base,
+  lineHeight: 1.5,
+  color: vars.color.foreground,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+});
+
 export const infoIconButton = style({
   appearance: 'none',
   border: 'none',

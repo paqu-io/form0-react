@@ -19,6 +19,7 @@ export function FieldRenderer({
 }) {
   const FieldComponent = getFieldComponent(field.type);
   const elementKey = field.key || field.data_name;
+  const isLabelField = field.type === 'LabelField';
 
   if (!FieldComponent) {
     return (
@@ -52,19 +53,17 @@ export function FieldRenderer({
     (field.type === 'SingleChoiceField' && field.display === 'radio') ||
     (field.type === 'MultiChoiceField' && field.display === 'checkbox') ||
     field.type === 'BooleanField';
+  const shouldRenderLabelElement = !isLabelField;
 
-  const inputProps = {
-    name: field.data_name,
-    readOnly,
-    required,
-    disabled: readOnly,
-  };
-
-  if (isGroupedControl) {
-    inputProps['aria-labelledby'] = labelId;
-  } else {
-    inputProps.id = baseId;
-  }
+  const inputProps = shouldRenderLabelElement
+    ? {
+        name: field.data_name,
+        readOnly,
+        required,
+        disabled: readOnly,
+        ...(isGroupedControl ? { 'aria-labelledby': labelId } : { id: baseId }),
+      }
+    : {};
 
   const handleChange =
     onChange &&
@@ -184,8 +183,28 @@ export function FieldRenderer({
       onKeyDown={onKeyDown}
       readOnly={readOnly}
       inputProps={inputProps}
-      className={styles.input}
+      className={isLabelField ? undefined : styles.input}
     />
+  );
+
+  const labelClassNames = [labelClass, styles.labelText];
+  if (isLabelField) {
+    labelClassNames.push(styles.labelFieldLabel);
+  }
+
+  const labelNode = shouldRenderLabelElement ? (
+    <label
+      className={labelClassNames.join(' ')}
+      id={labelId}
+      {...(isGroupedControl ? {} : { htmlFor: baseId })}
+    >
+      {field.label}
+      {required ? ' *' : ''}
+    </label>
+  ) : (
+    <div className={labelClassNames.join(' ')} id={labelId} role="presentation">
+      {field.label}
+    </div>
   );
 
   return (
@@ -196,13 +215,7 @@ export function FieldRenderer({
       {labelPosition === LABEL_SIDE ? (
         <div className={styles.labelInputRow}>
           <div className={styles.labelRow}>
-            <label
-              className={`${labelClass} ${styles.labelText}`}
-              id={labelId}
-              {...(isGroupedControl ? {} : { htmlFor: baseId })}
-            >
-              {field.label} {required && '*'}
-            </label>
+            {labelNode}
             {renderLabelControls()}
           </div>
           <div className={styles.inputWrapper}>{fieldInput}</div>
@@ -210,13 +223,7 @@ export function FieldRenderer({
       ) : (
         <>
           <div className={styles.labelRow}>
-            <label
-              className={`${labelClass} ${styles.labelText}`}
-              id={labelId}
-              {...(isGroupedControl ? {} : { htmlFor: baseId })}
-            >
-              {field.label} {required && '*'}
-            </label>
+            {labelNode}
             {renderLabelControls()}
           </div>
           {fieldInput}
