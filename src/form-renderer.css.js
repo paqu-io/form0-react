@@ -117,3 +117,20 @@ export const simplifiedButtonDisabled = style({
     border: `1px solid ${vars.color.buttonBorder}`,
   },
 });
+
+export const debugPanel = style({
+  marginTop: vars.spacing.lg,
+  padding: vars.spacing.md,
+  background: 'rgba(148, 163, 184, 0.1)',
+  borderRadius: vars.borderRadius,
+  fontSize: '0.8rem',
+  lineHeight: 1.4,
+  maxWidth: '100%',
+  width: '100%',
+  maxHeight: '240px',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-all',
+  overflowWrap: 'anywhere',
+});

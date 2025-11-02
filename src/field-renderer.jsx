@@ -49,10 +49,12 @@ export function FieldRenderer({
 
   const baseId = field.key || field.data_name;
   const labelId = `${baseId}-label`;
+  const isSignatureField = field.type === 'SignatureField';
   const isGroupedControl =
     (field.type === 'SingleChoiceField' && field.display === 'radio') ||
     (field.type === 'MultiChoiceField' && field.display === 'checkbox') ||
-    field.type === 'BooleanField';
+    field.type === 'BooleanField' ||
+    isSignatureField;
   const shouldRenderLabelElement = !isLabelField;
 
   const inputProps = shouldRenderLabelElement
@@ -61,7 +63,8 @@ export function FieldRenderer({
         readOnly,
         required,
         disabled: readOnly,
-        ...(isGroupedControl ? { 'aria-labelledby': labelId } : { id: baseId }),
+        id: baseId,
+        ...(isGroupedControl ? { 'aria-labelledby': labelId } : {}),
       }
     : {};
 
@@ -192,11 +195,24 @@ export function FieldRenderer({
     labelClassNames.push(styles.labelFieldLabel);
   }
 
+  const labelProps = {};
+  if (!isGroupedControl) {
+    labelProps.htmlFor = baseId;
+  }
+  if (isSignatureField) {
+    labelProps.onClick = (event) => {
+      if (typeof document === 'undefined') return;
+      event.preventDefault();
+      const target = document.getElementById(baseId);
+      target?.focus?.();
+    };
+  }
+
   const labelNode = shouldRenderLabelElement ? (
     <label
       className={labelClassNames.join(' ')}
       id={labelId}
-      {...(isGroupedControl ? {} : { htmlFor: baseId })}
+      {...labelProps}
     >
       {field.label}
       {required ? ' *' : ''}

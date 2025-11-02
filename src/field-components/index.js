@@ -10,6 +10,7 @@ import { LabelFieldComponent } from './label-field.jsx';
 import { TitleFieldComponent } from './title-field.jsx';
 import { StatusFieldComponent } from './status-field.jsx';
 import { PhotoFieldComponent } from './photo-field.jsx';
+import { SignatureFieldComponent } from './signature-field.jsx';
 
 export {
   TextFieldComponent,
@@ -24,6 +25,7 @@ export {
   TitleFieldComponent,
   StatusFieldComponent,
   PhotoFieldComponent,
+  SignatureFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -39,4 +41,5 @@ export const defaultFieldComponents = {
   TitleField: TitleFieldComponent,
   StatusField: StatusFieldComponent,
   PhotoField: PhotoFieldComponent,
+  SignatureField: SignatureFieldComponent,
 };

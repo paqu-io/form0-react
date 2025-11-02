@@ -293,9 +293,10 @@ export function FormRenderer({
 
   const elementsForFlattening = headerFields.length > 0 ? [...headerFields, ...baseElements] : baseElements;
 
-  const flattenedElements = simplifiedMode 
+  const flattenedElements = simplifiedMode
     ? flattenFormElements(elementsForFlattening)
     : [];
+  const flattenedElementsLength = flattenedElements.length;
 
   const resolveFieldVisibility = useCallback(
     (field) => {
@@ -360,7 +361,7 @@ export function FormRenderer({
   );
 
   // Get current field in simplified mode
-  const currentField = simplifiedMode && flattenedElements.length > 0 
+  const currentField = simplifiedMode && flattenedElementsLength > 0
     ? flattenedElements[currentFieldIndex] 
     : null;
 
@@ -374,6 +375,57 @@ export function FormRenderer({
     : null;
   const hasCurrentFieldError = currentField ? currentFieldError != null : false;
   const isCurrentFieldValid = currentField ? !hasCurrentFieldError : true;
+  const currentFieldKey = currentField?.data_name ?? null;
+  const debugIsLastField =
+    simplifiedMode && flattenedElementsLength > 0
+      ? currentFieldIndex === flattenedElementsLength - 1
+      : false;
+
+  const debugData = useMemo(
+    () => ({
+      values: displayValues,
+      visible,
+      read_only,
+      required,
+      errors,
+      currentFieldIndex,
+      currentField: currentFieldKey,
+      isLastField: debugIsLastField,
+      isCurrentFieldValid,
+      hasCurrentFieldError,
+      flattenedElementsLength,
+    }),
+    [
+      displayValues,
+      visible,
+      read_only,
+      required,
+      errors,
+      currentFieldIndex,
+      currentFieldKey,
+      debugIsLastField,
+      isCurrentFieldValid,
+      hasCurrentFieldError,
+      flattenedElementsLength,
+    ]
+  );
+
+  const debugText = useMemo(
+    () =>
+      JSON.stringify(
+        debugData,
+        (key, value) => {
+          if (typeof value === 'string' && value.length > 160) {
+            const visiblePart = value.slice(0, 120);
+            const remaining = value.length - 120;
+            return `${visiblePart}… (${remaining} more chars)`;
+          }
+          return value;
+        },
+        2
+      ),
+    [debugData]
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -390,7 +442,7 @@ export function FormRenderer({
 
   // Simplified mode navigation handlers
   const handleNext = () => {
-    if (currentFieldIndex < flattenedElements.length - 1) {
+    if (currentFieldIndex < flattenedElementsLength - 1) {
       const nextIndex = currentFieldIndex + 1;
       setCurrentFieldIndex(nextIndex);
       if (onSimplifiedNavigation) {
@@ -426,7 +478,7 @@ export function FormRenderer({
     if (e.key === 'Enter' && simplifiedMode) {
       e.preventDefault();
       if (isCurrentFieldValid && !hasCurrentFieldError) {
-        if (currentFieldIndex === flattenedElements.length - 1) {
+        if (currentFieldIndex === flattenedElementsLength - 1) {
           // Submit on last field
           handleSubmit(e);
         } else {
@@ -444,7 +496,7 @@ export function FormRenderer({
         if (e.key === 'Enter' && !e.target.matches('input, textarea, select')) {
           e.preventDefault();
           if (isCurrentFieldValid && !hasCurrentFieldError) {
-            if (currentFieldIndex === flattenedElements.length - 1) {
+            if (currentFieldIndex === flattenedElementsLength - 1) {
               // Submit on last field
               handleSubmit(e);
             } else {
@@ -458,7 +510,7 @@ export function FormRenderer({
       document.addEventListener('keydown', handleGlobalKeyDown);
       return () => document.removeEventListener('keydown', handleGlobalKeyDown);
     }
-  }, [simplifiedMode, currentFieldIndex, isCurrentFieldValid, hasCurrentFieldError, flattenedElements.length]);
+  }, [simplifiedMode, currentFieldIndex, isCurrentFieldValid, hasCurrentFieldError, flattenedElementsLength]);
 
   const themeMap = {
     'standard-light': standardThemeLight,
@@ -505,7 +557,7 @@ export function FormRenderer({
       );
     }
 
-    const isLastField = currentFieldIndex === flattenedElements.length - 1;
+    const isLastField = currentFieldIndex === flattenedElementsLength - 1;
 
     const currentFieldValue = displayValues[currentField.data_name];
     const currentFieldReadOnly =
@@ -526,7 +578,7 @@ export function FormRenderer({
       >
         {/* Progress indicator */}
         <div className={styles.simplifiedProgress}>
-          Question {currentFieldIndex + 1} of {flattenedElements.length}
+          Question {currentFieldIndex + 1} of {flattenedElementsLength}
         </div>
 
         {/* Current field */}
@@ -576,21 +628,7 @@ export function FormRenderer({
           )}
         </div>
 
-        {debug && (
-          <pre>{JSON.stringify({ 
-            values: displayValues, 
-            visible, 
-            read_only, 
-            required, 
-            errors, 
-            currentFieldIndex,
-            currentField: currentField?.data_name,
-            isLastField,
-            isCurrentFieldValid,
-            hasCurrentFieldError,
-            flattenedElementsLength: flattenedElements.length
-          }, null, 2)}</pre>
-        )}
+        {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
       </form>
     );
   }
@@ -692,9 +730,7 @@ export function FormRenderer({
           Submit
         </button>
       )}
-      {debug && (
-        <pre>{JSON.stringify({ values: displayValues, visible, read_only, required, errors }, null, 2)}</pre>
-      )}
+      {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
     </form>
   );
 }

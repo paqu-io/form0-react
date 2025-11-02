@@ -128,6 +128,95 @@ export const photoField = style({
   gap: vars.spacing.sm,
 });
 
+export const signatureField = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+  alignItems: 'flex-start',
+  touchAction: 'none',
+});
+
+export const signatureAgreement = style({
+  fontSize: '0.95rem',
+  color: vars.color.foreground,
+  opacity: 0.85,
+  lineHeight: 1.4,
+});
+
+export const signatureCanvas = style({
+  border: `1.5px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  backgroundColor: '#fff',
+  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+  cursor: 'crosshair',
+  display: 'block',
+  touchAction: 'none',
+  userSelect: 'none',
+  width: '100%',
+  maxWidth: '400px',
+});
+
+export const signatureControls = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
+});
+
+export const signatureClearButton = style({
+  appearance: 'none',
+  border: `1px solid ${vars.color.border}`,
+  background: '#f3f4f6',
+  color: vars.color.foreground,
+  borderRadius: vars.borderRadius,
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  fontSize: '0.9rem',
+  cursor: 'pointer',
+  transition: 'background 0.2s ease, border 0.2s ease',
+  selectors: {
+    '&:hover:not(:disabled)': {
+      background: '#e5e7eb',
+      borderColor: '#9ca3af',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+  },
+});
+
+export const signatureReadOnly = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
+export const signatureImageWrapper = style({
+  border: `1.5px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  backgroundColor: '#fff',
+  padding: vars.spacing.xs,
+  width: `${400}px`,
+  maxWidth: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+export const signatureImage = style({
+  maxWidth: '100%',
+  height: 'auto',
+});
+
+export const signaturePlaceholder = style({
+  fontSize: '0.9rem',
+  color: vars.color.foreground,
+  opacity: 0.7,
+});
+
 export const photoFieldControls = style({
   display: 'flex',
   flexDirection: 'column',
