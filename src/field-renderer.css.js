@@ -428,6 +428,145 @@ export const videoFieldReadOnlyEmpty = style({
   opacity: 0.7,
 });
 
+export const formLinkField = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const formLinkActions = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: vars.spacing.xs,
+  alignItems: 'center',
+});
+
+const formLinkActionButtonBase = {
+  appearance: 'none',
+  borderRadius: vars.borderRadius,
+  fontSize: '0.9rem',
+  cursor: 'pointer',
+  transition: 'background 0.2s ease, border 0.2s ease, color 0.2s ease',
+  selectors: {
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+  },
+};
+
+export const formLinkActionButton = style([
+  formLinkActionButtonBase,
+  {
+    background: vars.color.background,
+    color: vars.color.foreground,
+    border: `1px solid ${vars.color.border}`,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    selectors: {
+      ...formLinkActionButtonBase.selectors,
+      '&:hover:not(:disabled)': {
+        background: '#f3f4f6',
+      },
+    },
+  },
+]);
+
+export const formLinkActionButtonPrimary = style([
+  formLinkActionButtonBase,
+  {
+    background: vars.color.primary,
+    color: '#fff',
+    border: `1px solid ${vars.color.primary}`,
+    padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+    selectors: {
+      ...formLinkActionButtonBase.selectors,
+      '&:hover:not(:disabled)': {
+        background: '#0b60b0',
+        borderColor: '#0b60b0',
+      },
+    },
+  },
+]);
+
+export const formLinkBanner = style({
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  background: '#eff6ff',
+  color: vars.color.foreground,
+  padding: `${vars.spacing.sm} ${vars.spacing.md}`,
+  fontSize: '0.9rem',
+  lineHeight: 1.45,
+});
+
+export const formLinkModalOverlay = style({
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0, 0, 0, 0.35)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1200,
+  padding: vars.spacing.md,
+});
+
+export const formLinkModal = style({
+  background: vars.color.background,
+  color: vars.color.foreground,
+  borderRadius: vars.borderRadius,
+  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.25)',
+  width: 'min(460px, 90vw)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+  padding: vars.spacing.md,
+});
+
+export const formLinkModalHeader = style({
+  fontSize: '1.05rem',
+  fontWeight: 600,
+});
+
+export const formLinkModalBody = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const formLinkModalFooter = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: vars.spacing.xs,
+});
+
+export const formLinkModalNote = style({
+  fontSize: '0.9rem',
+  lineHeight: 1.5,
+  color: vars.color.foreground,
+  opacity: 0.9,
+  margin: 0,
+});
+
+export const formLinkModalPlaceholderList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
+export const formLinkModalPlaceholderItem = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
+  fontSize: '0.9rem',
+});
+
+export const formLinkModalPlaceholderLabel = style({
+  flex: '1 1 auto',
+});
+
 export const infoIconButton = style({
   appearance: 'none',
   border: 'none',

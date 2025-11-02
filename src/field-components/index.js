@@ -12,6 +12,7 @@ import { StatusFieldComponent } from './status-field.jsx';
 import { PhotoFieldComponent } from './photo-field.jsx';
 import { SignatureFieldComponent } from './signature-field.jsx';
 import { VideoFieldComponent } from './video-field.jsx';
+import { FormLinkFieldComponent } from './form-link-field.jsx';
 
 export {
   TextFieldComponent,
@@ -28,6 +29,7 @@ export {
   PhotoFieldComponent,
   SignatureFieldComponent,
   VideoFieldComponent,
+  FormLinkFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -45,4 +47,5 @@ export const defaultFieldComponents = {
   PhotoField: PhotoFieldComponent,
   SignatureField: SignatureFieldComponent,
   VideoField: VideoFieldComponent,
+  FormLinkField: FormLinkFieldComponent,
 };
