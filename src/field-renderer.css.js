@@ -327,6 +327,107 @@ export const photoFieldReadOnlyEmpty = style({
   opacity: 0.7,
 });
 
+export const videoField = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const videoFieldControls = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: vars.spacing.xs,
+});
+
+export const videoFieldInfo = style({
+  fontSize: '0.85rem',
+  color: vars.color.foreground,
+  opacity: 0.7,
+});
+
+export const videoPreviewList = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  gap: vars.spacing.sm,
+});
+
+export const videoPreview = style({
+  position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
+export const videoThumbWrapper = style({
+  position: 'relative',
+  width: '100%',
+  paddingBottom: '56.25%',
+  background: '#1118270d',
+  borderRadius: vars.borderRadius,
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+export const videoThumb = style({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  backgroundColor: '#000',
+});
+
+export const videoThumbPlaceholder = style({
+  fontSize: '2rem',
+  opacity: 0.6,
+});
+
+export const videoMeta = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.125rem',
+  fontSize: '0.85rem',
+  color: vars.color.foreground,
+});
+
+export const videoFilename = style({
+  fontSize: '0.9rem',
+  fontWeight: 500,
+  color: vars.color.foreground,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const videoDuration = style({
+  fontSize: '0.8rem',
+  color: vars.color.foreground,
+  opacity: 0.75,
+});
+
+export const videoCaptionInput = photoCaptionInput;
+
+export const videoCaptionStatic = photoCaptionStatic;
+
+export const videoPlaceholder = style({
+  padding: vars.spacing.sm,
+  border: `1px dashed ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  color: vars.color.foreground,
+  opacity: 0.7,
+  fontSize: '0.9rem',
+});
+
+export const videoFieldReadOnlyEmpty = style({
+  fontSize: '0.9rem',
+  color: vars.color.foreground,
+  opacity: 0.7,
+});
+
 export const infoIconButton = style({
   appearance: 'none',
   border: 'none',

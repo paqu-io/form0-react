@@ -11,6 +11,7 @@ import { TitleFieldComponent } from './title-field.jsx';
 import { StatusFieldComponent } from './status-field.jsx';
 import { PhotoFieldComponent } from './photo-field.jsx';
 import { SignatureFieldComponent } from './signature-field.jsx';
+import { VideoFieldComponent } from './video-field.jsx';
 
 export {
   TextFieldComponent,
@@ -26,6 +27,7 @@ export {
   StatusFieldComponent,
   PhotoFieldComponent,
   SignatureFieldComponent,
+  VideoFieldComponent,
 };
 
 export const defaultFieldComponents = {
@@ -42,4 +44,5 @@ export const defaultFieldComponents = {
   StatusField: StatusFieldComponent,
   PhotoField: PhotoFieldComponent,
   SignatureField: SignatureFieldComponent,
+  VideoField: VideoFieldComponent,
 };
