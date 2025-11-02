@@ -122,6 +122,122 @@ export const statusText = style({
   color: vars.color.foreground,
 });
 
+export const photoField = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const photoFieldControls = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: vars.spacing.xs,
+});
+
+export const photoFieldInfo = style({
+  fontSize: '0.85rem',
+  color: vars.color.foreground,
+  opacity: 0.7,
+});
+
+export const photoPreviewList = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+  gap: vars.spacing.sm,
+});
+
+export const photoPreview = style({
+  position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
+export const photoThumbWrapper = style({
+  position: 'relative',
+  width: '100%',
+  paddingBottom: '75%',
+  background: '#f3f4f6',
+  borderRadius: vars.borderRadius,
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+export const photoThumb = style({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+});
+
+export const photoThumbPlaceholder = style({
+  fontSize: '2rem',
+  opacity: 0.6,
+});
+
+export const photoCaptionInput = style([
+  input,
+  {
+    fontSize: '0.9rem',
+  },
+]);
+
+export const photoCaptionStatic = style({
+  fontSize: '0.85rem',
+  color: vars.color.foreground,
+  opacity: 0.8,
+  textAlign: 'center',
+});
+
+export const photoRemoveButton = style({
+  alignSelf: 'flex-end',
+  appearance: 'none',
+  border: 'none',
+  background: '#1f2937',
+  color: '#fff',
+  borderRadius: '999px',
+  width: '1.5rem',
+  height: '1.5rem',
+  lineHeight: 1,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '1rem',
+  position: 'absolute',
+  top: '0.25rem',
+  right: '0.25rem',
+  selectors: {
+    '&:hover': {
+      background: '#111827',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});
+
+export const photoPlaceholder = style({
+  padding: vars.spacing.sm,
+  border: `1px dashed ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  color: vars.color.foreground,
+  opacity: 0.7,
+  fontSize: '0.9rem',
+});
+
+export const photoFieldReadOnlyEmpty = style({
+  fontSize: '0.9rem',
+  color: vars.color.foreground,
+  opacity: 0.7,
+});
+
 export const infoIconButton = style({
   appearance: 'none',
   border: 'none',
