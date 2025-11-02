@@ -502,6 +502,32 @@ export const formLinkBanner = style({
   lineHeight: 1.45,
 });
 
+export const formLinkDocsLink = style({
+  color: vars.color.primary,
+  textDecoration: 'underline',
+  selectors: {
+    '&:hover': {
+      textDecoration: 'none',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});
+
+export const formLinkHiddenInput = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+});
+
 export const formLinkModalOverlay = style({
   position: 'fixed',
   inset: 0,

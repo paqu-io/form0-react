@@ -53,6 +53,13 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
   const [activeModal, setActiveModal] = useState(null);
   const [placeholderSelection, setPlaceholderSelection] = useState([]);
   const previousFocusRef = useRef(null);
+  const {
+    id: inputId,
+    name: inputName,
+    readOnly: _ignoredReadOnly,
+    disabled: _ignoredDisabled,
+    ...restInputProps
+  } = inputProps;
 
   const openModal = useCallback((type) => {
     previousFocusRef.current = typeof document !== 'undefined' ? document.activeElement : null;
@@ -111,7 +118,6 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
     [closeModal]
   );
 
-  const { name: inputName } = inputProps;
   const serializedValue = useMemo(() => {
     try {
       return JSON.stringify(mapToValue(items));
@@ -207,7 +213,8 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
       )}
 
       <div className={styles.formLinkBanner} role="note">
-        The feature "FormLinkField" is not supported in form0-react. Full support available in reform platform only.
+        The feature "FormLinkField" is not supported in form0-react. Full support available in
+        reform platform only.
         <br />
         Want to learn more?{' '}
         <a
@@ -258,7 +265,19 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
         </div>
       )}
 
-      {inputName && <input type="hidden" name={inputName} value={serializedValue} readOnly />}
+      {inputName && (
+        <input
+          type="text"
+          id={inputId}
+          name={inputName}
+          value={serializedValue}
+          {...restInputProps}
+          className={styles.formLinkHiddenInput}
+          readOnly
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }
