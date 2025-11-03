@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import * as styles from './field-renderer.css.js';
-import { getFieldComponent } from './field-registry.js';
+import { useFieldRegistry } from './field-registry-context.jsx';
 
 const LABEL_SIDE = 'side';
 const INFO_ICON = 'ℹ️';
@@ -17,7 +17,8 @@ export function FieldRenderer({
   labelWidthPercent = 30,
   onKeyDown,
 }) {
-  const FieldComponent = getFieldComponent(field.type);
+  const registry = useFieldRegistry();
+  const FieldComponent = registry.getFieldComponent(field.type);
   const elementKey = field.key || field.data_name;
   const isLabelField = field.type === 'LabelField';
 
