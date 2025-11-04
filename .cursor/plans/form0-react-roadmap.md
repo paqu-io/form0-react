@@ -6,10 +6,11 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 - [ ] **Refactor `useFormEngine`**  
   - [x] Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
   - [x] Expose stable setters (`setValue`, `setValues`, `reset`, `submit`) that don’t mutate engine state during render.  
-  - [ ] Add lifecycle hooks (`onUpdate`, `onWarning`, event subscriptions) mirroring core engine events.  
+  - [x] Add lifecycle hooks (`onUpdate`, `onWarning`) mirroring core engine events.  
     - [x] Invoke `onUpdate` callback after state syncs.  
     - [x] Bridge engine warning system to `onWarning` handlers with automatic cleanup.  
-    - [ ] Revisit event subscription interface once we decide whether to expose engine listeners in the React API.
+    - [ ] Revisit event subscription interface once we decide whether to expose engine listeners in the React API.  
+  - [ ] Finalize an event/listener story (keep internal vs expose safe subscriptions).
 - [ ] **Schema utilities package**  
   - [x] Provide shared cloning/key helpers (`cloneDeep`, `cloneSchema`, `ensureSchemaKeys`, `prepareSchema`) and export them for consumers.  
   - [ ] Revisit additional helpers as more schema tooling is identified (parsing, validation summaries, etc.).
@@ -30,21 +31,22 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - [x] Implement `FormLinkField` with CLI-parity placeholders, reform-only notices, and proper value wiring.  
   - [x] Allow downstream apps to register overrides for built-in field types (with clear reform-only gaps flagged).  
     - Scoped registry support (`createFieldRegistry`, `FieldRegistryProvider`) documented in README; new field types remain a form0-core concern.
-  - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, Rich text, etc., all render with feature parity.
+  - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, and media fields all render with parity across modes (formatting, accessibility, placeholder messaging).
 - [ ] **Field-level validation & messaging**  
-  - Display validation errors from the engine per field, with hooks for custom messages.
+  - [x] Display validation errors from the engine per field.  
+  - [ ] Provide hooks for custom message formatting / localization.
 
 ## 3. Layouts, Modes, and Accessibility
 - [ ] **Finish existing modes**  
-  - Simplified mode: respect engine visibility/required state, remove direct `document` listeners (support SSR/React 19).  
+  - Simplified mode: stepper navigation, progress display, and engine-driven visibility/required state are in place; still need to remove direct `document` listeners (SSR/React 19) and finish touch/mobile polish.  
   - Drilldown/spotlight: support breadcrumbs, section metadata, and optional multi-column layouts.
 - [ ] **Accessibility audit**  
   - Ensure ARIA attributes, focus management, and keyboard navigation are correct across all modes (especially modal/drawer contexts).
 - [ ] **Layout configuration**  
-  - Provide a lightweight configuration surface (label placement, widths, spacing) so apps – including the CLI scaffold – can set defaults without forking components.
+  - Provide a lightweight configuration surface (label placement, widths, spacing) so apps – including the CLI scaffold – can set defaults without forking components. Wire these props through CSS custom properties.
 
 ## 4. Theming & Styling Contract
-- [ ] **Expose full design tokens** via vanilla-extract so designers can override typography, spacing, and component states.  
+- [x] **Expose full design tokens** via vanilla-extract so designers can override typography, spacing, and component states.  
 - [ ] **Honor layout props** (`formWidth`, `labelWidthPercent`, `labelPosition`) by applying the CSS custom properties already scaffolded in the demo apps.  
 - [ ] **Document custom theme creation** with examples (light/dark, brand palette) and ensure React Native parity via a shared token schema.
 
@@ -54,12 +56,12 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - Integrate visual regression or interaction tests to guard against UI regressions.
 - [ ] **CLI integration**  
   - `form0-cli forge react --template <stack>` command that scaffolds production apps, copies schemas, and wires `form0-react` with sample routing.  
-  - Include multi-schema switching examples and notes on reform-only capabilities.
+  - Include multi-schema switching examples and notes on reform-only capabilities.  
   - Decision pending: confirm whether the CLI should generate a sibling app template (preferred path today) or support in-place workspace mutation once we prototype both experiences.
 - [ ] **Testing strategy**  
   - Add component tests (React Testing Library) for critical field behaviors.  
   - Smoke tests that mount real schemas and assert engine <> UI synchronization.
-- **Vite example template**  
+- [ ] **Vite example template**  
   - Treat `form0-test1` as the canonical starter app once it matches production expectations (theme modes, multi-schema routing, connector examples).  
   - Keep the template in-repo/GitHub for now; no need to publish an npm package unless distribution via npm proves necessary.  
   - When CLI scaffolding is ready, have `form0-cli` copy/clone this template so developers get the same baseline experience.
