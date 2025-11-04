@@ -773,6 +773,44 @@ export function FormRenderer({
         </div>
 
         {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+
+        {activeAlert && (
+          <div
+            className={styles.alertOverlay}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="form0-react-alert-title"
+            aria-describedby="form0-react-alert-message"
+            onClick={handleAlertOverlayClick}
+          >
+            <div className={styles.alertDialog}>
+              <button
+                type="button"
+                className={styles.alertCloseButton}
+                aria-label="Close alert"
+                onClick={closeAlert}
+              >
+                ×
+              </button>
+              <h3 id="form0-react-alert-title" className={styles.alertTitle}>
+                {activeAlert.title}
+              </h3>
+              <div id="form0-react-alert-message" className={styles.alertMessage}>
+                {activeAlert.message || ''}
+              </div>
+              <div className={styles.alertFooter}>
+                <button
+                  type="button"
+                  ref={alertOkButtonRef}
+                  className={styles.alertOkButton}
+                  onClick={closeAlert}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </form>
     );
   }

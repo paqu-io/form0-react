@@ -3,14 +3,15 @@
 This roadmap captures the current priorities for evolving `form0-react` so it can sit alongside `form0-core` and the CLI as a production-ready rendering layer. We can refine/update this document as work progresses.
 
 ## 1. Stabilize Engine Integration
-- [ ] **Refactor `useFormEngine`**  
+- [x] **Refactor `useFormEngine`**  
   - [x] Memoize schema preparation (key generation, validation) so it only runs when inputs change.  
   - [x] Expose stable setters (`setValue`, `setValues`, `reset`, `submit`) that don’t mutate engine state during render.  
   - [x] Add lifecycle hooks (`onUpdate`, `onWarning`) mirroring core engine events.  
     - [x] Invoke `onUpdate` callback after state syncs.  
     - [x] Bridge engine warning system to `onWarning` handlers with automatic cleanup.  
-    - [ ] Revisit event subscription interface once we decide whether to expose engine listeners in the React API.  
-  - [ ] Finalize an event/listener story (keep internal vs expose safe subscriptions).
+    - [x] Trigger React-friendly event callbacks via `triggerEvent` without leaking engine internals.  
+  - [x] Finalize an event/listener story (keep internal vs expose safe subscriptions).
+  - [x] Provide default operation processing (ALERT + SETVALUE) with `onOperations` escape-hatch.
 - [ ] **Schema utilities package**  
   - [x] Provide shared cloning/key helpers (`cloneDeep`, `cloneSchema`, `ensureSchemaKeys`, `prepareSchema`) and export them for consumers.  
   - [ ] Revisit additional helpers as more schema tooling is identified (parsing, validation summaries, etc.).
@@ -31,7 +32,8 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - [x] Implement `FormLinkField` with CLI-parity placeholders, reform-only notices, and proper value wiring.  
   - [x] Allow downstream apps to register overrides for built-in field types (with clear reform-only gaps flagged).  
     - Scoped registry support (`createFieldRegistry`, `FieldRegistryProvider`) documented in README; new field types remain a form0-core concern.
-  - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, and media fields all render with parity across modes (formatting, accessibility, placeholder messaging).
+  - [ ] Ensure Calculated, Choice, Date, Boolean, Multi-Choice, and media fields all render with parity across modes (formatting, accessibility, placeholder messaging).  
+    - Simplified mode now dispatches ALERT/SETVALUE operations; need a shared overlay pattern that survives drawers/modals.
 - [ ] **Field-level validation & messaging**  
   - [x] Display validation errors from the engine per field.  
   - [ ] Provide hooks for custom message formatting / localization.
