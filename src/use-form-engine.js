@@ -18,6 +18,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   const initialValuesSignatureRef = useRef(null);
   const optionsRef = useRef(options || {});
   const warningCleanupRef = useRef(null);
+  const fieldDefinitionsRef = useRef(new Map());
 
   useEffect(() => {
     optionsRef.current = options || {};
@@ -35,6 +36,14 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     validateSchema(form);
     return copy;
   }, [schema]);
+
+  useEffect(() => {
+    if (preparedSchema?.form) {
+      fieldDefinitionsRef.current = buildFieldDefinitionMap(preparedSchema.form);
+    } else {
+      fieldDefinitionsRef.current = new Map();
+    }
+  }, [preparedSchema]);
 
   useEffect(() => {
     initialValuesRef.current = initialValues || {};
@@ -121,6 +130,114 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     const { values } = engineRef.current.getState();
     return cloneDeep(values) || {};
   }, []);
+
+  const normalizeValueForField = useCallback((fieldName, value) => {
+    const fieldDef = fieldDefinitionsRef.current.get(fieldName);
+    if (!fieldDef) {
+      return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
+    }
+    switch (fieldDef.type) {
+      case 'SingleChoiceField':
+      case 'BooleanField':
+        return normalizeSingleChoiceValue(fieldDef, value);
+      case 'MultiChoiceField':
+        return normalizeMultiChoiceValue(fieldDef, value);
+      default:
+        return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
+    }
+  }, []);
+
+  const defaultProcessOperations = useCallback(
+    (operations = [], meta = {}) => {
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return;
+      }
+
+      const pendingValueUpdates = {};
+
+      operations.forEach((operation) => {
+        if (!operation || typeof operation !== 'object') {
+          return;
+        }
+
+        const { type, operation: opName, params = {} } = operation;
+
+        if (type === 'FIELD_OPERATION' && opName === 'SETVALUE') {
+          const { fieldDataName, valueToSet } = params || {};
+          if (typeof fieldDataName !== 'string' || fieldDataName.length === 0) {
+            console.warn('form0-react: SETVALUE operation missing fieldDataName.', operation);
+            return;
+          }
+          pendingValueUpdates[fieldDataName] = normalizeValueForField(fieldDataName, valueToSet);
+          return;
+        }
+
+        if (type === 'UI_OPERATION' && opName === 'ALERT') {
+          const title = params?.title != null ? String(params.title) : '';
+          const message = params?.message != null ? String(params.message) : '';
+          const text = [title, message].filter(Boolean).join('\n\n');
+          if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+            window.alert(text);
+          } else {
+            console.warn(
+              'form0-react: ALERT operation received but window.alert is unavailable.',
+              { title, message }
+            );
+          }
+          return;
+        }
+
+        if (type === 'UI_OPERATION' || type === 'FIELD_OPERATION') {
+          console.warn(
+            'form0-react: Unhandled operation received. Provide an onOperations callback to manage custom operations.',
+            operation
+          );
+        }
+      });
+
+      if (Object.keys(pendingValueUpdates).length > 0) {
+        setValues(pendingValueUpdates);
+      }
+    },
+    [setValues, normalizeValueForField]
+  );
+
+  const processOperations = useCallback(
+    (operations = [], meta = {}) => {
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return;
+      }
+      const handler = optionsRef.current.onOperations;
+      if (typeof handler === 'function') {
+        handler(operations, meta, defaultProcessOperations);
+      } else {
+        defaultProcessOperations(operations, meta);
+      }
+    },
+    [defaultProcessOperations]
+  );
+
+  const triggerEvent = useCallback(
+    (eventType, fieldKey = null, metadata = {}) => {
+      if (!engineRef.current) return [];
+      if (typeof eventType !== 'string' || eventType.length === 0) {
+        console.warn('form0-react: triggerEvent requires a non-empty eventType string.');
+        return [];
+      }
+
+      try {
+        const operations = engineRef.current.trigger(eventType, fieldKey, metadata) || [];
+        if (operations.length > 0) {
+          processOperations(operations, { eventType, fieldKey, metadata });
+        }
+        return operations;
+      } catch (error) {
+        console.warn('form0-react: triggerEvent failed.', error);
+        return [];
+      }
+    },
+    [processOperations]
+  );
 
   const overrideSignature = useMemo(
     () => (overrideValues ? JSON.stringify(overrideValues) : null),
@@ -217,7 +334,231 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     setValues,
     reset,
     submit,
+    triggerEvent,
+    processOperations,
     schema: preparedSchema,
     engine: engineRef.current,
   };
+}
+
+function buildFieldDefinitionMap(form) {
+  const map = new Map();
+  if (!form) {
+    return map;
+  }
+
+  const visit = (elements) => {
+    if (!Array.isArray(elements)) {
+      return;
+    }
+    elements.forEach((element) => {
+      if (!element) return;
+      if (
+        element.type === 'Section' ||
+        element.type === 'RepeatableSection' ||
+        element.type === 'BuildingPlanSection'
+      ) {
+        visit(element.elements);
+      } else if (element.data_name) {
+        map.set(element.data_name, element);
+      }
+    });
+  };
+
+  visit(form.elements);
+
+  if (form.status_field?.data_name) {
+    map.set(form.status_field.data_name, form.status_field);
+  }
+  if (form.title_field?.data_name) {
+    map.set(form.title_field.data_name, form.title_field);
+  }
+
+  return map;
+}
+
+function coerceChoiceValue(field, rawValue) {
+  const choices = Array.isArray(field?.choices) ? field.choices : [];
+  const match = choices.find(
+    (choice) => choice && String(choice.value) === String(rawValue)
+  );
+  if (match) {
+    return match.value;
+  }
+  return rawValue;
+}
+
+function lookupChoiceLabel(field, value) {
+  const choices = Array.isArray(field?.choices) ? field.choices : [];
+  const match = choices.find(
+    (choice) => choice && String(choice.value) === String(value)
+  );
+  if (match && typeof match.label === 'string' && match.label.trim() !== '') {
+    return match.label;
+  }
+  return value != null ? String(value) : '';
+}
+
+function normalizeChoiceEntry(field, entry) {
+  if (entry == null) {
+    return null;
+  }
+
+  if (
+    typeof entry === 'string' ||
+    typeof entry === 'number' ||
+    typeof entry === 'boolean'
+  ) {
+    const coercedValue = coerceChoiceValue(field, entry);
+    return {
+      value: coercedValue,
+      label: lookupChoiceLabel(field, coercedValue),
+    };
+  }
+
+  if (typeof entry === 'object') {
+    const value = coerceChoiceValue(
+      field,
+      entry.value != null
+        ? entry.value
+        : typeof entry.label === 'string' && entry.label.trim() !== ''
+        ? entry.label
+        : null
+    );
+    if (value == null) {
+      return null;
+    }
+    const label =
+      typeof entry.label === 'string' && entry.label.trim() !== ''
+        ? entry.label
+        : lookupChoiceLabel(field, value);
+    return {
+      ...entry,
+      value,
+      label,
+    };
+  }
+
+  return null;
+}
+
+function normalizeOtherEntry(entry) {
+  if (entry == null) {
+    return null;
+  }
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    return trimmed ? { label: trimmed } : null;
+  }
+  if (typeof entry === 'object') {
+    const label =
+      typeof entry.label === 'string' && entry.label.trim() !== ''
+        ? entry.label
+        : entry.value != null
+        ? String(entry.value)
+        : '';
+    return {
+      ...entry,
+      label,
+    };
+  }
+  return null;
+}
+
+function normalizeSingleChoiceValue(field, value) {
+  if (value == null) {
+    return { choice: [], other: [] };
+  }
+
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    const normalizedChoice = normalizeChoiceEntry(field, value);
+    return {
+      choice: normalizedChoice ? [normalizedChoice] : [],
+      other: [],
+    };
+  }
+
+  if (Array.isArray(value)) {
+    const normalizedChoice = value
+      .map((entry) => normalizeChoiceEntry(field, entry))
+      .filter(Boolean);
+    return {
+      choice: normalizedChoice,
+      other: [],
+    };
+  }
+
+  if (typeof value === 'object') {
+    const choiceSource = Array.isArray(value.choice)
+      ? value.choice
+      : Array.isArray(value.choices)
+      ? value.choices
+      : [];
+    const otherSource = Array.isArray(value.other) ? value.other : [];
+    const normalizedChoice = choiceSource
+      .map((entry) => normalizeChoiceEntry(field, entry))
+      .filter(Boolean);
+    const normalizedOther = otherSource
+      .map((entry) => normalizeOtherEntry(entry))
+      .filter(Boolean);
+    return {
+      choice: normalizedChoice,
+      other: normalizedOther,
+    };
+  }
+
+  return { choice: [], other: [] };
+}
+
+function normalizeMultiChoiceValue(field, value) {
+  if (value == null) {
+    return { choices: [], other: [] };
+  }
+
+  if (Array.isArray(value)) {
+    const normalizedChoices = value
+      .map((entry) => normalizeChoiceEntry(field, entry))
+      .filter(Boolean);
+    return {
+      choices: normalizedChoices,
+      other: [],
+    };
+  }
+
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    const normalizedChoice = normalizeChoiceEntry(field, value);
+    return {
+      choices: normalizedChoice ? [normalizedChoice] : [],
+      other: [],
+    };
+  }
+
+  if (typeof value === 'object') {
+    const choiceSource = Array.isArray(value.choices)
+      ? value.choices
+      : Array.isArray(value.choice)
+      ? value.choice
+      : [];
+    const otherSource = Array.isArray(value.other) ? value.other : [];
+    const normalizedChoices = choiceSource
+      .map((entry) => normalizeChoiceEntry(field, entry))
+      .filter(Boolean);
+    const normalizedOther = otherSource
+      .map((entry) => normalizeOtherEntry(entry))
+      .filter(Boolean);
+    return {
+      choices: normalizedChoices,
+      other: normalizedOther,
+    };
+  }
+
+  return { choices: [], other: [] };
 }

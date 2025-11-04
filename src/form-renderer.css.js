@@ -134,3 +134,76 @@ export const debugPanel = style({
   wordBreak: 'break-all',
   overflowWrap: 'anywhere',
 });
+
+export const alertOverlay = style({
+  position: 'fixed',
+  inset: 0,
+  backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1000,
+  padding: '1.5rem',
+});
+
+export const alertDialog = style({
+  position: 'relative',
+  background: vars.color.background,
+  color: vars.color.foreground,
+  borderRadius: vars.borderRadius,
+  border: `1px solid ${vars.color.border}`,
+  boxShadow: '0 24px 48px rgba(15, 23, 42, 0.28)',
+  maxWidth: '420px',
+  width: '100%',
+  padding: vars.spacing.lg,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+});
+
+export const alertTitle = style({
+  margin: 0,
+  fontSize: '1.1rem',
+  fontWeight: 600,
+});
+
+export const alertMessage = style({
+  fontSize: '0.95rem',
+  lineHeight: 1.5,
+  whiteSpace: 'pre-wrap',
+});
+
+export const alertFooter = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  marginTop: vars.spacing.md,
+});
+
+export const alertOkButton = style([
+  button,
+  {
+    minWidth: '96px',
+  },
+]);
+
+export const alertCloseButton = style({
+  position: 'absolute',
+  top: '12px',
+  right: '12px',
+  background: 'transparent',
+  border: 'none',
+  color: vars.color.foreground,
+  fontSize: '1.25rem',
+  lineHeight: 1,
+  padding: 0,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      color: vars.color.primary,
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});

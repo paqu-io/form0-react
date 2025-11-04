@@ -38,6 +38,11 @@ export function FormRenderer({
   const touchedFieldsRef = useRef(new Set());
   const [, setTouchVersion] = useState(0);
   const [submitCount, setSubmitCount] = useState(0);
+  const [alertQueue, setAlertQueue] = useState([]);
+  const [activeAlert, setActiveAlert] = useState(null);
+  const loadEventTriggeredRef = useRef(false);
+  const alertOkButtonRef = useRef(null);
+  const previousAlertFocusRef = useRef(null);
 
   const markFieldTouched = useCallback(
     (dataName) => {
@@ -55,6 +60,59 @@ export function FormRenderer({
     []
   );
   
+  const handleOperations = useCallback(
+    (operations, meta, fallback) => {
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return;
+      }
+
+      const deferredOperations = [];
+
+      operations.forEach((operation) => {
+        if (!operation || typeof operation !== 'object') {
+          return;
+        }
+
+        if (operation.type === 'UI_OPERATION' && operation.operation === 'ALERT') {
+          const rawTitle = operation.params?.title ?? '';
+          const rawMessage = operation.params?.message ?? '';
+          setAlertQueue((queue) => [
+            ...queue,
+            {
+              title: String(rawTitle || '').trim() || 'Alert',
+              message: String(rawMessage || ''),
+            },
+          ]);
+        } else {
+          deferredOperations.push(operation);
+        }
+      });
+
+      if (deferredOperations.length > 0) {
+        if (typeof fallback === 'function') {
+          fallback(deferredOperations, meta);
+        } else {
+          console.warn(
+            'form0-react: onOperations handler received operations but fallback handler was not provided.',
+            deferredOperations
+          );
+        }
+      }
+    },
+    [setAlertQueue]
+  );
+
+  const engineOptions = useMemo(
+    () => ({
+      onOperations: handleOperations,
+    }),
+    [handleOperations]
+  );
+
+  const closeAlert = useCallback(() => {
+    setActiveAlert(null);
+  }, []);
+
   const {
     values,
     visible,
@@ -63,12 +121,96 @@ export function FormRenderer({
     errors,
     setValue,
     submit,
+    triggerEvent,
     schema: finalSchema,
-  } = useFormEngine(schema, initialValues, overrideValues);
+    engine,
+  } = useFormEngine(schema, initialValues, overrideValues, engineOptions);
 
   useEffect(() => {
     if (onSchemaReady) onSchemaReady(finalSchema);
   }, [finalSchema]);
+
+  useEffect(() => {
+    loadEventTriggeredRef.current = false;
+  }, [engine]);
+
+  useEffect(() => {
+    if (!engine || loadEventTriggeredRef.current) {
+      return;
+    }
+    triggerEvent('load-record');
+    loadEventTriggeredRef.current = true;
+  }, [engine, triggerEvent]);
+
+  useEffect(() => {
+    if (activeAlert || alertQueue.length === 0) {
+      return;
+    }
+    setActiveAlert(alertQueue[0]);
+    setAlertQueue((prev) => prev.slice(1));
+  }, [alertQueue, activeAlert, setAlertQueue, setActiveAlert]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+    if (!activeAlert) {
+      return undefined;
+    }
+
+    previousAlertFocusRef.current = document.activeElement;
+    const focusTimer = setTimeout(() => {
+      alertOkButtonRef.current?.focus?.();
+    }, 0);
+
+    return () => {
+      clearTimeout(focusTimer);
+      previousAlertFocusRef.current?.focus?.();
+      previousAlertFocusRef.current = null;
+    };
+  }, [activeAlert]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+    if (!activeAlert) {
+      return undefined;
+    }
+    const handler = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeAlert();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => {
+      document.removeEventListener('keydown', handler);
+    };
+  }, [activeAlert, closeAlert]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+    if (!activeAlert) {
+      return undefined;
+    }
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [activeAlert]);
+
+  const handleAlertOverlayClick = useCallback(
+    (event) => {
+      if (event.target === event.currentTarget) {
+        closeAlert();
+      }
+    },
+    [closeAlert]
+  );
 
   // Flatten form elements for simplified mode
   const schemaForRender = finalSchema || schema;
@@ -141,14 +283,16 @@ export function FormRenderer({
   const handleFieldValueChange = useCallback(
     (fieldDef, nextValue) => {
       if (!fieldDef?.data_name) return;
-      markFieldTouched(fieldDef.data_name);
+      const dataName = fieldDef.data_name;
+      markFieldTouched(dataName);
       if (fieldDef.type === 'StatusField') {
         setStatusValue(nextValue ?? null);
-        return;
+      } else {
+        setValue(dataName, nextValue);
       }
-      setValue(fieldDef.data_name, nextValue);
+      triggerEvent('change', dataName, { value: nextValue, field: fieldDef });
     },
-    [markFieldTouched, setValue, setStatusValue]
+    [markFieldTouched, setStatusValue, setValue, triggerEvent]
   );
 
   const fieldLookup = useMemo(() => {
@@ -731,6 +875,44 @@ export function FormRenderer({
         </button>
       )}
       {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+
+      {activeAlert && (
+        <div
+          className={styles.alertOverlay}
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="form0-react-alert-title"
+          aria-describedby="form0-react-alert-message"
+          onClick={handleAlertOverlayClick}
+        >
+          <div className={styles.alertDialog}>
+            <button
+              type="button"
+              className={styles.alertCloseButton}
+              aria-label="Close alert"
+              onClick={closeAlert}
+            >
+              ×
+            </button>
+            <h3 id="form0-react-alert-title" className={styles.alertTitle}>
+              {activeAlert.title}
+            </h3>
+            <div id="form0-react-alert-message" className={styles.alertMessage}>
+              {activeAlert.message || ''}
+            </div>
+            <div className={styles.alertFooter}>
+              <button
+                type="button"
+                ref={alertOkButtonRef}
+                className={styles.alertOkButton}
+                onClick={closeAlert}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
