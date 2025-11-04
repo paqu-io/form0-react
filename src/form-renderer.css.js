@@ -3,6 +3,7 @@ import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
 
 export const form = style({
+  position: 'relative',
   boxSizing: 'border-box',
   background: vars.color.background,
   color: vars.color.foreground,
@@ -136,14 +137,15 @@ export const debugPanel = style({
 });
 
 export const alertOverlay = style({
-  position: 'fixed',
+  position: 'absolute',
   inset: 0,
   backgroundColor: 'rgba(15, 23, 42, 0.45)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: 9999,
   padding: '1.5rem',
+  pointerEvents: 'auto',
 });
 
 export const alertDialog = style({

@@ -529,14 +529,15 @@ export const formLinkHiddenInput = style({
 });
 
 export const formLinkModalOverlay = style({
-  position: 'fixed',
+  position: 'absolute',
   inset: 0,
   background: 'rgba(0, 0, 0, 0.35)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1200,
+  zIndex: 8000,
   padding: vars.spacing.md,
+  pointerEvents: 'auto',
 });
 
 export const formLinkModal = style({
