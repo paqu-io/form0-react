@@ -681,11 +681,17 @@ export function FormRenderer({
 
   const effectiveColorMode = colorMode === 'system' ? (systemDark ? 'dark' : 'light') : colorMode;
 
-  // If theme is a string, use the map. If it's a class name, use it directly.
+  // If theme is a string, check if it's a named theme or a custom class name.
   let themeClass;
   if (typeof theme === 'string') {
     const effectiveThemeKey = `${theme}-${effectiveColorMode}`;
-    themeClass = themeMap[effectiveThemeKey] || standardThemeLight;
+    // Check if it's a named theme (exists in themeMap)
+    if (themeMap[effectiveThemeKey]) {
+      themeClass = themeMap[effectiveThemeKey];
+    } else {
+      // Not a named theme, assume it's a custom theme class name
+      themeClass = theme;
+    }
   } else {
     // Assume it's a class name (custom theme)
     themeClass = theme;
