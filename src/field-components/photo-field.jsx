@@ -171,6 +171,17 @@ export function PhotoFieldComponent({
     [emitChange, readOnly]
   );
 
+  const minMaxInfo = useMemo(() => {
+    const parts = [];
+    if (field.min_length != null) {
+      parts.push(`Min: ${field.min_length} photo${field.min_length === 1 ? '' : 's'}`);
+    }
+    if (field.max_length != null) {
+      parts.push(`Max: ${field.max_length} photo${field.max_length === 1 ? '' : 's'}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }, [field.max_length, field.min_length]);
+
   if (readOnly) {
     if (items.length === 0) {
       return <div className={styles.photoFieldReadOnlyEmpty}>No photos uploaded.</div>;
@@ -202,18 +213,8 @@ export function PhotoFieldComponent({
     );
   }
 
-  const minMaxInfo = useMemo(() => {
-    const parts = [];
-    if (field.min_length != null) {
-      parts.push(`Min: ${field.min_length} photo${field.min_length === 1 ? '' : 's'}`);
-    }
-    if (field.max_length != null) {
-      parts.push(`Max: ${field.max_length} photo${field.max_length === 1 ? '' : 's'}`);
-    }
-    return parts.length > 0 ? parts.join(' · ') : null;
-  }, [field.max_length, field.min_length]);
-
-  const { readOnly: _ignoredReadOnly, ...otherInputProps } = inputProps;
+  const { readOnly: _ignoredReadOnly, required: _ignoredRequired, ...otherInputProps } =
+    inputProps;
 
   return (
     <div className={`${styles.photoField} ${className || ''}`}>

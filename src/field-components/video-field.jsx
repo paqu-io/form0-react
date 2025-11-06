@@ -294,7 +294,8 @@ export function VideoFieldComponent({
     return `Total duration: ${formatDuration(total)}`;
   }, [items]);
 
-  const { readOnly: _ignoredReadOnly, ...otherInputProps } = inputProps;
+  const { readOnly: _ignoredReadOnly, required: _ignoredRequired, ...otherInputProps } =
+    inputProps;
 
   if (readOnly) {
     if (items.length === 0) {
