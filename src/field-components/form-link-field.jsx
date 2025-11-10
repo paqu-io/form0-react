@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useThemeClass } from '../theme-context';
 import * as styles from '../field-renderer.css.js';
 
 const PLACEHOLDER_RECORDS_COUNT = 3;
@@ -49,6 +51,7 @@ function mapToValue(items) {
 }
 
 export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}, className }) {
+  const themeClass = useThemeClass();
   const items = useMemo(() => normalizeLinkedRecords(value), [value]);
   const [activeModal, setActiveModal] = useState(null);
   const [placeholderSelection, setPlaceholderSelection] = useState([]);
@@ -95,6 +98,31 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
     if (activeModal !== 'select') {
       setPlaceholderSelection([]);
     }
+  }, [activeModal]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+    if (!activeModal) {
+      return undefined;
+    }
+
+    // Calculate scrollbar width to prevent content shift
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
   }, [activeModal]);
 
   const togglePlaceholderSelection = useCallback(
@@ -228,7 +256,7 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
         .
       </div>
 
-      {activeModal && (
+      {activeModal && typeof document !== 'undefined' && createPortal(
         <div
           className={styles.formLinkModalOverlay}
           role="dialog"
@@ -236,7 +264,7 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
           aria-labelledby={modalTitleId}
           onClick={handleOverlayClick}
         >
-          <div className={styles.formLinkModal}>
+          <div className={`${styles.formLinkModal} ${themeClass}`}>
             <div className={styles.formLinkModalHeader} id={modalTitleId}>
               {modalTitle}
             </div>
@@ -262,7 +290,8 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {inputName && (

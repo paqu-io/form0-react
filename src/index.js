@@ -16,6 +16,11 @@ export {
   FieldRegistryContext,
 } from './field-registry-context.jsx';
 export {
+  ThemeProvider,
+  useThemeClass,
+  ThemeContext,
+} from './theme-context.jsx';
+export {
   cloneDeep,
   cloneSchema,
   prepareSchema,

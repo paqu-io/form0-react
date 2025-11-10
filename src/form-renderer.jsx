@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
+import { NavigationTree } from './navigation-tree';
+import { ThemeProvider } from './theme-context';
 import * as styles from './form-renderer.css.js';
 import {
   standardThemeLight,
@@ -196,10 +199,21 @@ export function FormRenderer({
     if (!activeAlert) {
       return undefined;
     }
+
+    // Calculate scrollbar width to prevent content shift
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
     const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
     document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
     return () => {
       document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
     };
   }, [activeAlert]);
 
@@ -697,6 +711,29 @@ export function FormRenderer({
     themeClass = theme;
   }
 
+  // Build section tree for navigation (must be before any early returns)
+  const sectionTree = useMemo(() => {
+    const buildTree = (elements) => {
+      if (!elements || !Array.isArray(elements)) return [];
+      
+      return elements
+        .filter((el) => el && el.type === 'Section')
+        .map((section) => ({
+          id: section.data_name || section.key,
+          label: section.label || section.data_name || 'Unnamed Section',
+          children: buildTree(section.elements || []),
+        }));
+    };
+
+    return buildTree(baseElements);
+  }, [baseElements]);
+
+  const hasNavigableSections = sectionTree.length > 0;
+
+  const handleNavigate = useCallback((sectionId) => {
+    setActiveSection(sectionId);
+  }, []);
+
   // Simplified mode rendering
   if (simplifiedMode) {
     if (!currentField) {
@@ -720,67 +757,69 @@ export function FormRenderer({
         : (val) => handleFieldValueChange(currentField, val);
 
     return (
-      <form
-        onSubmit={handleSubmit}
-        className={`${styles.form} ${themeClass} ${className}`}
-        onKeyDown={handleKeyDown}
-        {...rest}
-      >
-        {/* Progress indicator */}
-        <div className={styles.simplifiedProgress}>
-          Question {currentFieldIndex + 1} of {flattenedElementsLength}
-        </div>
+      <ThemeProvider themeClass={themeClass}>
+        <form
+          onSubmit={handleSubmit}
+          className={`${styles.form} ${themeClass} ${className}`}
+          onKeyDown={handleKeyDown}
+          {...rest}
+        >
+          {/* Progress indicator */}
+          <div className={styles.simplifiedProgress}>
+            Question {currentFieldIndex + 1} of {flattenedElementsLength}
+          </div>
 
-        {/* Current field */}
-        {isCurrentFieldVisible && (
-          <FieldRenderer
-            key={currentField.key || currentField.data_name}
-            field={currentField}
-            value={currentFieldValue}
-            readOnly={currentFieldReadOnly}
-            required={currentFieldRequired}
-            error={currentFieldError}
-            onChange={currentFieldChangeHandler}
-            onKeyDown={handleKeyDown}
-            labelPosition="top"
-            labelWidthPercent={100}
-          />
-        )}
+          {/* Current field */}
+          {isCurrentFieldVisible && (
+            <FieldRenderer
+              key={currentField.key || currentField.data_name}
+              field={currentField}
+              value={currentFieldValue}
+              readOnly={currentFieldReadOnly}
+              required={currentFieldRequired}
+              error={currentFieldError}
+              onChange={currentFieldChangeHandler}
+              onKeyDown={handleKeyDown}
+              labelPosition="top"
+              labelWidthPercent={100}
+            />
+          )}
 
-        {/* Navigation buttons */}
-        <div className={styles.simplifiedNavigation}>
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={currentFieldIndex === 0}
-            className={`${styles.simplifiedButton} ${currentFieldIndex === 0 ? styles.simplifiedButtonDisabled : ''}`}
-          >
-            ← Back
-          </button>
-          
-          {isLastField ? (
-            <button
-              type="submit"
-              className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
-              disabled={!isCurrentFieldValid || hasCurrentFieldError}
-            >
-              Submit
-            </button>
-          ) : (
+          {/* Navigation buttons */}
+          <div className={styles.simplifiedNavigation}>
             <button
               type="button"
-              onClick={handleNext}
-              disabled={!isCurrentFieldValid || hasCurrentFieldError}
-              className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
+              onClick={handleBack}
+              disabled={currentFieldIndex === 0}
+              className={`${styles.simplifiedButton} ${currentFieldIndex === 0 ? styles.simplifiedButtonDisabled : ''}`}
             >
-              Next →
+              ← Back
             </button>
-          )}
-        </div>
 
-        {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+            {isLastField ? (
+              <button
+                type="submit"
+                className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
+                disabled={!isCurrentFieldValid || hasCurrentFieldError}
+              >
+                Submit
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!isCurrentFieldValid || hasCurrentFieldError}
+                className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
+              >
+                Next →
+              </button>
+            )}
+          </div>
 
-        {activeAlert && (
+          {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+        </form>
+
+        {activeAlert && typeof document !== 'undefined' && createPortal(
           <div
             className={styles.alertOverlay}
             role="alertdialog"
@@ -789,7 +828,7 @@ export function FormRenderer({
             aria-describedby="form0-react-alert-message"
             onClick={handleAlertOverlayClick}
           >
-            <div className={styles.alertDialog}>
+            <div className={`${styles.alertDialog} ${themeClass}`}>
               <button
                 type="button"
                 className={styles.alertCloseButton}
@@ -815,9 +854,10 @@ export function FormRenderer({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
-      </form>
+      </ThemeProvider>
     );
   }
 
@@ -894,33 +934,45 @@ export function FormRenderer({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={`${styles.form} ${themeClass} ${className}`}
-      //style={{ '--label-width': `${labelWidthPercent}%` }}
-      //style={{ width: formWidth }}
-      {...rest}
-    >
-      {renderElements(
-        headerFields.length > 0
-          ? [
-              ...headerFields,
-              ...(activeSection
-                ? baseElements.filter((e) => e.data_name === activeSection)
-                : baseElements),
-            ]
-          : activeSection
-          ? baseElements.filter((e) => e.data_name === activeSection)
-          : baseElements
-      )}
-      {mode !== 'readonly' && (
-        <button type="submit" className={styles.button}>
-          Submit
-        </button>
-      )}
-      {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+    <ThemeProvider themeClass={themeClass}>
+      <div style={{ display: 'flex', gap: '0', width: '100%' }}>
+        {hasNavigableSections && !simplifiedMode && (
+          <NavigationTree
+            sections={sectionTree}
+            activeSection={activeSection}
+            onNavigate={handleNavigate}
+          />
+        )}
+        <form
+          onSubmit={handleSubmit}
+          className={`${styles.form} ${themeClass} ${className}`}
+          style={{ flex: 1 }}
+          //style={{ '--label-width': `${labelWidthPercent}%` }}
+          //style={{ width: formWidth }}
+          {...rest}
+        >
+        {renderElements(
+          headerFields.length > 0
+            ? [
+                ...headerFields,
+                ...(activeSection
+                  ? baseElements.filter((e) => e.data_name === activeSection)
+                  : baseElements),
+              ]
+            : activeSection
+            ? baseElements.filter((e) => e.data_name === activeSection)
+            : baseElements
+        )}
+        {mode !== 'readonly' && (
+          <button type="submit" className={styles.button}>
+            Submit
+          </button>
+        )}
+        {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+        </form>
+      </div>
 
-      {activeAlert && (
+      {activeAlert && typeof document !== 'undefined' && createPortal(
         <div
           className={styles.alertOverlay}
           role="alertdialog"
@@ -929,7 +981,7 @@ export function FormRenderer({
           aria-describedby="form0-react-alert-message"
           onClick={handleAlertOverlayClick}
         >
-          <div className={styles.alertDialog}>
+          <div className={`${styles.alertDialog} ${themeClass}`}>
             <button
               type="button"
               className={styles.alertCloseButton}
@@ -955,8 +1007,9 @@ export function FormRenderer({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </form>
+    </ThemeProvider>
   );
 }

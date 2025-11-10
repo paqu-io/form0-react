@@ -231,11 +231,30 @@ export function FieldRenderer({
     >
       {labelPosition === LABEL_SIDE ? (
         <div className={styles.labelInputRow}>
-          <div className={styles.labelRow}>
-            {labelNode}
-            {renderLabelControls()}
+          <div className={styles.labelColumn}>
+            <div className={styles.labelRow}>
+              {labelNode}
+              {renderLabelControls()}
+            </div>
+            {hasSubtextDescription && (
+              <div className={styles.subtext}>{field.description}</div>
+            )}
           </div>
-          <div className={styles.inputWrapper}>{fieldInput}</div>
+          <div className={styles.inputWrapper}>
+            {showInlineImage && (
+              <img
+                src={
+                  supportingImage.path.startsWith('http')
+                    ? supportingImage.path
+                    : `/supporting-images/${supportingImage.path}`
+                }
+                alt={field.label || field.data_name}
+                className={styles.supportingImage}
+              />
+            )}
+            {fieldInput}
+            <div className={styles.error}>{error || '\u00A0'}</div>
+          </div>
         </div>
       ) : (
         <>
@@ -243,24 +262,23 @@ export function FieldRenderer({
             {labelNode}
             {renderLabelControls()}
           </div>
+          {hasSubtextDescription && (
+            <div className={styles.subtext}>{field.description}</div>
+          )}
+          {showInlineImage && (
+            <img
+              src={
+                supportingImage.path.startsWith('http')
+                  ? supportingImage.path
+                  : `/supporting-images/${supportingImage.path}`
+              }
+              alt={field.label || field.data_name}
+              className={styles.supportingImage}
+            />
+          )}
           {fieldInput}
+          <div className={styles.error}>{error || '\u00A0'}</div>
         </>
-      )}
-
-      {hasSubtextDescription && (
-        <div className={styles.subtext}>{field.description}</div>
-      )}
-
-      {showInlineImage && (
-        <img
-          src={
-            supportingImage.path.startsWith('http')
-              ? supportingImage.path
-              : `/supporting-images/${supportingImage.path}`
-          }
-          alt={field.label || field.data_name}
-          className={styles.supportingImage}
-        />
       )}
 
       {hasDialogDescription && (
@@ -270,17 +288,19 @@ export function FieldRenderer({
           aria-labelledby={`${labelId}-desc-title`}
         >
           <div className={styles.descriptionDialogContent}>
-            <button
-              type="button"
-              className={styles.dialogCloseButton}
-              onClick={() => descriptionDialogRef.current?.close()}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <h3 id={`${labelId}-desc-title`}>
-              {field.label || field.data_name}
-            </h3>
+            <div className={styles.dialogHeader}>
+              <h3 id={`${labelId}-desc-title`} className={styles.dialogTitle}>
+                {field.label || field.data_name}
+              </h3>
+              <button
+                type="button"
+                className={styles.dialogCloseButton}
+                onClick={() => descriptionDialogRef.current?.close()}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
             <p>{field.description}</p>
           </div>
         </dialog>
@@ -293,17 +313,19 @@ export function FieldRenderer({
           aria-labelledby={`${labelId}-img-title`}
         >
           <div className={styles.supportingImageDialogContent}>
-            <button
-              type="button"
-              className={styles.dialogCloseButton}
-              onClick={() => imageDialogRef.current?.close()}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <h3 id={`${labelId}-img-title`}>
-              {field.label || field.data_name}
-            </h3>
+            <div className={styles.dialogHeader}>
+              <h3 id={`${labelId}-img-title`} className={styles.dialogTitle}>
+                {field.label || field.data_name}
+              </h3>
+              <button
+                type="button"
+                className={styles.dialogCloseButton}
+                onClick={() => imageDialogRef.current?.close()}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
             <img
               src={
                 supportingImage.path.startsWith('http')
@@ -317,8 +339,6 @@ export function FieldRenderer({
           </div>
         </dialog>
       )}
-
-      <div className={styles.error}>{error}</div>
     </div>
   );
 }

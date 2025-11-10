@@ -8,10 +8,10 @@ export const form = style({
   background: vars.color.background,
   color: vars.color.foreground,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.lg,
+  padding: vars.spacing.md,
   fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.normal,
   border: `1px solid ${vars.color.border}`,
-  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
   width: '100%',
 });
 
@@ -19,24 +19,31 @@ export const section = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.md,
-  marginBottom: vars.spacing.md,
+  padding: vars.spacing.sm,
+  marginBottom: vars.spacing.sm,
   width: '100%',
 });
 
 export const sectionHeader = style({
   color: vars.color.sectionHeader,
   fontSize: vars.fontSize.section,
-  fontWeight: 600,
+  fontWeight: 700,
+  lineHeight: vars.lineHeight.tight,
   marginBottom: vars.spacing.sm,
+  padding: vars.spacing.sm,
+  background: 'rgba(0, 0, 0, 0.02)',
+  marginLeft: `calc(-1 * ${vars.spacing.sm})`,
+  marginRight: `calc(-1 * ${vars.spacing.sm})`,
+  marginTop: `calc(-1 * ${vars.spacing.sm})`,
 });
 
 export const drilldownInactive = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,
+  borderLeft: `3px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.md,
-  marginBottom: vars.spacing.md,
+  padding: vars.spacing.sm,
+  marginBottom: vars.spacing.sm,
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
@@ -47,9 +54,10 @@ export const drilldownInactive = style({
 export const drilldownActive = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,
+  borderLeft: `3px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.md,
-  marginBottom: vars.spacing.md,
+  padding: vars.spacing.sm,
+  marginBottom: vars.spacing.sm,
   width: '100%',
 });
 
@@ -87,9 +95,10 @@ export const backButton = style([
 
 // Simplified mode styles
 export const simplifiedProgress = style({
-  marginBottom: '2rem',
+  marginBottom: vars.spacing.lg,
   textAlign: 'center',
-  fontSize: '0.875rem',
+  fontSize: '0.75rem',
+  lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   opacity: 0.8,
 });
@@ -97,8 +106,8 @@ export const simplifiedProgress = style({
 export const simplifiedNavigation = style({
   display: 'flex',
   justifyContent: 'space-between',
-  marginTop: '2rem',
-  gap: '1rem',
+  marginTop: vars.spacing.lg,
+  gap: vars.spacing.sm,
 });
 
 export const simplifiedButton = style([
@@ -120,15 +129,15 @@ export const simplifiedButtonDisabled = style({
 });
 
 export const debugPanel = style({
-  marginTop: vars.spacing.lg,
-  padding: vars.spacing.md,
+  marginTop: vars.spacing.md,
+  padding: vars.spacing.sm,
   background: 'rgba(148, 163, 184, 0.1)',
   borderRadius: vars.borderRadius,
-  fontSize: '0.8rem',
-  lineHeight: 1.4,
+  fontSize: '0.75rem',
+  lineHeight: vars.lineHeight.tight,
   maxWidth: '100%',
   width: '100%',
-  maxHeight: '240px',
+  maxHeight: '200px',
   overflowY: 'auto',
   overflowX: 'hidden',
   whiteSpace: 'pre-wrap',
@@ -137,7 +146,7 @@ export const debugPanel = style({
 });
 
 export const alertOverlay = style({
-  position: 'absolute',
+  position: 'fixed',
   inset: 0,
   backgroundColor: 'rgba(15, 23, 42, 0.45)',
   display: 'flex',
@@ -154,13 +163,12 @@ export const alertDialog = style({
   color: vars.color.foreground,
   borderRadius: vars.borderRadius,
   border: `1px solid ${vars.color.border}`,
-  boxShadow: '0 24px 48px rgba(15, 23, 42, 0.28)',
   maxWidth: '420px',
   width: '100%',
-  padding: vars.spacing.lg,
+  padding: vars.spacing.md,
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.md,
+  gap: vars.spacing.sm,
 });
 
 export const alertTitle = style({
@@ -199,7 +207,11 @@ export const alertCloseButton = style({
   lineHeight: 1,
   padding: 0,
   cursor: 'pointer',
+  outline: 'none',
   selectors: {
+    '&:focus': {
+      outline: 'none',
+    },
     '&:hover': {
       color: vars.color.primary,
     },

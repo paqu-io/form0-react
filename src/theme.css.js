@@ -30,7 +30,13 @@ export const vars = createThemeContract({
     label: '',
     section: '',
   },
+  lineHeight: {
+    tight: '',
+    normal: '',
+    relaxed: '',
+  },
   spacing: {
+    xs: '',
     sm: '',
     md: '',
     lg: '',
@@ -59,16 +65,22 @@ export const standardThemeLight = createTheme(vars, {
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
   },
-  borderRadius: '8px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -94,16 +106,22 @@ export const standardThemeDark = createTheme(vars, {
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
   },
-  borderRadius: '8px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -129,16 +147,22 @@ export const modalThemeLight = createTheme(vars, {
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
   },
-  borderRadius: '12px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.75rem',
-    md: '1.25rem',
-    lg: '2.5rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -164,16 +188,22 @@ export const modalThemeDark = createTheme(vars, {
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
   },
-  borderRadius: '12px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.75rem',
-    md: '1.25rem',
-    lg: '2.5rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -199,16 +229,22 @@ export const simplifiedThemeLight = createTheme(vars, {
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
   },
-  borderRadius: '6px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -234,16 +270,22 @@ export const simplifiedThemeDark = createTheme(vars, {
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
   },
-  borderRadius: '6px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -269,16 +311,22 @@ export const spotlightThemeLight = createTheme(vars, {
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
   },
-  borderRadius: '8px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });
 
@@ -304,15 +352,21 @@ export const spotlightThemeDark = createTheme(vars, {
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
   },
-  borderRadius: '8px',
+  borderRadius: '0px',
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
   },
 });

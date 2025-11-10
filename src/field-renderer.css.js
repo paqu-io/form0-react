@@ -3,15 +3,27 @@ import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
 
 export const fieldWrapper = style({
-  marginBottom: vars.spacing.md,
+  marginBottom: vars.spacing.xs,
+  paddingTop: vars.spacing.sm,
+  paddingBottom: vars.spacing.sm,
+  borderBottom: `1px solid ${vars.color.border}`,
   width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  selectors: {
+    '&:last-child': {
+      borderBottom: 'none',
+    },
+  },
 });
 
 export const label = style({
   display: 'block',
   fontWeight: 500,
-  marginBottom: vars.spacing.sm,
+  marginBottom: vars.spacing.xs,
   fontSize: vars.fontSize.label,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const labelSideFixed = style({
@@ -24,9 +36,10 @@ export const labelSideFixed = style({
 export const input = style({
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.sm,
+  padding: '6px 8px',
   width: '100%',
   fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   background: vars.color.background,
   outline: 'none',
@@ -43,8 +56,11 @@ export const input = style({
 
 export const error = style({
   color: vars.color.error,
-  fontSize: '0.875rem',
-  marginTop: '0.25rem',
+  fontSize: '0.75rem',
+  lineHeight: vars.lineHeight.tight,
+  marginTop: vars.spacing.xs,
+  minHeight: '1em',
+  display: 'block',
 });
 
 export const labelTop = style({
@@ -61,7 +77,7 @@ export const labelSide = style({
 export const labelInputRow = style({
   display: 'flex',
   alignItems: 'center',
-  gap: vars.spacing.md,
+  gap: vars.spacing.sm,
   width: '100%',
 });
 
@@ -74,6 +90,16 @@ export const labelRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.spacing.xs,
+});
+
+export const labelColumn = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+  justifyContent: 'center',
+  minHeight: '100%',
+  width: 'var(--label-width, 30%)',
+  flexShrink: 0,
 });
 
 export const labelText = style({
@@ -125,7 +151,7 @@ export const statusText = style({
 export const photoField = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const signatureField = style({
@@ -137,17 +163,16 @@ export const signatureField = style({
 });
 
 export const signatureAgreement = style({
-  fontSize: '0.95rem',
+  fontSize: '0.8rem',
   color: vars.color.foreground,
   opacity: 0.85,
-  lineHeight: 1.4,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const signatureCanvas = style({
   border: `1.5px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
   backgroundColor: '#fff',
-  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
   cursor: 'crosshair',
   display: 'block',
   touchAction: 'none',
@@ -159,7 +184,7 @@ export const signatureCanvas = style({
 export const signatureControls = style({
   display: 'flex',
   alignItems: 'center',
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const signatureClearButton = style({
@@ -232,8 +257,8 @@ export const photoFieldInfo = style({
 
 export const photoPreviewList = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-  gap: vars.spacing.sm,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+  gap: vars.spacing.xs,
 });
 
 export const photoPreview = style({
@@ -330,7 +355,7 @@ export const photoFieldReadOnlyEmpty = style({
 export const videoField = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const videoFieldControls = style({
@@ -348,8 +373,8 @@ export const videoFieldInfo = style({
 
 export const videoPreviewList = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-  gap: vars.spacing.sm,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+  gap: vars.spacing.xs,
 });
 
 export const videoPreview = style({
@@ -431,7 +456,7 @@ export const videoFieldReadOnlyEmpty = style({
 export const formLinkField = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const formLinkActions = style({
@@ -529,7 +554,7 @@ export const formLinkHiddenInput = style({
 });
 
 export const formLinkModalOverlay = style({
-  position: 'absolute',
+  position: 'fixed',
   inset: 0,
   background: 'rgba(0, 0, 0, 0.35)',
   display: 'flex',
@@ -544,11 +569,11 @@ export const formLinkModal = style({
   background: vars.color.background,
   color: vars.color.foreground,
   borderRadius: vars.borderRadius,
-  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.25)',
+  border: `1px solid ${vars.color.border}`,
   width: 'min(460px, 90vw)',
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.md,
+  gap: vars.spacing.sm,
   padding: vars.spacing.md,
 });
 
@@ -605,7 +630,11 @@ export const infoIconButton = style({
   alignItems: 'center',
   justifyContent: 'center',
   padding: 0,
+  outline: 'none',
   selectors: {
+    '&:focus': {
+      outline: 'none',
+    },
     '&:focus-visible': {
       outline: `2px solid ${vars.color.primary}`,
       outlineOffset: '2px',
@@ -614,30 +643,35 @@ export const infoIconButton = style({
 });
 
 export const subtext = style({
-  fontSize: '0.9rem',
+  fontSize: '0.75rem',
   color: vars.color.foreground,
-  opacity: 0.8,
-  marginTop: '0.25rem',
+  opacity: 0.65,
+  marginTop: vars.spacing.xs,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const supportingImage = style({
   display: 'block',
   marginLeft: 'auto',
   marginRight: 'auto',
-  marginTop: '12px',
-  marginBottom: '12px',
+  marginTop: vars.spacing.sm,
+  marginBottom: vars.spacing.sm,
   maxWidth: '100%',
-  height: '400px',
+  height: '250px',
   objectFit: 'contain',
 });
 
 const dialogBase = style({
-  border: 'none',
+  position: 'fixed',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  margin: 0,
+  border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.md,
   background: vars.color.background,
   color: vars.color.foreground,
-  boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
   maxWidth: 'min(480px, 90vw)',
   width: '100%',
   selectors: {
@@ -663,8 +697,14 @@ export const supportingImageDialogContent = style({
   gap: vars.spacing.sm,
 });
 
+export const dialogHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: vars.spacing.md,
+});
+
 export const dialogCloseButton = style({
-  alignSelf: 'flex-end',
   appearance: 'none',
   border: 'none',
   background: 'transparent',
@@ -672,7 +712,12 @@ export const dialogCloseButton = style({
   cursor: 'pointer',
   lineHeight: 1,
   padding: 0,
+  outline: 'none',
+  flexShrink: 0,
   selectors: {
+    '&:focus': {
+      outline: 'none',
+    },
     '&:focus-visible': {
       outline: `2px solid ${vars.color.primary}`,
       outlineOffset: '2px',
@@ -680,16 +725,25 @@ export const dialogCloseButton = style({
   },
 });
 
+export const dialogTitle = style({
+  fontWeight: 700,
+  fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.normal,
+  margin: 0,
+  color: vars.color.foreground,
+});
+
 export const choiceGroup = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: vars.spacing.xs,
 });
 
 export const choiceOption = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.spacing.xs,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const choiceOtherInput = style({
@@ -707,6 +761,7 @@ export const multiChoiceOption = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.spacing.xs,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const multiChoiceOtherInput = style({
@@ -726,9 +781,10 @@ export const booleanOption = style({
   background: vars.color.background,
   border: 'none',
   borderRight: `1px solid ${vars.color.border}`,
-  padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
   cursor: 'pointer',
   fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   selectors: {
     '&:hover': {
