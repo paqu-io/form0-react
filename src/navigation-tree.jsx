@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
 
+const NAVIGATION_INDENT_STEP = 14;
+
 function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
@@ -37,12 +39,13 @@ function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }
     ? `${styles.navigationLink} ${styles.navigationLinkActive}`
     : styles.navigationLink;
 
-  const linkStyle = level > 0 ? { paddingLeft: `${8 + level * 12}px` } : undefined;
+  const indentValue = level > 0 ? level * NAVIGATION_INDENT_STEP : 0;
+  const indentStyle = indentValue > 0 ? { paddingLeft: `${indentValue}px` } : undefined;
   const nestedId = `${node.id}-children`;
 
   return (
     <li className={styles.navigationItem}>
-      <div className={styles.navigationItemWithChildren}>
+      <div className={styles.navigationItemWithChildren} style={indentStyle}>
         {hasChildren && (
           <button
             type="button"
@@ -61,13 +64,15 @@ function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }
             </span>
           </button>
         )}
+        {!hasChildren && (
+          <span className={styles.navigationToggleSpacer} aria-hidden="true" />
+        )}
         <a
           className={linkClassName}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           role="button"
           tabIndex={0}
-          style={linkStyle}
           aria-current={isActive ? 'true' : undefined}
         >
           {node.label}

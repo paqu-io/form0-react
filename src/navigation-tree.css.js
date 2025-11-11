@@ -22,10 +22,10 @@ export const navigationTitle = style({
   fontSize: vars.fontSize.label,
   fontWeight: 700,
   lineHeight: vars.lineHeight.tight,
-  marginBottom: vars.spacing.sm,
+  marginBottom: vars.spacing.md,
   padding: `${vars.spacing.xs} 0`,
   color: vars.color.foreground,
-  borderBottom: `1px solid ${vars.color.border}`,
+  borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
 });
 
 export const navigationTree = style({
@@ -66,7 +66,6 @@ export const navigationLinkActive = style({
 export const navigationNested = style({
   listStyle: 'none',
   padding: 0,
-  paddingLeft: vars.spacing.md,
   margin: 0,
   marginTop: vars.spacing.xs,
 });
@@ -106,6 +105,13 @@ export const navigationToggle = style({
 export const navigationItemWithChildren = style({
   display: 'flex',
   alignItems: 'center',
+});
+
+export const navigationToggleSpacer = style({
+  width: '1.25rem',
+  height: '1.25rem',
+  marginRight: vars.spacing.xs,
+  flexShrink: 0,
 });
 
 export const navigationToggleIcon = style({

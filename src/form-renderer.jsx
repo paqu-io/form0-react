@@ -1021,9 +1021,9 @@ export function FormRenderer({
     return (
       <section
         className={`${styles.section} ${styles.recordMetadata}`}
-        aria-label="Record metadata"
+        aria-label="Record Metadata"
       >
-        <h3 className={styles.sectionHeader}>Record metadata</h3>
+        <h3 className={styles.sectionHeader}>Record Metadata</h3>
         <div className={styles.recordMetadataFields}>{metadataFields}</div>
       </section>
     );
