@@ -235,7 +235,7 @@ export function FormRenderer({
 
   const headerFields = useMemo(() => {
     const fields = [];
-    if (statusField) {
+    if (statusField && statusField.enabled !== false) {
       fields.push(statusField);
     }
     return fields;
@@ -438,9 +438,6 @@ export function FormRenderer({
     if (cleaned.length > 0) {
       return cleaned;
     }
-    if (titleField.label && titleField.label.trim().length > 0) {
-      return titleField.label.trim();
-    }
     return 'Untitled';
   }, [titleField, titleValue]);
 
@@ -466,6 +463,7 @@ export function FormRenderer({
     if (!statusField) {
       return null;
     }
+    const fieldEnabled = statusField.enabled !== false;
     const choices = Array.isArray(statusField.choices) ? statusField.choices : [];
     const getChoice = (val) => choices.find((choice) => choice.value === val) || null;
     const effectiveValue =
@@ -477,7 +475,7 @@ export function FormRenderer({
     const selectedChoice = effectiveValue != null ? getChoice(effectiveValue) : null;
     const color = selectedChoice?.color || '#d4d4d8';
     const label = selectedChoice?.label || selectedChoice?.value || effectiveValue || '';
-    return { color, label };
+    return { color, label, disabled: !fieldEnabled };
   }, [statusField, statusValue]);
 
   const elementsForFlattening = baseElements;
@@ -949,14 +947,21 @@ export function FormRenderer({
     const titleText = recordTitleDisplay || 'Untitled';
     const statusColor = recordStatusInfo?.color || '#d4d4d8';
     const statusLabel = recordStatusInfo?.label
-      ? `Status: ${recordStatusInfo.label}`
+      ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
+      : recordStatusInfo?.disabled
+      ? 'Status disabled'
       : undefined;
+    const statusBadgeClass = recordStatusInfo?.disabled
+      ? styles.recordSummaryStatusDisabled
+      : styles.recordSummaryStatus;
+    const statusBadgeStyle =
+      recordStatusInfo?.disabled || !statusColor ? undefined : { backgroundColor: statusColor };
 
     return (
       <div className={styles.recordSummary} role="group" aria-label="Record summary">
         <span
-          className={styles.recordSummaryStatus}
-          style={{ backgroundColor: statusColor }}
+          className={statusBadgeClass}
+          style={statusBadgeStyle}
           {...(statusLabel ? { role: 'img', 'aria-label': statusLabel } : { 'aria-hidden': 'true' })}
         />
         <div className={styles.recordSummaryContent}>

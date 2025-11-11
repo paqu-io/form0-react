@@ -26,12 +26,23 @@ export const recordSummary = style({
   marginBottom: vars.spacing.md,
 });
 
-export const recordSummaryStatus = style({
+const recordSummaryStatusBase = {
   width: '0.5rem',
   borderRadius: vars.borderRadius,
-  background: '#d4d4d8',
   flexShrink: 0,
   alignSelf: 'stretch',
+};
+
+export const recordSummaryStatus = style({
+  ...recordSummaryStatusBase,
+  background: '#d4d4d8',
+});
+
+export const recordSummaryStatusDisabled = style({
+  ...recordSummaryStatusBase,
+  backgroundColor: 'transparent',
+  backgroundImage: `repeating-linear-gradient(45deg, ${vars.color.border}, ${vars.color.border} 4px, transparent 4px, transparent 8px)`,
+  border: `1px solid ${vars.color.border}`,
 });
 
 export const recordSummaryContent = style({

@@ -34,6 +34,7 @@ export function StatusFieldComponent({
   };
 
   const isDisabled = readOnly || field?.enabled === false;
+  const showPlaceholderOption = value == null && defaultChoice == null;
   const selectClassName = className
     ? `${className} ${styles.statusSelect}`
     : `${styles.input} ${styles.statusSelect}`;
@@ -51,7 +52,11 @@ export function StatusFieldComponent({
       disabled={isDisabled}
       className={selectClassName}
     >
-      <option value="">Select status…</option>
+      {showPlaceholderOption && (
+        <option value="" disabled>
+          Select status…
+        </option>
+      )}
       {choices.map((choice) => (
         <option key={choice.value} value={choice.value}>
           {choice.label || choice.value}
