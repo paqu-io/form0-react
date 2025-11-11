@@ -715,7 +715,7 @@ export function FormRenderer({
   const sectionTree = useMemo(() => {
     const buildTree = (elements) => {
       if (!elements || !Array.isArray(elements)) return [];
-      
+
       return elements
         .filter((el) => el && el.type === 'Section')
         .map((section) => ({
@@ -728,11 +728,76 @@ export function FormRenderer({
     return buildTree(baseElements);
   }, [baseElements]);
 
+  // Build field-to-section-path mapping and section metadata
+  const { fieldToSectionPath, sectionMetadata } = useMemo(() => {
+    const pathMapping = {};
+    const metadata = {};
+
+    const traverse = (elements, sectionPath = []) => {
+      if (!elements || !Array.isArray(elements)) return;
+
+      elements.forEach((el) => {
+        if (!el) return;
+
+        if (el.type === 'Section') {
+          const sectionId = el.data_name || el.key;
+          const newPath = [...sectionPath, sectionId];
+
+          // Store section metadata (display mode)
+          metadata[sectionId] = {
+            display: el.display || 'inline',
+          };
+
+          // Traverse section elements
+          if (el.elements) {
+            traverse(el.elements, newPath);
+          }
+        } else if (el.data_name) {
+          // This is a field, store its section path
+          pathMapping[el.data_name] = sectionPath;
+        }
+      });
+    };
+
+    traverse(baseElements);
+    return { fieldToSectionPath: pathMapping, sectionMetadata: metadata };
+  }, [baseElements]);
+
+  const [highlightedSections, setHighlightedSections] = useState([]);
+  const [navigationClickTimestamp, setNavigationClickTimestamp] = useState(0);
+
   const hasNavigableSections = sectionTree.length > 0;
 
   const handleNavigate = useCallback((sectionId) => {
-    setActiveSection(sectionId);
-  }, []);
+    const section = sectionMetadata[sectionId];
+    // Only set activeSection for drilldown sections
+    if (section && section.display === 'drilldown') {
+      setActiveSection(sectionId);
+      setHighlightedSections([sectionId]);
+    } else {
+      setActiveSection(null);
+      setHighlightedSections([sectionId]);
+    }
+    // Mark that navigation was explicitly clicked
+    setNavigationClickTimestamp(Date.now());
+  }, [sectionMetadata]);
+
+  const handleFieldFocus = useCallback((fieldDataName) => {
+    // Don't update highlighting if navigation was recently clicked (within 500ms)
+    const timeSinceNavClick = Date.now() - navigationClickTimestamp;
+    if (timeSinceNavClick < 500) {
+      return;
+    }
+
+    const sectionPath = fieldToSectionPath[fieldDataName];
+    if (sectionPath && sectionPath.length > 0) {
+      // Highlight the full path of sections for this field
+      setHighlightedSections(sectionPath);
+    } else {
+      // Field is not in any section, clear highlighting
+      setHighlightedSections([]);
+    }
+  }, [fieldToSectionPath, navigationClickTimestamp]);
 
   // Simplified mode rendering
   if (simplifiedMode) {
@@ -926,6 +991,7 @@ export function FormRenderer({
           required={fieldRequired}
           error={fieldError}
           onChange={handleFieldChange}
+          onFocus={() => handleFieldFocus(field.data_name)}
           labelPosition={labelPosition}
           labelWidthPercent={labelWidthPercent}
         />
@@ -940,6 +1006,7 @@ export function FormRenderer({
           <NavigationTree
             sections={sectionTree}
             activeSection={activeSection}
+            highlightedSections={highlightedSections}
             onNavigate={handleNavigate}
           />
         )}

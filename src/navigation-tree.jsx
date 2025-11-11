@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import * as styles from './navigation-tree.css.js';
 
-function NavigationTreeNode({ node, activeSection, onNavigate, level = 0 }) {
+function NavigationTreeNode({ node, activeSection, highlightedSections, onNavigate, level = 0 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
-  const isActive = activeSection === node.id;
+  const isActive = highlightedSections && highlightedSections.includes(node.id);
 
   const handleToggle = useCallback((e) => {
     e.stopPropagation();
@@ -21,6 +21,8 @@ function NavigationTreeNode({ node, activeSection, onNavigate, level = 0 }) {
     ? `${styles.navigationLink} ${styles.navigationLinkActive}`
     : styles.navigationLink;
 
+  const linkStyle = level > 0 ? { paddingLeft: `${8 + level * 12}px` } : undefined;
+
   return (
     <li className={styles.navigationItem}>
       <div className={styles.navigationItemWithChildren}>
@@ -34,7 +36,7 @@ function NavigationTreeNode({ node, activeSection, onNavigate, level = 0 }) {
             {isExpanded ? '▼' : '▶'}
           </button>
         )}
-        <a className={linkClassName} onClick={handleClick} role="button" tabIndex={0}>
+        <a className={linkClassName} onClick={handleClick} role="button" tabIndex={0} style={linkStyle}>
           {node.label}
         </a>
       </div>
@@ -45,6 +47,7 @@ function NavigationTreeNode({ node, activeSection, onNavigate, level = 0 }) {
               key={child.id}
               node={child}
               activeSection={activeSection}
+              highlightedSections={highlightedSections}
               onNavigate={onNavigate}
               level={level + 1}
             />
@@ -55,7 +58,7 @@ function NavigationTreeNode({ node, activeSection, onNavigate, level = 0 }) {
   );
 }
 
-export function NavigationTree({ sections, activeSection, onNavigate }) {
+export function NavigationTree({ sections, activeSection, highlightedSections, onNavigate }) {
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -74,6 +77,7 @@ export function NavigationTree({ sections, activeSection, onNavigate }) {
             key={section.id}
             node={section}
             activeSection={activeSection}
+            highlightedSections={highlightedSections}
             onNavigate={onNavigate}
           />
         ))}

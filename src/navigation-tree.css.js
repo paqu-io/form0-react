@@ -40,8 +40,9 @@ export const navigationItem = style({
 export const navigationLink = style({
   display: 'block',
   padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
-  fontSize: vars.fontSize.base,
-  lineHeight: vars.lineHeight.normal,
+  fontSize: vars.fontSize.label,
+  fontWeight: 500,
+  lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   textDecoration: 'none',
   cursor: 'pointer',

@@ -16,6 +16,7 @@ export function FieldRenderer({
   labelPosition = 'top',
   labelWidthPercent = 30,
   onKeyDown,
+  onFocus,
 }) {
   const registry = useFieldRegistry();
   const FieldComponent = registry.getFieldComponent(field.type);
@@ -66,6 +67,7 @@ export function FieldRenderer({
         disabled: readOnly,
         id: baseId,
         ...(isGroupedControl ? { 'aria-labelledby': labelId } : {}),
+        ...(onFocus ? { onFocus } : {}),
       }
     : {};
 
