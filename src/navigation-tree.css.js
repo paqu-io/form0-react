@@ -77,9 +77,7 @@ export const navigationToggle = style({
   padding: `${vars.spacing.xs}`,
   marginRight: vars.spacing.xs,
   cursor: 'pointer',
-  fontSize: '0.625rem',
   color: vars.color.foreground,
-  lineHeight: 1,
   width: '1.25rem',
   height: '1.25rem',
   display: 'flex',
@@ -108,3 +106,28 @@ export const navigationItemWithChildren = style({
   alignItems: 'center',
 });
 
+export const navigationToggleIcon = style({
+  width: '0.45rem',
+  height: '0.45rem',
+  borderRight: `2px solid currentColor`,
+  borderBottom: `2px solid currentColor`,
+  transform: 'rotate(-45deg)',
+  transition: 'transform 0.2s ease, border-color 0.2s ease',
+  selectors: {
+    '&[data-expanded="true"]': {
+      transform: 'rotate(45deg)',
+    },
+  },
+});
+
+export const visuallyHidden = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+});

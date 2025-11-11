@@ -20,6 +20,7 @@ export function BooleanFieldComponent({
   readOnly,
   inputProps = {},
 }) {
+  const inputOnFocus = inputProps.onFocus;
   const choices = Array.isArray(field.choices) ? field.choices : [];
   const selectedChoice = value?.choice?.[0]?.value ?? '';
   const required = inputProps.required && !readOnly;
@@ -62,6 +63,7 @@ export function BooleanFieldComponent({
               isSelected ? styles.booleanOptionSelected : ''
             }`}
             {...(required && index === 0 ? { 'aria-required': true } : {})}
+            onFocus={inputOnFocus}
           >
             {choice.label || choice.value}
           </button>

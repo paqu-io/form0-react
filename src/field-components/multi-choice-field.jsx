@@ -28,6 +28,7 @@ export function MultiChoiceFieldComponent({
   readOnly,
   inputProps = {},
 }) {
+  const inputOnFocus = inputProps.onFocus;
   const choices = Array.isArray(field.choices) ? field.choices : [];
   const selectedValues = new Set(
     Array.isArray(value?.choices) ? value.choices.map((c) => c.value).filter(Boolean) : []
@@ -102,6 +103,7 @@ export function MultiChoiceFieldComponent({
                 onChange={(event) => handleCheckboxChange(event, choice.value)}
                 onKeyDown={onKeyDown}
                 disabled={readOnly}
+                onFocus={inputOnFocus}
               />
               <span>{choice.label || choice.value}</span>
             </label>
@@ -119,6 +121,7 @@ export function MultiChoiceFieldComponent({
               onChange={handleOtherCheckboxChange}
               onKeyDown={onKeyDown}
               disabled={readOnly}
+              onFocus={inputOnFocus}
             />
             <label htmlFor={`${inputProps.id || field.data_name}_other`}>Other</label>
           </div>
@@ -136,6 +139,7 @@ export function MultiChoiceFieldComponent({
             placeholder="Please specify..."
             aria-hidden={!otherChecked}
             style={{ display: otherChecked ? 'block' : 'none' }}
+            onFocus={inputOnFocus}
           />
         )}
       </div>
@@ -163,6 +167,7 @@ export function MultiChoiceFieldComponent({
         disabled={readOnly}
         required={required && selectValues.length === 0}
         className={styles.input}
+        onFocus={inputOnFocus}
       >
         {choices.map((choice) => (
           <option key={choice.value} value={choice.value}>
@@ -181,6 +186,7 @@ export function MultiChoiceFieldComponent({
           disabled={readOnly}
           className={`${styles.input} ${styles.multiChoiceOtherInput}`}
           placeholder="Please specify..."
+          onFocus={inputOnFocus}
         />
       )}
     </div>

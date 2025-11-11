@@ -22,6 +22,7 @@ export function SingleChoiceFieldComponent({
   readOnly,
   inputProps = {},
 }) {
+  const inputOnFocus = inputProps.onFocus;
   const choices = Array.isArray(field.choices) ? field.choices : [];
   const selectedChoice = value?.choice?.[0]?.value ?? '';
   const otherEntries = Array.isArray(value?.other) ? value.other : [];
@@ -102,6 +103,7 @@ export function SingleChoiceFieldComponent({
                 onKeyDown={onKeyDown}
                 disabled={readOnly}
                 required={required}
+                onFocus={inputOnFocus}
               />
               <span>{choice.label || choice.value}</span>
             </label>
@@ -120,6 +122,7 @@ export function SingleChoiceFieldComponent({
               onKeyDown={onKeyDown}
               disabled={readOnly}
               required={required && !selectedChoice}
+              onFocus={inputOnFocus}
             />
             <label htmlFor={`${inputProps.id || field.data_name}_other`}>Other</label>
             <input
@@ -131,6 +134,7 @@ export function SingleChoiceFieldComponent({
               className={`${styles.input} ${styles.choiceOtherInput}`}
               placeholder="Please specify..."
               disabled={readOnly}
+              onFocus={inputOnFocus}
             />
           </div>
         )}
@@ -152,6 +156,7 @@ export function SingleChoiceFieldComponent({
         disabled={readOnly}
         required={required}
         className={styles.input}
+        onFocus={inputOnFocus}
       >
         <option value="">Select an option...</option>
         {choices.map((choice) => (
@@ -171,6 +176,7 @@ export function SingleChoiceFieldComponent({
           className={`${styles.input} ${styles.choiceOtherInput}`}
           placeholder="Please specify..."
           disabled={readOnly}
+          onFocus={inputOnFocus}
         />
       )}
     </div>

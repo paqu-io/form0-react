@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
 
-function NavigationTreeNode({ node, activeSection, highlightedSections, onNavigate, level = 0 }) {
+function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
   const isActive = highlightedSections && highlightedSections.includes(node.id);
@@ -17,11 +17,28 @@ function NavigationTreeNode({ node, activeSection, highlightedSections, onNaviga
     }
   }, [node.id, onNavigate]);
 
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleClick();
+      }
+    },
+    [handleClick]
+  );
+
+  useEffect(() => {
+    if (isActive) {
+      setIsExpanded(true);
+    }
+  }, [isActive]);
+
   const linkClassName = isActive
     ? `${styles.navigationLink} ${styles.navigationLinkActive}`
     : styles.navigationLink;
 
   const linkStyle = level > 0 ? { paddingLeft: `${8 + level * 12}px` } : undefined;
+  const nestedId = `${node.id}-children`;
 
   return (
     <li className={styles.navigationItem}>
@@ -31,22 +48,37 @@ function NavigationTreeNode({ node, activeSection, highlightedSections, onNaviga
             type="button"
             className={styles.navigationToggle}
             onClick={handleToggle}
-            aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            aria-expanded={isExpanded}
+            aria-controls={nestedId}
           >
-            {isExpanded ? '▼' : '▶'}
+            <span
+              className={styles.navigationToggleIcon}
+              data-expanded={isExpanded ? 'true' : 'false'}
+              aria-hidden="true"
+            />
+            <span className={styles.visuallyHidden}>
+              {isExpanded ? 'Collapse' : 'Expand'} {node.label}
+            </span>
           </button>
         )}
-        <a className={linkClassName} onClick={handleClick} role="button" tabIndex={0} style={linkStyle}>
+        <a
+          className={linkClassName}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          role="button"
+          tabIndex={0}
+          style={linkStyle}
+          aria-current={isActive ? 'true' : undefined}
+        >
           {node.label}
         </a>
       </div>
       {hasChildren && isExpanded && (
-        <ul className={styles.navigationNested}>
+        <ul className={styles.navigationNested} id={nestedId}>
           {node.children.map((child) => (
             <NavigationTreeNode
               key={child.id}
               node={child}
-              activeSection={activeSection}
               highlightedSections={highlightedSections}
               onNavigate={onNavigate}
               level={level + 1}
@@ -58,7 +90,7 @@ function NavigationTreeNode({ node, activeSection, highlightedSections, onNaviga
   );
 }
 
-export function NavigationTree({ sections, activeSection, highlightedSections, onNavigate }) {
+export function NavigationTree({ sections, highlightedSections, onNavigate }) {
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -70,13 +102,12 @@ export function NavigationTree({ sections, activeSection, highlightedSections, o
 
   return (
     <nav className={styles.navigationContainer} aria-label="Form sections navigation">
-      <div className={styles.navigationTitle}>Sections</div>
+      <div className={styles.navigationTitle}>Navigation Tree</div>
       <ul className={styles.navigationTree}>
         {sectionTree.map((section) => (
           <NavigationTreeNode
             key={section.id}
             node={section}
-            activeSection={activeSection}
             highlightedSections={highlightedSections}
             onNavigate={onNavigate}
           />
@@ -85,4 +116,3 @@ export function NavigationTree({ sections, activeSection, highlightedSections, o
     </nav>
   );
 }
-

@@ -124,7 +124,7 @@ export const statusField = style({
 });
 
 export const statusSelect = style({
-  flex: '1 1 auto',
+  width: '100%',
 });
 
 export const statusPill = style({

@@ -15,6 +15,53 @@ export const form = style({
   width: '100%',
 });
 
+export const recordSummary = style({
+  display: 'flex',
+  alignItems: 'stretch',
+  gap: vars.spacing.sm,
+  padding: vars.spacing.sm,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.section,
+  marginBottom: vars.spacing.md,
+});
+
+export const recordSummaryStatus = style({
+  width: '0.5rem',
+  borderRadius: vars.borderRadius,
+  background: '#d4d4d8',
+  flexShrink: 0,
+  alignSelf: 'stretch',
+});
+
+export const recordSummaryContent = style({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+});
+
+export const recordSummaryTitle = style({
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  lineHeight: vars.lineHeight.tight,
+  color: vars.color.foreground,
+  wordWrap: 'break-word',
+});
+
+export const recordMetadata = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+  marginBottom: vars.spacing.md,
+});
+
+export const recordMetadataFields = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
 export const section = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,

@@ -36,7 +36,8 @@ export function FormRenderer({
   onSimplifiedNavigation,
   ...rest
 }) {
-  const [activeSection, setActiveSection] = useState(null);
+  const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
+  const sectionRefs = useRef(new Map());
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const touchedFieldsRef = useRef(new Set());
   const [, setTouchVersion] = useState(0);
@@ -237,11 +238,8 @@ export function FormRenderer({
     if (statusField) {
       fields.push(statusField);
     }
-    if (titleField) {
-      fields.push(titleField);
-    }
     return fields;
-  }, [statusField, titleField]);
+  }, [statusField]);
 
   const statusFieldName = statusField?.data_name || null;
 
@@ -432,6 +430,20 @@ export function FormRenderer({
     return parts.join(', ');
   }, [fieldLookup, titleField, values]);
 
+  const recordTitleDisplay = useMemo(() => {
+    if (!titleField) {
+      return null;
+    }
+    const cleaned = typeof titleValue === 'string' ? titleValue.trim() : '';
+    if (cleaned.length > 0) {
+      return cleaned;
+    }
+    if (titleField.label && titleField.label.trim().length > 0) {
+      return titleField.label.trim();
+    }
+    return 'Untitled';
+  }, [titleField, titleValue]);
+
   const displayValues = useMemo(() => {
     let next = values;
     if (statusFieldName) {
@@ -441,15 +453,34 @@ export function FormRenderer({
       };
     }
     if (titleField) {
+      const titleValueForDisplay = recordTitleDisplay ?? 'Untitled';
       next = {
         ...next,
-        [titleField.data_name]: titleValue,
+        [titleField.data_name]: titleValueForDisplay,
       };
     }
     return next;
-  }, [statusFieldName, statusValue, titleField, titleValue, values]);
+  }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values]);
 
-  const elementsForFlattening = headerFields.length > 0 ? [...headerFields, ...baseElements] : baseElements;
+  const recordStatusInfo = useMemo(() => {
+    if (!statusField) {
+      return null;
+    }
+    const choices = Array.isArray(statusField.choices) ? statusField.choices : [];
+    const getChoice = (val) => choices.find((choice) => choice.value === val) || null;
+    const effectiveValue =
+      statusValue != null
+        ? statusValue
+        : statusField.default_value != null
+        ? statusField.default_value
+        : null;
+    const selectedChoice = effectiveValue != null ? getChoice(effectiveValue) : null;
+    const color = selectedChoice?.color || '#d4d4d8';
+    const label = selectedChoice?.label || selectedChoice?.value || effectiveValue || '';
+    return { color, label };
+  }, [statusField, statusValue]);
+
+  const elementsForFlattening = baseElements;
 
   const flattenedElements = simplifiedMode
     ? flattenFormElements(elementsForFlattening)
@@ -711,93 +742,300 @@ export function FormRenderer({
     themeClass = theme;
   }
 
-  // Build section tree for navigation (must be before any early returns)
-  const sectionTree = useMemo(() => {
-    const buildTree = (elements) => {
-      if (!elements || !Array.isArray(elements)) return [];
-
-      return elements
-        .filter((el) => el && el.type === 'Section')
-        .map((section) => ({
-          id: section.data_name || section.key,
-          label: section.label || section.data_name || 'Unnamed Section',
-          children: buildTree(section.elements || []),
-        }));
-    };
-
-    return buildTree(baseElements);
-  }, [baseElements]);
-
-  // Build field-to-section-path mapping and section metadata
-  const { fieldToSectionPath, sectionMetadata } = useMemo(() => {
-    const pathMapping = {};
+  const { sectionTree, sectionMetadata, fieldToSectionPath } = useMemo(() => {
     const metadata = {};
+    const fieldPathMap = {};
 
-    const traverse = (elements, sectionPath = []) => {
-      if (!elements || !Array.isArray(elements)) return;
+    const traverse = (elements, sectionPath = [], drilldownPath = []) => {
+      if (!Array.isArray(elements)) return [];
+
+      const nodes = [];
 
       elements.forEach((el) => {
-        if (!el) return;
+        if (!el) {
+          return;
+        }
 
         if (el.type === 'Section') {
           const sectionId = el.data_name || el.key;
-          const newPath = [...sectionPath, sectionId];
+          const hasSectionId = typeof sectionId === 'string' && sectionId.length > 0;
+          const display = el.display || 'inline';
+          const nextSectionPath = hasSectionId ? [...sectionPath, sectionId] : sectionPath;
+          const nextDrilldownPath =
+            display === 'drilldown' && hasSectionId
+              ? [...drilldownPath, sectionId]
+              : drilldownPath;
 
-          // Store section metadata (display mode)
-          metadata[sectionId] = {
-            display: el.display || 'inline',
-          };
+          if (hasSectionId) {
+            metadata[sectionId] = {
+              id: sectionId,
+              display,
+              path: nextSectionPath,
+              drilldownPath: nextDrilldownPath,
+            };
+          }
 
-          // Traverse section elements
-          if (el.elements) {
-            traverse(el.elements, newPath);
+          const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
+
+          if (hasSectionId) {
+            nodes.push({
+              id: sectionId,
+              label: el.label || el.data_name || 'Unnamed Section',
+              display,
+              children: childNodes,
+            });
+          } else {
+            nodes.push(...childNodes);
           }
         } else if (el.data_name) {
-          // This is a field, store its section path
-          pathMapping[el.data_name] = sectionPath;
+          fieldPathMap[el.data_name] = sectionPath;
         }
       });
+
+      return nodes;
     };
 
-    traverse(baseElements);
-    return { fieldToSectionPath: pathMapping, sectionMetadata: metadata };
+    const treeNodes = traverse(baseElements);
+    return { sectionTree: treeNodes, sectionMetadata: metadata, fieldToSectionPath: fieldPathMap };
   }, [baseElements]);
 
   const [highlightedSections, setHighlightedSections] = useState([]);
   const [navigationClickTimestamp, setNavigationClickTimestamp] = useState(0);
 
   const hasNavigableSections = sectionTree.length > 0;
+  const activeDrilldownSectionId =
+    activeDrilldownPath.length > 0 ? activeDrilldownPath[activeDrilldownPath.length - 1] : null;
+  const activeDrilldownFullPath =
+    activeDrilldownSectionId && sectionMetadata[activeDrilldownSectionId]
+      ? sectionMetadata[activeDrilldownSectionId].path || []
+      : [];
 
-  const handleNavigate = useCallback((sectionId) => {
-    const section = sectionMetadata[sectionId];
-    // Only set activeSection for drilldown sections
-    if (section && section.display === 'drilldown') {
-      setActiveSection(sectionId);
-      setHighlightedSections([sectionId]);
-    } else {
-      setActiveSection(null);
-      setHighlightedSections([sectionId]);
-    }
-    // Mark that navigation was explicitly clicked
-    setNavigationClickTimestamp(Date.now());
-  }, [sectionMetadata]);
-
-  const handleFieldFocus = useCallback((fieldDataName) => {
-    // Don't update highlighting if navigation was recently clicked (within 500ms)
-    const timeSinceNavClick = Date.now() - navigationClickTimestamp;
-    if (timeSinceNavClick < 500) {
+  const registerSectionNode = useCallback((sectionId, node) => {
+    if (!sectionId) {
       return;
     }
-
-    const sectionPath = fieldToSectionPath[fieldDataName];
-    if (sectionPath && sectionPath.length > 0) {
-      // Highlight the full path of sections for this field
-      setHighlightedSections(sectionPath);
+    if (node) {
+      sectionRefs.current.set(sectionId, node);
     } else {
-      // Field is not in any section, clear highlighting
-      setHighlightedSections([]);
+      sectionRefs.current.delete(sectionId);
     }
-  }, [fieldToSectionPath, navigationClickTimestamp]);
+  }, []);
+
+  const scrollSectionIntoView = useCallback((sectionId) => {
+    const node = sectionRefs.current.get(sectionId);
+    if (!node || typeof node.scrollIntoView !== 'function') {
+      return false;
+    }
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (typeof node.focus === 'function') {
+      try {
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+    }
+    return true;
+  }, []);
+
+  const focusSectionAfterNavigation = useCallback((sectionId) => {
+    if (!sectionId) return;
+
+    const attemptFocus = () => scrollSectionIntoView(sectionId);
+
+    const schedule =
+      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame
+        : (cb) => setTimeout(cb, 16);
+
+    schedule(() => {
+      if (attemptFocus()) return;
+      setTimeout(attemptFocus, 80);
+    });
+  }, [scrollSectionIntoView]);
+
+  const setHighlightedPath = useCallback((path = []) => {
+    setHighlightedSections(path);
+  }, []);
+
+  const markNavigationInteraction = useCallback(() => {
+    setNavigationClickTimestamp(Date.now());
+  }, []);
+
+  const setActiveDrilldownForSection = useCallback(
+    (sectionId) => {
+      const section = sectionMetadata[sectionId];
+      if (!section) return;
+      setActiveDrilldownPath(section.drilldownPath);
+      setHighlightedPath(section.path);
+    },
+    [sectionMetadata, setHighlightedPath]
+  );
+
+  const handleNavigate = useCallback(
+    (sectionId) => {
+      const section = sectionMetadata[sectionId];
+      if (!section) {
+        return;
+      }
+      if (section.display === 'drilldown') {
+        setActiveDrilldownForSection(sectionId);
+      } else {
+        setActiveDrilldownPath(section.drilldownPath);
+        setHighlightedPath(section.path);
+      }
+      markNavigationInteraction();
+      focusSectionAfterNavigation(sectionId);
+    },
+    [
+      focusSectionAfterNavigation,
+      sectionMetadata,
+      setActiveDrilldownForSection,
+      setHighlightedPath,
+      markNavigationInteraction,
+    ]
+  );
+
+  const handleFieldFocus = useCallback(
+    (fieldDataName) => {
+      const timeSinceNavClick = Date.now() - navigationClickTimestamp;
+      if (timeSinceNavClick < 500) {
+        return;
+      }
+
+      const sectionPath = fieldToSectionPath[fieldDataName];
+      if (sectionPath && sectionPath.length > 0) {
+        setHighlightedPath(sectionPath);
+      } else {
+        setHighlightedPath([]);
+      }
+    },
+    [fieldToSectionPath, navigationClickTimestamp, setHighlightedPath]
+  );
+
+  const isPathPrefix = (candidate = [], target = []) => {
+    if (candidate.length === 0 || candidate.length > target.length) {
+      return false;
+    }
+    return candidate.every((id, idx) => target[idx] === id);
+  };
+
+  const handleDrilldownBack = useCallback(
+    (sectionId) => {
+      const info = sectionMetadata[sectionId];
+      if (!info) {
+        setActiveDrilldownPath([]);
+        setHighlightedPath([]);
+        return;
+      }
+      const nextDrilldownPath = info.drilldownPath.slice(0, -1);
+      setActiveDrilldownPath(nextDrilldownPath);
+      const nextHighlightPath =
+        info.path && info.path.length > 1 ? info.path.slice(0, -1) : [];
+      setHighlightedPath(nextHighlightPath);
+      markNavigationInteraction();
+      const parentSectionId =
+        info.path && info.path.length > 1 ? info.path[info.path.length - 2] : null;
+      if (parentSectionId) {
+        focusSectionAfterNavigation(parentSectionId);
+      }
+    },
+    [focusSectionAfterNavigation, sectionMetadata, setHighlightedPath, markNavigationInteraction]
+  );
+
+  const renderRecordSummary = useCallback(() => {
+    if (!recordTitleDisplay && !recordStatusInfo) {
+      return null;
+    }
+    const titleText = recordTitleDisplay || 'Untitled';
+    const statusColor = recordStatusInfo?.color || '#d4d4d8';
+    const statusLabel = recordStatusInfo?.label
+      ? `Status: ${recordStatusInfo.label}`
+      : undefined;
+
+    return (
+      <div className={styles.recordSummary} role="group" aria-label="Record summary">
+        <span
+          className={styles.recordSummaryStatus}
+          style={{ backgroundColor: statusColor }}
+          {...(statusLabel ? { role: 'img', 'aria-label': statusLabel } : { 'aria-hidden': 'true' })}
+        />
+        <div className={styles.recordSummaryContent}>
+          <div className={styles.recordSummaryTitle}>{titleText}</div>
+        </div>
+      </div>
+    );
+  }, [recordStatusInfo, recordTitleDisplay]);
+
+  const renderRecordMetadata = useCallback(() => {
+    if (!headerFields || headerFields.length === 0) {
+      return null;
+    }
+    if (activeDrilldownPath.length > 0) {
+      return null;
+    }
+
+    const metadataFields = headerFields
+      .map((field) => {
+        if (!field || !field.data_name) {
+          return null;
+        }
+        if (!resolveFieldVisibility(field)) {
+          return null;
+        }
+        const fieldRequired = resolveFieldRequired(field);
+        const fieldValue = displayValues[field.data_name];
+        const fieldReadOnly =
+          mode === 'readonly' ||
+          resolveFieldReadOnly(field) ||
+          field.type === 'TitleField';
+        const fieldError = computeFieldError(field, fieldValue, fieldRequired);
+        const handleFieldChange =
+          field.type === 'TitleField' ? undefined : (val) => handleFieldValueChange(field, val);
+
+        return (
+          <FieldRenderer
+            key={field.key || field.data_name}
+            field={field}
+            value={fieldValue}
+            readOnly={fieldReadOnly}
+            required={fieldRequired}
+            error={fieldError}
+            onChange={handleFieldChange}
+            onFocus={() => handleFieldFocus(field.data_name)}
+            labelPosition={labelPosition}
+            labelWidthPercent={labelWidthPercent}
+          />
+        );
+      })
+      .filter(Boolean);
+
+    if (metadataFields.length === 0) {
+      return null;
+    }
+
+    return (
+      <section
+        className={`${styles.section} ${styles.recordMetadata}`}
+        aria-label="Record metadata"
+      >
+        <h3 className={styles.sectionHeader}>Record metadata</h3>
+        <div className={styles.recordMetadataFields}>{metadataFields}</div>
+      </section>
+    );
+  }, [
+    headerFields,
+    resolveFieldVisibility,
+    resolveFieldRequired,
+    displayValues,
+    mode,
+    resolveFieldReadOnly,
+    computeFieldError,
+    handleFieldValueChange,
+    handleFieldFocus,
+    labelWidthPercent,
+    labelPosition,
+    activeDrilldownPath.length,
+  ]);
 
   // Simplified mode rendering
   if (simplifiedMode) {
@@ -829,6 +1067,8 @@ export function FormRenderer({
           onKeyDown={handleKeyDown}
           {...rest}
         >
+          {renderRecordSummary()}
+          {renderRecordMetadata()}
           {/* Progress indicator */}
           <div className={styles.simplifiedProgress}>
             Question {currentFieldIndex + 1} of {flattenedElementsLength}
@@ -926,22 +1166,78 @@ export function FormRenderer({
     );
   }
 
-  // Regular mode rendering (existing logic)
-  const renderElements = (elements = []) => {
+  const renderElements = (elements = [], parentSectionPath = []) => {
     return elements.map((field) => {
       if (!field) return null;
 
+      if (activeDrilldownSectionId) {
+        if (field.type === 'Section') {
+          const sectionId = field.data_name || field.key;
+          if (!sectionId) {
+            return null;
+          }
+          const sectionPath = [...parentSectionPath, sectionId];
+          const isAncestorOfActive =
+            sectionId !== activeDrilldownSectionId && activeDrilldownFullPath.includes(sectionId);
+          const isWithinActiveBranch = sectionPath.includes(activeDrilldownSectionId);
+
+          if (!isAncestorOfActive && !isWithinActiveBranch) {
+            return null;
+          }
+
+          if (isAncestorOfActive) {
+            return (
+              <React.Fragment key={sectionId}>
+                {renderElements(field.elements || [], sectionPath)}
+              </React.Fragment>
+            );
+          }
+
+          // fall through to normal section rendering when within active branch
+        } else if (!parentSectionPath.includes(activeDrilldownSectionId)) {
+          return null;
+        }
+      }
+
       if (field.type === 'Section') {
+        const sectionId = field.data_name || field.key;
         const display = field.display || 'inline';
 
-        // 🔎 DRILLDOWN
+        if (!sectionId) {
+          return (
+            <React.Fragment key={field.key || Math.random()}>
+              {renderElements(field.elements || [], parentSectionPath)}
+            </React.Fragment>
+          );
+        }
+
+        const sectionPath = [...parentSectionPath, sectionId];
+        const sectionInfo = sectionMetadata[sectionId];
+        const drilldownPath = sectionInfo?.drilldownPath ?? [];
+
         if (display === 'drilldown') {
-          if (activeSection !== field.data_name) {
+          const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
+          const isCurrentLevelActive =
+            isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
+
+          if (activeDrilldownPath.length > 0 && !isOnActivePath) {
+            return null;
+          }
+
+          if (!isOnActivePath) {
             return (
-              <div key={field.key || field.data_name} className={styles.drilldownInactive}>
+              <div key={sectionId} className={styles.drilldownInactive}>
                 <div>
                   <span className={styles.sectionHeader}>📛 {field.label}</span>
-                  <button type="button" className={styles.drilldownButton} onClick={() => setActiveSection(field.data_name)}>
+                  <button
+                    type="button"
+                    className={styles.drilldownButton}
+                    onClick={() => {
+                      setActiveDrilldownForSection(sectionId);
+                      markNavigationInteraction();
+                      focusSectionAfterNavigation(sectionId);
+                    }}
+                  >
                     View &gt;
                   </button>
                 </div>
@@ -949,21 +1245,42 @@ export function FormRenderer({
             );
           }
 
-          // Section is active
+          if (!isCurrentLevelActive) {
+            return (
+              <React.Fragment key={sectionId}>
+                {renderElements(field.elements || [], sectionPath)}
+              </React.Fragment>
+            );
+          }
+
           return (
-            <div key={field.key || field.data_name} className={styles.drilldownActive}>
-              <button className={styles.backButton} onClick={() => setActiveSection(null)}>&lt; Back</button>
+            <div
+              key={sectionId}
+              className={styles.drilldownActive}
+              ref={(node) => registerSectionNode(sectionId, node)}
+              tabIndex={-1}
+            >
+              <button
+                className={styles.backButton}
+                onClick={() => handleDrilldownBack(sectionId)}
+              >
+                &lt; Back
+              </button>
               <h3 className={styles.sectionHeader}>{field.label}</h3>
-              {renderElements(field.elements || [])}
+              {renderElements(field.elements || [], sectionPath)}
             </div>
           );
         }
 
-        // 🧱 INLINE
         return (
-          <div key={field.key || field.data_name} className={styles.section}>
+          <div
+            key={sectionId}
+            className={styles.section}
+            ref={(node) => registerSectionNode(sectionId, node)}
+            tabIndex={-1}
+          >
             <h3 className={styles.sectionHeader}>{field.label}</h3>
-            {renderElements(field.elements || [])}
+            {renderElements(field.elements || [], sectionPath)}
           </div>
         );
       }
@@ -1005,7 +1322,6 @@ export function FormRenderer({
         {hasNavigableSections && !simplifiedMode && (
           <NavigationTree
             sections={sectionTree}
-            activeSection={activeSection}
             highlightedSections={highlightedSections}
             onNavigate={handleNavigate}
           />
@@ -1018,24 +1334,15 @@ export function FormRenderer({
           //style={{ width: formWidth }}
           {...rest}
         >
-        {renderElements(
-          headerFields.length > 0
-            ? [
-                ...headerFields,
-                ...(activeSection
-                  ? baseElements.filter((e) => e.data_name === activeSection)
-                  : baseElements),
-              ]
-            : activeSection
-            ? baseElements.filter((e) => e.data_name === activeSection)
-            : baseElements
-        )}
-        {mode !== 'readonly' && (
-          <button type="submit" className={styles.button}>
-            Submit
-          </button>
-        )}
-        {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+          {renderRecordSummary()}
+          {renderRecordMetadata()}
+          {renderElements(baseElements)}
+          {mode !== 'readonly' && (
+            <button type="submit" className={styles.button}>
+              Submit
+            </button>
+          )}
+          {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
         </form>
       </div>
 
