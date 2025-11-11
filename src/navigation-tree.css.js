@@ -25,6 +25,7 @@ export const navigationTitle = style({
   marginBottom: vars.spacing.sm,
   padding: `${vars.spacing.xs} 0`,
   color: vars.color.foreground,
+  borderBottom: `1px solid ${vars.color.border}`,
 });
 
 export const navigationTree = style({
@@ -40,10 +41,10 @@ export const navigationItem = style({
 export const navigationLink = style({
   display: 'block',
   padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
-  fontSize: vars.fontSize.label,
+  fontSize: '0.875rem',
   fontWeight: 500,
   lineHeight: vars.lineHeight.tight,
-  color: vars.color.foreground,
+  color: '#4b5563',
   textDecoration: 'none',
   cursor: 'pointer',
   borderRadius: vars.borderRadius,
@@ -51,14 +52,15 @@ export const navigationLink = style({
   selectors: {
     '&:hover': {
       background: vars.color.section,
+      color: vars.color.foreground,
     },
   },
 });
 
 export const navigationLinkActive = style({
-  fontWeight: 700,
   background: vars.color.section,
   borderLeft: `2px solid ${vars.color.primary}`,
+  color: vars.color.primary,
 });
 
 export const navigationNested = style({
