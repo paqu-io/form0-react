@@ -1377,27 +1377,27 @@ export function FormRenderer({
 
         {/* Two-column body section */}
         <div className={styles.bodySection}>
-          {hasNavigableSections && !simplifiedMode && (
-            <NavigationTree
-              sections={sectionTree}
-              highlightedSections={highlightedSections}
-              onNavigate={handleNavigate}
-            />
+        {hasNavigableSections && !simplifiedMode && (
+          <NavigationTree
+            sections={sectionTree}
+            highlightedSections={highlightedSections}
+            onNavigate={handleNavigate}
+          />
+        )}
+        <form
+          onSubmit={handleSubmit}
+          className={`${styles.form} ${themeClass} ${className}`}
+          style={{ flex: 1 }}
+          {...rest}
+        >
+          {renderElements(baseElements)}
+          {mode !== 'readonly' && (
+            <button type="submit" className={styles.button}>
+              Submit
+            </button>
           )}
-          <form
-            onSubmit={handleSubmit}
-            className={`${styles.form} ${themeClass} ${className}`}
-            style={{ flex: 1 }}
-            {...rest}
-          >
-            {renderElements(baseElements)}
-            {mode !== 'readonly' && (
-              <button type="submit" className={styles.button}>
-                Submit
-              </button>
-            )}
-            {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
-          </form>
+          {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+        </form>
         </div>
       </div>
 
