@@ -15,6 +15,42 @@ export const form = style({
   width: '100%',
 });
 
+export const formNameContainer = style({
+  display: 'flex',
+  alignItems: 'center',
+  padding: vars.spacing.sm,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.section,
+  marginBottom: vars.spacing.md,
+});
+
+export const formNameTitle = style({
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  lineHeight: vars.lineHeight.tight,
+  color: vars.color.foreground,
+  wordWrap: 'break-word',
+});
+
+export const headerSection = style({
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  background: vars.color.background,
+  color: vars.color.foreground,
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.md,
+  border: `1px solid ${vars.color.border}`,
+  marginBottom: vars.spacing.md,
+});
+
+export const bodySection = style({
+  display: 'flex',
+  gap: '0',
+  width: '100%',
+});
+
 export const recordSummary = style({
   display: 'flex',
   alignItems: 'stretch',

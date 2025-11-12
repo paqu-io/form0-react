@@ -47,6 +47,7 @@ export function FormRenderer({
   const loadEventTriggeredRef = useRef(false);
   const alertOkButtonRef = useRef(null);
   const previousAlertFocusRef = useRef(null);
+  const insideSpecialSectionRef = useRef(false);
 
   const markFieldTouched = useCallback(
     (dataName) => {
@@ -940,6 +941,19 @@ export function FormRenderer({
     [focusSectionAfterNavigation, sectionMetadata, setHighlightedPath, markNavigationInteraction]
   );
 
+  const renderFormName = useCallback(() => {
+    const formName = schemaForRender?.form?.name;
+    if (!formName) {
+      return null;
+    }
+
+    return (
+      <div className={styles.formNameContainer} role="heading" aria-level="2">
+        <div className={styles.formNameTitle}>{formName}</div>
+      </div>
+    );
+  }, [schemaForRender]);
+
   const renderRecordSummary = useCallback(() => {
     if (!recordTitleDisplay && !recordStatusInfo) {
       return null;
@@ -975,7 +989,7 @@ export function FormRenderer({
     if (!headerFields || headerFields.length === 0) {
       return null;
     }
-    if (activeDrilldownPath.length > 0) {
+    if (activeDrilldownPath.length > 0 || insideSpecialSectionRef.current) {
       return null;
     }
 
@@ -1072,6 +1086,7 @@ export function FormRenderer({
           onKeyDown={handleKeyDown}
           {...rest}
         >
+          {renderFormName()}
           {renderRecordSummary()}
           {renderRecordMetadata()}
           {/* Progress indicator */}
@@ -1171,12 +1186,15 @@ export function FormRenderer({
     );
   }
 
-  const renderElements = (elements = [], parentSectionPath = []) => {
+  const renderElements = (elements = [], parentSectionPath = [], insideSpecialSection = false) => {
+    // Update the ref based on whether we're inside a special section
+    insideSpecialSectionRef.current = insideSpecialSection;
+
     return elements.map((field) => {
       if (!field) return null;
 
       if (activeDrilldownSectionId) {
-        if (field.type === 'Section') {
+        if (field.type === 'Section' || field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection') {
           const sectionId = field.data_name || field.key;
           if (!sectionId) {
             return null;
@@ -1191,9 +1209,10 @@ export function FormRenderer({
           }
 
           if (isAncestorOfActive) {
+            const isSpecialType = field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection';
             return (
               <React.Fragment key={sectionId}>
-                {renderElements(field.elements || [], sectionPath)}
+                {renderElements(field.elements || [], sectionPath, insideSpecialSection || isSpecialType)}
               </React.Fragment>
             );
           }
@@ -1204,6 +1223,31 @@ export function FormRenderer({
         }
       }
 
+      // Handle RepeatableSection and BuildingPlanSection
+      if (field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection') {
+        const sectionId = field.data_name || field.key;
+        if (!sectionId) {
+          return (
+            <React.Fragment key={field.key || Math.random()}>
+              {renderElements(field.elements || [], parentSectionPath, true)}
+            </React.Fragment>
+          );
+        }
+
+        const sectionPath = [...parentSectionPath, sectionId];
+        return (
+          <div
+            key={sectionId}
+            className={styles.section}
+            ref={(node) => registerSectionNode(sectionId, node)}
+            tabIndex={-1}
+          >
+            <h3 className={styles.sectionHeader}>{field.label}</h3>
+            {renderElements(field.elements || [], sectionPath, true)}
+          </div>
+        );
+      }
+
       if (field.type === 'Section') {
         const sectionId = field.data_name || field.key;
         const display = field.display || 'inline';
@@ -1211,7 +1255,7 @@ export function FormRenderer({
         if (!sectionId) {
           return (
             <React.Fragment key={field.key || Math.random()}>
-              {renderElements(field.elements || [], parentSectionPath)}
+              {renderElements(field.elements || [], parentSectionPath, insideSpecialSection)}
             </React.Fragment>
           );
         }
@@ -1253,7 +1297,7 @@ export function FormRenderer({
           if (!isCurrentLevelActive) {
             return (
               <React.Fragment key={sectionId}>
-                {renderElements(field.elements || [], sectionPath)}
+                {renderElements(field.elements || [], sectionPath, insideSpecialSection)}
               </React.Fragment>
             );
           }
@@ -1272,7 +1316,7 @@ export function FormRenderer({
                 &lt; Back
               </button>
               <h3 className={styles.sectionHeader}>{field.label}</h3>
-              {renderElements(field.elements || [], sectionPath)}
+              {renderElements(field.elements || [], sectionPath, insideSpecialSection)}
             </div>
           );
         }
@@ -1285,7 +1329,7 @@ export function FormRenderer({
             tabIndex={-1}
           >
             <h3 className={styles.sectionHeader}>{field.label}</h3>
-            {renderElements(field.elements || [], sectionPath)}
+            {renderElements(field.elements || [], sectionPath, insideSpecialSection)}
           </div>
         );
       }
@@ -1323,32 +1367,38 @@ export function FormRenderer({
 
   return (
     <ThemeProvider themeClass={themeClass}>
-      <div style={{ display: 'flex', gap: '0', width: '100%' }}>
-        {hasNavigableSections && !simplifiedMode && (
-          <NavigationTree
-            sections={sectionTree}
-            highlightedSections={highlightedSections}
-            onNavigate={handleNavigate}
-          />
-        )}
-        <form
-          onSubmit={handleSubmit}
-          className={`${styles.form} ${themeClass} ${className}`}
-          style={{ flex: 1 }}
-          //style={{ '--label-width': `${labelWidthPercent}%` }}
-          //style={{ width: formWidth }}
-          {...rest}
-        >
+      <div style={{ width: '100%' }}>
+        {/* Single-column header section */}
+        <div className={`${styles.headerSection} ${themeClass}`}>
+          {renderFormName()}
           {renderRecordSummary()}
           {renderRecordMetadata()}
-          {renderElements(baseElements)}
-          {mode !== 'readonly' && (
-            <button type="submit" className={styles.button}>
-              Submit
-            </button>
+        </div>
+
+        {/* Two-column body section */}
+        <div className={styles.bodySection}>
+          {hasNavigableSections && !simplifiedMode && (
+            <NavigationTree
+              sections={sectionTree}
+              highlightedSections={highlightedSections}
+              onNavigate={handleNavigate}
+            />
           )}
-          {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
-        </form>
+          <form
+            onSubmit={handleSubmit}
+            className={`${styles.form} ${themeClass} ${className}`}
+            style={{ flex: 1 }}
+            {...rest}
+          >
+            {renderElements(baseElements)}
+            {mode !== 'readonly' && (
+              <button type="submit" className={styles.button}>
+                Submit
+              </button>
+            )}
+            {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+          </form>
+        </div>
       </div>
 
       {activeAlert && typeof document !== 'undefined' && createPortal(
