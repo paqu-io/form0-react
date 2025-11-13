@@ -27,13 +27,16 @@ export const formRendererRoot = style({
 });
 
 export const formNameContainer = style({
+  position: 'relative',
   display: 'flex',
   alignItems: 'center',
+  justifyContent: 'center',
   padding: vars.spacing.sm,
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
   background: vars.color.section,
   marginBottom: vars.spacing.md,
+  minHeight: '3rem',
 });
 
 export const formNameTitle = style({
@@ -42,6 +45,72 @@ export const formNameTitle = style({
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   wordWrap: 'break-word',
+  textAlign: 'center',
+  paddingLeft: `var(--form-name-title-padding-left, calc(${vars.spacing.lg} * 2))`,
+  paddingRight: `var(--form-name-title-padding-right, calc(${vars.spacing.lg} * 2))`,
+  width: '100%',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const formNameActionSlot = style({
+  position: 'absolute',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  gap: vars.spacing.xs,
+});
+
+export const formNameActionSlotLeft = style({
+  left: vars.spacing.md,
+});
+
+export const formNameActionSlotRight = style({
+  right: vars.spacing.md,
+  justifyContent: 'flex-end',
+});
+
+export const formNameActionButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.35rem',
+  padding: '0.35rem 0.75rem',
+  borderRadius: '6px',
+  border: `1px solid ${vars.color.border}`,
+  background: 'transparent',
+  color: vars.color.foreground,
+  fontSize: '0.85rem',
+  fontWeight: 600,
+  lineHeight: 1.2,
+  cursor: 'pointer',
+  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease',
+  selectors: {
+    '&[data-variant="primary"]': {
+      background: vars.color.buttonBg,
+      color: vars.color.buttonFg,
+      borderColor: vars.color.buttonBorder,
+    },
+    '&[data-variant="primary"]:hover': {
+      background: vars.color.buttonHoverBg,
+      color: vars.color.buttonHoverFg,
+      borderColor: vars.color.buttonHoverBorder,
+    },
+    '&:not(:disabled):hover': {
+      borderColor: vars.color.iconHover,
+      color: vars.color.iconHover,
+    },
+    '&:disabled': {
+      opacity: 0.4,
+      cursor: 'not-allowed',
+    },
+  },
+});
+
+export const formNameActionIcon = style({
+  display: 'inline-flex',
+  alignItems: 'center',
 });
 
 export const headerSection = style({
@@ -191,6 +260,7 @@ export const drilldownInactive = style({
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
+  gap: vars.spacing.sm,
   width: '100%',
 });
 
@@ -220,19 +290,19 @@ export const button = style({
   },
 });
 
-export const drilldownButton = style([
-  button,
-  {
-    background: vars.color.drilldownButtonBg,
-    color: vars.color.drilldownButtonFg,
-  },
-]);
+export const drilldownLabel = style({
+  flex: 1,
+  fontSize: '1rem',
+  fontWeight: 600,
+  color: vars.color.sectionHeader,
+  minWidth: 0,
+  wordBreak: 'break-word',
+});
 
-export const backButton = style([
-  button,
+export const drilldownActionButton = style([
+  formNameActionButton,
   {
-    background: vars.color.backButtonBg,
-    color: vars.color.backButtonFg,
+    whiteSpace: 'nowrap',
   },
 ]);
 

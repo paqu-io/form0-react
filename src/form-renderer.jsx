@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
@@ -17,6 +24,12 @@ import {
 } from './theme.css.js';
 import { flattenFormElements } from './helpers/flatten-form-elements';
 import { isFieldValueEmpty } from './helpers/is-field-value-empty.js';
+import { ChevronLeft, ChevronRight, Save, SendHorizontal, XCircle } from 'lucide-react';
+
+const SECTION_LIKE_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPlanSection']);
+const SPECIAL_SECTION_TYPES = new Set(['RepeatableSection', 'BuildingPlanSection']);
+const EXIT_CAPABLE_PLACEMENTS = new Set(['form-modal', 'form-spotlight']);
+const MIN_TITLE_PADDING_PX = 32;
 
 export function FormRenderer({
   schema,
@@ -34,6 +47,8 @@ export function FormRenderer({
   formWidth = '30vw', //Accepts 30vw or 50%
   simplifiedMode = false,
   onSimplifiedNavigation,
+  formPlacement = 'form-page',
+  onRequestClose,
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -48,6 +63,12 @@ export function FormRenderer({
   const alertOkButtonRef = useRef(null);
   const previousAlertFocusRef = useRef(null);
   const insideSpecialSectionRef = useRef(false);
+  const leftActionRef = useRef(null);
+  const rightActionRef = useRef(null);
+  const [actionPadding, setActionPadding] = useState({
+    left: MIN_TITLE_PADDING_PX,
+    right: MIN_TITLE_PADDING_PX,
+  });
 
   const markFieldTouched = useCallback(
     (dataName) => {
@@ -615,18 +636,23 @@ export function FormRenderer({
     [debugData]
   );
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSubmitCount((count) => count + 1);
-    if (onSubmit) {
-      const submission = submit();
-      const result =
-        statusFieldName && statusFieldName.length > 0
-          ? { ...submission, [statusFieldName]: statusValue ?? null }
-          : submission;
-      onSubmit(result);
-    }
-  };
+  const handleSubmit = useCallback(
+    (e) => {
+      if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+      }
+      setSubmitCount((count) => count + 1);
+      if (onSubmit) {
+        const submission = submit();
+        const result =
+          statusFieldName && statusFieldName.length > 0
+            ? { ...submission, [statusFieldName]: statusValue ?? null }
+            : submission;
+        onSubmit(result);
+      }
+    },
+    [onSubmit, statusFieldName, statusValue, submit]
+  );
 
   // Simplified mode navigation handlers
   const handleNext = () => {
@@ -755,19 +781,21 @@ export function FormRenderer({
           return;
         }
 
-        if (el.type === 'Section') {
+        if (SECTION_LIKE_TYPES.has(el.type)) {
           const sectionId = el.data_name || el.key;
           const hasSectionId = typeof sectionId === 'string' && sectionId.length > 0;
           const display = el.display || 'inline';
           const nextSectionPath = hasSectionId ? [...sectionPath, sectionId] : sectionPath;
-          const nextDrilldownPath =
-            display === 'drilldown' && hasSectionId
-              ? [...drilldownPath, sectionId]
-              : drilldownPath;
+          const shouldExtendDrilldown = display === 'drilldown' && hasSectionId;
+          const nextDrilldownPath = shouldExtendDrilldown
+            ? [...drilldownPath, sectionId]
+            : drilldownPath;
 
           if (hasSectionId) {
             metadata[sectionId] = {
               id: sectionId,
+              label: el.label || el.data_name || 'Unnamed Section',
+              type: el.type,
               display,
               path: nextSectionPath,
               drilldownPath: nextDrilldownPath,
@@ -776,7 +804,7 @@ export function FormRenderer({
 
           const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
 
-          if (hasSectionId) {
+          if (hasSectionId && el.type === 'Section') {
             nodes.push({
               id: sectionId,
               label: el.label || el.data_name || 'Unnamed Section',
@@ -808,6 +836,13 @@ export function FormRenderer({
     activeDrilldownSectionId && sectionMetadata[activeDrilldownSectionId]
       ? sectionMetadata[activeDrilldownSectionId].path || []
       : [];
+  const activeDrilldownSectionInfo = activeDrilldownSectionId
+    ? sectionMetadata[activeDrilldownSectionId]
+    : null;
+  const isSpecialSectionActive =
+    activeDrilldownSectionInfo && SPECIAL_SECTION_TYPES.has(activeDrilldownSectionInfo.type);
+  const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
+  const canSubmitForm = mode !== 'readonly' && typeof onSubmit === 'function';
 
   const registerSectionNode = useCallback((sectionId, node) => {
     if (!sectionId) {
@@ -941,18 +976,197 @@ export function FormRenderer({
     [focusSectionAfterNavigation, sectionMetadata, setHighlightedPath, markNavigationInteraction]
   );
 
+  const submitFromHeader = useCallback(() => {
+    handleSubmit({ preventDefault: () => {} });
+  }, [handleSubmit]);
+
+  const goBackFromDrilldown = useCallback(() => {
+    if (activeDrilldownSectionId) {
+      handleDrilldownBack(activeDrilldownSectionId);
+    }
+  }, [activeDrilldownSectionId, handleDrilldownBack]);
+
+  const handleRootCancel = useCallback(() => {
+    if (placementAllowsExit && typeof onRequestClose === 'function') {
+      onRequestClose({ reason: 'root-cancel' });
+    }
+  }, [onRequestClose, placementAllowsExit]);
+
+  const headerActions = useMemo(() => {
+    const depth = activeDrilldownPath.length;
+    const isRootPage = depth === 0;
+    const isFirstSpecialPage = depth === 1 && isSpecialSectionActive;
+    const isNestedDrilldownPage = depth > 0 && (!isSpecialSectionActive || depth > 1);
+    const disableRootCancel = !placementAllowsExit || typeof onRequestClose !== 'function';
+
+    let leftAction = null;
+    let rightAction = null;
+
+    if (isNestedDrilldownPage) {
+      leftAction = {
+        id: 'back',
+        label: 'Back',
+        icon: ChevronLeft,
+        onClick: goBackFromDrilldown,
+        disabled: !activeDrilldownSectionId,
+      };
+    } else if (isFirstSpecialPage) {
+      leftAction = {
+        id: 'cancel-section',
+        label: 'Cancel',
+        icon: XCircle,
+        onClick: goBackFromDrilldown,
+      };
+    } else if (isRootPage) {
+      leftAction = {
+        id: 'cancel-root',
+        label: 'Cancel',
+        icon: XCircle,
+        onClick: handleRootCancel,
+        disabled: disableRootCancel,
+      };
+    }
+
+    if (isFirstSpecialPage) {
+      rightAction = {
+        id: 'save-section',
+        label: 'Save',
+        icon: Save,
+        variant: 'primary',
+        disabled: !canSubmitForm,
+        onClick: canSubmitForm ? submitFromHeader : undefined,
+      };
+    } else if (isRootPage && canSubmitForm) {
+      rightAction = {
+        id: 'submit',
+        label: 'Submit',
+        icon: SendHorizontal,
+        variant: 'primary',
+        onClick: submitFromHeader,
+      };
+    }
+
+    return { leftAction, rightAction };
+  }, [
+    activeDrilldownPath,
+    activeDrilldownSectionId,
+    canSubmitForm,
+    goBackFromDrilldown,
+    handleRootCancel,
+    isSpecialSectionActive,
+    submitFromHeader,
+  ]);
+
+  useLayoutEffect(() => {
+    const measurePadding = () => {
+      const leftWidth =
+        leftActionRef.current && leftActionRef.current.offsetWidth
+          ? leftActionRef.current.offsetWidth
+          : 0;
+      const rightWidth =
+        rightActionRef.current && rightActionRef.current.offsetWidth
+          ? rightActionRef.current.offsetWidth
+          : 0;
+      setActionPadding((prev) => {
+        const next = {
+          left: Math.max(leftWidth, 0),
+          right: Math.max(rightWidth, 0),
+        };
+        if (prev.left === next.left && prev.right === next.right) {
+          return prev;
+        }
+        return next;
+      });
+    };
+
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    measurePadding();
+
+    if (typeof ResizeObserver === 'function') {
+      const observer = new ResizeObserver(measurePadding);
+      if (leftActionRef.current) {
+        observer.observe(leftActionRef.current);
+      }
+      if (rightActionRef.current) {
+        observer.observe(rightActionRef.current);
+      }
+      window.addEventListener('resize', measurePadding);
+      return () => {
+        observer.disconnect();
+        window.removeEventListener('resize', measurePadding);
+      };
+    }
+
+    window.addEventListener('resize', measurePadding);
+    return () => {
+      window.removeEventListener('resize', measurePadding);
+    };
+  }, [headerActions]);
+
   const renderFormName = useCallback(() => {
     const formName = schemaForRender?.form?.name;
     if (!formName) {
       return null;
     }
 
+    const { leftAction, rightAction } = headerActions;
+    const paddingLeft = Math.max(actionPadding.left + 12, MIN_TITLE_PADDING_PX);
+    const paddingRight = Math.max(actionPadding.right + 12, MIN_TITLE_PADDING_PX);
+    const titlePaddingStyle = {
+      '--form-name-title-padding-left': `${paddingLeft}px`,
+      '--form-name-title-padding-right': `${paddingRight}px`,
+    };
+
+    const renderActionButton = (action, position, slotRef) => {
+      if (!action) {
+        return null;
+      }
+      const IconComponent = action.icon;
+      return (
+        <div
+          ref={slotRef}
+          className={
+            position === 'left'
+              ? `${styles.formNameActionSlot} ${styles.formNameActionSlotLeft}`
+              : `${styles.formNameActionSlot} ${styles.formNameActionSlotRight}`
+          }
+        >
+          <button
+            type="button"
+            className={styles.formNameActionButton}
+            data-variant={action.variant || 'ghost'}
+            onClick={action.onClick}
+            disabled={action.disabled}
+          >
+            {IconComponent && (
+              <span className={styles.formNameActionIcon} aria-hidden="true">
+                <IconComponent size={16} strokeWidth={1.8} />
+              </span>
+            )}
+            <span>{action.label}</span>
+          </button>
+        </div>
+      );
+    };
+
     return (
       <div className={styles.formNameContainer} role="heading" aria-level="2">
-        <div className={styles.formNameTitle}>{formName}</div>
+        {renderActionButton(leftAction, 'left', leftActionRef)}
+        <div
+          className={styles.formNameTitle}
+          title={formName}
+          aria-label={formName}
+          style={titlePaddingStyle}
+        >
+          {formName}
+        </div>
+        {renderActionButton(rightAction, 'right', rightActionRef)}
       </div>
     );
-  }, [schemaForRender]);
+  }, [actionPadding, headerActions, schemaForRender]);
 
   const renderRecordSummary = useCallback(() => {
     if (!recordTitleDisplay && !recordStatusInfo) {
@@ -1097,6 +1311,7 @@ export function FormRenderer({
           onSubmit={handleSubmit}
           className={`${styles.form} ${themeClass} ${className}`}
           onKeyDown={handleKeyDown}
+          style={{ maxWidth: formWidth, width: '100%' }}
           {...rest}
         >
           {stickyHeaderContent}
@@ -1275,33 +1490,41 @@ export function FormRenderer({
         const sectionPath = [...parentSectionPath, sectionId];
         const sectionInfo = sectionMetadata[sectionId];
         const drilldownPath = sectionInfo?.drilldownPath ?? [];
+        const isDescendantOfActive =
+          activeDrilldownPath.length > 0
+            ? isPathPrefix(activeDrilldownPath, drilldownPath)
+            : false;
 
         if (display === 'drilldown') {
           const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
           const isCurrentLevelActive =
             isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
 
-          if (activeDrilldownPath.length > 0 && !isOnActivePath) {
+          if (activeDrilldownPath.length > 0 && !isOnActivePath && !isDescendantOfActive) {
             return null;
           }
 
-          if (!isOnActivePath) {
+          const shouldRenderPreviewState =
+            !isOnActivePath && (!activeDrilldownPath.length || isDescendantOfActive);
+
+          if (shouldRenderPreviewState) {
             return (
               <div key={sectionId} className={styles.drilldownInactive}>
-                <div>
-                  <span className={styles.sectionHeader}>📛 {field.label}</span>
-                  <button
-                    type="button"
-                    className={styles.drilldownButton}
-                    onClick={() => {
-                      setActiveDrilldownForSection(sectionId);
-                      markNavigationInteraction();
-                      focusSectionAfterNavigation(sectionId);
-                    }}
-                  >
-                    View &gt;
-                  </button>
-                </div>
+                <span className={styles.drilldownLabel}>{field.label}</span>
+                <button
+                  type="button"
+                  className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
+                  onClick={() => {
+                    setActiveDrilldownForSection(sectionId);
+                    markNavigationInteraction();
+                    focusSectionAfterNavigation(sectionId);
+                  }}
+                >
+                  <span>View</span>
+                  <span className={styles.formNameActionIcon} aria-hidden="true">
+                    <ChevronRight size={16} strokeWidth={1.8} />
+                  </span>
+                </button>
               </div>
             );
           }
@@ -1321,12 +1544,6 @@ export function FormRenderer({
               ref={(node) => registerSectionNode(sectionId, node)}
               tabIndex={-1}
             >
-              <button
-                className={styles.backButton}
-                onClick={() => handleDrilldownBack(sectionId)}
-              >
-                &lt; Back
-              </button>
               <h3 className={styles.sectionHeader}>{field.label}</h3>
               {renderElements(field.elements || [], sectionPath, insideSpecialSection)}
             </div>
@@ -1379,7 +1596,7 @@ export function FormRenderer({
 
   return (
     <ThemeProvider themeClass={themeClass}>
-      <div className={`${styles.formRendererRoot} ${themeClass}`}>
+      <div className={`${styles.formRendererRoot} ${themeClass}`} style={{ maxWidth: formWidth, width: '100%' }}>
         {stickyHeaderContent}
         <div className={styles.bodySection}>
           {hasNavigableSections && (
@@ -1397,11 +1614,6 @@ export function FormRenderer({
             >
               {recordMetadataSection}
               {renderElements(baseElements)}
-              {mode !== 'readonly' && (
-                <button type="submit" className={styles.button}>
-                  Submit
-                </button>
-              )}
               {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
             </form>
           </div>
