@@ -1056,6 +1056,19 @@ export function FormRenderer({
     activeDrilldownPath.length,
   ]);
 
+  const formNameNode = renderFormName();
+  const recordSummaryNode = renderRecordSummary();
+  const stickyHeaderContent =
+    formNameNode || recordSummaryNode ? (
+      <div className={styles.stickyHeader} role="region" aria-label="Form summary">
+        <div className={`${styles.headerSection} ${themeClass}`}>
+          {formNameNode}
+          {recordSummaryNode}
+        </div>
+      </div>
+    ) : null;
+  const recordMetadataSection = renderRecordMetadata();
+
   // Simplified mode rendering
   if (simplifiedMode) {
     if (!currentField) {
@@ -1086,9 +1099,8 @@ export function FormRenderer({
           onKeyDown={handleKeyDown}
           {...rest}
         >
-          {renderFormName()}
-          {renderRecordSummary()}
-          {renderRecordMetadata()}
+          {stickyHeaderContent}
+          {recordMetadataSection}
           {/* Progress indicator */}
           <div className={styles.simplifiedProgress}>
             Question {currentFieldIndex + 1} of {flattenedElementsLength}
@@ -1367,37 +1379,32 @@ export function FormRenderer({
 
   return (
     <ThemeProvider themeClass={themeClass}>
-      <div style={{ width: '100%' }}>
-        {/* Single-column header section */}
-        <div className={`${styles.headerSection} ${themeClass}`}>
-          {renderFormName()}
-          {renderRecordSummary()}
-          {renderRecordMetadata()}
-        </div>
-
-        {/* Two-column body section */}
+      <div className={`${styles.formRendererRoot} ${themeClass}`}>
+        {stickyHeaderContent}
         <div className={styles.bodySection}>
-        {hasNavigableSections && !simplifiedMode && (
-          <NavigationTree
-            sections={sectionTree}
-            highlightedSections={highlightedSections}
-            onNavigate={handleNavigate}
-          />
-        )}
-        <form
-          onSubmit={handleSubmit}
-          className={`${styles.form} ${themeClass} ${className}`}
-          style={{ flex: 1 }}
-          {...rest}
-        >
-          {renderElements(baseElements)}
-          {mode !== 'readonly' && (
-            <button type="submit" className={styles.button}>
-              Submit
-            </button>
+          {hasNavigableSections && (
+            <NavigationTree
+              sections={sectionTree}
+              highlightedSections={highlightedSections}
+              onNavigate={handleNavigate}
+            />
           )}
-          {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
-        </form>
+          <div className={styles.formColumn}>
+            <form
+              onSubmit={handleSubmit}
+              className={`${styles.form} ${themeClass} ${className}`}
+              {...rest}
+            >
+              {recordMetadataSection}
+              {renderElements(baseElements)}
+              {mode !== 'readonly' && (
+                <button type="submit" className={styles.button}>
+                  Submit
+                </button>
+              )}
+              {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
+            </form>
+          </div>
         </div>
       </div>
 

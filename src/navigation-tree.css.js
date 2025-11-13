@@ -4,11 +4,11 @@ import { vars } from './theme.css.js';
 
 export const navigationContainer = style({
   position: 'sticky',
-  top: 0,
+  top: 'var(--form0-sticky-top-offset, 0px)',
   width: '220px',
-  maxHeight: '100vh',
+  maxHeight: 'calc(100vh - var(--form0-sticky-top-offset, 0px))',
   overflowY: 'auto',
-  borderRight: `1px solid ${vars.color.border}`,
+  borderRight: 'none',
   background: vars.color.background,
   padding: vars.spacing.sm,
   '@media': {
@@ -19,11 +19,11 @@ export const navigationContainer = style({
 });
 
 export const navigationTitle = style({
-  fontSize: vars.fontSize.label,
+  fontSize: vars.fontSize.section,
   fontWeight: 700,
   lineHeight: vars.lineHeight.tight,
   marginBottom: vars.spacing.md,
-  padding: `${vars.spacing.xs} 0`,
+  padding: `${vars.spacing.xs} 0 ${vars.spacing.sm} 0`,
   color: vars.color.foreground,
   borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
 });

@@ -11,8 +11,17 @@ export const form = style({
   padding: vars.spacing.md,
   fontSize: vars.fontSize.base,
   lineHeight: vars.lineHeight.normal,
-  border: `1px solid ${vars.color.border}`,
+  borderLeft: `1px solid ${vars.color.border}`,
+  borderRight: `1px solid ${vars.color.border}`,
+  borderBottom: `1px solid ${vars.color.border}`,
   width: '100%',
+});
+
+export const formRendererRoot = style({
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'none',
 });
 
 export const formNameContainer = style({
@@ -42,13 +51,51 @@ export const headerSection = style({
   borderRadius: vars.borderRadius,
   padding: vars.spacing.md,
   border: `1px solid ${vars.color.border}`,
-  marginBottom: vars.spacing.md,
+  marginBottom: 'none',
+});
+
+export const stickyHeader = style({
+  position: 'sticky',
+  top: 'var(--form0-sticky-top-offset, 0px)',
+  zIndex: 20,
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+  background: vars.color.background,
+  paddingBottom: 'none',
+  marginBottom: 'none',
+  borderBottom: 'none',
+  boxShadow: 'none',
+  isolation: 'isolate',
+  selectors: {
+    '&::before': {
+      content: '',
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: `calc(-1 * ${vars.spacing.md})`,
+      height: vars.spacing.md,
+      background: vars.color.background,
+      pointerEvents: 'none',
+    },
+  },
 });
 
 export const bodySection = style({
   display: 'flex',
-  gap: '0',
+  gap: 'none',
   width: '100%',
+  alignItems: 'flex-start',
+  minHeight: 0,
+});
+
+export const formColumn = style({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+  minWidth: 0,
 });
 
 export const recordSummary = style({
@@ -59,7 +106,7 @@ export const recordSummary = style({
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
   background: vars.color.section,
-  marginBottom: vars.spacing.md,
+  marginBottom: 'none',
 });
 
 const recordSummaryStatusBase = {
