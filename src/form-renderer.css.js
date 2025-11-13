@@ -108,6 +108,28 @@ export const formNameActionButton = style({
   },
 });
 
+export const formNameActionLabel = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: vars.spacing.md,
+});
+
+export const shortcutBadge = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '0 0.4rem',
+  borderRadius: '6px',
+  background: vars.color.section,
+  color: vars.color.foreground,
+  fontSize: '0.65rem',
+  fontWeight: 500,
+  lineHeight: 1.2,
+  border: `1px solid ${vars.color.border}`,
+  textTransform: 'lowercase',
+  letterSpacing: '0.05em',
+});
+
 export const formNameActionIcon = style({
   display: 'inline-flex',
   alignItems: 'center',
@@ -434,3 +456,32 @@ export const alertCloseButton = style({
     },
   },
 });
+
+export const confirmDialogActions = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: vars.spacing.sm,
+  marginTop: vars.spacing.md,
+});
+
+export const confirmSecondaryButton = style([
+  button,
+  {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: vars.spacing.md,
+    background: vars.color.section,
+    color: vars.color.foreground,
+    borderColor: vars.color.border,
+  },
+]);
+
+export const confirmPrimaryButton = style([
+  button,
+  {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: vars.spacing.md,
+    minWidth: '120px',
+  },
+]);

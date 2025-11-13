@@ -69,6 +69,7 @@ export function FormRenderer({
     left: MIN_TITLE_PADDING_PX,
     right: MIN_TITLE_PADDING_PX,
   });
+  const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
 
   const markFieldTouched = useCallback(
     (dataName) => {
@@ -843,6 +844,7 @@ export function FormRenderer({
     activeDrilldownSectionInfo && SPECIAL_SECTION_TYPES.has(activeDrilldownSectionInfo.type);
   const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
   const canSubmitForm = mode !== 'readonly' && typeof onSubmit === 'function';
+  const canShowDiscardPrompt = placementAllowsExit && typeof onRequestClose === 'function';
 
   const registerSectionNode = useCallback((sectionId, node) => {
     if (!sectionId) {
@@ -992,6 +994,31 @@ export function FormRenderer({
     }
   }, [onRequestClose, placementAllowsExit]);
 
+  const openDiscardDialog = useCallback(() => {
+    if (!canShowDiscardPrompt) {
+      return;
+    }
+    setDiscardDialogVisible(true);
+  }, [canShowDiscardPrompt]);
+
+  const closeDiscardDialog = useCallback(() => {
+    setDiscardDialogVisible(false);
+  }, []);
+
+  const confirmDiscard = useCallback(() => {
+    setDiscardDialogVisible(false);
+    handleRootCancel();
+  }, [handleRootCancel]);
+
+  const handleDiscardOverlayClick = useCallback(
+    (event) => {
+      if (event.target === event.currentTarget) {
+        closeDiscardDialog();
+      }
+    },
+    [closeDiscardDialog]
+  );
+
   const headerActions = useMemo(() => {
     const depth = activeDrilldownPath.length;
     const isRootPage = depth === 0;
@@ -1009,6 +1036,7 @@ export function FormRenderer({
         icon: ChevronLeft,
         onClick: goBackFromDrilldown,
         disabled: !activeDrilldownSectionId,
+        shortcutLabel: 'alt+b',
       };
     } else if (isFirstSpecialPage) {
       leftAction = {
@@ -1022,8 +1050,9 @@ export function FormRenderer({
         id: 'cancel-root',
         label: 'Cancel',
         icon: XCircle,
-        onClick: handleRootCancel,
+        onClick: disableRootCancel ? undefined : openDiscardDialog,
         disabled: disableRootCancel,
+        shortcutLabel: disableRootCancel ? null : 'esc',
       };
     }
 
@@ -1043,6 +1072,7 @@ export function FormRenderer({
         icon: SendHorizontal,
         variant: 'primary',
         onClick: submitFromHeader,
+        shortcutLabel: 'alt+s',
       };
     }
 
@@ -1053,6 +1083,7 @@ export function FormRenderer({
     canSubmitForm,
     goBackFromDrilldown,
     handleRootCancel,
+    openDiscardDialog,
     isSpecialSectionActive,
     submitFromHeader,
   ]);
@@ -1106,6 +1137,90 @@ export function FormRenderer({
     };
   }, [headerActions]);
 
+  const currentLeftAction = headerActions.leftAction;
+  const currentRightAction = headerActions.rightAction;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const isPlainAlt = (event) =>
+      event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      if (discardDialogVisible) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeDiscardDialog();
+          return;
+        }
+        if (isPlainAlt(event) && event.key.toLowerCase() === 'y') {
+          event.preventDefault();
+          confirmDiscard();
+          return;
+        }
+      }
+
+      if (
+        event.key === 'Escape' &&
+        canShowDiscardPrompt &&
+        currentLeftAction &&
+        currentLeftAction.id === 'cancel-root' &&
+        !currentLeftAction.disabled
+      ) {
+        event.preventDefault();
+        openDiscardDialog();
+        return;
+      }
+
+      if (!isPlainAlt(event)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (
+        key === 'b' &&
+        currentLeftAction &&
+        currentLeftAction.id === 'back' &&
+        !currentLeftAction.disabled
+      ) {
+        event.preventDefault();
+        goBackFromDrilldown();
+        return;
+      }
+
+      if (
+        key === 's' &&
+        currentRightAction &&
+        currentRightAction.id === 'submit' &&
+        !currentRightAction.disabled
+      ) {
+        event.preventDefault();
+        submitFromHeader();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [
+    canShowDiscardPrompt,
+    closeDiscardDialog,
+    confirmDiscard,
+    currentLeftAction,
+    currentRightAction,
+    discardDialogVisible,
+    goBackFromDrilldown,
+    openDiscardDialog,
+    submitFromHeader,
+  ]);
+
   const renderFormName = useCallback(() => {
     const formName = schemaForRender?.form?.name;
     if (!formName) {
@@ -1146,7 +1261,14 @@ export function FormRenderer({
                 <IconComponent size={16} strokeWidth={1.8} />
               </span>
             )}
-            <span>{action.label}</span>
+            <span className={styles.formNameActionLabel}>
+              <span>{action.label}</span>
+              {action.shortcutLabel ? (
+                <span className={styles.shortcutBadge} aria-hidden="true">
+                  {action.shortcutLabel}
+                </span>
+              ) : null}
+            </span>
           </button>
         </div>
       );
@@ -1409,6 +1531,7 @@ export function FormRenderer({
           </div>,
           document.body
         )}
+        {discardDialogNode}
       </ThemeProvider>
     );
   }
@@ -1594,6 +1717,52 @@ export function FormRenderer({
     });
   };
 
+  const discardDialogNode =
+    discardDialogVisible && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className={styles.alertOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="form0-react-discard-title"
+            aria-describedby="form0-react-discard-message"
+            onClick={handleDiscardOverlayClick}
+          >
+            <div className={`${styles.alertDialog} ${themeClass}`}>
+              <h3 id="form0-react-discard-title" className={styles.alertTitle}>
+                This record has unsaved changes
+              </h3>
+              <p id="form0-react-discard-message" className={styles.alertMessage}>
+                Are you sure you want to discard any changes?
+              </p>
+              <div className={styles.confirmDialogActions}>
+                <button
+                  type="button"
+                  className={styles.confirmSecondaryButton}
+                  onClick={closeDiscardDialog}
+                >
+                  Cancel
+                  <span className={styles.shortcutBadge} aria-hidden="true">
+                    esc
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.confirmPrimaryButton}
+                  onClick={confirmDiscard}
+                >
+                  Yes, discard
+                  <span className={styles.shortcutBadge} aria-hidden="true">
+                    alt+y
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <ThemeProvider themeClass={themeClass}>
       <div className={`${styles.formRendererRoot} ${themeClass}`} style={{ maxWidth: formWidth, width: '100%' }}>
@@ -1658,6 +1827,7 @@ export function FormRenderer({
         </div>,
         document.body
       )}
+      {discardDialogNode}
     </ThemeProvider>
   );
 }
