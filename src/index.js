@@ -26,5 +26,6 @@ export {
   prepareSchema,
   ensureSchemaKeys,
 } from './utils/schema.js';
+import './global-fonts.css.js';
 import './form-renderer.css.js';
 import './field-renderer.css.js';

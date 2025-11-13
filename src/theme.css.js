@@ -23,8 +23,14 @@ export const vars = createThemeContract({
     drilldownButtonFg: '',
     backButtonBg: '',
     backButtonFg: '',
+    // Icon colors
+    icon: '',
+    iconHover: '',
   },
   borderRadius: '',
+  fontFamily: {
+    base: '',
+  },
   fontSize: {
     base: '',
     label: '',
@@ -64,8 +70,13 @@ export const standardThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280', // neutral gray
+    iconHover: '#111', // darker on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -105,8 +116,13 @@ export const standardThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af', // lighter gray for dark mode
+    iconHover: '#f3f4f6', // lighter on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -146,8 +162,13 @@ export const modalThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280',
+    iconHover: '#2563eb', // primary color on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -187,8 +208,13 @@ export const modalThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af',
+    iconHover: '#60a5fa', // primary color on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -228,8 +254,13 @@ export const simplifiedThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280',
+    iconHover: '#10b981', // green primary on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -269,8 +300,13 @@ export const simplifiedThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af',
+    iconHover: '#6ee7b7', // green primary on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -310,8 +346,13 @@ export const spotlightThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280',
+    iconHover: '#111',
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',
@@ -351,8 +392,13 @@ export const spotlightThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af',
+    iconHover: '#38bdf8', // cyan primary on hover
   },
   borderRadius: '0px',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
     base: '0.875rem',
     label: '0.875rem',

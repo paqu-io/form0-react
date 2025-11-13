@@ -1,10 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Info, Image } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
 import { useFieldRegistry } from './field-registry-context.jsx';
 
 const LABEL_SIDE = 'side';
-const INFO_ICON = 'ℹ️';
-const IMAGE_ICON = '🖼️';
 
 export function FieldRenderer({
   field,
@@ -157,7 +156,7 @@ export function FieldRenderer({
           aria-haspopup="dialog"
           aria-expanded={isImageOpen}
         >
-          {IMAGE_ICON}
+          <Image size={16} strokeWidth={2} />
         </button>
       );
     }
@@ -173,7 +172,7 @@ export function FieldRenderer({
           aria-haspopup="dialog"
           aria-expanded={isDescriptionOpen}
         >
-          {INFO_ICON}
+          <Info size={16} strokeWidth={2} />
         </button>
       );
     }

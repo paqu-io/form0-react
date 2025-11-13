@@ -9,6 +9,7 @@ export const form = style({
   color: vars.color.foreground,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.md,
+  fontFamily: vars.fontFamily.base,
   fontSize: vars.fontSize.base,
   lineHeight: vars.lineHeight.normal,
   borderLeft: `1px solid ${vars.color.border}`,
@@ -22,6 +23,7 @@ export const formRendererRoot = style({
   display: 'flex',
   flexDirection: 'column',
   gap: 'none',
+  fontFamily: vars.fontFamily.base,
 });
 
 export const formNameContainer = style({
@@ -35,7 +37,7 @@ export const formNameContainer = style({
 });
 
 export const formNameTitle = style({
-  fontSize: '1.1rem',
+  fontSize: '1.3rem',
   fontWeight: 600,
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,

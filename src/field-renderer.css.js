@@ -625,13 +625,17 @@ export const infoIconButton = style({
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '1rem',
-  color: vars.color.foreground,
+  color: vars.color.icon,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   padding: 0,
   outline: 'none',
+  transition: 'color 0.2s ease',
   selectors: {
+    '&:hover': {
+      color: vars.color.iconHover,
+    },
     '&:focus': {
       outline: 'none',
     },

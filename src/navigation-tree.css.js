@@ -11,6 +11,7 @@ export const navigationContainer = style({
   borderRight: 'none',
   background: vars.color.background,
   padding: vars.spacing.sm,
+  fontFamily: vars.fontFamily.base,
   '@media': {
     '(max-width: 768px)': {
       display: 'none',
@@ -19,6 +20,9 @@ export const navigationContainer = style({
 });
 
 export const navigationTitle = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
   fontSize: vars.fontSize.section,
   fontWeight: 700,
   lineHeight: vars.lineHeight.tight,

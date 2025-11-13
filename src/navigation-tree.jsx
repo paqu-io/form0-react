@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
+import { TableOfContents } from 'lucide-react';
 
 const NAVIGATION_INDENT_STEP = 14;
 
@@ -107,7 +108,10 @@ export function NavigationTree({ sections, highlightedSections, onNavigate }) {
 
   return (
     <nav className={styles.navigationContainer} aria-label="Form sections navigation">
-      <div className={styles.navigationTitle}>Navigation Tree</div>
+      <div className={styles.navigationTitle}>
+        <TableOfContents size={18} strokeWidth={2} />
+        Navigation Tree
+      </div>
       <ul className={styles.navigationTree}>
         {sectionTree.map((section) => (
           <NavigationTreeNode
