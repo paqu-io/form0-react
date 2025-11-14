@@ -33,6 +33,7 @@ export const vars = createThemeContract({
   },
   fontSize: {
     base: '',
+    button: '',
     label: '',
     section: '',
   },
@@ -73,12 +74,13 @@ export const standardThemeLight = createTheme(vars, {
     icon: '#6b7280', // neutral gray
     iconHover: '#111', // darker on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -119,12 +121,13 @@ export const standardThemeDark = createTheme(vars, {
     icon: '#9ca3af', // lighter gray for dark mode
     iconHover: '#f3f4f6', // lighter on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -165,12 +168,13 @@ export const modalThemeLight = createTheme(vars, {
     icon: '#6b7280',
     iconHover: '#2563eb', // primary color on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -211,12 +215,13 @@ export const modalThemeDark = createTheme(vars, {
     icon: '#9ca3af',
     iconHover: '#60a5fa', // primary color on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -257,12 +262,13 @@ export const simplifiedThemeLight = createTheme(vars, {
     icon: '#6b7280',
     iconHover: '#10b981', // green primary on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -303,12 +309,13 @@ export const simplifiedThemeDark = createTheme(vars, {
     icon: '#9ca3af',
     iconHover: '#6ee7b7', // green primary on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -349,12 +356,13 @@ export const spotlightThemeLight = createTheme(vars, {
     icon: '#6b7280',
     iconHover: '#111',
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },
@@ -395,12 +403,13 @@ export const spotlightThemeDark = createTheme(vars, {
     icon: '#9ca3af',
     iconHover: '#38bdf8', // cyan primary on hover
   },
-  borderRadius: '0px',
+  borderRadius: '0.375rem',
   fontFamily: {
     base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   fontSize: {
     base: '0.875rem',
+    button: '0.875rem',
     label: '0.875rem',
     section: '0.95rem',
   },

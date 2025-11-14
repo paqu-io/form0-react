@@ -63,7 +63,7 @@ export const navigationLink = style({
 
 export const navigationLinkActive = style({
   background: vars.color.section,
-  borderLeft: `2px solid ${vars.color.primary}`,
+  borderLeft: `4px solid ${vars.color.primary}`,
   color: vars.color.primary,
 });
 
@@ -77,8 +77,8 @@ export const navigationNested = style({
 export const navigationToggle = style({
   appearance: 'none',
   background: vars.color.section,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.borderRadius,
+  border: 'none',
+  borderRadius: 'none',
   padding: `${vars.spacing.xs}`,
   marginRight: vars.spacing.xs,
   cursor: 'pointer',

@@ -274,7 +274,7 @@ export const sectionHeader = style({
 export const drilldownInactive = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,
-  borderLeft: `3px solid ${vars.color.primary}`,
+  borderLeft: `5px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.sm,
   marginBottom: vars.spacing.sm,
@@ -289,7 +289,7 @@ export const drilldownInactive = style({
 export const drilldownActive = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,
-  borderLeft: `3px solid ${vars.color.primary}`,
+  borderLeft: `5px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.sm,
   marginBottom: vars.spacing.sm,
@@ -301,9 +301,10 @@ export const button = style({
   color: vars.color.buttonFg,
   border: `1px solid ${vars.color.buttonBorder}`,
   borderRadius: vars.borderRadius,
-  padding: '8px 16px',
+  padding: '4px 8px',
   cursor: 'pointer',
-  fontWeight: 'bold',
+  fontSize: vars.fontSize.button,
+  fontWeight: 600,
   transition: 'background 0.2s',
   ':hover': {
     background: vars.color.buttonHoverBg,
