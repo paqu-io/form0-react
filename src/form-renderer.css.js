@@ -119,7 +119,7 @@ export const shortcutBadge = style({
   alignItems: 'center',
   justifyContent: 'center',
   padding: '0 0.4rem',
-  borderRadius: '6px',
+  borderRadius: '4px',
   background: vars.color.section,
   color: vars.color.foreground,
   fontSize: '0.65rem',

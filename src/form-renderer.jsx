@@ -845,6 +845,7 @@ export function FormRenderer({
   const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
   const canSubmitForm = mode !== 'readonly' && typeof onSubmit === 'function';
   const canShowDiscardPrompt = placementAllowsExit && typeof onRequestClose === 'function';
+  const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
 
   const registerSectionNode = useCallback((sectionId, node) => {
     if (!sectionId) {
@@ -1166,16 +1167,23 @@ export function FormRenderer({
         }
       }
 
-      if (
-        event.key === 'Escape' &&
-        canShowDiscardPrompt &&
-        currentLeftAction &&
-        currentLeftAction.id === 'cancel-root' &&
-        !currentLeftAction.disabled
-      ) {
-        event.preventDefault();
-        openDiscardDialog();
-        return;
+      if (event.key === 'Escape') {
+        if (isOverlayNonRoot) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        if (
+          canShowDiscardPrompt &&
+          currentLeftAction &&
+          currentLeftAction.id === 'cancel-root' &&
+          !currentLeftAction.disabled
+        ) {
+          event.preventDefault();
+          openDiscardDialog();
+          return;
+        }
       }
 
       if (!isPlainAlt(event)) {
@@ -1217,6 +1225,7 @@ export function FormRenderer({
     currentRightAction,
     discardDialogVisible,
     goBackFromDrilldown,
+    isOverlayNonRoot,
     openDiscardDialog,
     submitFromHeader,
   ]);
@@ -1404,6 +1413,52 @@ export function FormRenderer({
       </div>
     ) : null;
   const recordMetadataSection = renderRecordMetadata();
+
+  const discardDialogNode =
+    discardDialogVisible && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className={styles.alertOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="form0-react-discard-title"
+            aria-describedby="form0-react-discard-message"
+            onClick={handleDiscardOverlayClick}
+          >
+            <div className={`${styles.alertDialog} ${themeClass}`}>
+              <h3 id="form0-react-discard-title" className={styles.alertTitle}>
+                This record has unsaved changes
+              </h3>
+              <p id="form0-react-discard-message" className={styles.alertMessage}>
+                Are you sure you want to discard any changes?
+              </p>
+              <div className={styles.confirmDialogActions}>
+                <button
+                  type="button"
+                  className={styles.confirmSecondaryButton}
+                  onClick={closeDiscardDialog}
+                >
+                  Cancel
+                  <span className={styles.shortcutBadge} aria-hidden="true">
+                    esc
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.confirmPrimaryButton}
+                  onClick={confirmDiscard}
+                >
+                  Yes, discard
+                  <span className={styles.shortcutBadge} aria-hidden="true">
+                    alt+y
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   // Simplified mode rendering
   if (simplifiedMode) {
@@ -1716,52 +1771,6 @@ export function FormRenderer({
       );
     });
   };
-
-  const discardDialogNode =
-    discardDialogVisible && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className={styles.alertOverlay}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="form0-react-discard-title"
-            aria-describedby="form0-react-discard-message"
-            onClick={handleDiscardOverlayClick}
-          >
-            <div className={`${styles.alertDialog} ${themeClass}`}>
-              <h3 id="form0-react-discard-title" className={styles.alertTitle}>
-                This record has unsaved changes
-              </h3>
-              <p id="form0-react-discard-message" className={styles.alertMessage}>
-                Are you sure you want to discard any changes?
-              </p>
-              <div className={styles.confirmDialogActions}>
-                <button
-                  type="button"
-                  className={styles.confirmSecondaryButton}
-                  onClick={closeDiscardDialog}
-                >
-                  Cancel
-                  <span className={styles.shortcutBadge} aria-hidden="true">
-                    esc
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.confirmPrimaryButton}
-                  onClick={confirmDiscard}
-                >
-                  Yes, discard
-                  <span className={styles.shortcutBadge} aria-hidden="true">
-                    alt+y
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      : null;
 
   return (
     <ThemeProvider themeClass={themeClass}>
