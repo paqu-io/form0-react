@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createFormEngine, validateSchema } from 'form0-core';
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
+import {
+  buildRepeatableInfo,
+  createEmptyRepeatableInstance,
+} from './utils/repeatable-manager.js';
 
 const createEmptyState = () => ({
   values: {},
@@ -19,6 +23,8 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   const optionsRef = useRef(options || {});
   const warningCleanupRef = useRef(null);
   const fieldDefinitionsRef = useRef(new Map());
+  const repeatableStateRef = useRef({});
+  const [repeatableState, setRepeatableStateInternal] = useState({});
 
   useEffect(() => {
     optionsRef.current = options || {};
@@ -37,6 +43,30 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     return copy;
   }, [schema]);
 
+  const repeatableMetadata = useMemo(() => {
+    if (!preparedSchema?.form?.elements) {
+      return {
+        repeatableSectionTree: new Map(),
+        fieldOwnership: new Map(),
+        sectionFields: new Set(),
+        byPreferredKey: new Map(),
+      };
+    }
+    const meta = buildRepeatableInfo(preparedSchema.form.elements);
+    const byPreferredKey = new Map();
+    if (meta?.repeatableSectionTree) {
+      meta.repeatableSectionTree.forEach((info) => {
+        if (info?.preferredKey) {
+          byPreferredKey.set(info.preferredKey, info);
+        }
+      });
+    }
+    return {
+      ...meta,
+      byPreferredKey,
+    };
+  }, [preparedSchema]);
+
   useEffect(() => {
     if (preparedSchema?.form) {
       fieldDefinitionsRef.current = buildFieldDefinitionMap(preparedSchema.form);
@@ -48,6 +78,179 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   useEffect(() => {
     initialValuesRef.current = initialValues || {};
   }, [initialValues]);
+
+  useEffect(() => {
+    repeatableStateRef.current = repeatableState;
+  }, [repeatableState]);
+
+  const updateRepeatableState = useCallback((updater) => {
+    setRepeatableStateInternal((prev) => {
+      const next =
+        typeof updater === 'function'
+          ? updater(prev || {})
+          : updater && typeof updater === 'object'
+          ? updater
+          : {};
+      repeatableStateRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    updateRepeatableState({});
+  }, [preparedSchema, updateRepeatableState]);
+
+  const mutateRepeatableState = useCallback(
+    (mutator) => {
+      updateRepeatableState((prev) => {
+        const base = prev && typeof prev === 'object' ? prev : {};
+        const draft = cloneDeep(base);
+        mutator(draft);
+        return draft;
+      });
+    },
+    [updateRepeatableState]
+  );
+
+  const resolveRepeatableContainer = useCallback((state, path = [], { createIfMissing = false } = {}) => {
+    let container = state || {};
+    if (!Array.isArray(path) || path.length === 0) {
+      return container;
+    }
+    for (const segment of path) {
+      if (!segment || typeof segment.key !== 'string') {
+        return null;
+      }
+      const list = container?.[segment.key];
+      if (!Array.isArray(list)) {
+        return null;
+      }
+      const targetIndex = list.findIndex((instance) => instance.id === segment.id);
+      if (targetIndex === -1) {
+        return null;
+      }
+      const target = list[targetIndex];
+      if (!target.repeatable || typeof target.repeatable !== 'object') {
+        if (createIfMissing) {
+          target.repeatable = {};
+        } else {
+          return null;
+        }
+      }
+      container = target.repeatable;
+    }
+    return container;
+  }, []);
+
+  const getRepeatableInstances = useCallback(
+    (repeatableKey, parentPath = []) => {
+      const container = resolveRepeatableContainer(
+        repeatableStateRef.current || {},
+        parentPath
+      );
+      const list = container?.[repeatableKey];
+      return Array.isArray(list) ? list : [];
+    },
+    [resolveRepeatableContainer]
+  );
+
+  const getRepeatableInstance = useCallback(
+    (repeatableKey, instanceId, parentPath = []) => {
+      const list = getRepeatableInstances(repeatableKey, parentPath);
+      return list.find((instance) => instance.id === instanceId) || null;
+    },
+    [getRepeatableInstances]
+  );
+
+  const addRepeatableInstance = useCallback(
+    (repeatableKey, { parentPath = [], seedValues = {}, instanceId } = {}) => {
+      const repInfo = repeatableMetadata.byPreferredKey.get(repeatableKey);
+      if (!repInfo) {
+        console.warn(`form0-react: unknown RepeatableSection key "${repeatableKey}"`);
+        return null;
+      }
+      const newInstance = createEmptyRepeatableInstance(repInfo);
+      if (instanceId) {
+        newInstance.id = instanceId;
+      }
+      if (seedValues && typeof seedValues === 'object') {
+        newInstance.values = {
+          ...newInstance.values,
+          ...seedValues,
+        };
+      }
+      mutateRepeatableState((draft) => {
+        const container =
+          resolveRepeatableContainer(draft, parentPath, { createIfMissing: true }) || draft;
+        if (!Array.isArray(container[repeatableKey])) {
+          container[repeatableKey] = [];
+        }
+        container[repeatableKey].push(newInstance);
+      });
+      return newInstance;
+    },
+    [mutateRepeatableState, repeatableMetadata, resolveRepeatableContainer]
+  );
+
+  const updateRepeatableInstance = useCallback(
+    (repeatableKey, instanceId, updater, parentPath = []) => {
+      if (typeof updater !== 'function' && (updater == null || typeof updater !== 'object')) {
+        return;
+      }
+      mutateRepeatableState((draft) => {
+        const container = resolveRepeatableContainer(draft, parentPath);
+        if (!container) {
+          return;
+        }
+        const list = container[repeatableKey];
+        if (!Array.isArray(list)) {
+          return;
+        }
+        const index = list.findIndex((instance) => instance.id === instanceId);
+        if (index === -1) {
+          return;
+        }
+        const current = list[index];
+        const nextInstance =
+          typeof updater === 'function'
+            ? updater(cloneDeep(current))
+            : { ...current, ...updater };
+        list[index] = nextInstance;
+      });
+    },
+    [mutateRepeatableState, resolveRepeatableContainer]
+  );
+
+  const removeRepeatableInstance = useCallback(
+    (repeatableKey, instanceId, parentPath = []) => {
+      mutateRepeatableState((draft) => {
+        const container = resolveRepeatableContainer(draft, parentPath);
+        if (!container) {
+          return;
+        }
+        const list = container[repeatableKey];
+        if (!Array.isArray(list)) {
+          return;
+        }
+        const index = list.findIndex((instance) => instance.id === instanceId);
+        if (index === -1) {
+          return;
+        }
+        list.splice(index, 1);
+      });
+    },
+    [mutateRepeatableState, resolveRepeatableContainer]
+  );
+  const setRepeatableInstances = useCallback(
+    (repeatableKey, instances = [], parentPath = []) => {
+      mutateRepeatableState((draft) => {
+        const container =
+          resolveRepeatableContainer(draft, parentPath, { createIfMissing: true }) || draft;
+        container[repeatableKey] = Array.isArray(instances) ? cloneDeep(instances) : [];
+      });
+    },
+    [mutateRepeatableState, resolveRepeatableContainer]
+  );
 
   const syncState = useCallback(() => {
     if (!engineRef.current) {
@@ -338,6 +541,15 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     processOperations,
     schema: preparedSchema,
     engine: engineRef.current,
+    repeatable: repeatableState,
+    setRepeatableState: updateRepeatableState,
+    addRepeatableInstance,
+    updateRepeatableInstance,
+    removeRepeatableInstance,
+    setRepeatableInstances,
+    getRepeatableInstances,
+    getRepeatableInstance,
+    repeatableMetadata,
   };
 }
 

@@ -76,7 +76,7 @@ export const navigationNested = style({
 
 export const navigationToggle = style({
   appearance: 'none',
-  background: vars.color.section,
+  background: 'none',
   border: 'none',
   borderRadius: 'none',
   padding: `${vars.spacing.xs}`,

@@ -364,6 +364,220 @@ export const simplifiedButtonDisabled = style({
   },
 });
 
+// Repeatable section styles
+export const repeatableList = style({
+  background: vars.color.section,
+  border: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.md,
+  marginBottom: vars.spacing.md,
+  transition: 'transform 0.2s ease, opacity 0.2s ease',
+});
+
+export const repeatableListBlurred = style({
+  transform: 'translateX(-8px)',
+  opacity: 0.6,
+});
+
+export const repeatableListHeader = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: vars.spacing.sm,
+  alignItems: 'center',
+  marginBottom: vars.spacing.sm,
+});
+
+export const repeatableListHeaderText = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+  minWidth: 0,
+});
+
+export const repeatableListTitle = style({
+  margin: 0,
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  color: vars.color.sectionHeader,
+});
+
+export const repeatableListDescription = style({
+  margin: 0,
+  fontSize: vars.fontSize.base,
+  color: vars.color.foreground,
+  opacity: 0.75,
+});
+
+export const repeatableAddButton = style([
+  formNameActionButton,
+  {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: vars.spacing.xs,
+    background: vars.color.buttonBg,
+    color: vars.color.buttonFg,
+    borderColor: vars.color.buttonBorder,
+  },
+]);
+
+export const repeatableBackButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+  fontSize: vars.fontSize.base,
+  color: vars.color.foreground,
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  padding: 0,
+});
+
+export const repeatableEntryList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const repeatableEntryRow = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: vars.spacing.sm,
+  alignItems: 'center',
+  padding: vars.spacing.sm,
+  borderRadius: vars.borderRadius,
+  border: `1px solid ${vars.color.sectionBorder}`,
+  background: vars.color.background,
+});
+
+export const repeatableEntryInfo = style({
+  flex: 1,
+  minWidth: 0,
+});
+
+export const repeatableEntryTitle = style({
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  color: vars.color.foreground,
+  wordBreak: 'break-word',
+});
+
+export const repeatableEntryActions = style({
+  display: 'flex',
+  gap: vars.spacing.xs,
+});
+
+export const repeatableActionButton = style([
+  formNameActionButton,
+]);
+
+export const repeatableDangerButton = style({
+  background: 'transparent',
+  color: vars.color.error,
+  borderColor: vars.color.error,
+  selectors: {
+    '&:hover': {
+      color: vars.color.primary,
+      borderColor: vars.color.primary,
+    },
+  },
+});
+
+export const repeatableEmptyState = style({
+  border: `1px dashed ${vars.color.sectionBorder}`,
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.lg,
+  textAlign: 'center',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+  color: vars.color.foreground,
+  opacity: 0.8,
+});
+
+export const repeatableModalOverlay = style({
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: 'rgba(0, 0, 0, 0.35)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '1.5vh 2vw',
+  zIndex: 60,
+  fontFamily: vars.fontFamily.base,
+});
+
+export const repeatableModal = style({
+  width: 'min(740px, 100%)',
+  height: '97vh',
+  maxHeight: '97vh',
+  background: vars.color.background,
+  color: vars.color.foreground,
+  borderRadius: vars.borderRadius,
+  border: `1px solid ${vars.color.border}`,
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+  display: 'flex',
+  flexDirection: 'column',
+  fontFamily: vars.fontFamily.base,
+});
+
+export const repeatableModalHeader = style({
+  display: 'grid',
+  gridTemplateColumns: 'minmax(100px, auto) 1fr minmax(100px, auto)',
+  alignItems: 'center',
+  padding: vars.spacing.md,
+  borderBottom: `1px solid ${vars.color.border}`,
+  gap: vars.spacing.sm,
+});
+
+export const repeatableModalHeaderSlot = style({
+  display: 'flex',
+  alignItems: 'center',
+  minHeight: '32px',
+  gap: vars.spacing.sm,
+});
+
+export const repeatableModalHeaderSlotRight = style({
+  justifyContent: 'flex-end',
+});
+
+export const repeatableModalTitle = style({
+  flex: 1,
+  textAlign: 'center',
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  color: vars.color.sectionHeader,
+});
+
+export const repeatableModalBody = style({
+  padding: vars.spacing.md,
+  overflowY: 'auto',
+  flex: 1,
+  minHeight: 0,
+  maxHeight: 'calc(97vh - 120px)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+});
+
+export const repeatableModalSection = style({
+  border: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.sm,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const repeatableModalSectionTitle = style({
+  margin: 0,
+  fontSize: '0.95rem',
+  fontWeight: 600,
+  color: vars.color.sectionHeader,
+});
+
 export const debugPanel = style({
   marginTop: vars.spacing.md,
   padding: vars.spacing.sm,
