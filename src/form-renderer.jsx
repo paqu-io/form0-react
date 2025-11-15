@@ -2427,7 +2427,11 @@ function RepeatableSectionList({
           <div className={styles.repeatableEmptyState}>
             <span>No entries yet.</span>
             {!readOnly && (
-              <button type="button" onClick={onAdd}>
+              <button
+                type="button"
+                className={styles.repeatableEmptyStateButton}
+                onClick={onAdd}
+              >
                 Add the first entry
               </button>
             )}

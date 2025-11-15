@@ -492,7 +492,17 @@ export const repeatableEmptyState = style({
   gap: vars.spacing.sm,
   color: vars.color.foreground,
   opacity: 0.8,
+  fontSize: vars.fontSize.base,
 });
+
+export const repeatableEmptyStateButton = style([
+  repeatableAddButton,
+  {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    width: '100%',
+  },
+]);
 
 export const repeatableModalOverlay = style({
   position: 'fixed',
