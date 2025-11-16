@@ -286,6 +286,37 @@ export const drilldownInactive = style({
   width: '100%',
 });
 
+export const drilldownInfo = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.spacing.sm,
+  flex: 1,
+  minWidth: 0,
+});
+
+const repeatableCountPillBase = {
+  padding: '2px 10px',
+  borderRadius: '0.375rem',
+  fontSize: '0.7rem',
+  fontWeight: 600,
+  color: '#fff',
+  lineHeight: 1.4,
+  flexShrink: 0,
+  marginRight: vars.spacing.lg,
+};
+
+export const repeatableCountPill = style({
+  ...repeatableCountPillBase,
+});
+
+export const repeatableCountPillEmpty = style({
+  background: '#6b7280',
+});
+
+export const repeatableCountPillFilled = style({
+  background: vars.color.primary,
+});
+
 export const drilldownActive = style({
   background: vars.color.section,
   border: `1px solid ${vars.color.sectionBorder}`,

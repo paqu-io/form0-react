@@ -2106,9 +2106,18 @@ export function FormRenderer({
 
       if (!isCurrentLevelActive) {
         const label = field.label || 'Repeatable Section';
+        const instanceCount = Array.isArray(instances) ? instances.length : 0;
+        const countLabel = `${instanceCount} item${instanceCount === 1 ? '' : 's'}`;
+        const countPillClass =
+          instanceCount === 0
+            ? `${styles.repeatableCountPill} ${styles.repeatableCountPillEmpty}`
+            : `${styles.repeatableCountPill} ${styles.repeatableCountPillFilled}`;
         return (
           <div key={sectionId} className={styles.drilldownInactive}>
-            <span className={styles.drilldownLabel}>{label}</span>
+            <div className={styles.drilldownInfo}>
+              <span className={styles.drilldownLabel}>{label}</span>
+              <span className={countPillClass}>{countLabel}</span>
+            </div>
             <button
               type="button"
               className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
@@ -3322,10 +3331,23 @@ function RepeatableEntryForm({
       }
       const sectionId = field.data_name || field.key || repeatableKey;
       const label = field.label || 'Repeatable Section';
+      const nestedInstances =
+        controller && typeof controller.getInstances === 'function'
+          ? controller.getInstances(repeatableKey, contextPath) || []
+          : [];
+      const nestedCount = Array.isArray(nestedInstances) ? nestedInstances.length : 0;
+      const nestedLabel = `${nestedCount} item${nestedCount === 1 ? '' : 's'}`;
+      const nestedPillClass =
+        nestedCount === 0
+          ? `${styles.repeatableCountPill} ${styles.repeatableCountPillEmpty}`
+          : `${styles.repeatableCountPill} ${styles.repeatableCountPillFilled}`;
       return (
         <div key={sectionId} className={styles.repeatableModalSection}>
           <div className={styles.drilldownInactive}>
-            <span className={styles.drilldownLabel}>{label}</span>
+            <div className={styles.drilldownInfo}>
+              <span className={styles.drilldownLabel}>{label}</span>
+              <span className={nestedPillClass}>{nestedLabel}</span>
+            </div>
             <button
               type="button"
               className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
