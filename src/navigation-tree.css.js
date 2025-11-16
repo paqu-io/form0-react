@@ -61,10 +61,15 @@ export const navigationLink = style({
   },
 });
 
-export const navigationLinkActive = style({
+export const navigationLinkHighlight = style({
   background: vars.color.section,
   borderLeft: `4px solid ${vars.color.primary}`,
-  color: vars.color.primary,
+  color: '#4b5563',
+});
+
+export const navigationLinkActive = style({
+  color: '#ff007a',
+  borderLeft: `4px solid #ff007a`,
 });
 
 export const navigationNested = style({

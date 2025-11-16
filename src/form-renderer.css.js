@@ -495,15 +495,6 @@ export const repeatableEmptyState = style({
   fontSize: vars.fontSize.base,
 });
 
-export const repeatableEmptyStateButton = style([
-  repeatableAddButton,
-  {
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    width: '100%',
-  },
-]);
-
 export const repeatableModalOverlay = style({
   position: 'fixed',
   top: 0,
@@ -520,7 +511,7 @@ export const repeatableModalOverlay = style({
 });
 
 export const repeatableModal = style({
-  width: 'min(740px, 100%)',
+  width: 'min(880px, 100%)',
   height: '97vh',
   maxHeight: '97vh',
   background: vars.color.background,
@@ -534,12 +525,24 @@ export const repeatableModal = style({
 });
 
 export const repeatableModalHeader = style({
-  display: 'grid',
-  gridTemplateColumns: 'minmax(100px, auto) 1fr minmax(100px, auto)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'none',
+  width: '100%',
+});
+
+export const repeatableModalHeaderTopRow = style({
+  position: 'relative',
+  display: 'flex',
   alignItems: 'center',
-  padding: vars.spacing.md,
-  borderBottom: `1px solid ${vars.color.border}`,
-  gap: vars.spacing.sm,
+  justifyContent: 'center',
+  padding: vars.spacing.sm,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.section,
+  marginBottom: vars.spacing.md,
+  minHeight: '3rem',
+  
 });
 
 export const repeatableModalHeaderSlot = style({
@@ -572,6 +575,43 @@ export const repeatableModalBody = style({
   gap: vars.spacing.md,
 });
 
+export const repeatableModalSummaryRow = style({
+  width: '100%',
+  display: 'flex',
+});
+
+export const repeatableModalSummaryCard = style({
+  width: '100%',
+  margin: 0,
+});
+
+export const repeatableModalContent = style({
+  display: 'flex',
+  gap: vars.spacing.md,
+  flex: 1,
+  minHeight: 0,
+  width: '100%',
+  alignItems: 'flex-start',
+});
+
+export const repeatableModalNavigation = style({
+  width: '220px',
+  flexShrink: 0,
+  '@media': {
+    '(max-width: 768px)': {
+      display: 'none',
+    },
+  },
+});
+
+export const repeatableModalFormColumn = style({
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+});
+
 export const repeatableModalSection = style({
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
@@ -579,6 +619,11 @@ export const repeatableModalSection = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.spacing.sm,
+});
+
+export const repeatableModalSectionHighlighted = style({
+  borderColor: vars.color.primary,
+  boxShadow: `0 0 0 1px ${vars.color.primary}`,
 });
 
 export const repeatableModalSectionTitle = style({

@@ -40,6 +40,9 @@ const SECTION_LIKE_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPla
 const SPECIAL_SECTION_TYPES = new Set(['RepeatableSection', 'BuildingPlanSection']);
 const EXIT_CAPABLE_PLACEMENTS = new Set(['form-modal', 'form-spotlight']);
 const MIN_TITLE_PADDING_PX = 32;
+const ROOT_NAV_NODE_ID = '__form_root';
+const MODAL_ROOT_NAV_NODE_ID = '__modal_form_root';
+const ROOT_NAV_LABEL = 'Root';
 
 const cloneDeepSafe = (value) => {
   if (value == null) return value;
@@ -83,6 +86,111 @@ function deepEqual(a, b) {
     return true;
   }
   return false;
+}
+
+function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
+  const metadata = {};
+  const fieldPathMap = {};
+
+  const traverse = (nodes, sectionPath = [], drilldownPath = []) => {
+    if (!Array.isArray(nodes)) {
+      return [];
+    }
+
+    const treeNodes = [];
+
+    nodes.forEach((el) => {
+      if (!el) {
+        return;
+      }
+
+      if (SECTION_LIKE_TYPES.has(el.type)) {
+        const sectionId = el.data_name || el.key;
+        const hasSectionId = typeof sectionId === 'string' && sectionId.length > 0;
+        const display =
+          el.type === 'RepeatableSection' ? 'drilldown' : el.display || 'inline';
+        const nextSectionPath = hasSectionId ? [...sectionPath, sectionId] : sectionPath;
+        const shouldExtendDrilldown = display === 'drilldown' && hasSectionId;
+        const nextDrilldownPath = shouldExtendDrilldown
+          ? [...drilldownPath, sectionId]
+          : drilldownPath;
+
+        if (hasSectionId) {
+          const repeatableKey =
+            el.type === 'RepeatableSection' && typeof resolveRepeatableKey === 'function'
+              ? resolveRepeatableKey(el)
+              : null;
+          metadata[sectionId] = {
+            id: sectionId,
+            label: el.label || el.data_name || 'Unnamed Section',
+            type: el.type,
+            display,
+            path: nextSectionPath,
+            drilldownPath: nextDrilldownPath,
+            repeatableKey,
+            field: el,
+          };
+        }
+
+        const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
+
+        if (hasSectionId && (el.type === 'Section' || el.type === 'RepeatableSection')) {
+          treeNodes.push({
+            id: sectionId,
+            label: el.label || el.data_name || 'Unnamed Section',
+            display,
+            type: el.type,
+            children: childNodes,
+          });
+        } else {
+          treeNodes.push(...childNodes);
+        }
+      } else if (el.data_name) {
+        fieldPathMap[el.data_name] = sectionPath;
+      }
+    });
+
+    return treeNodes;
+  };
+
+  const sectionTree = traverse(elements);
+  return { sectionTree, sectionMetadata: metadata, fieldToSectionPath: fieldPathMap };
+}
+
+function buildNavigationNodes(nodes = []) {
+  return nodes
+    .map((node) => {
+      if (!node) {
+        return null;
+      }
+      if (node.type === 'RepeatableSection') {
+        return { ...node, children: [] };
+      }
+      const children = node.children ? buildNavigationNodes(node.children) : [];
+      return {
+        ...node,
+        children,
+      };
+    })
+    .filter(Boolean);
+}
+
+function findSectionNodeById(nodes = [], targetId) {
+  for (const node of nodes) {
+    if (!node) {
+      continue;
+    }
+    if (node.id === targetId) {
+      return node;
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findSectionNodeById(node.children, targetId);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 export function FormRenderer({
@@ -1064,77 +1172,18 @@ export function FormRenderer({
     themeClass = theme;
   }
 
-  const { sectionTree, sectionMetadata, fieldToSectionPath } = useMemo(() => {
-    const metadata = {};
-    const fieldPathMap = {};
+  const { sectionTree, sectionMetadata, fieldToSectionPath } = useMemo(
+    () => buildSectionHierarchy(baseElements, resolveRepeatableKey),
+    [baseElements, resolveRepeatableKey]
+  );
 
-    const traverse = (elements, sectionPath = [], drilldownPath = []) => {
-      if (!Array.isArray(elements)) return [];
-
-      const nodes = [];
-
-      elements.forEach((el) => {
-        if (!el) {
-          return;
-        }
-
-        if (SECTION_LIKE_TYPES.has(el.type)) {
-          const sectionId = el.data_name || el.key;
-          const hasSectionId = typeof sectionId === 'string' && sectionId.length > 0;
-          const display =
-            el.type === 'RepeatableSection'
-              ? 'drilldown'
-              : el.display || 'inline';
-          const nextSectionPath = hasSectionId ? [...sectionPath, sectionId] : sectionPath;
-          const shouldExtendDrilldown = display === 'drilldown' && hasSectionId;
-          const nextDrilldownPath = shouldExtendDrilldown
-            ? [...drilldownPath, sectionId]
-            : drilldownPath;
-
-          if (hasSectionId) {
-            const repeatableKey =
-              el.type === 'RepeatableSection' ? resolveRepeatableKey(el) : null;
-            metadata[sectionId] = {
-              id: sectionId,
-              label: el.label || el.data_name || 'Unnamed Section',
-              type: el.type,
-              display,
-              path: nextSectionPath,
-              drilldownPath: nextDrilldownPath,
-              repeatableKey,
-              field: el,
-            };
-          }
-
-          const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
-
-          if (hasSectionId && (el.type === 'Section' || el.type === 'RepeatableSection')) {
-            nodes.push({
-              id: sectionId,
-              label: el.label || el.data_name || 'Unnamed Section',
-              display,
-              type: el.type,
-              children: childNodes,
-            });
-          } else {
-            nodes.push(...childNodes);
-          }
-        } else if (el.data_name) {
-          fieldPathMap[el.data_name] = sectionPath;
-        }
-      });
-
-      return nodes;
-    };
-
-    const treeNodes = traverse(baseElements);
-    return { sectionTree: treeNodes, sectionMetadata: metadata, fieldToSectionPath: fieldPathMap };
-  }, [baseElements, resolveRepeatableKey]);
-
-  const [highlightedSections, setHighlightedSections] = useState([]);
+  const [highlightedSections, setHighlightedSections] = useState([ROOT_NAV_NODE_ID]);
   const [navigationClickTimestamp, setNavigationClickTimestamp] = useState(0);
+  const activeNavigationSectionId =
+    highlightedSections.length > 0
+      ? highlightedSections[highlightedSections.length - 1]
+      : ROOT_NAV_NODE_ID;
 
-  const hasNavigableSections = sectionTree.length > 0;
   const activeDrilldownSectionId =
     activeDrilldownPath.length > 0 ? activeDrilldownPath[activeDrilldownPath.length - 1] : null;
   const activeDrilldownFullPath =
@@ -1159,6 +1208,30 @@ export function FormRenderer({
   const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
   const canShowDiscardPrompt = discardPromptEnabled && hasRootChanges;
   const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
+  const navigationSections = useMemo(() => {
+    if (!sectionTree || sectionTree.length === 0) {
+      return [];
+    }
+
+    const isRepeatableContextActive = activeDrilldownSectionInfo?.type === 'RepeatableSection';
+    const shouldUseRootNavigation =
+      !activeDrilldownSectionId || isRepeatableFirstPage || !isRepeatableContextActive;
+
+    const contextNodes = shouldUseRootNavigation
+      ? sectionTree
+      : findSectionNodeById(sectionTree, activeDrilldownSectionId)?.children || [];
+    const childNodes = buildNavigationNodes(contextNodes);
+
+    return [
+      {
+        id: ROOT_NAV_NODE_ID,
+        label: ROOT_NAV_LABEL,
+        type: 'Root',
+        children: childNodes,
+      },
+    ];
+  }, [sectionTree, activeDrilldownSectionId, activeDrilldownSectionInfo?.type, isRepeatableFirstPage]);
+  const hasNavigableSections = sectionTree.length > 0;
 
   const activeRepeatableListContext = useMemo(() => {
     if (!isRepeatableFirstPage) {
@@ -1229,7 +1302,11 @@ export function FormRenderer({
   }, [scrollSectionIntoView]);
 
   const setHighlightedPath = useCallback((path = []) => {
-    setHighlightedSections(path);
+    const normalizedPath =
+      Array.isArray(path) && path.length > 0
+        ? [ROOT_NAV_NODE_ID, ...path.filter((id) => id && id !== ROOT_NAV_NODE_ID)]
+        : [ROOT_NAV_NODE_ID];
+    setHighlightedSections(normalizedPath);
   }, []);
 
   const markNavigationInteraction = useCallback(() => {
@@ -1248,6 +1325,12 @@ export function FormRenderer({
 
   const handleNavigate = useCallback(
     (sectionId) => {
+      if (sectionId === ROOT_NAV_NODE_ID) {
+        setActiveDrilldownPath([]);
+        setHighlightedPath([ROOT_NAV_NODE_ID]);
+        markNavigationInteraction();
+        return;
+      }
       const section = sectionMetadata[sectionId];
       if (!section) {
         return;
@@ -2300,8 +2383,9 @@ export function FormRenderer({
         <div className={styles.bodySection}>
           {hasNavigableSections && (
             <NavigationTree
-              sections={sectionTree}
+              sections={navigationSections}
               highlightedSections={highlightedSections}
+              activeSectionId={activeNavigationSectionId}
               onNavigate={handleNavigate}
             />
           )}
@@ -2334,6 +2418,7 @@ export function FormRenderer({
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
                 resolveRepeatableKey={resolveRepeatableKey}
+                recordStatusInfo={recordStatusInfo}
               />
             )),
             document.body
@@ -2426,7 +2511,7 @@ function RepeatableSectionList({
         {instances.length === 0 ? (
           <div className={styles.repeatableEmptyState}>
             <span>No entries yet.</span>
-            {!readOnly && (
+            {/* {!readOnly && (
               <button
                 type="button"
                 className={styles.repeatableEmptyStateButton}
@@ -2434,7 +2519,7 @@ function RepeatableSectionList({
               >
                 Add the first entry
               </button>
-            )}
+            )} */}
           </div>
         ) : (
           instances.map((instance, index) => (
@@ -2483,6 +2568,7 @@ function RepeatableEntryModal({
   onCancel,
   openNestedModal,
   resolveRepeatableKey,
+  recordStatusInfo,
 }) {
   const {
     values: entryValues,
@@ -2559,6 +2645,206 @@ function RepeatableEntryModal({
     ]
   );
 
+  const entryElements = modal.repInfo?.field?.elements || [];
+  const {
+    sectionTree: modalSectionTree,
+    sectionMetadata: modalSectionMetadata,
+    fieldToSectionPath: modalFieldToSectionPath,
+  } = useMemo(
+    () => buildSectionHierarchy(entryElements, resolveRepeatableKey),
+    [entryElements, resolveRepeatableKey]
+  );
+  const modalNavigationSections = useMemo(() => {
+    if (!modalSectionTree || modalSectionTree.length === 0) {
+      return [];
+    }
+    return [
+      {
+        id: MODAL_ROOT_NAV_NODE_ID,
+        label: ROOT_NAV_LABEL,
+        type: 'Root',
+        children: buildNavigationNodes(modalSectionTree),
+      },
+    ];
+  }, [modalSectionTree]);
+  const [modalHighlightedSections, setModalHighlightedSections] = useState([MODAL_ROOT_NAV_NODE_ID]);
+  const modalSectionRefs = useRef(new Map());
+  const modalActiveSectionId =
+    modalHighlightedSections.length > 0
+      ? modalHighlightedSections[modalHighlightedSections.length - 1]
+      : MODAL_ROOT_NAV_NODE_ID;
+  const setModalHighlightedPath = useCallback((path = []) => {
+    const normalizedPath =
+      Array.isArray(path) && path.length > 0
+        ? [MODAL_ROOT_NAV_NODE_ID, ...path.filter((id) => id && id !== MODAL_ROOT_NAV_NODE_ID)]
+        : [MODAL_ROOT_NAV_NODE_ID];
+    setModalHighlightedSections(normalizedPath);
+  }, []);
+
+  useEffect(() => {
+    modalSectionRefs.current = new Map();
+    setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+  }, [modal.modalId, setModalHighlightedPath]);
+
+  const registerModalSectionNode = useCallback((sectionId, node) => {
+    if (!sectionId) {
+      return;
+    }
+    if (node) {
+      modalSectionRefs.current.set(sectionId, node);
+    } else {
+      modalSectionRefs.current.delete(sectionId);
+    }
+  }, []);
+
+  const scrollModalSectionIntoView = useCallback((sectionId) => {
+    const node = modalSectionRefs.current.get(sectionId);
+    if (!node) {
+      return;
+    }
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (typeof node.focus === 'function') {
+      try {
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+    }
+  }, []);
+
+  const [activeNestedRepeatable, setActiveNestedRepeatable] = useState(null);
+
+  useEffect(() => {
+    setActiveNestedRepeatable(null);
+  }, [modal.modalId]);
+
+  const handleEnterNestedRepeatable = useCallback(
+    (config = {}) => {
+      const { field, repeatableKey, contextPath = [], sectionId, highlightPath } = config;
+      if (!field || !repeatableKey) {
+        return;
+      }
+      const metadata = sectionId ? modalSectionMetadata[sectionId] : null;
+      const nextHighlightPath = highlightPath || metadata?.path || [];
+      setModalHighlightedPath(nextHighlightPath);
+      setActiveNestedRepeatable({
+        field,
+        repeatableKey,
+        contextPath,
+        sectionId,
+      });
+    },
+    [modalSectionMetadata, setModalHighlightedPath]
+  );
+
+  const handleExitNestedRepeatable = useCallback(() => {
+    setActiveNestedRepeatable(null);
+    setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+  }, [setModalHighlightedPath]);
+
+  const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
+
+  const openDiscardDialog = useCallback(() => {
+    setDiscardDialogVisible(true);
+  }, []);
+
+  const closeDiscardDialog = useCallback(() => {
+    setDiscardDialogVisible(false);
+  }, []);
+
+  const confirmDiscard = useCallback(() => {
+    setDiscardDialogVisible(false);
+    onCancel(modal);
+  }, [modal, onCancel]);
+
+  const handleCancelRequest = useCallback(() => {
+    if (activeNestedRepeatable) {
+      handleExitNestedRepeatable();
+      return;
+    }
+    if (!hasEntryChanges) {
+      onCancel(modal);
+      return;
+    }
+    openDiscardDialog();
+  }, [activeNestedRepeatable, handleExitNestedRepeatable, hasEntryChanges, modal, onCancel, openDiscardDialog]);
+
+  const handleDiscardOverlayClick = useCallback(
+    (event) => {
+      if (event.target === event.currentTarget) {
+        closeDiscardDialog();
+      }
+    },
+    [closeDiscardDialog]
+  );
+
+  const handleSave = useCallback(() => {
+    onSave(modal, {
+      id: modal.instanceId,
+      values: cloneDeepSafe(entryValues),
+      repeatable: cloneDeepSafe(entryRepeatable),
+    });
+  }, [entryRepeatable, entryValues, modal, onSave]);
+
+  const handleModalNavigate = useCallback(
+    (sectionId) => {
+      if (sectionId === MODAL_ROOT_NAV_NODE_ID) {
+        handleExitNestedRepeatable();
+        setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+        return;
+      }
+      const info = modalSectionMetadata[sectionId];
+      if (!info) {
+        return;
+      }
+
+      if (info.type === 'RepeatableSection') {
+        const field = info.field;
+        const repeatableKey = info.repeatableKey || resolveRepeatableKey(field);
+        if (!field || !repeatableKey) {
+          return;
+        }
+        handleEnterNestedRepeatable({
+          field,
+          repeatableKey,
+          contextPath: info.repeatableParentPath || [],
+          sectionId: info.id,
+          highlightPath: info.path || [],
+        });
+        return;
+      }
+
+      setModalHighlightedPath(info.path || []);
+      if (activeNestedRepeatable) {
+        handleExitNestedRepeatable();
+        setTimeout(() => {
+          scrollModalSectionIntoView(sectionId);
+        }, 0);
+      } else {
+        scrollModalSectionIntoView(sectionId);
+      }
+    },
+    [
+      modalSectionMetadata,
+      resolveRepeatableKey,
+      handleEnterNestedRepeatable,
+      activeNestedRepeatable,
+      handleExitNestedRepeatable,
+      scrollModalSectionIntoView,
+      setModalHighlightedPath,
+    ]
+  );
+
+  const handleModalFieldFocus = useCallback(
+    (fieldDataName) => {
+      const sectionPath = modalFieldToSectionPath[fieldDataName];
+      setModalHighlightedPath(sectionPath || []);
+    },
+    [modalFieldToSectionPath, setModalHighlightedPath]
+  );
+
   const handleNestedAdd = useCallback(
     (field, repeatableKey, parentPath = []) => {
       openNestedModal(
@@ -2616,23 +2902,6 @@ function RepeatableEntryModal({
     [entryController]
   );
 
-  const [activeNestedRepeatable, setActiveNestedRepeatable] = useState(null);
-
-  useEffect(() => {
-    setActiveNestedRepeatable(null);
-  }, [modal.modalId]);
-
-  const handleEnterNestedRepeatable = useCallback((config) => {
-    if (!config || !config.field || !config.repeatableKey) {
-      return;
-    }
-    setActiveNestedRepeatable(config);
-  }, []);
-
-  const handleExitNestedRepeatable = useCallback(() => {
-    setActiveNestedRepeatable(null);
-  }, []);
-
   const triggerNestedAdd = useCallback(() => {
     if (!activeNestedRepeatable) {
       return;
@@ -2663,54 +2932,26 @@ function RepeatableEntryModal({
     [activeNestedRepeatable, handleNestedRemove]
   );
 
-  const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
-
-  const openDiscardDialog = useCallback(() => {
-    setDiscardDialogVisible(true);
-  }, []);
-
-  const closeDiscardDialog = useCallback(() => {
-    setDiscardDialogVisible(false);
-  }, []);
-
-  const confirmDiscard = useCallback(() => {
-    setDiscardDialogVisible(false);
-    onCancel(modal);
-  }, [modal, onCancel]);
-
-  const handleCancelRequest = useCallback(() => {
-    if (activeNestedRepeatable) {
-      handleExitNestedRepeatable();
-      return;
-    }
-    if (!hasEntryChanges) {
-      onCancel(modal);
-      return;
-    }
-    openDiscardDialog();
-  }, [activeNestedRepeatable, handleExitNestedRepeatable, hasEntryChanges, modal, onCancel, openDiscardDialog]);
-
-  const handleDiscardOverlayClick = useCallback(
-    (event) => {
-      if (event.target === event.currentTarget) {
-        closeDiscardDialog();
-      }
-    },
-    [closeDiscardDialog]
-  );
-
-  const handleSave = useCallback(() => {
-    onSave(modal, {
-      id: modal.instanceId,
-      values: cloneDeepSafe(entryValues),
-      repeatable: cloneDeepSafe(entryRepeatable),
-    });
-  }, [entryRepeatable, entryValues, modal, onSave]);
-
   const readOnly = mode === 'readonly';
   const nestedListActive = Boolean(activeNestedRepeatable);
   const modalTitle =
     activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
+  const modalRecordTitle = 'Untitled';
+  const modalStatusColor = recordStatusInfo?.color || '#d4d4d8';
+  const modalStatusLabel = recordStatusInfo?.label
+    ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
+    : recordStatusInfo?.disabled
+    ? 'Status disabled'
+    : undefined;
+  const modalStatusBadgeClass =
+    recordStatusInfo && recordStatusInfo.disabled
+      ? styles.recordSummaryStatusDisabled
+      : styles.recordSummaryStatus;
+  const modalStatusBadgeStyle =
+    recordStatusInfo?.disabled || !modalStatusColor ? undefined : { backgroundColor: modalStatusColor };
+  const modalStatusBadgeA11yProps =
+    modalStatusLabel ? { role: 'img', 'aria-label': modalStatusLabel } : { 'aria-hidden': 'true' };
+  const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
 
   const modalLeftAction = nestedListActive
     ? {
@@ -2879,48 +3120,85 @@ function RepeatableEntryModal({
         style={{ zIndex: 60 + (modal.stackIndex || 0) * 2 }}
       >
         <div className={`${styles.repeatableModal} ${themeClass}`}>
-          <div className={styles.repeatableModalHeader}>
-            {renderHeaderActionButton(modalLeftAction, 'left')}
-            <div className={styles.repeatableModalTitle}>{modalTitle}</div>
-            {renderHeaderActionButton(modalRightAction, 'right')}
+          <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
+            <div className={styles.repeatableModalHeaderTopRow}>
+              {renderHeaderActionButton(modalLeftAction, 'left')}
+              <div className={styles.repeatableModalTitle}>{modalTitle}</div>
+              {renderHeaderActionButton(modalRightAction, 'right')}
+            </div>
+            {!nestedListActive && (
+              <div className={styles.repeatableModalSummaryRow}>
+                <div
+                  className={`${styles.recordSummary} ${styles.repeatableModalSummaryCard}`}
+                  role="group"
+                  aria-label="Repeatable entry summary"
+                >
+                  <span
+                    className={modalStatusBadgeClass}
+                    style={modalStatusBadgeStyle}
+                    {...modalStatusBadgeA11yProps}
+                  />
+                  <div className={styles.recordSummaryContent}>
+                    <div className={styles.recordSummaryTitle}>{modalRecordTitle}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        <div className={styles.repeatableModalBody}>
-          {nestedListActive ? (
-            <RepeatableSectionList
-              key={activeNestedRepeatable.repeatableKey}
-              field={activeNestedRepeatable.field}
-              instances={nestedRepeatableInstances || []}
-              readOnly={readOnly}
-              variant="drilldown"
-              onAdd={triggerNestedAdd}
-              onEdit={triggerNestedEdit}
-              onRemove={triggerNestedRemove}
-            />
-          ) : (
-            <RepeatableEntryForm
-              elements={modal.repInfo?.field?.elements || []}
-              contextPath={[]}
-              state={{
-                values: entryValues,
-                visible: entryVisible,
-                required: entryRequired,
-                read_only: entryReadOnly,
-                errors: entryErrors,
-              }}
-              setValue={setEntryValue}
-              labelPosition={labelPosition}
-              labelWidthPercent={labelWidthPercent}
-              controller={entryController}
-              onAddRepeatable={handleNestedAdd}
-              onEditRepeatable={handleNestedEdit}
-              onRemoveRepeatable={handleNestedRemove}
-              resolveRepeatableKey={resolveRepeatableKey}
-              readOnly={readOnly}
-              onEnterRepeatable={handleEnterNestedRepeatable}
-            />
-          )}
+          <div className={styles.repeatableModalBody}>
+            <div className={styles.repeatableModalContent}>
+              {hasModalNavigation && (
+                <div className={styles.repeatableModalNavigation}>
+                  <NavigationTree
+                    sections={modalNavigationSections}
+                    highlightedSections={modalHighlightedSections}
+                    activeSectionId={modalActiveSectionId}
+                    onNavigate={handleModalNavigate}
+                  />
+                </div>
+              )}
+              <div className={styles.repeatableModalFormColumn}>
+                {nestedListActive ? (
+                  <RepeatableSectionList
+                    key={activeNestedRepeatable.repeatableKey}
+                    field={activeNestedRepeatable.field}
+                    instances={nestedRepeatableInstances || []}
+                    readOnly={readOnly}
+                    variant="drilldown"
+                    onAdd={triggerNestedAdd}
+                    onEdit={triggerNestedEdit}
+                    onRemove={triggerNestedRemove}
+                  />
+                ) : (
+                  <RepeatableEntryForm
+                    elements={modal.repInfo?.field?.elements || []}
+                    contextPath={[]}
+                    state={{
+                      values: entryValues,
+                      visible: entryVisible,
+                      required: entryRequired,
+                      read_only: entryReadOnly,
+                      errors: entryErrors,
+                    }}
+                    setValue={setEntryValue}
+                    labelPosition={labelPosition}
+                    labelWidthPercent={labelWidthPercent}
+                    controller={entryController}
+                    onAddRepeatable={handleNestedAdd}
+                    onEditRepeatable={handleNestedEdit}
+                    onRemoveRepeatable={handleNestedRemove}
+                    resolveRepeatableKey={resolveRepeatableKey}
+                    readOnly={readOnly}
+                    onEnterRepeatable={handleEnterNestedRepeatable}
+                    registerSectionNode={registerModalSectionNode}
+                    onFieldFocus={handleModalFieldFocus}
+                    highlightedSections={modalHighlightedSections}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
       </div>
       {discardDialogVisible && typeof document !== 'undefined' && (
         <div
@@ -2982,6 +3260,9 @@ function RepeatableEntryForm({
   resolveRepeatableKey,
   readOnly,
   onEnterRepeatable = () => {},
+  registerSectionNode,
+  onFieldFocus,
+  highlightedSections,
 }) {
   if (!Array.isArray(elements) || elements.length === 0) {
     return null;
@@ -2993,9 +3274,22 @@ function RepeatableEntryForm({
     }
 
     if (field.type === 'Section' && field.type !== 'RepeatableSection') {
-      const sectionId = field.data_name || field.key || Math.random().toString(36);
+      const rawSectionId = field.data_name || field.key;
+      const sectionId = rawSectionId || Math.random().toString(36);
+      const isHighlighted = rawSectionId
+        ? highlightedSections && highlightedSections.includes(rawSectionId)
+        : false;
+      const sectionClassName = `${styles.repeatableModalSection}${
+        isHighlighted ? ` ${styles.repeatableModalSectionHighlighted}` : ''
+      }`;
+
       return (
-        <div key={sectionId} className={styles.repeatableModalSection}>
+        <div
+          key={sectionId}
+          className={sectionClassName}
+          ref={rawSectionId ? (node) => registerSectionNode?.(rawSectionId, node) : undefined}
+          tabIndex={rawSectionId ? -1 : undefined}
+        >
           {field.label ? (
             <h4 className={styles.repeatableModalSectionTitle}>{field.label}</h4>
           ) : null}
@@ -3013,6 +3307,9 @@ function RepeatableEntryForm({
             resolveRepeatableKey={resolveRepeatableKey}
             readOnly={readOnly}
             onEnterRepeatable={onEnterRepeatable}
+            registerSectionNode={registerSectionNode}
+            onFieldFocus={onFieldFocus}
+            highlightedSections={highlightedSections}
           />
         </div>
       );
@@ -3033,10 +3330,11 @@ function RepeatableEntryForm({
               type="button"
               className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
               onClick={() =>
-                onEnterRepeatable?.({
+              onEnterRepeatable?.({
                   field,
                   repeatableKey,
                   contextPath,
+                  sectionId,
                 })
               }
             >
@@ -3080,6 +3378,7 @@ function RepeatableEntryForm({
         onChange={handleChange}
         labelPosition={labelPosition}
         labelWidthPercent={labelWidthPercent}
+        onFocus={dataName ? () => onFieldFocus?.(dataName) : undefined}
       />
     );
   });

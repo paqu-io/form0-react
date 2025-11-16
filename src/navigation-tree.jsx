@@ -4,10 +4,11 @@ import { TableOfContents } from 'lucide-react';
 
 const NAVIGATION_INDENT_STEP = 14;
 
-function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }) {
+function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavigate, level = 0 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
-  const isActive = highlightedSections && highlightedSections.includes(node.id);
+  const isHighlighted = highlightedSections && highlightedSections.includes(node.id);
+  const isActive = activeSectionId === node.id;
 
   const handleToggle = useCallback((e) => {
     e.stopPropagation();
@@ -36,9 +37,13 @@ function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }
     }
   }, [isActive]);
 
-  const linkClassName = isActive
-    ? `${styles.navigationLink} ${styles.navigationLinkActive}`
-    : styles.navigationLink;
+  const linkClassName = [
+    styles.navigationLink,
+    isHighlighted ? styles.navigationLinkHighlight : null,
+    isActive ? styles.navigationLinkActive : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const indentValue = level > 0 ? level * NAVIGATION_INDENT_STEP : 0;
   const indentStyle = indentValue > 0 ? { paddingLeft: `${indentValue}px` } : undefined;
@@ -86,6 +91,7 @@ function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }
               key={child.id}
               node={child}
               highlightedSections={highlightedSections}
+              activeSectionId={activeSectionId}
               onNavigate={onNavigate}
               level={level + 1}
             />
@@ -96,7 +102,7 @@ function NavigationTreeNode({ node, highlightedSections, onNavigate, level = 0 }
   );
 }
 
-export function NavigationTree({ sections, highlightedSections, onNavigate }) {
+export function NavigationTree({ sections, highlightedSections, activeSectionId, onNavigate }) {
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -118,6 +124,7 @@ export function NavigationTree({ sections, highlightedSections, onNavigate }) {
             key={section.id}
             node={section}
             highlightedSections={highlightedSections}
+            activeSectionId={activeSectionId}
             onNavigate={onNavigate}
           />
         ))}
