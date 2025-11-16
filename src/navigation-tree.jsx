@@ -9,6 +9,10 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
   const hasChildren = node.children && node.children.length > 0;
   const isHighlighted = highlightedSections && highlightedSections.includes(node.id);
   const isActive = activeSectionId === node.id;
+  const truncatedLabel =
+    typeof node.label === 'string' && node.label.length > 42
+      ? `${node.label.slice(0, 42)}…`
+      : node.label;
 
   const handleToggle = useCallback((e) => {
     e.stopPropagation();
@@ -80,8 +84,9 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
           role="button"
           tabIndex={0}
           aria-current={isActive ? 'true' : undefined}
+          title={node.label || undefined}
         >
-          {node.label}
+          {truncatedLabel}
         </a>
       </div>
       {hasChildren && isExpanded && (
