@@ -88,6 +88,43 @@ function deepEqual(a, b) {
   return false;
 }
 
+const TIMESTAMP_METADATA_FIELD_DEFS = [
+  {
+    type: 'TextField',
+    data_name: 'created_at_client',
+    label: 'Created at (client)',
+    read_only: true,
+    key: '__metadata_created_at_client',
+  },
+  {
+    type: 'TextField',
+    data_name: 'updated_at_client',
+    label: 'Updated at (client)',
+    read_only: true,
+    key: '__metadata_updated_at_client',
+  },
+  {
+    type: 'TextField',
+    data_name: 'created_at_server',
+    label: 'Created at (server)',
+    read_only: true,
+    key: '__metadata_created_at_server',
+  },
+  {
+    type: 'TextField',
+    data_name: 'updated_at_server',
+    label: 'Updated at (server)',
+    read_only: true,
+    key: '__metadata_updated_at_server',
+  },
+];
+
+const createTimestampMetadataFields = (keySuffix = '') =>
+  TIMESTAMP_METADATA_FIELD_DEFS.map((field) => ({
+    ...field,
+    key: keySuffix ? `${field.key}_${keySuffix}` : field.key,
+  }));
+
 const getTimestampSourceValue = (source, key) => {
   if (!source || typeof source !== 'object') {
     return undefined;
@@ -143,6 +180,64 @@ const isPathPrefix = (candidate = [], target = []) => {
   }
   return candidate.every((id, idx) => target[idx] === id);
 };
+
+function useRecordTimestamps({ initialValues, overrideValues, values }) {
+  const [timestamps, setTimestamps] = useState(() =>
+    deriveInitialTimestamps(initialValues, overrideValues)
+  );
+  const timestampsRef = useRef(timestamps);
+  const sourcesRef = useRef({ initialValues, overrideValues });
+  const valuesRef = useRef(values);
+  const updateTimerRef = useRef(null);
+
+  const cancelScheduledUpdate = useCallback(() => {
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => cancelScheduledUpdate(), [cancelScheduledUpdate]);
+
+  useEffect(() => {
+    const prevSources = sourcesRef.current;
+    if (
+      prevSources.initialValues === initialValues &&
+      prevSources.overrideValues === overrideValues
+    ) {
+      return;
+    }
+    sourcesRef.current = { initialValues, overrideValues };
+    cancelScheduledUpdate();
+    const next = deriveInitialTimestamps(initialValues, overrideValues);
+    setTimestamps((prev) => (areTimestampValuesEqual(prev, next) ? prev : next));
+  }, [initialValues, overrideValues, cancelScheduledUpdate]);
+
+  useEffect(() => {
+    timestampsRef.current = timestamps;
+  }, [timestamps]);
+
+  useEffect(() => {
+    if (valuesRef.current === values) {
+      return undefined;
+    }
+    valuesRef.current = values;
+    cancelScheduledUpdate();
+    updateTimerRef.current = setTimeout(() => {
+      updateTimerRef.current = null;
+      setTimestamps((prev) => {
+        const nextUpdatedAt = new Date().toISOString();
+        if (prev.updated_at_client === nextUpdatedAt) {
+          return prev;
+        }
+        return { ...prev, updated_at_client: nextUpdatedAt };
+      });
+    }, 500);
+    return cancelScheduledUpdate;
+  }, [values, cancelScheduledUpdate]);
+
+  return { timestamps, timestampsRef };
+}
 
 function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
   const metadata = {};
@@ -734,46 +829,10 @@ export function FormRenderer({
   const baseElements = schemaForRender?.form?.elements || [];
 
   const headerFields = useMemo(() => {
-    const fields = [];
-
-    // Add timestamp fields in specified order
-    fields.push({
-      type: 'TextField',
-      data_name: 'created_at_client',
-      label: 'Created at (client)',
-      read_only: true,
-      key: '__metadata_created_at_client',
-    });
-
-    fields.push({
-      type: 'TextField',
-      data_name: 'updated_at_client',
-      label: 'Updated at (client)',
-      read_only: true,
-      key: '__metadata_updated_at_client',
-    });
-
-    fields.push({
-      type: 'TextField',
-      data_name: 'created_at_server',
-      label: 'Created at (server)',
-      read_only: true,
-      key: '__metadata_created_at_server',
-    });
-
-    fields.push({
-      type: 'TextField',
-      data_name: 'updated_at_server',
-      label: 'Updated at (server)',
-      read_only: true,
-      key: '__metadata_updated_at_server',
-    });
-
-    // Add status field last
+    const fields = createTimestampMetadataFields();
     if (statusField && statusField.enabled !== false) {
       fields.push(statusField);
     }
-
     return fields;
   }, [statusField]);
 
@@ -817,64 +876,11 @@ export function FormRenderer({
 
   const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
 
-  const [timestamps, setTimestamps] = useState(() =>
-    deriveInitialTimestamps(initialValues, overrideValues)
-  );
-  const timestampSourcesRef = useRef({ initialValues, overrideValues });
-  const timestampUpdateTimerRef = useRef(null);
-  const timestampsRef = useRef(timestamps);
-  const valuesRef = useRef(values);
-
-  const cancelScheduledTimestampUpdate = useCallback(() => {
-    if (timestampUpdateTimerRef.current) {
-      clearTimeout(timestampUpdateTimerRef.current);
-      timestampUpdateTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    const prevSources = timestampSourcesRef.current;
-    if (
-      prevSources.initialValues === initialValues &&
-      prevSources.overrideValues === overrideValues
-    ) {
-      return;
-    }
-    timestampSourcesRef.current = { initialValues, overrideValues };
-    cancelScheduledTimestampUpdate();
-    const next = deriveInitialTimestamps(initialValues, overrideValues);
-    setTimestamps((prev) => (areTimestampValuesEqual(prev, next) ? prev : next));
-  }, [initialValues, overrideValues, cancelScheduledTimestampUpdate]);
-
-  useEffect(() => {
-    timestampsRef.current = timestamps;
-  }, [timestamps]);
-
-  // Update updated_at_client whenever form values change (debounced)
-  useEffect(() => {
-    if (valuesRef.current === values) {
-      return undefined;
-    }
-
-    valuesRef.current = values;
-    cancelScheduledTimestampUpdate();
-
-    timestampUpdateTimerRef.current = setTimeout(() => {
-      timestampUpdateTimerRef.current = null;
-      setTimestamps((prev) => {
-        const nextUpdatedAt = new Date().toISOString();
-        if (prev.updated_at_client === nextUpdatedAt) {
-          return prev;
-        }
-        return {
-          ...prev,
-          updated_at_client: nextUpdatedAt,
-        };
-      });
-    }, 500);
-
-    return cancelScheduledTimestampUpdate;
-  }, [values, cancelScheduledTimestampUpdate]);
+  const { timestamps, timestampsRef } = useRecordTimestamps({
+    initialValues,
+    overrideValues,
+    values,
+  });
 
   useEffect(() => {
     if (!statusField || !statusFieldName) {
@@ -2791,6 +2797,27 @@ function RepeatableEntryModal({
     engineOptions: modal.engineOptions,
   });
 
+  const entryInitialTimestampValues = useMemo(
+    () => ({
+      created_at_client: modal.initialInstance?.created_at_client,
+      updated_at_client: modal.initialInstance?.updated_at_client,
+      created_at_server: modal.initialInstance?.created_at_server,
+      updated_at_server: modal.initialInstance?.updated_at_server,
+    }),
+    [
+      modal.initialInstance?.created_at_client,
+      modal.initialInstance?.updated_at_client,
+      modal.initialInstance?.created_at_server,
+      modal.initialInstance?.updated_at_server,
+    ]
+  );
+
+  const { timestamps: entryTimestamps, timestampsRef: entryTimestampsRef } = useRecordTimestamps({
+    initialValues: entryInitialTimestampValues,
+    overrideValues: undefined,
+    values: entryValues,
+  });
+
   const initialEntrySnapshot = useRef({
     values: modal.initialInstance?.values || {},
     repeatable: modal.initialInstance?.repeatable || {},
@@ -3054,13 +3081,48 @@ function RepeatableEntryModal({
     [closeDiscardDialog]
   );
 
+  const repeatableMetadataFields = useMemo(
+    () => createTimestampMetadataFields(`repeatable_${modal.modalId}`),
+    [modal.modalId]
+  );
+
+  const repeatableMetadataSection = useMemo(() => {
+    const metadataFields = repeatableMetadataFields.map((field) => {
+      const fieldValue = entryTimestamps[field.data_name] || null;
+      return (
+        <FieldRenderer
+          key={field.key || field.data_name}
+          field={field}
+          value={fieldValue}
+          readOnly
+          required={false}
+          error={null}
+          labelPosition={labelPosition}
+          labelWidthPercent={labelWidthPercent}
+        />
+      );
+    });
+
+    return (
+      <section className={`${styles.section} ${styles.recordMetadata}`} aria-label="Record Metadata">
+        <h3 className={styles.sectionHeader}>Record Metadata</h3>
+        <div className={styles.recordMetadataFields}>{metadataFields}</div>
+      </section>
+    );
+  }, [entryTimestamps, labelPosition, labelWidthPercent, repeatableMetadataFields]);
+
   const handleSave = useCallback(() => {
+    const timestampSnapshot = entryTimestampsRef.current;
     onSave(modal, {
       id: modal.instanceId,
       values: cloneDeepSafe(entryValues),
       repeatable: cloneDeepSafe(entryRepeatable),
+      created_at_client: timestampSnapshot?.created_at_client ?? null,
+      updated_at_client: timestampSnapshot?.updated_at_client ?? null,
+      created_at_server: timestampSnapshot?.created_at_server ?? null,
+      updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
-  }, [entryRepeatable, entryValues, modal, onSave]);
+  }, [entryRepeatable, entryTimestampsRef, entryValues, modal, onSave]);
 
   const handleModalNavigate = useCallback(
     (sectionId) => {
@@ -3484,35 +3546,38 @@ function RepeatableEntryModal({
                     onRemove={triggerNestedRemove}
                   />
                 ) : (
-                  <RepeatableEntryForm
-                    elements={modal.repInfo?.field?.elements || []}
-                    contextPath={[]}
-                    state={{
-                      values: entryValues,
-                      visible: entryVisible,
-                      required: entryRequired,
-                      read_only: entryReadOnly,
-                      errors: entryErrors,
-                    }}
-                    setValue={setEntryValue}
-                    labelPosition={labelPosition}
-                    labelWidthPercent={labelWidthPercent}
-                    controller={entryController}
-                    onAddRepeatable={handleNestedAdd}
-                    onEditRepeatable={handleNestedEdit}
-                    onRemoveRepeatable={handleNestedRemove}
-                    resolveRepeatableKey={resolveRepeatableKey}
-                    readOnly={readOnly}
-                    onEnterRepeatable={handleEnterNestedRepeatable}
-                    registerSectionNode={registerModalSectionNode}
-                    onFieldFocus={handleModalFieldFocus}
-                    highlightedSections={modalHighlightedSections}
-                    sectionMetadata={modalSectionMetadata}
-                    activeDrilldownPath={modalActiveDrilldownPath}
-                    activeDrilldownSectionId={modalActiveDrilldownSectionId}
-                    activateDrilldownSection={setModalActiveDrilldownForSection}
-                    focusSection={focusModalSectionAfterNavigation}
-                  />
+                  <>
+                    {repeatableMetadataSection}
+                    <RepeatableEntryForm
+                      elements={modal.repInfo?.field?.elements || []}
+                      contextPath={[]}
+                      state={{
+                        values: entryValues,
+                        visible: entryVisible,
+                        required: entryRequired,
+                        read_only: entryReadOnly,
+                        errors: entryErrors,
+                      }}
+                      setValue={setEntryValue}
+                      labelPosition={labelPosition}
+                      labelWidthPercent={labelWidthPercent}
+                      controller={entryController}
+                      onAddRepeatable={handleNestedAdd}
+                      onEditRepeatable={handleNestedEdit}
+                      onRemoveRepeatable={handleNestedRemove}
+                      resolveRepeatableKey={resolveRepeatableKey}
+                      readOnly={readOnly}
+                      onEnterRepeatable={handleEnterNestedRepeatable}
+                      registerSectionNode={registerModalSectionNode}
+                      onFieldFocus={handleModalFieldFocus}
+                      highlightedSections={modalHighlightedSections}
+                      sectionMetadata={modalSectionMetadata}
+                      activeDrilldownPath={modalActiveDrilldownPath}
+                      activeDrilldownSectionId={modalActiveDrilldownSectionId}
+                      activateDrilldownSection={setModalActiveDrilldownForSection}
+                      focusSection={focusModalSectionAfterNavigation}
+                    />
+                  </>
                 )}
               </div>
             </div>
