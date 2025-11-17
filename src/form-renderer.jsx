@@ -1235,7 +1235,6 @@ export function FormRenderer({
   const canSubmitForm = !isReadOnlyMode && typeof onSubmit === 'function';
   const canEditRepeatables = !isReadOnlyMode;
   const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
-  const canShowDiscardPrompt = discardPromptEnabled && hasRootChanges;
   const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
   const navigationSections = useMemo(() => {
     if (!sectionTree || sectionTree.length === 0) {
@@ -1439,11 +1438,24 @@ export function FormRenderer({
   }, [onRequestClose, placementAllowsExit]);
 
   const openDiscardDialog = useCallback(() => {
-    if (!canShowDiscardPrompt) {
+    if (!discardPromptEnabled) {
       return;
     }
     setDiscardDialogVisible(true);
-  }, [canShowDiscardPrompt]);
+  }, [discardPromptEnabled]);
+
+  const shouldPromptOnRootCancel = useCallback(
+    () => discardPromptEnabled && (hasRootChanges || touchedFieldsRef.current.size > 0),
+    [discardPromptEnabled, hasRootChanges]
+  );
+
+  const requestRootCancel = useCallback(() => {
+    if (shouldPromptOnRootCancel()) {
+      openDiscardDialog();
+      return;
+    }
+    handleRootCancel();
+  }, [handleRootCancel, openDiscardDialog, shouldPromptOnRootCancel]);
 
   const closeDiscardDialog = useCallback(() => {
     setDiscardDialogVisible(false);
@@ -1490,11 +1502,7 @@ export function FormRenderer({
         id: 'cancel-root',
         label: 'Cancel',
         icon: XCircle,
-        onClick: disableRootCancel
-          ? undefined
-          : canShowDiscardPrompt
-          ? openDiscardDialog
-          : handleRootCancel,
+        onClick: disableRootCancel ? undefined : requestRootCancel,
         disabled: disableRootCancel,
         shortcutLabel: disableRootCancel ? null : 'alt+q',
       };
@@ -1537,17 +1545,15 @@ export function FormRenderer({
     activeDrilldownSectionId,
     activeRepeatableListContext,
     canEditRepeatables,
-    canShowDiscardPrompt,
     canSubmitForm,
     discardPromptEnabled,
     goBackFromDrilldown,
     handleRepeatableListAddFromHeader,
-    handleRootCancel,
     isFirstSpecialPage,
     isNestedDrilldownPage,
     isRepeatableFirstPage,
     isRootPage,
-    openDiscardDialog,
+    requestRootCancel,
     submitFromHeader,
   ]);
 
@@ -1649,20 +1655,16 @@ export function FormRenderer({
         return;
       }
 
-      if (isPlainAlt(event) && key === 'q') {
-        if (
-          discardPromptEnabled &&
-          currentLeftAction &&
-          currentLeftAction.id === 'cancel-root' &&
-          !currentLeftAction.disabled
-        ) {
-          event.preventDefault();
-          if (canShowDiscardPrompt) {
-            openDiscardDialog();
-          } else {
-            handleRootCancel();
-          }
-        }
+      if (
+        isPlainAlt(event) &&
+        key === 'q' &&
+        currentLeftAction &&
+        currentLeftAction.id === 'cancel-root' &&
+        !currentLeftAction.disabled
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        requestRootCancel();
         return;
       }
 
@@ -1671,7 +1673,7 @@ export function FormRenderer({
       }
 
       if (
-        key === 'b' &&
+      key === 'b' &&
         currentLeftAction &&
         currentLeftAction.id === 'back' &&
         !currentLeftAction.disabled
@@ -1711,17 +1713,14 @@ export function FormRenderer({
       window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [
-    canShowDiscardPrompt,
     closeDiscardDialog,
     confirmDiscard,
     currentLeftAction,
     currentRightAction,
-    discardPromptEnabled,
     discardDialogVisible,
     goBackFromDrilldown,
-    handleRootCancel,
+    requestRootCancel,
     placementAllowsExit,
-    openDiscardDialog,
     repeatableModals.length,
     submitFromHeader,
   ]);
