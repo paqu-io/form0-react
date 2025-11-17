@@ -250,13 +250,20 @@ export const recordMetadataFields = style({
 });
 
 export const section = style({
-  background: vars.color.section,
+  background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.sm,
   marginBottom: vars.spacing.sm,
   width: '100%',
 });
+
+export const recordMetadataSection = style([
+  section,
+  {
+    background: vars.color.section,
+  },
+]);
 
 export const sectionHeader = style({
   color: vars.color.sectionHeader,
