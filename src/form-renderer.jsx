@@ -181,6 +181,69 @@ const isPathPrefix = (candidate = [], target = []) => {
   return candidate.every((id, idx) => target[idx] === id);
 };
 
+function collectValidatableFields(elements, { includeRepeatableChildren = false } = {}, acc = []) {
+  if (!Array.isArray(elements)) {
+    return acc;
+  }
+  elements.forEach((element) => {
+    if (!element || typeof element !== 'object') {
+      return;
+    }
+    if (element.type === 'Section' || element.type === 'BuildingPlanSection') {
+      collectValidatableFields(element.elements || [], { includeRepeatableChildren }, acc);
+      return;
+    }
+    if (element.type === 'RepeatableSection') {
+      if (includeRepeatableChildren) {
+        collectValidatableFields(element.elements || [], { includeRepeatableChildren }, acc);
+      }
+      return;
+    }
+    acc.push(element);
+  });
+  return acc;
+}
+
+function buildValidationSummary(fields, { getValue, isVisible, isRequired, getError }) {
+  const requiredFieldErrors = [];
+  const generalErrors = [];
+
+  fields.forEach((field) => {
+    if (!field || !field.data_name) {
+      return;
+    }
+    if (typeof isVisible === 'function' && !isVisible(field)) {
+      return;
+    }
+    const dataName = field.data_name;
+    const errorMessage = typeof getError === 'function' ? getError(field, dataName) : null;
+    if (errorMessage) {
+      generalErrors.push({
+        field,
+        fieldName: dataName,
+        message: errorMessage,
+      });
+    }
+    if (!isRequired || !isRequired(field)) {
+      return;
+    }
+    const value = typeof getValue === 'function' ? getValue(field, dataName) : undefined;
+    if (isFieldValueEmpty(field, value)) {
+      requiredFieldErrors.push({
+        field,
+        fieldName: dataName,
+        message: 'This field is required',
+      });
+    }
+  });
+
+  return {
+    hasErrors: requiredFieldErrors.length > 0 || generalErrors.length > 0,
+    requiredFieldErrors,
+    generalErrors,
+  };
+}
+
 function useRecordTimestamps({ initialValues, overrideValues, values }) {
   const [timestamps, setTimestamps] = useState(() =>
     deriveInitialTimestamps(initialValues, overrideValues)
@@ -1157,6 +1220,41 @@ export function FormRenderer({
     [errors, isFieldTouched, submitCount]
   );
 
+  const validatableRootFields = useMemo(
+    () =>
+      collectValidatableFields(baseElements, {
+        includeRepeatableChildren: false,
+      }),
+    [baseElements]
+  );
+
+  const buildRootValidationSummary = useCallback(
+    () =>
+      buildValidationSummary(validatableRootFields, {
+        getValue: (field) => {
+          if (!field?.data_name) {
+            return null;
+          }
+          if (field.data_name === statusFieldName) {
+            return statusValue ?? null;
+          }
+          return values[field.data_name];
+        },
+        isVisible: (field) => resolveFieldVisibility(field),
+        isRequired: (field) => resolveFieldRequired(field),
+        getError: (field) => errors[field.data_name],
+      }),
+    [
+      errors,
+      resolveFieldRequired,
+      resolveFieldVisibility,
+      statusFieldName,
+      statusValue,
+      validatableRootFields,
+      values,
+    ]
+  );
+
   // Get current field in simplified mode
   const currentField = simplifiedMode && flattenedElementsLength > 0
     ? flattenedElements[currentFieldIndex] 
@@ -1230,6 +1328,12 @@ export function FormRenderer({
         e.preventDefault();
       }
       setSubmitCount((count) => count + 1);
+      const validationSummary = buildRootValidationSummary();
+      if (validationSummary?.hasErrors) {
+        console.info('🚀 [RECORD SUBMIT] Starting record submission...');
+        console.log('❌ [RECORD SUBMIT] Submission blocked due to validation errors');
+        return;
+      }
       if (onSubmit) {
         const submission = submit();
         const result =
@@ -1245,11 +1349,20 @@ export function FormRenderer({
             created_at_server: timestampSnapshot?.created_at_server ?? null,
             updated_at_server: timestampSnapshot?.updated_at_server ?? null,
           },
+          validationSummary,
         };
         onSubmit(result, meta);
       }
     },
-    [onSubmit, repeatable, statusFieldName, statusValue, submit, timestampsRef]
+    [
+      buildRootValidationSummary,
+      onSubmit,
+      repeatable,
+      statusFieldName,
+      statusValue,
+      submit,
+      timestampsRef,
+    ]
   );
 
   // Simplified mode navigation handlers
@@ -2818,6 +2931,31 @@ function RepeatableEntryModal({
     values: entryValues,
   });
 
+  const [entrySubmitCount, setEntrySubmitCount] = useState(0);
+
+  useEffect(() => {
+    setEntrySubmitCount(0);
+  }, [modal.modalId]);
+
+  const entryValidationFields = useMemo(
+    () =>
+      collectValidatableFields(modal.repInfo?.field?.elements || [], {
+        includeRepeatableChildren: false,
+      }),
+    [modal.repInfo]
+  );
+
+  const buildEntryValidationSummary = useCallback(
+    () =>
+      buildValidationSummary(entryValidationFields, {
+        getValue: (field) => (field?.data_name ? entryValues?.[field.data_name] : null),
+        isVisible: (field) => !field?.data_name || entryVisible?.[field.data_name] !== false,
+        isRequired: (field) => Boolean(field?.data_name && entryRequired?.[field.data_name]),
+        getError: (field) => (field?.data_name ? entryErrors?.[field.data_name] : null),
+      }),
+    [entryErrors, entryRequired, entryValidationFields, entryValues, entryVisible]
+  );
+
   const initialEntrySnapshot = useRef({
     values: modal.initialInstance?.values || {},
     repeatable: modal.initialInstance?.repeatable || {},
@@ -3115,6 +3253,13 @@ function RepeatableEntryModal({
   }, [entryTimestamps, labelPosition, labelWidthPercent, repeatableMetadataFields]);
 
   const handleSave = useCallback(() => {
+    setEntrySubmitCount((count) => count + 1);
+    const validationSummary = buildEntryValidationSummary();
+    if (validationSummary?.hasErrors) {
+      console.info('📝 [ENTRY SAVE] Attempting to save repeatable entry...');
+      console.log('❌ [ENTRY SAVE] Save blocked due to validation errors');
+      return;
+    }
     const timestampSnapshot = entryTimestampsRef.current;
     onSave(modal, {
       id: modal.instanceId,
@@ -3125,7 +3270,7 @@ function RepeatableEntryModal({
       created_at_server: timestampSnapshot?.created_at_server ?? null,
       updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
-  }, [entryRepeatable, entryTimestampsRef, entryValues, modal, onSave]);
+  }, [buildEntryValidationSummary, entryRepeatable, entryTimestampsRef, entryValues, modal, onSave]);
 
   const handleModalNavigate = useCallback(
     (sectionId) => {
@@ -3574,6 +3719,7 @@ function RepeatableEntryModal({
                       registerSectionNode={registerModalSectionNode}
                       onFieldFocus={handleModalFieldFocus}
                       highlightedSections={modalHighlightedSections}
+                      submitCount={entrySubmitCount}
                       sectionMetadata={modalSectionMetadata}
                       activeDrilldownPath={modalActiveDrilldownPath}
                       activeDrilldownSectionId={modalActiveDrilldownSectionId}
@@ -3656,6 +3802,7 @@ function RepeatableEntryForm({
   activateDrilldownSection = () => {},
   focusSection = () => {},
   parentSectionPath = [],
+  submitCount = 0,
 }) {
   if (!Array.isArray(elements) || elements.length === 0) {
     return null;
@@ -3717,6 +3864,7 @@ function RepeatableEntryForm({
                 activateDrilldownSection={activateDrilldownSection}
                 focusSection={focusSection}
                 parentSectionPath={sectionPath}
+                submitCount={submitCount}
               />
             </React.Fragment>
           );
@@ -3775,6 +3923,7 @@ function RepeatableEntryForm({
               activateDrilldownSection={activateDrilldownSection}
               focusSection={focusSection}
               parentSectionPath={nextSectionPath}
+              submitCount={submitCount}
             />
           </div>
         );
@@ -3843,6 +3992,7 @@ function RepeatableEntryForm({
               activateDrilldownSection={activateDrilldownSection}
               focusSection={focusSection}
               parentSectionPath={nextSectionPath}
+              submitCount={submitCount}
             />
           </React.Fragment>
         );
@@ -3879,6 +4029,7 @@ function RepeatableEntryForm({
             activateDrilldownSection={activateDrilldownSection}
             focusSection={focusSection}
             parentSectionPath={nextSectionPath}
+            submitCount={submitCount}
           />
         </div>
       );
@@ -3938,7 +4089,15 @@ function RepeatableEntryForm({
     const fieldRequired = dataName ? Boolean(state.required?.[dataName]) : false;
     const fieldReadOnly =
       readOnly || (dataName ? state.read_only?.[dataName] : false) || field.type === 'TitleField';
-    const fieldError = dataName ? state.errors?.[dataName] : null;
+    let fieldError = null;
+    if (dataName) {
+      const engineError = state.errors?.[dataName];
+      if (engineError) {
+        fieldError = engineError;
+      } else if (fieldRequired && submitCount > 0 && isFieldValueEmpty(field, fieldValue)) {
+        fieldError = 'This field is required';
+      }
+    }
 
     const handleChange =
       field.type === 'TitleField'
