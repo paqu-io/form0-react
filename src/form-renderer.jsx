@@ -245,6 +245,25 @@ export function FormRenderer({
   const [repeatableModals, setRepeatableModals] = useState([]);
   const [hasRootChanges, setHasRootChanges] = useState(false);
   const rootChangesRef = useRef(false);
+  const formRendererRootRef = useRef(null);
+  const repeatableModalPortalRef = useRef(
+    typeof document !== 'undefined' ? document.createElement('div') : null
+  );
+
+  useEffect(() => {
+    const host = formRendererRootRef.current;
+    const node = repeatableModalPortalRef.current;
+    if (!host || !node) {
+      return undefined;
+    }
+    node.style.display = 'contents';
+    host.appendChild(node);
+    return () => {
+      if (host.contains(node)) {
+        host.removeChild(node);
+      }
+    };
+  }, []);
 
   const markRootDirty = useCallback(() => {
     if (!rootChangesRef.current) {
@@ -1477,7 +1496,7 @@ export function FormRenderer({
           ? openDiscardDialog
           : handleRootCancel,
         disabled: disableRootCancel,
-        shortcutLabel: disableRootCancel ? null : 'esc',
+        shortcutLabel: disableRootCancel ? null : 'alt+q',
       };
     }
 
@@ -1597,26 +1616,40 @@ export function FormRenderer({
         return;
       }
 
+      const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+
       if (discardDialogVisible) {
-        if (event.key === 'Escape') {
+        if (isPlainAlt(event) && key === 'q') {
           event.preventDefault();
+          event.stopPropagation();
           closeDiscardDialog();
           return;
         }
-        if (isPlainAlt(event) && event.key.toLowerCase() === 'y') {
+        if (isPlainAlt(event) && key === 'y') {
           event.preventDefault();
           confirmDiscard();
           return;
         }
+        if (event.key === 'Escape' && placementAllowsExit) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
       }
 
       if (event.key === 'Escape') {
-        if (isOverlayNonRoot) {
+        if (placementAllowsExit) {
           event.preventDefault();
           event.stopPropagation();
-          return;
         }
+        return;
+      }
 
+      if (repeatableModals.length > 0) {
+        return;
+      }
+
+      if (isPlainAlt(event) && key === 'q') {
         if (
           discardPromptEnabled &&
           currentLeftAction &&
@@ -1629,11 +1662,7 @@ export function FormRenderer({
           } else {
             handleRootCancel();
           }
-          return;
         }
-      }
-
-      if (repeatableModals.length > 0) {
         return;
       }
 
@@ -1641,7 +1670,6 @@ export function FormRenderer({
         return;
       }
 
-      const key = event.key.toLowerCase();
       if (
         key === 'b' &&
         currentLeftAction &&
@@ -1692,7 +1720,7 @@ export function FormRenderer({
     discardDialogVisible,
     goBackFromDrilldown,
     handleRootCancel,
-    isOverlayNonRoot,
+    placementAllowsExit,
     openDiscardDialog,
     repeatableModals.length,
     submitFromHeader,
@@ -1908,7 +1936,7 @@ export function FormRenderer({
                 >
                   Cancel
                   <span className={styles.shortcutBadge} aria-hidden="true">
-                    esc
+                    alt+q
                   </span>
                 </button>
                 <button
@@ -2390,7 +2418,11 @@ export function FormRenderer({
 
   return (
     <ThemeProvider themeClass={themeClass}>
-      <div className={`${styles.formRendererRoot} ${themeClass}`} style={{ maxWidth: formWidth, width: '100%' }}>
+      <div
+        ref={formRendererRootRef}
+        className={`${styles.formRendererRoot} ${themeClass}`}
+        style={{ maxWidth: formWidth, width: '100%' }}
+      >
         {stickyHeaderContent}
         <div className={styles.bodySection}>
           {hasNavigableSections && (
@@ -2415,7 +2447,7 @@ export function FormRenderer({
         </div>
       </div>
 
-      {repeatableModals.length > 0 && typeof document !== 'undefined'
+      {repeatableModals.length > 0 && repeatableModalPortalRef.current
         ? createPortal(
             repeatableModals.map((modal, index) => (
               <RepeatableEntryModal
@@ -2433,7 +2465,7 @@ export function FormRenderer({
                 recordStatusInfo={recordStatusInfo}
               />
             )),
-            document.body
+            repeatableModalPortalRef.current
           )
         : null}
 
@@ -3069,7 +3101,7 @@ function RepeatableEntryModal({
         label: 'Cancel',
         icon: XCircle,
         onClick: handleCancelRequest,
-        shortcutLabel: 'esc',
+        shortcutLabel: 'alt+q',
       };
 
   const modalRightAction = !readOnly
@@ -3094,82 +3126,92 @@ function RepeatableEntryModal({
       : null
     : null;
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !isTopModal) {
+  const ownerDocument =
+    typeof window !== 'undefined' && window.document ? window.document : undefined;
+
+  useLayoutEffect(() => {
+    if (!ownerDocument || !isTopModal) {
       return undefined;
     }
 
     const isPlainAlt = (event) =>
       event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
 
+    const haltEvent = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') {
+        event.stopImmediatePropagation();
+      }
+    };
+
     const handleKeyDown = (event) => {
       if (event.defaultPrevented) {
         return;
       }
 
+      const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+
       if (discardDialogVisible) {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          event.stopPropagation();
+        if (isPlainAlt(event) && key === 'q') {
+          haltEvent(event);
           closeDiscardDialog();
           return;
         }
-        if (isPlainAlt(event) && event.key.toLowerCase() === 'y') {
-          event.preventDefault();
-          event.stopPropagation();
+        if (isPlainAlt(event) && key === 'y') {
+          haltEvent(event);
           confirmDiscard();
           return;
+        }
+        if (event.key === 'Escape') {
+          haltEvent(event);
         }
         return;
       }
 
       if (event.key === 'Escape') {
-        if (nestedListActive) {
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        handleCancelRequest();
+        haltEvent(event);
         return;
       }
 
       if (isPlainAlt(event)) {
-        const key = event.key.toLowerCase();
+        if (key === 'q') {
+          haltEvent(event);
+          if (!nestedListActive) {
+            handleCancelRequest();
+          }
+          return;
+        }
         if (key === 'b') {
           if (nestedListActive) {
-            event.preventDefault();
-            event.stopPropagation();
+            haltEvent(event);
             handleExitNestedRepeatable();
             return;
           }
           if (modalDrilldownActive) {
-            event.preventDefault();
-            event.stopPropagation();
+            haltEvent(event);
             handleModalDrilldownBack();
             return;
           }
         }
         if (key === 'a' && nestedListActive && !readOnly) {
-          event.preventDefault();
-          event.stopPropagation();
+          haltEvent(event);
           triggerNestedAdd();
           return;
         }
         if (key === 's' && !nestedListActive && !readOnly && !modalDrilldownActive) {
-          event.preventDefault();
-          event.stopPropagation();
+          haltEvent(event);
           handleSave();
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown, true);
+    ownerDocument.addEventListener('keydown', handleKeyDown, true);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown, true);
+      ownerDocument.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [
+    ownerDocument,
     closeDiscardDialog,
     confirmDiscard,
     discardDialogVisible,
@@ -3345,7 +3387,7 @@ function RepeatableEntryModal({
               >
                 Cancel
                 <span className={styles.shortcutBadge} aria-hidden="true">
-                  esc
+                  alt+q
                 </span>
               </button>
               <button
