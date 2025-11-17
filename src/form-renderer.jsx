@@ -88,6 +88,16 @@ function deepEqual(a, b) {
   return false;
 }
 
+const isPathPrefix = (candidate = [], target = []) => {
+  if (!Array.isArray(candidate) || candidate.length === 0) {
+    return false;
+  }
+  if (!Array.isArray(target) || candidate.length > target.length) {
+    return false;
+  }
+  return candidate.every((id, idx) => target[idx] === id);
+};
+
 function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
   const metadata = {};
   const fieldPathMap = {};
@@ -1369,13 +1379,6 @@ export function FormRenderer({
     },
     [fieldToSectionPath, navigationClickTimestamp, setHighlightedPath]
   );
-
-  const isPathPrefix = (candidate = [], target = []) => {
-    if (candidate.length === 0 || candidate.length > target.length) {
-      return false;
-    }
-    return candidate.every((id, idx) => target[idx] === id);
-  };
 
   const handleDrilldownBack = useCallback(
     (sectionId) => {
@@ -2677,6 +2680,11 @@ function RepeatableEntryModal({
     ];
   }, [modalSectionTree]);
   const [modalHighlightedSections, setModalHighlightedSections] = useState([MODAL_ROOT_NAV_NODE_ID]);
+  const [modalActiveDrilldownPath, setModalActiveDrilldownPath] = useState([]);
+  const modalActiveDrilldownSectionId =
+    modalActiveDrilldownPath.length > 0
+      ? modalActiveDrilldownPath[modalActiveDrilldownPath.length - 1]
+      : null;
   const modalSectionRefs = useRef(new Map());
   const modalActiveSectionId =
     modalHighlightedSections.length > 0
@@ -2693,7 +2701,8 @@ function RepeatableEntryModal({
   useEffect(() => {
     modalSectionRefs.current = new Map();
     setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
-  }, [modal.modalId, setModalHighlightedPath]);
+    setModalActiveDrilldownPath([]);
+  }, [modal.modalId, setModalActiveDrilldownPath, setModalHighlightedPath]);
 
   const registerModalSectionNode = useCallback((sectionId, node) => {
     if (!sectionId) {
@@ -2709,7 +2718,7 @@ function RepeatableEntryModal({
   const scrollModalSectionIntoView = useCallback((sectionId) => {
     const node = modalSectionRefs.current.get(sectionId);
     if (!node) {
-      return;
+      return false;
     }
     if (typeof node.scrollIntoView === 'function') {
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2721,13 +2730,78 @@ function RepeatableEntryModal({
         node.focus();
       }
     }
+    return true;
   }, []);
+
+  const focusModalSectionAfterNavigation = useCallback(
+    (sectionId) => {
+      if (!sectionId || sectionId === MODAL_ROOT_NAV_NODE_ID) {
+        return;
+      }
+      const schedule =
+        typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame
+          : (cb) => setTimeout(cb, 16);
+      schedule(() => {
+        if (scrollModalSectionIntoView(sectionId)) {
+          return;
+        }
+        setTimeout(() => {
+          scrollModalSectionIntoView(sectionId);
+        }, 80);
+      });
+    },
+    [scrollModalSectionIntoView]
+  );
 
   const [activeNestedRepeatable, setActiveNestedRepeatable] = useState(null);
 
   useEffect(() => {
     setActiveNestedRepeatable(null);
   }, [modal.modalId]);
+
+  const setModalActiveDrilldownForSection = useCallback(
+    (sectionId) => {
+      const info = sectionId ? modalSectionMetadata[sectionId] : null;
+      if (!info) {
+        return;
+      }
+      setModalActiveDrilldownPath(info.drilldownPath);
+      setModalHighlightedPath(info.path || []);
+    },
+    [modalSectionMetadata, setModalActiveDrilldownPath, setModalHighlightedPath]
+  );
+
+  const handleModalDrilldownBack = useCallback(() => {
+    const sectionId = modalActiveDrilldownSectionId;
+    if (!sectionId) {
+      setModalActiveDrilldownPath([]);
+      setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+      return;
+    }
+    const info = modalSectionMetadata[sectionId];
+    if (!info) {
+      setModalActiveDrilldownPath([]);
+      setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+      return;
+    }
+    const nextDrilldownPath = info.drilldownPath.slice(0, -1);
+    setModalActiveDrilldownPath(nextDrilldownPath);
+    const nextHighlightPath =
+      info.path && info.path.length > 1 ? info.path.slice(0, -1) : [MODAL_ROOT_NAV_NODE_ID];
+    setModalHighlightedPath(nextHighlightPath);
+    const parentSectionId =
+      info.path && info.path.length > 1 ? info.path[info.path.length - 2] : null;
+    if (parentSectionId) {
+      focusModalSectionAfterNavigation(parentSectionId);
+    }
+  }, [
+    focusModalSectionAfterNavigation,
+    modalActiveDrilldownSectionId,
+    modalSectionMetadata,
+    setModalActiveDrilldownPath,
+    setModalHighlightedPath,
+  ]);
 
   const handleEnterNestedRepeatable = useCallback(
     (config = {}) => {
@@ -2738,6 +2812,7 @@ function RepeatableEntryModal({
       const metadata = sectionId ? modalSectionMetadata[sectionId] : null;
       const nextHighlightPath = highlightPath || metadata?.path || [];
       setModalHighlightedPath(nextHighlightPath);
+      setModalActiveDrilldownPath([]);
       setActiveNestedRepeatable({
         field,
         repeatableKey,
@@ -2745,13 +2820,14 @@ function RepeatableEntryModal({
         sectionId,
       });
     },
-    [modalSectionMetadata, setModalHighlightedPath]
+    [modalSectionMetadata, setModalActiveDrilldownPath, setModalHighlightedPath]
   );
 
   const handleExitNestedRepeatable = useCallback(() => {
     setActiveNestedRepeatable(null);
     setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
-  }, [setModalHighlightedPath]);
+    setModalActiveDrilldownPath([]);
+  }, [setModalActiveDrilldownPath, setModalHighlightedPath]);
 
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
 
@@ -2802,6 +2878,7 @@ function RepeatableEntryModal({
       if (sectionId === MODAL_ROOT_NAV_NODE_ID) {
         handleExitNestedRepeatable();
         setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
+        setModalActiveDrilldownPath([]);
         return;
       }
       const info = modalSectionMetadata[sectionId];
@@ -2815,6 +2892,7 @@ function RepeatableEntryModal({
         if (!field || !repeatableKey) {
           return;
         }
+        setModalActiveDrilldownPath([]);
         handleEnterNestedRepeatable({
           field,
           repeatableKey,
@@ -2825,7 +2903,12 @@ function RepeatableEntryModal({
         return;
       }
 
-      setModalHighlightedPath(info.path || []);
+      if (info.display === 'drilldown') {
+        setModalActiveDrilldownForSection(sectionId);
+      } else {
+        setModalActiveDrilldownPath(info.drilldownPath);
+        setModalHighlightedPath(info.path || []);
+      }
       if (activeNestedRepeatable) {
         handleExitNestedRepeatable();
         setTimeout(() => {
@@ -2843,6 +2926,8 @@ function RepeatableEntryModal({
       handleExitNestedRepeatable,
       scrollModalSectionIntoView,
       setModalHighlightedPath,
+      setModalActiveDrilldownForSection,
+      setModalActiveDrilldownPath,
     ]
   );
 
@@ -2943,6 +3028,7 @@ function RepeatableEntryModal({
 
   const readOnly = mode === 'readonly';
   const nestedListActive = Boolean(activeNestedRepeatable);
+  const modalDrilldownActive = modalActiveDrilldownPath.length > 0;
   const modalTitle =
     activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
   const modalRecordTitle = 'Untitled';
@@ -2970,6 +3056,14 @@ function RepeatableEntryModal({
         onClick: handleExitNestedRepeatable,
         shortcutLabel: 'alt+b',
       }
+    : modalDrilldownActive
+    ? {
+        id: 'drilldown-back',
+        label: 'Back',
+        icon: ChevronLeft,
+        onClick: handleModalDrilldownBack,
+        shortcutLabel: 'alt+b',
+      }
     : {
         id: 'cancel',
         label: 'Cancel',
@@ -2988,7 +3082,8 @@ function RepeatableEntryModal({
           shortcutLabel: 'alt+a',
           variant: 'primary',
         }
-      : {
+      : !modalDrilldownActive
+      ? {
           id: 'save',
           label: 'Save',
           icon: Save,
@@ -2996,6 +3091,7 @@ function RepeatableEntryModal({
           shortcutLabel: 'alt+s',
           variant: 'primary',
         }
+      : null
     : null;
 
   useEffect(() => {
@@ -3041,11 +3137,19 @@ function RepeatableEntryModal({
 
       if (isPlainAlt(event)) {
         const key = event.key.toLowerCase();
-        if (key === 'b' && nestedListActive) {
-          event.preventDefault();
-          event.stopPropagation();
-          handleExitNestedRepeatable();
-          return;
+        if (key === 'b') {
+          if (nestedListActive) {
+            event.preventDefault();
+            event.stopPropagation();
+            handleExitNestedRepeatable();
+            return;
+          }
+          if (modalDrilldownActive) {
+            event.preventDefault();
+            event.stopPropagation();
+            handleModalDrilldownBack();
+            return;
+          }
         }
         if (key === 'a' && nestedListActive && !readOnly) {
           event.preventDefault();
@@ -3053,7 +3157,7 @@ function RepeatableEntryModal({
           triggerNestedAdd();
           return;
         }
-        if (key === 's' && !nestedListActive && !readOnly) {
+        if (key === 's' && !nestedListActive && !readOnly && !modalDrilldownActive) {
           event.preventDefault();
           event.stopPropagation();
           handleSave();
@@ -3071,8 +3175,10 @@ function RepeatableEntryModal({
     discardDialogVisible,
     handleCancelRequest,
     handleExitNestedRepeatable,
+    handleModalDrilldownBack,
     handleSave,
     nestedListActive,
+    modalDrilldownActive,
     readOnly,
     triggerNestedAdd,
     isTopModal,
@@ -3202,6 +3308,11 @@ function RepeatableEntryModal({
                     registerSectionNode={registerModalSectionNode}
                     onFieldFocus={handleModalFieldFocus}
                     highlightedSections={modalHighlightedSections}
+                    sectionMetadata={modalSectionMetadata}
+                    activeDrilldownPath={modalActiveDrilldownPath}
+                    activeDrilldownSectionId={modalActiveDrilldownSectionId}
+                    activateDrilldownSection={setModalActiveDrilldownForSection}
+                    focusSection={focusModalSectionAfterNavigation}
                   />
                 )}
               </div>
@@ -3272,36 +3383,212 @@ function RepeatableEntryForm({
   registerSectionNode,
   onFieldFocus,
   highlightedSections,
+  sectionMetadata = {},
+  activeDrilldownPath = [],
+  activeDrilldownSectionId = null,
+  activateDrilldownSection = () => {},
+  focusSection = () => {},
+  parentSectionPath = [],
 }) {
   if (!Array.isArray(elements) || elements.length === 0) {
     return null;
   }
+
+  const hasActiveDrilldown = Array.isArray(activeDrilldownPath) && activeDrilldownPath.length > 0;
+  const activeDrilldownFullPath =
+    activeDrilldownSectionId && sectionMetadata[activeDrilldownSectionId]
+      ? sectionMetadata[activeDrilldownSectionId].path || []
+      : [];
 
   return elements.map((field) => {
     if (!field) {
       return null;
     }
 
-    if (field.type === 'Section' && field.type !== 'RepeatableSection') {
+    if (hasActiveDrilldown) {
+      if (
+        field.type === 'Section' ||
+        field.type === 'RepeatableSection' ||
+        field.type === 'BuildingPlanSection'
+      ) {
+        const sectionId = field.data_name || field.key;
+        if (!sectionId) {
+          return null;
+        }
+        const sectionPath = [...parentSectionPath, sectionId];
+        const isAncestorOfActive =
+          sectionId !== activeDrilldownSectionId && activeDrilldownFullPath.includes(sectionId);
+        const isWithinActiveBranch = sectionPath.includes(activeDrilldownSectionId);
+
+        if (!isAncestorOfActive && !isWithinActiveBranch) {
+          return null;
+        }
+
+        if (isAncestorOfActive) {
+          return (
+            <React.Fragment key={sectionId}>
+              <RepeatableEntryForm
+                elements={field.elements || []}
+                contextPath={contextPath}
+                state={state}
+                setValue={setValue}
+                labelPosition={labelPosition}
+                labelWidthPercent={labelWidthPercent}
+                controller={controller}
+                onAddRepeatable={onAddRepeatable}
+                onEditRepeatable={onEditRepeatable}
+                onRemoveRepeatable={onRemoveRepeatable}
+                resolveRepeatableKey={resolveRepeatableKey}
+                readOnly={readOnly}
+                onEnterRepeatable={onEnterRepeatable}
+                registerSectionNode={registerSectionNode}
+                onFieldFocus={onFieldFocus}
+                highlightedSections={highlightedSections}
+                sectionMetadata={sectionMetadata}
+                activeDrilldownPath={activeDrilldownPath}
+                activeDrilldownSectionId={activeDrilldownSectionId}
+                activateDrilldownSection={activateDrilldownSection}
+                focusSection={focusSection}
+                parentSectionPath={sectionPath}
+              />
+            </React.Fragment>
+          );
+        }
+        // Continue to normal rendering when on the active branch
+      } else if (!parentSectionPath.includes(activeDrilldownSectionId)) {
+        return null;
+      }
+    }
+
+    if (field.type === 'Section') {
       const rawSectionId = field.data_name || field.key;
       const sectionId = rawSectionId || Math.random().toString(36);
-      const isHighlighted = rawSectionId
-        ? highlightedSections && highlightedSections.includes(rawSectionId)
+      const display = field.display || 'inline';
+      const nextSectionPath =
+        rawSectionId && rawSectionId !== '' ? [...parentSectionPath, rawSectionId] : parentSectionPath;
+
+      if (!rawSectionId || display !== 'drilldown') {
+        const isHighlighted = rawSectionId
+          ? Boolean(highlightedSections && highlightedSections.includes(rawSectionId))
+          : false;
+        const sectionClassName = `${styles.repeatableModalSection}${
+          isHighlighted ? ` ${styles.repeatableModalSectionHighlighted}` : ''
+        }`;
+
+        return (
+          <div
+            key={sectionId}
+            className={sectionClassName}
+            ref={rawSectionId ? (node) => registerSectionNode?.(rawSectionId, node) : undefined}
+            tabIndex={rawSectionId ? -1 : undefined}
+          >
+            {field.label ? (
+              <h4 className={styles.repeatableModalSectionTitle}>{field.label}</h4>
+            ) : null}
+            <RepeatableEntryForm
+              elements={field.elements || []}
+              contextPath={contextPath}
+              state={state}
+              setValue={setValue}
+              labelPosition={labelPosition}
+              labelWidthPercent={labelWidthPercent}
+              controller={controller}
+              onAddRepeatable={onAddRepeatable}
+              onEditRepeatable={onEditRepeatable}
+              onRemoveRepeatable={onRemoveRepeatable}
+              resolveRepeatableKey={resolveRepeatableKey}
+              readOnly={readOnly}
+              onEnterRepeatable={onEnterRepeatable}
+              registerSectionNode={registerSectionNode}
+              onFieldFocus={onFieldFocus}
+              highlightedSections={highlightedSections}
+              sectionMetadata={sectionMetadata}
+              activeDrilldownPath={activeDrilldownPath}
+              activeDrilldownSectionId={activeDrilldownSectionId}
+              activateDrilldownSection={activateDrilldownSection}
+              focusSection={focusSection}
+              parentSectionPath={nextSectionPath}
+            />
+          </div>
+        );
+      }
+
+      const sectionInfo = sectionMetadata[rawSectionId];
+      const drilldownPath = sectionInfo?.drilldownPath ?? [];
+      const isDescendantOfActive = hasActiveDrilldown
+        ? isPathPrefix(activeDrilldownPath, drilldownPath)
         : false;
-      const sectionClassName = `${styles.repeatableModalSection}${
-        isHighlighted ? ` ${styles.repeatableModalSectionHighlighted}` : ''
-      }`;
+      const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
+      const isCurrentLevelActive =
+        isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
+
+      if (hasActiveDrilldown && !isOnActivePath && !isDescendantOfActive) {
+        return null;
+      }
+
+      const shouldRenderPreviewState =
+        !isOnActivePath && (!hasActiveDrilldown || isDescendantOfActive);
+
+      if (shouldRenderPreviewState) {
+        return (
+          <div key={sectionId} className={styles.drilldownInactive}>
+            <span className={styles.drilldownLabel}>{field.label}</span>
+            <button
+              type="button"
+              className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
+              onClick={() => {
+                activateDrilldownSection(rawSectionId);
+                focusSection(rawSectionId);
+              }}
+            >
+              <span>View</span>
+              <span className={styles.formNameActionIcon} aria-hidden="true">
+                <ChevronRight size={16} strokeWidth={1.8} />
+              </span>
+            </button>
+          </div>
+        );
+      }
+
+      if (!isCurrentLevelActive) {
+        return (
+          <React.Fragment key={sectionId}>
+            <RepeatableEntryForm
+              elements={field.elements || []}
+              contextPath={contextPath}
+              state={state}
+              setValue={setValue}
+              labelPosition={labelPosition}
+              labelWidthPercent={labelWidthPercent}
+              controller={controller}
+              onAddRepeatable={onAddRepeatable}
+              onEditRepeatable={onEditRepeatable}
+              onRemoveRepeatable={onRemoveRepeatable}
+              resolveRepeatableKey={resolveRepeatableKey}
+              readOnly={readOnly}
+              onEnterRepeatable={onEnterRepeatable}
+              registerSectionNode={registerSectionNode}
+              onFieldFocus={onFieldFocus}
+              highlightedSections={highlightedSections}
+              sectionMetadata={sectionMetadata}
+              activeDrilldownPath={activeDrilldownPath}
+              activeDrilldownSectionId={activeDrilldownSectionId}
+              activateDrilldownSection={activateDrilldownSection}
+              focusSection={focusSection}
+              parentSectionPath={nextSectionPath}
+            />
+          </React.Fragment>
+        );
+      }
 
       return (
         <div
           key={sectionId}
-          className={sectionClassName}
-          ref={rawSectionId ? (node) => registerSectionNode?.(rawSectionId, node) : undefined}
-          tabIndex={rawSectionId ? -1 : undefined}
+          className={styles.drilldownActive}
+          ref={(node) => registerSectionNode?.(rawSectionId, node)}
+          tabIndex={-1}
         >
-          {field.label ? (
-            <h4 className={styles.repeatableModalSectionTitle}>{field.label}</h4>
-          ) : null}
+          <h3 className={styles.sectionHeader}>{field.label}</h3>
           <RepeatableEntryForm
             elements={field.elements || []}
             contextPath={contextPath}
@@ -3319,6 +3606,12 @@ function RepeatableEntryForm({
             registerSectionNode={registerSectionNode}
             onFieldFocus={onFieldFocus}
             highlightedSections={highlightedSections}
+            sectionMetadata={sectionMetadata}
+            activeDrilldownPath={activeDrilldownPath}
+            activeDrilldownSectionId={activeDrilldownSectionId}
+            activateDrilldownSection={activateDrilldownSection}
+            focusSection={focusSection}
+            parentSectionPath={nextSectionPath}
           />
         </div>
       );
