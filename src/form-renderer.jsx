@@ -88,6 +88,52 @@ function deepEqual(a, b) {
   return false;
 }
 
+const getTimestampSourceValue = (source, key) => {
+  if (!source || typeof source !== 'object') {
+    return undefined;
+  }
+  if (!Object.prototype.hasOwnProperty.call(source, key)) {
+    return undefined;
+  }
+  return source[key];
+};
+
+function deriveInitialTimestamps(initialValues, overrideValues) {
+  const now = new Date().toISOString();
+  const resolveValue = (key, fallback) => {
+    const overrideValue = getTimestampSourceValue(overrideValues, key);
+    if (overrideValue !== undefined) {
+      return overrideValue;
+    }
+    const initialValue = getTimestampSourceValue(initialValues, key);
+    if (initialValue !== undefined) {
+      return initialValue;
+    }
+    return fallback;
+  };
+  return {
+    created_at_client: resolveValue('created_at_client', now),
+    updated_at_client: now,
+    created_at_server: resolveValue('created_at_server', null),
+    updated_at_server: resolveValue('updated_at_server', null),
+  };
+}
+
+function areTimestampValuesEqual(a, b) {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.created_at_client === b.created_at_client &&
+    a.updated_at_client === b.updated_at_client &&
+    a.created_at_server === b.created_at_server &&
+    a.updated_at_server === b.updated_at_server
+  );
+}
+
 const isPathPrefix = (candidate = [], target = []) => {
   if (!Array.isArray(candidate) || candidate.length === 0) {
     return false;
@@ -205,7 +251,7 @@ function findSectionNodeById(nodes = [], targetId) {
 
 export function FormRenderer({
   schema,
-  initialValues = {},
+  initialValues,
   overrideValues,
   onSubmit,
   mode = 'edit',
@@ -689,9 +735,45 @@ export function FormRenderer({
 
   const headerFields = useMemo(() => {
     const fields = [];
+
+    // Add timestamp fields in specified order
+    fields.push({
+      type: 'TextField',
+      data_name: 'created_at_client',
+      label: 'Created at (client)',
+      read_only: true,
+      key: '__metadata_created_at_client',
+    });
+
+    fields.push({
+      type: 'TextField',
+      data_name: 'updated_at_client',
+      label: 'Updated at (client)',
+      read_only: true,
+      key: '__metadata_updated_at_client',
+    });
+
+    fields.push({
+      type: 'TextField',
+      data_name: 'created_at_server',
+      label: 'Created at (server)',
+      read_only: true,
+      key: '__metadata_created_at_server',
+    });
+
+    fields.push({
+      type: 'TextField',
+      data_name: 'updated_at_server',
+      label: 'Updated at (server)',
+      read_only: true,
+      key: '__metadata_updated_at_server',
+    });
+
+    // Add status field last
     if (statusField && statusField.enabled !== false) {
       fields.push(statusField);
     }
+
     return fields;
   }, [statusField]);
 
@@ -734,6 +816,65 @@ export function FormRenderer({
   };
 
   const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
+
+  const [timestamps, setTimestamps] = useState(() =>
+    deriveInitialTimestamps(initialValues, overrideValues)
+  );
+  const timestampSourcesRef = useRef({ initialValues, overrideValues });
+  const timestampUpdateTimerRef = useRef(null);
+  const timestampsRef = useRef(timestamps);
+  const valuesRef = useRef(values);
+
+  const cancelScheduledTimestampUpdate = useCallback(() => {
+    if (timestampUpdateTimerRef.current) {
+      clearTimeout(timestampUpdateTimerRef.current);
+      timestampUpdateTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const prevSources = timestampSourcesRef.current;
+    if (
+      prevSources.initialValues === initialValues &&
+      prevSources.overrideValues === overrideValues
+    ) {
+      return;
+    }
+    timestampSourcesRef.current = { initialValues, overrideValues };
+    cancelScheduledTimestampUpdate();
+    const next = deriveInitialTimestamps(initialValues, overrideValues);
+    setTimestamps((prev) => (areTimestampValuesEqual(prev, next) ? prev : next));
+  }, [initialValues, overrideValues, cancelScheduledTimestampUpdate]);
+
+  useEffect(() => {
+    timestampsRef.current = timestamps;
+  }, [timestamps]);
+
+  // Update updated_at_client whenever form values change (debounced)
+  useEffect(() => {
+    if (valuesRef.current === values) {
+      return undefined;
+    }
+
+    valuesRef.current = values;
+    cancelScheduledTimestampUpdate();
+
+    timestampUpdateTimerRef.current = setTimeout(() => {
+      timestampUpdateTimerRef.current = null;
+      setTimestamps((prev) => {
+        const nextUpdatedAt = new Date().toISOString();
+        if (prev.updated_at_client === nextUpdatedAt) {
+          return prev;
+        }
+        return {
+          ...prev,
+          updated_at_client: nextUpdatedAt,
+        };
+      });
+    }, 500);
+
+    return cancelScheduledTimestampUpdate;
+  }, [values, cancelScheduledTimestampUpdate]);
 
   useEffect(() => {
     if (!statusField || !statusFieldName) {
@@ -911,8 +1052,16 @@ export function FormRenderer({
         [titleField.data_name]: titleValueForDisplay,
       };
     }
+    // Add timestamp values for display in Record Metadata
+    next = {
+      ...next,
+      created_at_client: timestamps.created_at_client,
+      updated_at_client: timestamps.updated_at_client,
+      created_at_server: timestamps.created_at_server,
+      updated_at_server: timestamps.updated_at_server,
+    };
     return next;
-  }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values]);
+  }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values, timestamps]);
 
   const recordStatusInfo = useMemo(() => {
     if (!statusField) {
@@ -1081,11 +1230,20 @@ export function FormRenderer({
           statusFieldName && statusFieldName.length > 0
             ? { ...submission, [statusFieldName]: statusValue ?? null }
             : submission;
-        const meta = { repeatable: cloneDeepSafe(repeatable) };
+        const timestampSnapshot = timestampsRef.current;
+        const meta = {
+          repeatable: cloneDeepSafe(repeatable),
+          timestamps: {
+            created_at_client: timestampSnapshot?.created_at_client ?? null,
+            updated_at_client: timestampSnapshot?.updated_at_client ?? null,
+            created_at_server: timestampSnapshot?.created_at_server ?? null,
+            updated_at_server: timestampSnapshot?.updated_at_server ?? null,
+          },
+        };
         onSubmit(result, meta);
       }
     },
-    [onSubmit, repeatable, statusFieldName, statusValue, submit]
+    [onSubmit, repeatable, statusFieldName, statusValue, submit, timestampsRef]
   );
 
   // Simplified mode navigation handlers

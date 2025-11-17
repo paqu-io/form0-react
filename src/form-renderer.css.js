@@ -714,7 +714,7 @@ export const alertTitle = style({
 });
 
 export const alertMessage = style({
-  fontSize: '0.95rem',
+  fontSize: vars.fontSize.base,
   lineHeight: 1.5,
   whiteSpace: 'pre-wrap',
 });
