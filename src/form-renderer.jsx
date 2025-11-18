@@ -562,6 +562,29 @@ export function FormRenderer({
   );
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
+  const [altShortcutPrefix, setAltShortcutPrefix] = useState('Alt');
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') {
+      return undefined;
+    }
+    const platform =
+      (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    if (/mac|ip(hone|ad|od)/i.test(platform)) {
+      setAltShortcutPrefix('⌥');
+    }
+    return undefined;
+  }, []);
+
+  const getAltShortcutLabel = useCallback(
+    (key) => {
+      if (!key) {
+        return null;
+      }
+      return `${altShortcutPrefix}+${key.toUpperCase()}`;
+    },
+    [altShortcutPrefix]
+  );
 
   useEffect(() => {
     setInteractionMode(normalizedInitialMode);
@@ -1989,7 +2012,7 @@ export function FormRenderer({
         icon: ChevronLeft,
         onClick: goBackFromDrilldown,
         disabled: !activeDrilldownSectionId,
-        shortcutLabel: 'alt+b',
+        shortcutLabel: getAltShortcutLabel('b'),
       };
     } else if (isFirstSpecialPage) {
       leftAction = {
@@ -2005,7 +2028,7 @@ export function FormRenderer({
         icon: XCircle,
         onClick: disableRootCancel ? undefined : requestRootCancel,
         disabled: disableRootCancel,
-        shortcutLabel: disableRootCancel ? null : 'alt+q',
+        shortcutLabel: disableRootCancel ? null : getAltShortcutLabel('q'),
       };
     }
 
@@ -2019,7 +2042,7 @@ export function FormRenderer({
         icon: Plus,
         variant: 'primary',
         onClick: handleRepeatableListAddFromHeader,
-        shortcutLabel: 'alt+a',
+        shortcutLabel: getAltShortcutLabel('a'),
       };
     } else if (isFirstSpecialPage && !isRepeatableFirstPage && hasSubmitHandler) {
       rightAction = {
@@ -2038,7 +2061,7 @@ export function FormRenderer({
         variant: 'primary',
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
-        shortcutLabel: 'alt+s',
+        shortcutLabel: getAltShortcutLabel('s'),
       };
     }
 
@@ -2049,7 +2072,7 @@ export function FormRenderer({
         icon: Pencil,
         variant: 'edit',
         onClick: enterEditMode,
-        shortcutLabel: 'alt+m',
+        shortcutLabel: getAltShortcutLabel('m'),
       };
     }
 
@@ -2060,6 +2083,7 @@ export function FormRenderer({
     canEditRepeatables,
     canSubmitForm,
     enterEditMode,
+    getAltShortcutLabel,
     discardPromptEnabled,
     goBackFromDrilldown,
     handleRepeatableListAddFromHeader,
@@ -2135,21 +2159,31 @@ export function FormRenderer({
     const isPlainAlt = (event) =>
       event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
 
+    const matchesKey = (event, code, fallbackKey) => {
+      const eventCode = typeof event.code === 'string' ? event.code : '';
+      if (eventCode) {
+        return eventCode === code;
+      }
+      if (!fallbackKey) {
+        return false;
+      }
+      const normalizedKey = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+      return normalizedKey === fallbackKey;
+    };
+
     const handleKeyDown = (event) => {
       if (event.defaultPrevented) {
         return;
       }
 
-      const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
-
       if (discardDialogVisible) {
-        if (isPlainAlt(event) && key === 'q') {
+        if (isPlainAlt(event) && matchesKey(event, 'KeyQ', 'q')) {
           event.preventDefault();
           event.stopPropagation();
           closeDiscardDialog();
           return;
         }
-        if (isPlainAlt(event) && key === 'y') {
+        if (isPlainAlt(event) && matchesKey(event, 'KeyY', 'y')) {
           event.preventDefault();
           confirmDiscard();
           return;
@@ -2173,9 +2207,11 @@ export function FormRenderer({
         return;
       }
 
+      const plainAlt = isPlainAlt(event);
+
       if (
-        isPlainAlt(event) &&
-        key === 'q' &&
+        plainAlt &&
+        matchesKey(event, 'KeyQ', 'q') &&
         currentLeftAction &&
         currentLeftAction.id === 'cancel-root' &&
         !currentLeftAction.disabled
@@ -2186,12 +2222,12 @@ export function FormRenderer({
         return;
       }
 
-      if (!isPlainAlt(event)) {
+      if (!plainAlt) {
         return;
       }
 
       if (
-      key === 'b' &&
+        matchesKey(event, 'KeyB', 'b') &&
         currentLeftAction &&
         currentLeftAction.id === 'back' &&
         !currentLeftAction.disabled
@@ -2202,7 +2238,7 @@ export function FormRenderer({
       }
 
       if (
-        key === 's' &&
+        matchesKey(event, 'KeyS', 's') &&
         currentRightAction &&
         currentRightAction.id === 'submit' &&
         !currentRightAction.disabled
@@ -2213,7 +2249,7 @@ export function FormRenderer({
       }
 
       if (
-        key === 'a' &&
+        matchesKey(event, 'KeyA', 'a') &&
         currentRightAction &&
         currentRightAction.id === 'add-repeatable' &&
         !currentRightAction.disabled
@@ -2226,7 +2262,7 @@ export function FormRenderer({
       }
 
       if (
-        key === 'm' &&
+        matchesKey(event, 'KeyM', 'm') &&
         currentSecondaryRightAction &&
         currentSecondaryRightAction.id === 'enter-edit-mode'
       ) {
@@ -2480,7 +2516,7 @@ export function FormRenderer({
                 >
                   Cancel
                   <span className={styles.shortcutBadge} aria-hidden="true">
-                    alt+q
+                    {getAltShortcutLabel('q')}
                   </span>
                 </button>
                 <button
@@ -2490,7 +2526,7 @@ export function FormRenderer({
                 >
                   Yes, discard
                   <span className={styles.shortcutBadge} aria-hidden="true">
-                    alt+y
+                    {getAltShortcutLabel('y')}
                   </span>
                 </button>
               </div>
@@ -3015,6 +3051,7 @@ export function FormRenderer({
                 openNestedModal={openRepeatableModal}
                 resolveRepeatableKey={resolveRepeatableKey}
                 recordStatusInfo={recordStatusInfo}
+                getAltShortcutLabel={getAltShortcutLabel}
               />
             )),
             repeatableModalPortalRef.current
@@ -3166,6 +3203,7 @@ function RepeatableEntryModal({
   openNestedModal,
   resolveRepeatableKey,
   recordStatusInfo,
+  getAltShortcutLabel = () => null,
 }) {
   const {
     values: entryValues,
@@ -3852,7 +3890,7 @@ function RepeatableEntryModal({
         label: 'Back',
         icon: ChevronLeft,
         onClick: handleExitNestedRepeatable,
-        shortcutLabel: 'alt+b',
+        shortcutLabel: getAltShortcutLabel('b'),
       }
     : modalDrilldownActive
     ? {
@@ -3860,14 +3898,14 @@ function RepeatableEntryModal({
         label: 'Back',
         icon: ChevronLeft,
         onClick: handleModalDrilldownBack,
-        shortcutLabel: 'alt+b',
+        shortcutLabel: getAltShortcutLabel('b'),
       }
     : {
         id: 'cancel',
         label: 'Cancel',
         icon: XCircle,
         onClick: handleCancelRequest,
-        shortcutLabel: 'alt+q',
+        shortcutLabel: getAltShortcutLabel('q'),
       };
 
   let modalRightAction = null;
@@ -3878,7 +3916,7 @@ function RepeatableEntryModal({
       label: 'Add',
       icon: Plus,
       onClick: readOnly ? undefined : triggerNestedAdd,
-      shortcutLabel: 'alt+a',
+      shortcutLabel: getAltShortcutLabel('a'),
       variant: 'primary',
       disabled: readOnly,
     };
@@ -3888,7 +3926,7 @@ function RepeatableEntryModal({
       label: 'Save',
       icon: Save,
       onClick: readOnly ? undefined : handleSave,
-      shortcutLabel: 'alt+s',
+      shortcutLabel: getAltShortcutLabel('s'),
       variant: 'primary',
       disabled: readOnly,
     };
@@ -3901,7 +3939,7 @@ function RepeatableEntryModal({
           label: 'Edit',
           icon: Pencil,
           onClick: enterEntryEditMode,
-          shortcutLabel: 'alt+m',
+          shortcutLabel: getAltShortcutLabel('m'),
           variant: 'edit',
         }
       : null;
@@ -3917,6 +3955,18 @@ function RepeatableEntryModal({
     const isPlainAlt = (event) =>
       event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
 
+    const matchesKey = (event, code, fallbackKey) => {
+      const eventCode = typeof event.code === 'string' ? event.code : '';
+      if (eventCode) {
+        return eventCode === code;
+      }
+      if (!fallbackKey) {
+        return false;
+      }
+      const normalizedKey = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+      return normalizedKey === fallbackKey;
+    };
+
     const haltEvent = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -3930,15 +3980,15 @@ function RepeatableEntryModal({
         return;
       }
 
-      const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+      const plainAlt = isPlainAlt(event);
 
       if (discardDialogVisible) {
-        if (isPlainAlt(event) && key === 'q') {
+        if (plainAlt && matchesKey(event, 'KeyQ', 'q')) {
           haltEvent(event);
           closeDiscardDialog();
           return;
         }
-        if (isPlainAlt(event) && key === 'y') {
+        if (plainAlt && matchesKey(event, 'KeyY', 'y')) {
           haltEvent(event);
           confirmDiscard();
           return;
@@ -3954,59 +4004,61 @@ function RepeatableEntryModal({
         return;
       }
 
-      if (isPlainAlt(event)) {
-        if (key === 'q') {
+      if (!plainAlt) {
+        return;
+      }
+
+      if (matchesKey(event, 'KeyQ', 'q')) {
+        haltEvent(event);
+        if (!nestedListActive) {
+          handleCancelRequest();
+        }
+        return;
+      }
+      if (matchesKey(event, 'KeyB', 'b')) {
+        if (nestedListActive) {
           haltEvent(event);
-          if (!nestedListActive) {
-            handleCancelRequest();
-          }
+          handleExitNestedRepeatable();
           return;
         }
-        if (key === 'b') {
-          if (nestedListActive) {
-            haltEvent(event);
-            handleExitNestedRepeatable();
-            return;
-          }
-          if (modalDrilldownActive) {
-            haltEvent(event);
-            handleModalDrilldownBack();
-            return;
-          }
-        }
-        if (
-          key === 'm' &&
-          modalSecondaryRightAction &&
-          modalSecondaryRightAction.id === 'modal-enter-edit-mode'
-        ) {
+        if (modalDrilldownActive) {
           haltEvent(event);
-          if (typeof modalSecondaryRightAction.onClick === 'function') {
-            modalSecondaryRightAction.onClick();
-          }
+          handleModalDrilldownBack();
           return;
         }
-        if (
-          key === 'a' &&
-          modalRightAction &&
-          modalRightAction.id === 'add' &&
-          !modalRightAction.disabled
-        ) {
-          haltEvent(event);
-          if (typeof modalRightAction.onClick === 'function') {
-            modalRightAction.onClick();
-          }
-          return;
+      }
+      if (
+        matchesKey(event, 'KeyM', 'm') &&
+        modalSecondaryRightAction &&
+        modalSecondaryRightAction.id === 'modal-enter-edit-mode'
+      ) {
+        haltEvent(event);
+        if (typeof modalSecondaryRightAction.onClick === 'function') {
+          modalSecondaryRightAction.onClick();
         }
-        if (
-          key === 's' &&
-          modalRightAction &&
-          modalRightAction.id === 'save' &&
-          !modalRightAction.disabled
-        ) {
-          haltEvent(event);
-          if (typeof modalRightAction.onClick === 'function') {
-            modalRightAction.onClick();
-          }
+        return;
+      }
+      if (
+        matchesKey(event, 'KeyA', 'a') &&
+        modalRightAction &&
+        modalRightAction.id === 'add' &&
+        !modalRightAction.disabled
+      ) {
+        haltEvent(event);
+        if (typeof modalRightAction.onClick === 'function') {
+          modalRightAction.onClick();
+        }
+        return;
+      }
+      if (
+        matchesKey(event, 'KeyS', 's') &&
+        modalRightAction &&
+        modalRightAction.id === 'save' &&
+        !modalRightAction.disabled
+      ) {
+        haltEvent(event);
+        if (typeof modalRightAction.onClick === 'function') {
+          modalRightAction.onClick();
         }
       }
     };
@@ -4210,7 +4262,7 @@ function RepeatableEntryModal({
               >
                 Cancel
                 <span className={styles.shortcutBadge} aria-hidden="true">
-                  alt+q
+                  {getAltShortcutLabel('q')}
                 </span>
               </button>
               <button
@@ -4220,7 +4272,7 @@ function RepeatableEntryModal({
               >
                 Yes, discard
                 <span className={styles.shortcutBadge} aria-hidden="true">
-                  alt+y
+                  {getAltShortcutLabel('y')}
                 </span>
               </button>
             </div>
