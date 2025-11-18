@@ -34,20 +34,27 @@ export const modeBanner = style({
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   padding: `${vars.spacing.xs} ${vars.spacing.md}`,
-  borderRadius: vars.borderRadius,
-  marginBottom: vars.spacing.xs,
+  borderTopLeftRadius: vars.borderRadius,
+  borderTopRightRadius: vars.borderRadius,
+  borderBottomLeftRadius: '0px',
+  borderBottomRightRadius: '0px',
+  marginBottom: `calc(-1 * ${vars.spacing.xs})`,
+  position: 'relative',
+  zIndex: 21,
 });
 
 export const modeBannerEdit = style({
   background: vars.color.bannerEditBg,
   color: vars.color.bannerEditFg,
   border: `1px solid ${vars.color.bannerEditBorder}`,
+  borderBottom: 'none',
 });
 
 export const modeBannerView = style({
   background: vars.color.bannerViewBg,
   color: vars.color.bannerViewFg,
   border: `1px solid ${vars.color.bannerViewBorder}`,
+  borderBottom: 'none',
 });
 
 export const formNameContainer = style({
@@ -201,8 +208,8 @@ export const stickyHeader = style({
       position: 'absolute',
       left: 0,
       right: 0,
-      top: `calc(-1 * ${vars.spacing.md})`,
-      height: vars.spacing.md,
+      top: 0,
+      height: 0,
       background: vars.color.background,
       pointerEvents: 'none',
     },
