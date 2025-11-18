@@ -27,6 +27,7 @@ import { isFieldValueEmpty } from './helpers/is-field-value-empty.js';
 import {
   ChevronLeft,
   ChevronRight,
+  Pencil,
   Plus,
   Save,
   SendHorizontal,
@@ -43,6 +44,19 @@ const MIN_TITLE_PADDING_PX = 32;
 const ROOT_NAV_NODE_ID = '__form_root';
 const MODAL_ROOT_NAV_NODE_ID = '__modal_form_root';
 const ROOT_NAV_LABEL = 'Root';
+
+const ModeBanner = ({ mode }) => {
+  const isViewMode = mode === 'readonly';
+  const className = isViewMode
+    ? `${styles.modeBanner} ${styles.modeBannerView}`
+    : `${styles.modeBanner} ${styles.modeBannerEdit}`;
+  const label = isViewMode ? 'You are in View mode' : 'You are in Edit mode';
+  return (
+    <div className={className} role="status" aria-live="polite">
+      {label}
+    </div>
+  );
+};
 
 const cloneDeepSafe = (value) => {
   if (value == null) return value;
@@ -516,6 +530,7 @@ export function FormRenderer({
   onSimplifiedNavigation,
   formPlacement = 'form-page',
   onRequestClose,
+  autoCloseOverlayOnSubmit = false,
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -545,6 +560,16 @@ export function FormRenderer({
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
+  const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
+  const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
+
+  useEffect(() => {
+    setInteractionMode(normalizedInitialMode);
+  }, [normalizedInitialMode]);
+
+  const enterEditMode = useCallback(() => {
+    setInteractionMode('edit');
+  }, []);
 
   useEffect(() => {
     const host = formRendererRootRef.current;
@@ -1396,6 +1421,26 @@ export function FormRenderer({
     [debugData]
   );
 
+  const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
+  const isReadOnlyMode = interactionMode === 'readonly';
+  const hasSubmitHandler = typeof onSubmit === 'function';
+  const canSubmitForm = !isReadOnlyMode && hasSubmitHandler;
+  const canEditRepeatables = !isReadOnlyMode;
+  const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
+  const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
+
+  const closeOverlayAfterSubmit = useCallback(() => {
+    if (
+      !autoCloseOverlayOnSubmit ||
+      mode === 'readonly' ||
+      !placementAllowsExit ||
+      typeof onRequestClose !== 'function'
+    ) {
+      return;
+    }
+    onRequestClose({ reason: 'submit-success' });
+  }, [autoCloseOverlayOnSubmit, mode, onRequestClose, placementAllowsExit]);
+
   const handleSubmit = useCallback(
     (e) => {
       if (e && typeof e.preventDefault === 'function') {
@@ -1425,7 +1470,18 @@ export function FormRenderer({
           },
           validationSummary,
         };
-        onSubmit(result, meta);
+        const submitReturn = onSubmit(result, meta);
+        if (submitReturn && typeof submitReturn.then === 'function') {
+          submitReturn
+            .then(() => {
+              closeOverlayAfterSubmit();
+            })
+            .catch((error) => {
+              console.error('[form0-react] onSubmit promise rejected', error);
+            });
+        } else {
+          closeOverlayAfterSubmit();
+        }
       }
     },
     [
@@ -1436,6 +1492,7 @@ export function FormRenderer({
       statusValue,
       submit,
       timestampsRef,
+      closeOverlayAfterSubmit,
     ]
   );
 
@@ -1581,12 +1638,6 @@ export function FormRenderer({
   const isNestedDrilldownPage = drilldownDepth > 0 && (!isSpecialSectionActive || drilldownDepth > 1);
   const isRepeatableFirstPage =
     isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'RepeatableSection';
-  const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
-  const isReadOnlyMode = mode === 'readonly';
-  const canSubmitForm = !isReadOnlyMode && typeof onSubmit === 'function';
-  const canEditRepeatables = !isReadOnlyMode;
-  const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
-  const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
   const navigationSections = useMemo(() => {
     if (!sectionTree || sectionTree.length === 0) {
       return [];
@@ -1929,6 +1980,7 @@ export function FormRenderer({
 
     let leftAction = null;
     let rightAction = null;
+    let secondaryRightAction = null;
 
     if (isNestedDrilldownPage || isRepeatableFirstPage) {
       leftAction = {
@@ -1969,7 +2021,7 @@ export function FormRenderer({
         onClick: handleRepeatableListAddFromHeader,
         shortcutLabel: 'alt+a',
       };
-    } else if (isFirstSpecialPage && !isRepeatableFirstPage) {
+    } else if (isFirstSpecialPage && !isRepeatableFirstPage && hasSubmitHandler) {
       rightAction = {
         id: 'save-section',
         label: 'Save',
@@ -1978,30 +2030,46 @@ export function FormRenderer({
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
       };
-    } else if (isRootPage && canSubmitForm) {
+    } else if (isRootPage && hasSubmitHandler) {
       rightAction = {
         id: 'submit',
         label: 'Submit',
         icon: SendHorizontal,
         variant: 'primary',
-        onClick: submitFromHeader,
+        disabled: !canSubmitForm,
+        onClick: canSubmitForm ? submitFromHeader : undefined,
         shortcutLabel: 'alt+s',
       };
     }
 
-    return { leftAction, rightAction };
+    if (mode === 'readonly' && isReadOnlyMode) {
+      secondaryRightAction = {
+        id: 'enter-edit-mode',
+        label: 'Edit',
+        icon: Pencil,
+        variant: 'edit',
+        onClick: enterEditMode,
+        shortcutLabel: 'alt+m',
+      };
+    }
+
+    return { leftAction, rightAction, secondaryRightAction };
   }, [
     activeDrilldownSectionId,
     activeRepeatableListContext,
     canEditRepeatables,
     canSubmitForm,
+    enterEditMode,
     discardPromptEnabled,
     goBackFromDrilldown,
     handleRepeatableListAddFromHeader,
+    hasSubmitHandler,
     isFirstSpecialPage,
     isNestedDrilldownPage,
     isRepeatableFirstPage,
     isRootPage,
+    isReadOnlyMode,
+    mode,
     requestRootCancel,
     submitFromHeader,
   ]);
@@ -2057,6 +2125,7 @@ export function FormRenderer({
 
   const currentLeftAction = headerActions.leftAction;
   const currentRightAction = headerActions.rightAction;
+  const currentSecondaryRightAction = headerActions.secondaryRightAction;
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2155,6 +2224,18 @@ export function FormRenderer({
         }
         return;
       }
+
+      if (
+        key === 'm' &&
+        currentSecondaryRightAction &&
+        currentSecondaryRightAction.id === 'enter-edit-mode'
+      ) {
+        event.preventDefault();
+        if (typeof currentSecondaryRightAction.onClick === 'function') {
+          currentSecondaryRightAction.onClick();
+        }
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
@@ -2166,6 +2247,7 @@ export function FormRenderer({
     confirmDiscard,
     currentLeftAction,
     currentRightAction,
+    currentSecondaryRightAction,
     discardDialogVisible,
     goBackFromDrilldown,
     requestRootCancel,
@@ -2188,48 +2270,56 @@ export function FormRenderer({
       '--form-name-title-padding-right': `${paddingRight}px`,
     };
 
-    const renderActionButton = (action, position, slotRef) => {
-      if (!action) {
-        return null;
-      }
-      const IconComponent = action.icon;
+    const renderActionButtons = (actions, position, slotRef) => {
+      const items = Array.isArray(actions)
+        ? actions.filter(Boolean)
+        : actions
+        ? [actions]
+        : [];
+      const slotClassName =
+        position === 'left'
+          ? `${styles.formNameActionSlot} ${styles.formNameActionSlotLeft}`
+          : `${styles.formNameActionSlot} ${styles.formNameActionSlotRight}`;
       return (
         <div
           ref={slotRef}
-          className={
-            position === 'left'
-              ? `${styles.formNameActionSlot} ${styles.formNameActionSlotLeft}`
-              : `${styles.formNameActionSlot} ${styles.formNameActionSlotRight}`
-          }
+          className={slotClassName}
+          aria-hidden={items.length === 0 ? 'true' : undefined}
         >
-          <button
-            type="button"
-            className={styles.formNameActionButton}
-            data-variant={action.variant || 'ghost'}
-            onClick={action.onClick}
-            disabled={action.disabled}
-          >
-            {IconComponent && (
-              <span className={styles.formNameActionIcon} aria-hidden="true">
-                <IconComponent size={16} strokeWidth={1.8} />
-              </span>
-            )}
-            <span className={styles.formNameActionLabel}>
-              <span>{action.label}</span>
-              {action.shortcutLabel ? (
-                <span className={styles.shortcutBadge} aria-hidden="true">
-                  {action.shortcutLabel}
+          {items.map((action) => {
+            const IconComponent = action.icon;
+            return (
+              <button
+                key={action.id || action.label}
+                type="button"
+                className={styles.formNameActionButton}
+                data-variant={action.variant || 'ghost'}
+                onClick={action.onClick}
+                disabled={action.disabled}
+              >
+                {IconComponent && (
+                  <span className={styles.formNameActionIcon} aria-hidden="true">
+                    <IconComponent size={16} strokeWidth={1.8} />
+                  </span>
+                )}
+                <span className={styles.formNameActionLabel}>
+                  <span>{action.label}</span>
+                  {action.shortcutLabel ? (
+                    <span className={styles.shortcutBadge} aria-hidden="true">
+                      {action.shortcutLabel}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-            </span>
-          </button>
+              </button>
+            );
+          })}
         </div>
       );
     };
 
     return (
       <div className={styles.formNameContainer} role="heading" aria-level="2">
-        {renderActionButton(leftAction, 'left', leftActionRef)}
+        {renderActionButtons(leftAction, 'left', leftActionRef)}
         <div
           className={styles.formNameTitle}
           title={formName}
@@ -2238,7 +2328,11 @@ export function FormRenderer({
         >
           {formName}
         </div>
-        {renderActionButton(rightAction, 'right', rightActionRef)}
+        {renderActionButtons(
+          [headerActions.secondaryRightAction, rightAction],
+          'right',
+          rightActionRef
+        )}
       </div>
     );
   }, [actionPadding, headerActions, schemaForRender]);
@@ -2293,7 +2387,7 @@ export function FormRenderer({
         const fieldRequired = resolveFieldRequired(field);
         const fieldValue = displayValues[field.data_name];
         const fieldReadOnly =
-          mode === 'readonly' ||
+          isReadOnlyMode ||
           resolveFieldReadOnly(field) ||
           field.type === 'TitleField';
         const fieldError = computeFieldError(field, fieldValue, fieldRequired);
@@ -2336,7 +2430,7 @@ export function FormRenderer({
     resolveFieldVisibility,
     resolveFieldRequired,
     displayValues,
-    mode,
+    isReadOnlyMode,
     resolveFieldReadOnly,
     computeFieldError,
     handleFieldValueChange,
@@ -2358,6 +2452,7 @@ export function FormRenderer({
       </div>
     ) : null;
   const recordMetadataSection = renderRecordMetadata();
+  const modeBannerNode = <ModeBanner mode={interactionMode} />;
 
   const discardDialogNode =
     discardDialogVisible && typeof document !== 'undefined'
@@ -2419,7 +2514,7 @@ export function FormRenderer({
 
     const currentFieldValue = displayValues[currentField.data_name];
     const currentFieldReadOnly =
-      mode === 'readonly' ||
+      isReadOnlyMode ||
       resolveFieldReadOnly(currentField) ||
       currentField.type === 'TitleField';
     const currentFieldChangeHandler =
@@ -2436,6 +2531,7 @@ export function FormRenderer({
           style={{ maxWidth: formWidth, width: '100%' }}
           {...rest}
         >
+          {modeBannerNode}
           {stickyHeaderContent}
           {recordMetadataSection}
           {/* Progress indicator */}
@@ -2622,7 +2718,7 @@ export function FormRenderer({
           key={sectionId}
           field={field}
           instances={instances}
-          readOnly={mode === 'readonly'}
+          readOnly={isReadOnlyMode}
           overlayActive={overlayActive}
           onAdd={() => handleRepeatableAdd(field, repeatableKey, repeatableContextPath)}
           onEdit={(instanceId) =>
@@ -2642,7 +2738,7 @@ export function FormRenderer({
       handleRepeatableEdit,
       handleRepeatableRemove,
       markNavigationInteraction,
-      mode,
+      isReadOnlyMode,
       pathsEqual,
       repeatableModals,
       resolveRepeatableKey,
@@ -2842,7 +2938,7 @@ export function FormRenderer({
       const fieldRequired = resolveFieldRequired(field);
       const fieldValue = displayValues[field.data_name];
       const fieldReadOnly =
-        mode === 'readonly' ||
+        isReadOnlyMode ||
         resolveFieldReadOnly(field) ||
         field.type === 'TitleField';
       const fieldError = computeFieldError(field, fieldValue, fieldRequired);
@@ -2874,6 +2970,7 @@ export function FormRenderer({
         className={`${styles.formRendererRoot} ${themeClass}`}
         style={{ maxWidth: formWidth, width: '100%' }}
       >
+        {modeBannerNode}
         {stickyHeaderContent}
         <div className={styles.bodySection}>
           {showNavigationPanel && (
@@ -2911,7 +3008,8 @@ export function FormRenderer({
                 themeClass={themeClass}
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
-                mode={mode}
+                initialMode={modal.mode === 'create' ? 'edit' : 'readonly'}
+                allowEditToggle={modal.mode !== 'create'}
                 onSave={handleRepeatableModalSave}
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
@@ -3061,7 +3159,8 @@ function RepeatableEntryModal({
   themeClass,
   labelPosition,
   labelWidthPercent,
-  mode,
+  initialMode = 'edit',
+  allowEditToggle = false,
   onSave,
   onCancel,
   openNestedModal,
@@ -3072,7 +3171,7 @@ function RepeatableEntryModal({
     values: entryValues,
     visible: entryVisible,
     required: entryRequired,
-    read_only: entryReadOnly,
+    read_only: entryReadOnlyState,
     errors: entryErrors,
     setValue: setEntryValue,
     repeatable: entryRepeatable,
@@ -3114,6 +3213,18 @@ function RepeatableEntryModal({
   useEffect(() => {
     setEntrySubmitCount(0);
   }, [modal.modalId]);
+
+  const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
+  const [entryMode, setEntryMode] = useState(normalizedEntryMode);
+
+  useEffect(() => {
+    setEntryMode(normalizedEntryMode);
+  }, [normalizedEntryMode, modal.modalId]);
+
+  const isEntryReadOnly = entryMode === 'readonly';
+  const enterEntryEditMode = useCallback(() => {
+    setEntryMode('edit');
+  }, []);
 
   const entryValidationFields = useMemo(
     () =>
@@ -3712,7 +3823,7 @@ function RepeatableEntryModal({
     [activeNestedRepeatable, handleNestedRemove]
   );
 
-  const readOnly = mode === 'readonly';
+  const readOnly = isEntryReadOnly;
   const nestedListActive = Boolean(activeNestedRepeatable);
   const modalDrilldownActive = modalActiveDrilldownPath.length > 0;
   const modalTitle =
@@ -3759,27 +3870,41 @@ function RepeatableEntryModal({
         shortcutLabel: 'alt+q',
       };
 
-  const modalRightAction = !readOnly
-    ? nestedListActive
+  let modalRightAction = null;
+
+  if (nestedListActive) {
+    modalRightAction = {
+      id: 'add',
+      label: 'Add',
+      icon: Plus,
+      onClick: readOnly ? undefined : triggerNestedAdd,
+      shortcutLabel: 'alt+a',
+      variant: 'primary',
+      disabled: readOnly,
+    };
+  } else if (!modalDrilldownActive) {
+    modalRightAction = {
+      id: 'save',
+      label: 'Save',
+      icon: Save,
+      onClick: readOnly ? undefined : handleSave,
+      shortcutLabel: 'alt+s',
+      variant: 'primary',
+      disabled: readOnly,
+    };
+  }
+
+  const modalSecondaryRightAction =
+    allowEditToggle && isEntryReadOnly
       ? {
-          id: 'add',
-          label: 'Add',
-          icon: Plus,
-          onClick: triggerNestedAdd,
-          shortcutLabel: 'alt+a',
-          variant: 'primary',
+          id: 'modal-enter-edit-mode',
+          label: 'Edit',
+          icon: Pencil,
+          onClick: enterEntryEditMode,
+          shortcutLabel: 'alt+m',
+          variant: 'edit',
         }
-      : !modalDrilldownActive
-      ? {
-          id: 'save',
-          label: 'Save',
-          icon: Save,
-          onClick: handleSave,
-          shortcutLabel: 'alt+s',
-          variant: 'primary',
-        }
-      : null
-    : null;
+      : null;
 
   const ownerDocument =
     typeof window !== 'undefined' && window.document ? window.document : undefined;
@@ -3849,14 +3974,39 @@ function RepeatableEntryModal({
             return;
           }
         }
-        if (key === 'a' && nestedListActive && !readOnly) {
+        if (
+          key === 'm' &&
+          modalSecondaryRightAction &&
+          modalSecondaryRightAction.id === 'modal-enter-edit-mode'
+        ) {
           haltEvent(event);
-          triggerNestedAdd();
+          if (typeof modalSecondaryRightAction.onClick === 'function') {
+            modalSecondaryRightAction.onClick();
+          }
           return;
         }
-        if (key === 's' && !nestedListActive && !readOnly && !modalDrilldownActive) {
+        if (
+          key === 'a' &&
+          modalRightAction &&
+          modalRightAction.id === 'add' &&
+          !modalRightAction.disabled
+        ) {
           haltEvent(event);
-          handleSave();
+          if (typeof modalRightAction.onClick === 'function') {
+            modalRightAction.onClick();
+          }
+          return;
+        }
+        if (
+          key === 's' &&
+          modalRightAction &&
+          modalRightAction.id === 'save' &&
+          !modalRightAction.disabled
+        ) {
+          haltEvent(event);
+          if (typeof modalRightAction.onClick === 'function') {
+            modalRightAction.onClick();
+          }
         }
       }
     };
@@ -3873,12 +4023,11 @@ function RepeatableEntryModal({
     handleCancelRequest,
     handleExitNestedRepeatable,
     handleModalDrilldownBack,
-    handleSave,
     nestedListActive,
     modalDrilldownActive,
-    readOnly,
-    triggerNestedAdd,
     isTopModal,
+    modalRightAction,
+    modalSecondaryRightAction,
   ]);
 
   const nestedRepeatableInstances = activeNestedRepeatable
@@ -3888,39 +4037,46 @@ function RepeatableEntryModal({
       )
     : null;
 
-  const renderHeaderActionButton = (action, position) => {
+  const renderHeaderActionButtons = (actions, position) => {
     const slotClass =
       position === 'right'
         ? `${styles.repeatableModalHeaderSlot} ${styles.repeatableModalHeaderSlotRight}`
         : styles.repeatableModalHeaderSlot;
-    if (!action) {
-      return <div className={slotClass} aria-hidden="true" />;
-    }
-    const IconComponent = action.icon;
-    const disabled = Boolean(action.disabled) || !isTopModal;
+    const items = Array.isArray(actions)
+      ? actions.filter(Boolean)
+      : actions
+      ? [actions]
+      : [];
     return (
-      <div className={slotClass}>
-        <button
-          type="button"
-          className={styles.formNameActionButton}
-          data-variant={action.variant || 'ghost'}
-          onClick={action.onClick}
-          disabled={disabled}
-        >
-          {IconComponent && (
-            <span className={styles.formNameActionIcon} aria-hidden="true">
-              <IconComponent size={16} strokeWidth={1.8} />
-            </span>
-          )}
-          <span className={styles.formNameActionLabel}>
-            <span>{action.label}</span>
-            {action.shortcutLabel ? (
-              <span className={styles.shortcutBadge} aria-hidden="true">
-                {action.shortcutLabel}
+      <div className={slotClass} aria-hidden={items.length === 0 ? 'true' : undefined}>
+        {items.map((action) => {
+          const IconComponent = action.icon;
+          const disabled = Boolean(action.disabled) || !isTopModal;
+          return (
+            <button
+              key={action.id || action.label}
+              type="button"
+              className={styles.formNameActionButton}
+              data-variant={action.variant || 'ghost'}
+              onClick={disabled ? undefined : action.onClick}
+              disabled={disabled}
+            >
+              {IconComponent && (
+                <span className={styles.formNameActionIcon} aria-hidden="true">
+                  <IconComponent size={16} strokeWidth={1.8} />
+                </span>
+              )}
+              <span className={styles.formNameActionLabel}>
+                <span>{action.label}</span>
+                {action.shortcutLabel ? (
+                  <span className={styles.shortcutBadge} aria-hidden="true">
+                    {action.shortcutLabel}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-          </span>
-        </button>
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -3932,11 +4088,15 @@ function RepeatableEntryModal({
         style={{ zIndex: 60 + (modal.stackIndex || 0) * 2 }}
       >
         <div className={`${styles.repeatableModal} ${themeClass}`}>
+          <ModeBanner mode={entryMode} />
           <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
             <div className={styles.repeatableModalHeaderTopRow}>
-              {renderHeaderActionButton(modalLeftAction, 'left')}
+              {renderHeaderActionButtons(modalLeftAction, 'left')}
               <div className={styles.repeatableModalTitle}>{modalTitle}</div>
-              {renderHeaderActionButton(modalRightAction, 'right')}
+              {renderHeaderActionButtons(
+                [modalSecondaryRightAction, modalRightAction],
+                'right'
+              )}
             </div>
             {!nestedListActive && (
               <div className={styles.repeatableModalSummaryRow}>
@@ -3994,7 +4154,7 @@ function RepeatableEntryModal({
                         values: entryValues,
                         visible: entryVisible,
                         required: entryRequired,
-                        read_only: entryReadOnly,
+                        read_only: entryReadOnlyState,
                         errors: entryErrors,
                       }}
                       setValue={setEntryValue}

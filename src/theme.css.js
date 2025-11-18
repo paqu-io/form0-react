@@ -26,6 +26,13 @@ export const vars = createThemeContract({
     // Icon colors
     icon: '',
     iconHover: '',
+    // View/Edit banners
+    bannerViewBg: '',
+    bannerViewFg: '',
+    bannerViewBorder: '',
+    bannerEditBg: '',
+    bannerEditFg: '',
+    bannerEditBorder: '',
   },
   borderRadius: '',
   fontFamily: {
@@ -74,6 +81,12 @@ export const standardThemeLight = createTheme(vars, {
     backButtonFg: '#111',
     icon: '#6b7280', // neutral gray
     iconHover: '#111', // darker on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#f4f4f5',
+    bannerEditFg: '#111',
+    bannerEditBorder: '#e4e4e7',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -122,6 +135,12 @@ export const standardThemeDark = createTheme(vars, {
     backButtonFg: '#fff',
     icon: '#9ca3af', // lighter gray for dark mode
     iconHover: '#f3f4f6', // lighter on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#27272a',
+    bannerEditFg: '#f3f4f6',
+    bannerEditBorder: '#3f3f46',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -170,6 +189,12 @@ export const modalThemeLight = createTheme(vars, {
     backButtonFg: '#111',
     icon: '#6b7280',
     iconHover: '#2563eb', // primary color on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#f4f4f5',
+    bannerEditFg: '#111',
+    bannerEditBorder: '#e4e4e7',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -218,6 +243,12 @@ export const modalThemeDark = createTheme(vars, {
     backButtonFg: '#fff',
     icon: '#9ca3af',
     iconHover: '#60a5fa', // primary color on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#27272a',
+    bannerEditFg: '#f3f4f6',
+    bannerEditBorder: '#3f3f46',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -266,6 +297,12 @@ export const simplifiedThemeLight = createTheme(vars, {
     backButtonFg: '#111',
     icon: '#6b7280',
     iconHover: '#10b981', // green primary on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#f4f4f5',
+    bannerEditFg: '#111',
+    bannerEditBorder: '#e4e4e7',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -314,6 +351,12 @@ export const simplifiedThemeDark = createTheme(vars, {
     backButtonFg: '#fff',
     icon: '#9ca3af',
     iconHover: '#6ee7b7', // green primary on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#27272a',
+    bannerEditFg: '#f3f4f6',
+    bannerEditBorder: '#3f3f46',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -362,6 +405,12 @@ export const spotlightThemeLight = createTheme(vars, {
     backButtonFg: '#111',
     icon: '#6b7280',
     iconHover: '#111',
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#f4f4f5',
+    bannerEditFg: '#111',
+    bannerEditBorder: '#e4e4e7',
   },
   borderRadius: '0.375rem',
   fontFamily: {
@@ -410,6 +459,12 @@ export const spotlightThemeDark = createTheme(vars, {
     backButtonFg: '#fff',
     icon: '#9ca3af',
     iconHover: '#38bdf8', // cyan primary on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#27272a',
+    bannerEditFg: '#f3f4f6',
+    bannerEditBorder: '#3f3f46',
   },
   borderRadius: '0.375rem',
   fontFamily: {

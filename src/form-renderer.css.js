@@ -26,6 +26,30 @@ export const formRendererRoot = style({
   fontFamily: vars.fontFamily.base,
 });
 
+export const modeBanner = style({
+  width: '100%',
+  textAlign: 'center',
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  padding: `${vars.spacing.xs} ${vars.spacing.md}`,
+  borderRadius: vars.borderRadius,
+  marginBottom: vars.spacing.xs,
+});
+
+export const modeBannerEdit = style({
+  background: vars.color.bannerEditBg,
+  color: vars.color.bannerEditFg,
+  border: `1px solid ${vars.color.bannerEditBorder}`,
+});
+
+export const modeBannerView = style({
+  background: vars.color.bannerViewBg,
+  color: vars.color.bannerViewFg,
+  border: `1px solid ${vars.color.bannerViewBorder}`,
+});
+
 export const formNameContainer = style({
   position: 'relative',
   display: 'flex',
@@ -96,6 +120,16 @@ export const formNameActionButton = style({
       background: vars.color.buttonHoverBg,
       color: vars.color.buttonHoverFg,
       borderColor: vars.color.buttonHoverBorder,
+    },
+    '&[data-variant="edit"]': {
+      background: 'transparent',
+      color: vars.color.primary,
+      borderColor: vars.color.primary,
+    },
+    '&[data-variant="edit"]:hover': {
+      background: vars.color.section,
+      color: vars.color.primary,
+      borderColor: vars.color.primary,
     },
     '&:not(:disabled):hover': {
       borderColor: vars.color.iconHover,
