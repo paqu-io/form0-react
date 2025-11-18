@@ -1432,14 +1432,14 @@ export function FormRenderer({
   const closeOverlayAfterSubmit = useCallback(() => {
     if (
       !autoCloseOverlayOnSubmit ||
-      mode === 'readonly' ||
+      interactionMode === 'readonly' ||
       !placementAllowsExit ||
       typeof onRequestClose !== 'function'
     ) {
       return;
     }
     onRequestClose({ reason: 'submit-success' });
-  }, [autoCloseOverlayOnSubmit, mode, onRequestClose, placementAllowsExit]);
+  }, [autoCloseOverlayOnSubmit, interactionMode, onRequestClose, placementAllowsExit]);
 
   const handleSubmit = useCallback(
     (e) => {
