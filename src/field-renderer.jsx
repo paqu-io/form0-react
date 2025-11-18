@@ -5,18 +5,21 @@ import { useFieldRegistry } from './field-registry-context.jsx';
 
 const LABEL_SIDE = 'side';
 
-export function FieldRenderer({
-  field,
-  value,
-  onChange,
-  readOnly,
-  required,
-  error,
-  labelPosition = 'top',
-  labelWidthPercent = 30,
-  onKeyDown,
-  onFocus,
-}) {
+export const FieldRenderer = React.forwardRef(function FieldRenderer(
+  {
+    field,
+    value,
+    onChange,
+    readOnly,
+    required,
+    error,
+    labelPosition = 'top',
+    labelWidthPercent = 30,
+    onKeyDown,
+    onFocus,
+  },
+  ref
+) {
   const registry = useFieldRegistry();
   const FieldComponent = registry.getFieldComponent(field.type);
   const elementKey = field.key || field.data_name;
@@ -227,6 +230,8 @@ export function FieldRenderer({
 
   return (
     <div
+      ref={ref}
+      tabIndex={-1}
       className={`${styles.fieldWrapper} ${wrapperClass}`}
       style={wrapperStyle}
     >
@@ -342,4 +347,4 @@ export function FieldRenderer({
       )}
     </div>
   );
-}
+});

@@ -47,6 +47,7 @@ export const vars = createThemeContract({
     sm: '',
     md: '',
     lg: '',
+    xl: '',
   },
 });
 
@@ -94,6 +95,7 @@ export const standardThemeLight = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -141,6 +143,7 @@ export const standardThemeDark = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -188,6 +191,7 @@ export const modalThemeLight = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -235,6 +239,7 @@ export const modalThemeDark = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -282,6 +287,7 @@ export const simplifiedThemeLight = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -329,6 +335,7 @@ export const simplifiedThemeDark = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -376,6 +383,7 @@ export const spotlightThemeLight = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -423,5 +431,6 @@ export const spotlightThemeDark = createTheme(vars, {
     sm: '0.25rem',
     md: '0.5rem',
     lg: '1rem',
+    xl: '1.5rem',
   },
 });

@@ -148,3 +148,149 @@ export const visuallyHidden = style({
   whiteSpace: 'nowrap',
   border: 0,
 });
+
+export const navigationTabs = style({
+  display: 'flex',
+  gap: vars.spacing.xl,
+  marginBottom: vars.spacing.md,
+  borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+  justifyContent: 'center',
+});
+
+export const navigationTabButton = style({
+  appearance: 'none',
+  background: 'none',
+  border: 'none',
+  padding: `${vars.spacing.xs} 0`,
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  color: '#6b7280',
+  cursor: 'pointer',
+  position: 'relative',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+  borderRadius: vars.borderRadius,
+  transition: 'color 0.15s ease, background 0.15s ease',
+  selectors: {
+    '&:focus': {
+      outline: 'none',
+    },
+    '&:focus-visible': {
+      outline: 'none',
+    },
+    '&:hover:not(:disabled)': {
+      color: '#4b5563',
+      background: 'rgba(15, 23, 42, 0.04)',
+    },
+    '&:hover:not(:disabled)[data-active="true"]': {
+      color: vars.color.primary,
+      background: 'rgba(255, 0, 122, 0.08)',
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.5,
+    },
+  },
+});
+
+export const navigationTabButtonActive = style({
+  color: vars.color.foreground,
+  selectors: {
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: '-1px',
+      height: '2px',
+      background: vars.color.primary,
+    },
+    '&:hover:not(:disabled)': {
+      color: vars.color.primary,
+    },
+  },
+});
+
+export const navigationTabBadge = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginLeft: vars.spacing.xs,
+  fontSize: '0.7rem',
+  minWidth: '1.5rem',
+  padding: '0 0.3rem',
+  borderRadius: vars.borderRadius,
+  background: 'rgba(255, 0, 122, 0.12)',
+  color: '#ff007a',
+});
+
+export const navigationTabPanel = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const validationList = style({
+  listStyle: 'none',
+  padding: 0,
+  margin: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.sm,
+});
+
+export const validationItem = style({
+  margin: 0,
+});
+
+export const validationButton = style({
+  width: '100%',
+  textAlign: 'left',
+  border: `1px solid rgba(0, 0, 0, 0.08)`,
+  borderRadius: vars.borderRadius,
+  padding: vars.spacing.sm,
+  background: vars.color.section,
+  cursor: 'pointer',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+  transition: 'border 0.15s ease, box-shadow 0.15s ease',
+  selectors: {
+    '&:hover': {
+      borderColor: vars.color.primary,
+      boxShadow: '0 1px 4px rgba(0, 0, 0, 0.08)',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+  },
+});
+
+export const validationHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  fontWeight: 600,
+  fontSize: '0.85rem',
+});
+
+export const validationField = style({
+  fontSize: '0.75rem',
+  color: '#6b7280',
+});
+
+export const validationMessage = style({
+  fontSize: '0.75rem',
+  color: vars.color.error,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+});
+
+export const validationEmptyState = style({
+  fontSize: '0.85rem',
+  color: '#6b7280',
+  padding: vars.spacing.sm,
+});

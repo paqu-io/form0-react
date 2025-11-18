@@ -244,6 +244,97 @@ function buildValidationSummary(fields, { getValue, isVisible, isRequired, getEr
   };
 }
 
+const truncateLabel = (label = '', maxLength = 32) => {
+  if (typeof label !== 'string') {
+    return '';
+  }
+  if (label.length <= maxLength) {
+    return label;
+  }
+  return `${label.slice(0, maxLength)}…`;
+};
+
+function buildFieldLookup(elements) {
+  const byKey = new Map();
+  const byDataName = new Map();
+
+  const collect = (nodes) => {
+    if (!Array.isArray(nodes)) {
+      return;
+    }
+    nodes.forEach((element) => {
+      if (!element || typeof element !== 'object') {
+        return;
+      }
+      if (element.type === 'Section' || element.type === 'RepeatableSection' || element.type === 'BuildingPlanSection') {
+        collect(element.elements || []);
+        return;
+      }
+      if (element.key) {
+        byKey.set(element.key, element);
+      }
+      if (element.data_name) {
+        byDataName.set(element.data_name, element);
+      }
+    });
+  };
+
+  collect(elements);
+  return { byKey, byDataName };
+}
+
+function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
+  if (!summary || !summary.hasErrors) {
+    return [];
+  }
+  const combined = [
+    ...(Array.isArray(summary.requiredFieldErrors) ? summary.requiredFieldErrors : []),
+    ...(Array.isArray(summary.generalErrors) ? summary.generalErrors : []),
+  ];
+
+  const grouped = new Map();
+
+  combined.forEach((issue) => {
+    if (!issue) {
+      return;
+    }
+    const dataName =
+      (typeof issue.field?.data_name === 'string' && issue.field.data_name.length > 0
+        ? issue.field.data_name
+        : typeof issue.fieldName === 'string' && issue.fieldName.length > 0
+        ? issue.fieldName
+        : null);
+    if (!dataName) {
+      return;
+    }
+    const key = dataName;
+    let entry = grouped.get(key);
+    if (!entry) {
+      const fieldDef = fieldLookup?.byDataName?.get(dataName) || issue.field;
+      const label = fieldDef?.label || dataName || 'Field';
+      entry = {
+        id: key,
+        fieldName: dataName,
+        label: truncateLabel(label),
+        messages: new Set(),
+        sectionPath: fieldToSectionPath?.[dataName] || [],
+      };
+      grouped.set(key, entry);
+    }
+    if (issue.message) {
+      entry.messages.add(issue.message);
+    }
+  });
+
+  return Array.from(grouped.values()).map((entry, index) => ({
+    id: `${entry.id}-${index}`,
+    fieldName: entry.fieldName,
+    label: entry.label,
+    sectionPath: entry.sectionPath,
+    messages: Array.from(entry.messages),
+  }));
+}
+
 function useRecordTimestamps({ initialValues, overrideValues, values }) {
   const [timestamps, setTimestamps] = useState(() =>
     deriveInitialTimestamps(initialValues, overrideValues)
@@ -429,6 +520,7 @@ export function FormRenderer({
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
   const sectionRefs = useRef(new Map());
+  const fieldRefs = useRef(new Map());
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const touchedFieldsRef = useRef(new Set());
   const [, setTouchVersion] = useState(0);
@@ -972,30 +1064,7 @@ export function FormRenderer({
     [markFieldTouched, markRootDirty, setStatusValue, setValue, triggerEvent]
   );
 
-  const fieldLookup = useMemo(() => {
-    const byKey = new Map();
-    const byDataName = new Map();
-
-    const collect = (elements) => {
-      if (!Array.isArray(elements)) return;
-      for (const element of elements) {
-        if (!element) continue;
-        if (element.type === 'Section') {
-          collect(element.elements);
-        } else {
-          if (element.key) {
-            byKey.set(element.key, element);
-          }
-          if (element.data_name) {
-            byDataName.set(element.data_name, element);
-          }
-        }
-      }
-    };
-
-    collect(baseElements);
-    return { byKey, byDataName };
-  }, [baseElements]);
+  const fieldLookup = useMemo(() => buildFieldLookup(baseElements), [baseElements]);
 
   const titleValue = useMemo(() => {
     if (!titleField || !Array.isArray(titleField.elements)) {
@@ -1255,6 +1324,11 @@ export function FormRenderer({
     ]
   );
 
+  const rootValidationSummary = useMemo(
+    () => buildRootValidationSummary(),
+    [buildRootValidationSummary]
+  );
+
   // Get current field in simplified mode
   const currentField = simplifiedMode && flattenedElementsLength > 0
     ? flattenedElements[currentFieldIndex] 
@@ -1328,7 +1402,7 @@ export function FormRenderer({
         e.preventDefault();
       }
       setSubmitCount((count) => count + 1);
-      const validationSummary = buildRootValidationSummary();
+      const validationSummary = rootValidationSummary;
       if (validationSummary?.hasErrors) {
         console.info('🚀 [RECORD SUBMIT] Starting record submission...');
         console.log('❌ [RECORD SUBMIT] Submission blocked due to validation errors');
@@ -1355,7 +1429,7 @@ export function FormRenderer({
       }
     },
     [
-      buildRootValidationSummary,
+      rootValidationSummary,
       onSubmit,
       repeatable,
       statusFieldName,
@@ -1537,6 +1611,20 @@ export function FormRenderer({
     ];
   }, [sectionTree, activeDrilldownSectionId, activeDrilldownSectionInfo?.type, isRepeatableFirstPage]);
   const hasNavigableSections = sectionTree.length > 0;
+  const showRootValidationList = submitCount > 0 && rootValidationSummary?.hasErrors;
+  const rootValidationIssues = useMemo(
+    () =>
+      showRootValidationList
+        ? formatValidationIssues(rootValidationSummary, fieldLookup, fieldToSectionPath)
+        : [],
+    [
+      fieldLookup,
+      fieldToSectionPath,
+      rootValidationSummary,
+      showRootValidationList,
+    ]
+  );
+  const showNavigationPanel = hasNavigableSections || showRootValidationList;
 
   const activeRepeatableListContext = useMemo(() => {
     if (!isRepeatableFirstPage) {
@@ -1574,6 +1662,17 @@ export function FormRenderer({
     }
   }, []);
 
+  const registerFieldNode = useCallback((dataName, node) => {
+    if (!dataName) {
+      return;
+    }
+    if (node) {
+      fieldRefs.current.set(dataName, node);
+    } else {
+      fieldRefs.current.delete(dataName);
+    }
+  }, []);
+
   const scrollSectionIntoView = useCallback((sectionId) => {
     const node = sectionRefs.current.get(sectionId);
     if (!node || typeof node.scrollIntoView !== 'function') {
@@ -1589,6 +1688,46 @@ export function FormRenderer({
     }
     return true;
   }, []);
+
+  const scrollFieldIntoView = useCallback((dataName) => {
+    if (!dataName) {
+      return false;
+    }
+    const node = fieldRefs.current.get(dataName);
+    if (!node) {
+      return false;
+    }
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (typeof node.focus === 'function') {
+      try {
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+    }
+    return true;
+  }, []);
+
+  const focusFieldByDataName = useCallback(
+    (dataName) => {
+      if (!dataName) return;
+      const schedule =
+        typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame
+          : (cb) => setTimeout(cb, 16);
+      schedule(() => {
+        if (scrollFieldIntoView(dataName)) {
+          return;
+        }
+        setTimeout(() => {
+          scrollFieldIntoView(dataName);
+        }, 120);
+      });
+    },
+    [scrollFieldIntoView]
+  );
 
   const focusSectionAfterNavigation = useCallback((sectionId) => {
     if (!sectionId) return;
@@ -1658,6 +1797,26 @@ export function FormRenderer({
     ]
   );
 
+  const navigateToSectionForField = useCallback(
+    (sectionPath = []) => {
+      if (!Array.isArray(sectionPath) || sectionPath.length === 0) {
+        return;
+      }
+      const targetSectionId = sectionPath[sectionPath.length - 1];
+      if (!targetSectionId) {
+        return;
+      }
+      const sectionInfo = sectionMetadata[targetSectionId];
+      if (!sectionInfo) {
+        return;
+      }
+      setActiveDrilldownPath(sectionInfo.drilldownPath);
+      setHighlightedPath(sectionPath);
+      focusSectionAfterNavigation(targetSectionId);
+    },
+    [focusSectionAfterNavigation, sectionMetadata, setActiveDrilldownPath, setHighlightedPath]
+  );
+
   const handleFieldFocus = useCallback(
     (fieldDataName) => {
       const timeSinceNavClick = Date.now() - navigationClickTimestamp;
@@ -1673,6 +1832,19 @@ export function FormRenderer({
       }
     },
     [fieldToSectionPath, navigationClickTimestamp, setHighlightedPath]
+  );
+
+  const handleValidationIssueSelect = useCallback(
+    (issue) => {
+      if (!issue || !issue.fieldName) {
+        return;
+      }
+      if (Array.isArray(issue.sectionPath) && issue.sectionPath.length > 0) {
+        navigateToSectionForField(issue.sectionPath);
+      }
+      focusFieldByDataName(issue.fieldName);
+    },
+    [focusFieldByDataName, navigateToSectionForField]
   );
 
   const handleDrilldownBack = useCallback(
@@ -2131,6 +2303,7 @@ export function FormRenderer({
         return (
           <FieldRenderer
             key={field.key || field.data_name}
+            ref={field.data_name ? (node) => registerFieldNode(field.data_name, node) : null}
             field={field}
             value={fieldValue}
             readOnly={fieldReadOnly}
@@ -2274,6 +2447,7 @@ export function FormRenderer({
           {isCurrentFieldVisible && (
             <FieldRenderer
               key={currentField.key || currentField.data_name}
+              ref={currentField.data_name ? (node) => registerFieldNode(currentField.data_name, node) : null}
               field={currentField}
               value={currentFieldValue}
               readOnly={currentFieldReadOnly}
@@ -2678,6 +2852,7 @@ export function FormRenderer({
       return (
         <FieldRenderer
           key={field.key || field.data_name}
+          ref={field.data_name ? (node) => registerFieldNode(field.data_name, node) : null}
           field={field}
           value={fieldValue}
           readOnly={fieldReadOnly}
@@ -2701,12 +2876,15 @@ export function FormRenderer({
       >
         {stickyHeaderContent}
         <div className={styles.bodySection}>
-          {hasNavigableSections && (
+          {showNavigationPanel && (
             <NavigationTree
               sections={navigationSections}
               highlightedSections={highlightedSections}
               activeSectionId={activeNavigationSectionId}
               onNavigate={handleNavigate}
+              validationIssues={rootValidationIssues}
+              validationEnabled={submitCount > 0}
+              onSelectValidationIssue={handleValidationIssueSelect}
             />
           )}
           <div className={styles.formColumn}>
@@ -2956,6 +3134,11 @@ function RepeatableEntryModal({
     [entryErrors, entryRequired, entryValidationFields, entryValues, entryVisible]
   );
 
+  const entryValidationSummary = useMemo(
+    () => buildEntryValidationSummary(),
+    [buildEntryValidationSummary]
+  );
+
   const initialEntrySnapshot = useRef({
     values: modal.initialInstance?.values || {},
     repeatable: modal.initialInstance?.repeatable || {},
@@ -3012,6 +3195,7 @@ function RepeatableEntryModal({
   );
 
   const entryElements = modal.repInfo?.field?.elements || [];
+  const modalFieldLookup = useMemo(() => buildFieldLookup(entryElements), [entryElements]);
   const {
     sectionTree: modalSectionTree,
     sectionMetadata: modalSectionMetadata,
@@ -3019,6 +3203,19 @@ function RepeatableEntryModal({
   } = useMemo(
     () => buildSectionHierarchy(entryElements, resolveRepeatableKey),
     [entryElements, resolveRepeatableKey]
+  );
+  const showModalValidationList = entrySubmitCount > 0 && entryValidationSummary?.hasErrors;
+  const modalValidationIssues = useMemo(
+    () =>
+      showModalValidationList
+        ? formatValidationIssues(entryValidationSummary, modalFieldLookup, modalFieldToSectionPath)
+        : [],
+    [
+      entryValidationSummary,
+      modalFieldLookup,
+      modalFieldToSectionPath,
+      showModalValidationList,
+    ]
   );
   const modalNavigationSections = useMemo(() => {
     if (!modalSectionTree || modalSectionTree.length === 0) {
@@ -3040,6 +3237,7 @@ function RepeatableEntryModal({
       ? modalActiveDrilldownPath[modalActiveDrilldownPath.length - 1]
       : null;
   const modalSectionRefs = useRef(new Map());
+  const modalFieldRefs = useRef(new Map());
   const modalActiveSectionId =
     modalHighlightedSections.length > 0
       ? modalHighlightedSections[modalHighlightedSections.length - 1]
@@ -3066,6 +3264,17 @@ function RepeatableEntryModal({
       modalSectionRefs.current.set(sectionId, node);
     } else {
       modalSectionRefs.current.delete(sectionId);
+    }
+  }, []);
+
+  const registerModalFieldNode = useCallback((dataName, node) => {
+    if (!dataName) {
+      return;
+    }
+    if (node) {
+      modalFieldRefs.current.set(dataName, node);
+    } else {
+      modalFieldRefs.current.delete(dataName);
     }
   }, []);
 
@@ -3106,6 +3315,46 @@ function RepeatableEntryModal({
       });
     },
     [scrollModalSectionIntoView]
+  );
+
+  const scrollModalFieldIntoView = useCallback((dataName) => {
+    if (!dataName) {
+      return false;
+    }
+    const node = modalFieldRefs.current.get(dataName);
+    if (!node) {
+      return false;
+    }
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (typeof node.focus === 'function') {
+      try {
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+    }
+    return true;
+  }, []);
+
+  const focusModalFieldByDataName = useCallback(
+    (dataName) => {
+      if (!dataName) return;
+      const schedule =
+        typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame
+          : (cb) => setTimeout(cb, 16);
+      schedule(() => {
+        if (scrollModalFieldIntoView(dataName)) {
+          return;
+        }
+        setTimeout(() => {
+          scrollModalFieldIntoView(dataName);
+        }, 120);
+      });
+    },
+    [scrollModalFieldIntoView]
   );
 
   const [activeNestedRepeatable, setActiveNestedRepeatable] = useState(null);
@@ -3254,7 +3503,7 @@ function RepeatableEntryModal({
 
   const handleSave = useCallback(() => {
     setEntrySubmitCount((count) => count + 1);
-    const validationSummary = buildEntryValidationSummary();
+    const validationSummary = entryValidationSummary;
     if (validationSummary?.hasErrors) {
       console.info('📝 [ENTRY SAVE] Attempting to save repeatable entry...');
       console.log('❌ [ENTRY SAVE] Save blocked due to validation errors');
@@ -3270,7 +3519,7 @@ function RepeatableEntryModal({
       created_at_server: timestampSnapshot?.created_at_server ?? null,
       updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
-  }, [buildEntryValidationSummary, entryRepeatable, entryTimestampsRef, entryValues, modal, onSave]);
+  }, [entryRepeatable, entryTimestampsRef, entryValidationSummary, entryValues, modal, onSave]);
 
   const handleModalNavigate = useCallback(
     (sectionId) => {
@@ -3336,6 +3585,44 @@ function RepeatableEntryModal({
       setModalHighlightedPath(sectionPath || []);
     },
     [modalFieldToSectionPath, setModalHighlightedPath]
+  );
+
+  const navigateModalToSection = useCallback(
+    (sectionPath = []) => {
+      if (!Array.isArray(sectionPath) || sectionPath.length === 0) {
+        return;
+      }
+      const targetSectionId = sectionPath[sectionPath.length - 1];
+      if (!targetSectionId || targetSectionId === MODAL_ROOT_NAV_NODE_ID) {
+        return;
+      }
+      const sectionInfo = modalSectionMetadata[targetSectionId];
+      if (!sectionInfo) {
+        return;
+      }
+      setModalActiveDrilldownPath(sectionInfo.drilldownPath);
+      setModalHighlightedPath(sectionPath);
+      focusModalSectionAfterNavigation(targetSectionId);
+    },
+    [
+      focusModalSectionAfterNavigation,
+      modalSectionMetadata,
+      setModalActiveDrilldownPath,
+      setModalHighlightedPath,
+    ]
+  );
+
+  const handleModalValidationIssueSelect = useCallback(
+    (issue) => {
+      if (!issue || !issue.fieldName) {
+        return;
+      }
+      if (Array.isArray(issue.sectionPath) && issue.sectionPath.length > 0) {
+        navigateModalToSection(issue.sectionPath);
+      }
+      focusModalFieldByDataName(issue.fieldName);
+    },
+    [focusModalFieldByDataName, navigateModalToSection]
   );
 
   const handleNestedAdd = useCallback(
@@ -3446,6 +3733,7 @@ function RepeatableEntryModal({
   const modalStatusBadgeA11yProps =
     modalStatusLabel ? { role: 'img', 'aria-label': modalStatusLabel } : { 'aria-hidden': 'true' };
   const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
+  const showModalNavigationPanel = hasModalNavigation || showModalValidationList;
 
   const modalLeftAction = nestedListActive
     ? {
@@ -3671,13 +3959,16 @@ function RepeatableEntryModal({
           </div>
           <div className={styles.repeatableModalBody}>
             <div className={styles.repeatableModalContent}>
-              {hasModalNavigation && (
+              {showModalNavigationPanel && (
                 <div className={styles.repeatableModalNavigation}>
                   <NavigationTree
                     sections={modalNavigationSections}
                     highlightedSections={modalHighlightedSections}
                     activeSectionId={modalActiveSectionId}
                     onNavigate={handleModalNavigate}
+                    validationIssues={modalValidationIssues}
+                    validationEnabled={entrySubmitCount > 0}
+                    onSelectValidationIssue={handleModalValidationIssueSelect}
                   />
                 </div>
               )}
@@ -3720,6 +4011,7 @@ function RepeatableEntryModal({
                       onFieldFocus={handleModalFieldFocus}
                       highlightedSections={modalHighlightedSections}
                       submitCount={entrySubmitCount}
+                      registerFieldNode={registerModalFieldNode}
                       sectionMetadata={modalSectionMetadata}
                       activeDrilldownPath={modalActiveDrilldownPath}
                       activeDrilldownSectionId={modalActiveDrilldownSectionId}
@@ -3803,6 +4095,7 @@ function RepeatableEntryForm({
   focusSection = () => {},
   parentSectionPath = [],
   submitCount = 0,
+  registerFieldNode = () => {},
 }) {
   if (!Array.isArray(elements) || elements.length === 0) {
     return null;
@@ -3865,6 +4158,7 @@ function RepeatableEntryForm({
                 focusSection={focusSection}
                 parentSectionPath={sectionPath}
                 submitCount={submitCount}
+                registerFieldNode={registerFieldNode}
               />
             </React.Fragment>
           );
@@ -3924,6 +4218,7 @@ function RepeatableEntryForm({
               focusSection={focusSection}
               parentSectionPath={nextSectionPath}
               submitCount={submitCount}
+              registerFieldNode={registerFieldNode}
             />
           </div>
         );
@@ -3993,6 +4288,7 @@ function RepeatableEntryForm({
               focusSection={focusSection}
               parentSectionPath={nextSectionPath}
               submitCount={submitCount}
+              registerFieldNode={registerFieldNode}
             />
           </React.Fragment>
         );
@@ -4030,6 +4326,7 @@ function RepeatableEntryForm({
             focusSection={focusSection}
             parentSectionPath={nextSectionPath}
             submitCount={submitCount}
+            registerFieldNode={registerFieldNode}
           />
         </div>
       );
@@ -4111,6 +4408,7 @@ function RepeatableEntryForm({
     return (
       <FieldRenderer
         key={field.key || dataName}
+        ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
         field={field}
         value={fieldValue}
         readOnly={fieldReadOnly}

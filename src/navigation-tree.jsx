@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
-import { TableOfContents } from 'lucide-react';
 
 const NAVIGATION_INDENT_STEP = 14;
 
@@ -107,22 +106,42 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
   );
 }
 
-export function NavigationTree({ sections, highlightedSections, activeSectionId, onNavigate }) {
+export function NavigationTree({
+  sections,
+  highlightedSections,
+  activeSectionId,
+  onNavigate,
+  validationIssues = [],
+  validationEnabled = false,
+  onSelectValidationIssue,
+}) {
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
   }, [sections]);
 
-  if (!sectionTree || sectionTree.length === 0) {
+  const hasSections = sectionTree && sectionTree.length > 0;
+  const hasValidationIssues = Array.isArray(validationIssues) && validationIssues.length > 0;
+  const shouldRenderNavigation = hasSections || validationEnabled || hasValidationIssues;
+  const [activeTab, setActiveTab] = useState(hasSections ? 'navigation' : 'validation');
+
+  useEffect(() => {
+    if (!hasSections && validationEnabled) {
+      setActiveTab('validation');
+    } else if (activeTab === 'validation' && !validationEnabled && hasSections) {
+      setActiveTab('navigation');
+    }
+  }, [activeTab, hasSections, validationEnabled]);
+
+  if (!shouldRenderNavigation) {
     return null;
   }
 
-  return (
-    <nav className={styles.navigationContainer} aria-label="Form sections navigation">
-      <div className={styles.navigationTitle}>
-        <TableOfContents size={18} strokeWidth={2} />
-        Navigation Tree
-      </div>
+  const renderNavigation = () => {
+    if (!hasSections) {
+      return <div className={styles.validationEmptyState}>This form has no sections.</div>;
+    }
+    return (
       <ul className={styles.navigationTree}>
         {sectionTree.map((section) => (
           <NavigationTreeNode
@@ -134,6 +153,87 @@ export function NavigationTree({ sections, highlightedSections, activeSectionId,
           />
         ))}
       </ul>
+    );
+  };
+
+  const renderValidation = () => {
+    if (!validationEnabled) {
+      return (
+        <div className={styles.validationEmptyState}>
+          Submit or validate the form to view validation results.
+        </div>
+      );
+    }
+    if (!hasValidationIssues) {
+      return <div className={styles.validationEmptyState}>No validation issues.</div>;
+    }
+    return (
+      <ul className={styles.validationList}>
+        {validationIssues.map((issue) => (
+          <li key={issue.id} className={styles.validationItem}>
+            <button
+              type="button"
+              className={styles.validationButton}
+              onClick={() => onSelectValidationIssue?.(issue)}
+            >
+              <div className={styles.validationHeader}>
+                <span>{issue.label}</span>
+                <span className={styles.validationField}>{issue.fieldName}</span>
+              </div>
+              <div className={styles.validationMessage}>
+                {(issue.messages && issue.messages.length > 0
+                  ? issue.messages
+                  : ['Validation error']
+                ).map((message, idx) => (
+                  <span key={`${issue.id}-message-${idx}`}>{message}</span>
+                ))}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  const validationCount = validationIssues.length;
+  const handleValidationTabClick = () => {
+    if (!validationEnabled) {
+      return;
+    }
+    setActiveTab('validation');
+  };
+
+  return (
+    <nav className={styles.navigationContainer} aria-label="Form sidebar">
+      <div className={styles.navigationTabs}>
+        {hasSections && (
+          <button
+            type="button"
+            className={`${styles.navigationTabButton} ${
+              activeTab === 'navigation' ? styles.navigationTabButtonActive : ''
+            }`}
+            onClick={() => setActiveTab('navigation')}
+            data-active={activeTab === 'navigation' ? 'true' : 'false'}
+          >
+            <span>Navigation</span>
+          </button>
+        )}
+        <button
+          type="button"
+          className={`${styles.navigationTabButton} ${
+            activeTab === 'validation' ? styles.navigationTabButtonActive : ''
+          }`}
+          onClick={handleValidationTabClick}
+          disabled={!validationEnabled}
+          data-active={activeTab === 'validation' ? 'true' : 'false'}
+        >
+          <span>Validation</span>
+          <span className={styles.navigationTabBadge}>{validationCount}</span>
+        </button>
+      </div>
+      <div className={styles.navigationTabPanel}>
+        {activeTab === 'validation' ? renderValidation() : renderNavigation()}
+      </div>
     </nav>
   );
 }
