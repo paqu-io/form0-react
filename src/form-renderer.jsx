@@ -531,6 +531,7 @@ export function FormRenderer({
   formPlacement = 'form-page',
   onRequestClose,
   autoCloseOverlayOnSubmit = false,
+  engineMode = 'main-thread',
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -710,8 +711,9 @@ export function FormRenderer({
   const engineOptions = useMemo(
     () => ({
       onOperations: handleOperations,
+      engineMode,
     }),
-    [handleOperations]
+    [engineMode, handleOperations]
   );
 
   const closeAlert = useCallback(() => {
@@ -729,6 +731,7 @@ export function FormRenderer({
     triggerEvent,
     schema: finalSchema,
     engine,
+    engineReadyVersion,
     repeatable,
     repeatableMetadata,
     addRepeatableInstance,
@@ -934,15 +937,18 @@ export function FormRenderer({
 
   useEffect(() => {
     loadEventTriggeredRef.current = false;
-  }, [engine]);
+  }, [engineReadyVersion]);
 
   useEffect(() => {
-    if (!engine || loadEventTriggeredRef.current) {
+    if (loadEventTriggeredRef.current) {
+      return;
+    }
+    if (!engineReadyVersion) {
       return;
     }
     triggerEvent('load-record');
     loadEventTriggeredRef.current = true;
-  }, [engine, triggerEvent]);
+  }, [engineReadyVersion, triggerEvent]);
 
   useEffect(() => {
     if (activeAlert || alertQueue.length === 0) {
@@ -1500,7 +1506,7 @@ export function FormRenderer({
               closeOverlayAfterSubmit();
             })
             .catch((error) => {
-              console.error('[form0-react] onSubmit promise rejected', error);
+              //console.error('[form0-react] onSubmit promise rejected', error);
             });
         } else {
           closeOverlayAfterSubmit();

@@ -5,6 +5,7 @@ import {
   buildRepeatableInfo,
   createEmptyRepeatableInstance,
 } from './utils/repeatable-manager.js';
+import { EngineWorkerClient } from './engine-worker-client.js';
 
 const createEmptyState = () => ({
   values: {},
@@ -14,21 +15,76 @@ const createEmptyState = () => ({
   errors: {},
 });
 
+const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
+
 export function useFormEngine(schema, initialValues = {}, overrideValues, options = {}) {
+  const normalizedOptions = useMemo(() => {
+    const desiredMode = options?.engineMode === 'worker' ? 'worker' : 'main-thread';
+    const engineMode =
+      desiredMode === 'worker' && CAN_USE_WORKERS ? 'worker' : 'main-thread';
+    return {
+      ...options,
+      engineMode,
+    };
+  }, [options]);
+  const engineMode = normalizedOptions.engineMode;
   const [state, setState] = useState(createEmptyState);
   const [engineVersion, setEngineVersion] = useState(0);
   const engineRef = useRef(null);
   const initialValuesRef = useRef(initialValues || {});
   const initialValuesSignatureRef = useRef(null);
-  const optionsRef = useRef(options || {});
+  const optionsRef = useRef(normalizedOptions || {});
   const warningCleanupRef = useRef(null);
   const fieldDefinitionsRef = useRef(new Map());
   const repeatableStateRef = useRef({});
   const [repeatableState, setRepeatableStateInternal] = useState({});
+  const workerClientRef = useRef(null);
+  const engineModeRef = useRef(engineMode);
+  const workerReadyRef = useRef(false);
+  const pendingWorkerUpdatesRef = useRef([]);
+  const workerStateVersionRef = useRef(0);
+  const valueUpdateVersionRef = useRef(0);
+  const fieldUpdateVersionRef = useRef(new Map());
+  const optimisticValuesRef = useRef({});
+  const workerInitTokenRef = useRef(0);
+  const workerInitInFlightRef = useRef(false);
+  const [engineReadyVersion, setEngineReadyVersion] = useState(0);
 
   useEffect(() => {
-    optionsRef.current = options || {};
-  }, [options]);
+    optionsRef.current = normalizedOptions || {};
+  }, [normalizedOptions]);
+
+  useEffect(() => {
+    engineModeRef.current = engineMode;
+  }, [engineMode]);
+
+  const resetWorkerSyncState = useCallback(() => {
+    workerStateVersionRef.current = 0;
+    valueUpdateVersionRef.current = 0;
+    fieldUpdateVersionRef.current = new Map();
+    optimisticValuesRef.current = {};
+    pendingWorkerUpdatesRef.current = [];
+  }, []);
+
+  const cleanupWorkerClient = useCallback(
+    ({ bumpToken = true, resetInFlight = true } = {}) => {
+      if (bumpToken) {
+        workerInitTokenRef.current += 1;
+      }
+      if (resetInFlight) {
+        workerInitInFlightRef.current = false;
+      }
+      if (workerClientRef.current) {
+        workerClientRef.current.terminate();
+        workerClientRef.current = null;
+      }
+      workerReadyRef.current = false;
+      resetWorkerSyncState();
+    },
+    [resetWorkerSyncState]
+  );
+
+  useEffect(() => () => cleanupWorkerClient(), [cleanupWorkerClient]);
 
   const preparedSchema = useMemo(() => {
     if (!schema) return null;
@@ -252,49 +308,314 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     [mutateRepeatableState, resolveRepeatableContainer]
   );
 
-  const syncState = useCallback(() => {
-    if (!engineRef.current) {
+  const syncState = useCallback((engineStateOverride = null) => {
+    const sourceState =
+      engineStateOverride ||
+      (engineRef.current && typeof engineRef.current.getState === 'function'
+        ? engineRef.current.getState()
+        : null);
+    if (!sourceState) {
       setState(createEmptyState());
       return;
     }
-    const engineState = engineRef.current.getState();
     setState({
-      values: { ...engineState.values },
-      visible: { ...engineState.visible },
-      required: { ...engineState.required },
-      read_only: { ...engineState.read_only },
-      errors: { ...engineState.errors },
+      values: { ...(sourceState.values || {}) },
+      visible: { ...(sourceState.visible || {}) },
+      required: { ...(sourceState.required || {}) },
+      read_only: { ...(sourceState.read_only || {}) },
+      errors: { ...(sourceState.errors || {}) },
     });
   }, []);
 
-  const rebuildEngine = useCallback(
-    (seedValues = initialValuesRef.current) => {
-      if (!preparedSchema) {
-        engineRef.current = null;
-        setState(createEmptyState());
+  const syncWorkerState = useCallback((engineStateOverride = null, meta = {}) => {
+    const sourceState = engineStateOverride || null;
+    if (!sourceState) {
+      setState(createEmptyState());
+      return;
+    }
+
+    const incomingVersion = Number(meta?.stateVersion || 0);
+    const currentVersion = Number(workerStateVersionRef.current || 0);
+    if (incomingVersion > 0 && incomingVersion < currentVersion) {
+      return;
+    }
+    if (incomingVersion > 0 && incomingVersion > currentVersion) {
+      workerStateVersionRef.current = incomingVersion;
+    }
+
+    const updateVersion = Number(meta?.updateVersion || 0);
+    const preparedState = {
+      values: { ...(sourceState.values || {}) },
+      visible: { ...(sourceState.visible || {}) },
+      required: { ...(sourceState.required || {}) },
+      read_only: { ...(sourceState.read_only || {}) },
+      errors: { ...(sourceState.errors || {}) },
+    };
+
+    if (updateVersion > 0) {
+      const fieldsToClear = [];
+      fieldUpdateVersionRef.current.forEach((version, field) => {
+        if (version > updateVersion) {
+          if (field in optimisticValuesRef.current) {
+            preparedState.values[field] = optimisticValuesRef.current[field];
+          }
+          return;
+        }
+        fieldsToClear.push(field);
+      });
+
+      if (fieldsToClear.length > 0) {
+        fieldsToClear.forEach((field) => {
+          fieldUpdateVersionRef.current.delete(field);
+        });
+        const nextOptimistic = { ...optimisticValuesRef.current };
+        fieldsToClear.forEach((field) => {
+          delete nextOptimistic[field];
+        });
+        optimisticValuesRef.current = nextOptimistic;
+      }
+    }
+
+    setState(preparedState);
+  }, []);
+
+  const createWorkerClient = useCallback(() => {
+    if (!CAN_USE_WORKERS) {
+      return null;
+    }
+    try {
+      const client = new EngineWorkerClient({
+        onState: (nextState, meta) => syncWorkerState(nextState, meta),
+      });
+      workerClientRef.current = client;
+      return client;
+    } catch (error) {
+      console.warn('form0-react: failed to initialize engine worker.', error);
+      workerClientRef.current = null;
+      return null;
+    }
+  }, [syncWorkerState]);
+
+  const sendWorkerValueUpdates = useCallback(
+    (updates = {}, updateVersion = 0) => {
+      const client = workerClientRef.current;
+      if (!client) {
         return;
       }
+      if (!workerReadyRef.current) {
+        pendingWorkerUpdatesRef.current.push({ updates: { ...updates }, updateVersion });
+        return;
+      }
+      client
+        .setValues(updates, { updateVersion })
+        .then((result) => {
+          if (result?.state) {
+            syncWorkerState(result.state, result);
+          }
+        })
+        .catch((error) => {
+          console.warn('form0-react: engine worker setValues failed.', error);
+        });
+    },
+    [syncWorkerState]
+  );
+
+  const flushPendingWorkerUpdates = useCallback(() => {
+    if (!workerReadyRef.current || pendingWorkerUpdatesRef.current.length === 0) {
+      return;
+    }
+    let latestUpdateVersion = 0;
+    const merged = pendingWorkerUpdatesRef.current.reduce((acc, entry) => {
+      const updates = entry?.updates || entry || {};
+      if (entry?.updateVersion && entry.updateVersion > latestUpdateVersion) {
+        latestUpdateVersion = entry.updateVersion;
+      }
+      Object.entries(updates).forEach(([key, value]) => {
+        acc[key] = value;
+      });
+      return acc;
+    }, {});
+    pendingWorkerUpdatesRef.current = [];
+    if (Object.keys(merged).length > 0) {
+      sendWorkerValueUpdates(merged, latestUpdateVersion);
+    }
+  }, [sendWorkerValueUpdates]);
+
+  const rebuildEngine = useCallback(
+    (seedValues = initialValuesRef.current) => {
+      //console.log('[form0-react] rebuildEngine start', { mode: engineModeRef.current });
+      if (!preparedSchema) {
+        engineRef.current = null;
+        cleanupWorkerClient();
+        setState(createEmptyState());
+        setEngineReadyVersion(0);
+        return;
+      }
+
+      const isWorkerMode = engineModeRef.current === 'worker';
+
+      if (isWorkerMode) {
+        if (workerInitInFlightRef.current) {
+          //console.log('[form0-react] worker init already in flight, skipping');
+          return;
+        }
+        cleanupWorkerClient({ bumpToken: false });
+        engineRef.current = null;
+        const initToken = workerInitTokenRef.current + 1;
+        workerInitTokenRef.current = initToken;
+        workerInitInFlightRef.current = true;
+        console.info('[form0-react] worker init start', { token: initToken });
+        workerReadyRef.current = false;
+        pendingWorkerUpdatesRef.current = [];
+        const client = createWorkerClient();
+        if (client) {
+          engineRef.current = client;
+          client
+            .init({
+              schema: preparedSchema,
+              initialValues: { ...(seedValues || {}) },
+              helpers: optionsRef.current.helpers,
+              security: optionsRef.current.security,
+            })
+            .then((result) => {
+              // console.log(
+              //   '[form0-react] worker init resolved',
+              //   initToken,
+              //   'current token',
+              //   workerInitTokenRef.current
+              // );
+              workerInitInFlightRef.current = false;
+              if (workerInitTokenRef.current !== initToken) {
+                //console.log('[form0-react] stale worker init token, ignoring result');
+                return;
+              }
+              workerReadyRef.current = true;
+              if (result?.state) {
+                syncWorkerState(result.state, result);
+              }
+              flushPendingWorkerUpdates();
+              setEngineVersion((version) => version + 1);
+              setEngineReadyVersion((version) => version + 1);
+            })
+            .catch((error) => {
+              // console.log(
+              //   '[form0-react] worker init failed',
+              //   initToken,
+              //   'current token',
+              //   workerInitTokenRef.current,
+              //   error
+              // );
+              workerInitInFlightRef.current = false;
+              if (workerInitTokenRef.current !== initToken) {
+                return;
+              }
+              console.warn('form0-react: engine worker initialization failed.', error);
+            });
+          return;
+        }
+        workerInitInFlightRef.current = false;
+      }
+
+      cleanupWorkerClient({ bumpToken: !isWorkerMode });
       const engine = createFormEngine({
         schema: preparedSchema,
         initialValues: { ...(seedValues || {}) },
+        helpers: optionsRef.current.helpers,
+        security: optionsRef.current.security,
       });
       engineRef.current = engine;
       engine.eval();
       syncState();
       setEngineVersion((version) => version + 1);
+      setEngineReadyVersion((version) => version + 1);
     },
-    [preparedSchema, syncState]
+    [
+      cleanupWorkerClient,
+      createWorkerClient,
+      flushPendingWorkerUpdates,
+      preparedSchema,
+      syncState,
+      syncWorkerState,
+    ]
   );
 
   const evaluateAndSync = useCallback(() => {
+    if (engineModeRef.current === 'worker') {
+      const client = workerClientRef.current;
+      if (!client || !workerReadyRef.current) {
+        return;
+      }
+      client
+        .eval()
+        .then((result) => {
+          if (result?.state) {
+            syncWorkerState(result.state, result);
+          }
+        })
+        .catch((error) => {
+          console.warn('form0-react: engine worker evaluation failed.', error);
+        });
+      return;
+    }
     if (!engineRef.current) return;
     engineRef.current.eval();
     syncState();
-  }, [syncState]);
+  }, [syncState, syncWorkerState]);
+
+  const applyOptimisticValues = useCallback((updates = {}) => {
+    if (!updates || typeof updates !== 'object') {
+      return;
+    }
+    optimisticValuesRef.current = {
+      ...optimisticValuesRef.current,
+      ...updates,
+    };
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      let dirty = false;
+      const nextValues = { ...(prev.values || {}) };
+      for (const [field, value] of Object.entries(updates)) {
+        if (nextValues[field] !== value) {
+          nextValues[field] = value;
+          dirty = true;
+        }
+      }
+      if (!dirty) {
+        return prev;
+      }
+      return {
+        ...prev,
+        values: nextValues,
+      };
+    });
+  }, []);
 
   const setValues = useCallback(
     (updates = {}) => {
-      if (!engineRef.current || !updates) return;
+      if (!updates || typeof updates !== 'object') return;
+      //console.log('[form0-react] setValues called', updates, 'mode=', engineModeRef.current);
+      if (engineModeRef.current === 'worker') {
+        if (!workerClientRef.current) {
+          //console.log('[form0-react] worker client missing');
+          return;
+        }
+        const updateVersion = valueUpdateVersionRef.current + 1;
+        valueUpdateVersionRef.current = updateVersion;
+        Object.keys(updates || {}).forEach((field) => {
+          fieldUpdateVersionRef.current.set(field, updateVersion);
+        });
+        applyOptimisticValues(updates);
+        if (!workerReadyRef.current) {
+          //console.log('[form0-react] worker not ready, queueing updates');
+          pendingWorkerUpdatesRef.current.push({ updates: { ...updates }, updateVersion });
+          return;
+        }
+        sendWorkerValueUpdates(updates, updateVersion);
+        return;
+      }
+      if (!engineRef.current) return;
       const engineState = engineRef.current.getState();
       let dirty = false;
       for (const [field, value] of Object.entries(updates)) {
@@ -307,18 +628,24 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         evaluateAndSync();
       }
     },
-    [evaluateAndSync]
+    [applyOptimisticValues, evaluateAndSync, sendWorkerValueUpdates]
   );
 
   const setValue = useCallback(
     (field, value) => {
+      if (!field) return;
+      if (engineModeRef.current === 'worker') {
+        //console.log('[form0-react] setValue proxied to setValues', field, value);
+        setValues({ [field]: value });
+        return;
+      }
       if (!engineRef.current) return;
       const engineState = engineRef.current.getState();
       if (engineState.values[field] === value) return;
       engineState.values[field] = value;
       evaluateAndSync();
     },
-    [evaluateAndSync]
+    [evaluateAndSync, setValues]
   );
 
   const reset = useCallback(
@@ -422,12 +749,31 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
 
   const triggerEvent = useCallback(
     (eventType, fieldKey = null, metadata = {}) => {
-      if (!engineRef.current) return [];
       if (typeof eventType !== 'string' || eventType.length === 0) {
         console.warn('form0-react: triggerEvent requires a non-empty eventType string.');
         return [];
       }
 
+      if (engineModeRef.current === 'worker') {
+        const client = workerClientRef.current;
+        if (!client || !workerReadyRef.current) {
+          return [];
+        }
+        client
+          .triggerEvent(eventType, fieldKey, metadata)
+          .then((result) => {
+            const operations = Array.isArray(result?.operations) ? result.operations : [];
+            if (operations.length > 0) {
+              processOperations(operations, { eventType, fieldKey, metadata });
+            }
+          })
+          .catch((error) => {
+            console.warn('form0-react: worker triggerEvent failed.', error);
+          });
+        return [];
+      }
+
+      if (!engineRef.current) return [];
       try {
         const operations = engineRef.current.trigger(eventType, fieldKey, metadata) || [];
         if (operations.length > 0) {
@@ -452,18 +798,25 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     [initialValues]
   );
 
+  const rebuildEngineRef = useRef(rebuildEngine);
+  useEffect(() => {
+    rebuildEngineRef.current = rebuildEngine;
+  }, [rebuildEngine]);
+
   useEffect(() => {
     if (!preparedSchema) {
       engineRef.current = null;
+      cleanupWorkerClient();
       setState(createEmptyState());
       return;
     }
-    rebuildEngine(initialValuesRef.current);
+    rebuildEngineRef.current(initialValuesRef.current);
     initialValuesSignatureRef.current = initialValuesSignature;
     return () => {
       engineRef.current = null;
+      cleanupWorkerClient();
     };
-  }, [preparedSchema, rebuildEngine, initialValuesSignature]);
+  }, [cleanupWorkerClient, initialValuesSignature, preparedSchema]);
 
   useEffect(() => {
     if (!engineRef.current) return;
@@ -490,15 +843,13 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   }, [state]);
 
   useEffect(() => {
-    const warningSystem = engineRef.current?.getWarningSystem?.();
-    const warningHandler = optionsRef.current.onWarning;
-
     if (warningCleanupRef.current) {
       warningCleanupRef.current();
       warningCleanupRef.current = null;
     }
 
-    if (!warningSystem || typeof warningHandler !== 'function') {
+    const warningHandler = optionsRef.current.onWarning;
+    if (typeof warningHandler !== 'function') {
       return;
     }
 
@@ -508,6 +859,26 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         latest(warning);
       }
     };
+
+    if (engineMode === 'worker') {
+      const client = workerClientRef.current;
+      if (!client) {
+        return undefined;
+      }
+      client.addWarningHandler(proxy);
+      warningCleanupRef.current = () => client.removeWarningHandler(proxy);
+      return () => {
+        if (warningCleanupRef.current) {
+          warningCleanupRef.current();
+          warningCleanupRef.current = null;
+        }
+      };
+    }
+
+    const warningSystem = engineRef.current?.getWarningSystem?.();
+    if (!warningSystem || typeof warningSystem.addWarningHandler !== 'function') {
+      return undefined;
+    }
 
     warningSystem.addWarningHandler(proxy);
     warningCleanupRef.current = () => warningSystem.removeWarningHandler(proxy);
@@ -520,7 +891,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         warningSystem.removeWarningHandler(proxy);
       }
     };
-  }, [engineVersion, options.onWarning]);
+  }, [engineMode, engineVersion, normalizedOptions.onWarning]);
 
   useEffect(() => {
     return () => {
@@ -541,6 +912,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     processOperations,
     schema: preparedSchema,
     engine: engineRef.current,
+    engineReadyVersion,
     repeatable: repeatableState,
     setRepeatableState: updateRepeatableState,
     addRepeatableInstance,
