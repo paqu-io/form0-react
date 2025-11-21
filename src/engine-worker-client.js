@@ -115,8 +115,9 @@ export class EngineWorkerClient {
     return this.call('INIT', params);
   }
 
-  reset(initialValues = {}) {
-    return this.call('RESET', { initialValues });
+  reset(initialValues = {}, meta = {}) {
+    const updateVersion = meta?.updateVersion;
+    return this.call('RESET', { initialValues, updateVersion });
   }
 
   setValues(updates = {}, meta = {}) {
