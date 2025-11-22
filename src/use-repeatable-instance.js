@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from 'react';
 import { createFormEngine } from 'form0-core';
 import { cloneDeep } from './utils/schema.js';
 import {
@@ -7,8 +14,10 @@ import {
 } from './utils/repeatable-manager.js';
 import { uuidv7 } from './utils/uuid.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
+import { createEngineStore } from './engine-store.js';
 
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
+const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const createEmptyState = (repInfo) => {
   const values = {};
@@ -40,12 +49,21 @@ export function useRepeatableInstanceEngine({
     }
     return 'main-thread';
   }, [engineOptions?.engineMode]);
+  const engineStoreMode = useMemo(
+    () =>
+      engineOptions?.engineStoreMode === 'selector' || engineOptions?.storeMode === 'selector'
+        ? 'selector'
+        : 'snapshot',
+    [engineOptions?.engineStoreMode, engineOptions?.storeMode]
+  );
 
   const [state, setState] = useState(() => createEmptyState(repInfo));
   const [repeatableState, setRepeatableState] = useState(
     () => cloneDeep(initialInstance.repeatable || {})
   );
   const engineRef = useRef(null);
+  const engineStoreRef = useRef(createEngineStore(createEmptyState(repInfo)));
+  const engineStore = engineStoreRef.current;
   const engineModeRef = useRef(engineMode);
   const baseValuesRef = useRef(baseValues || {});
   const valuesRef = useRef(initialInstance.values || {});
@@ -63,6 +81,32 @@ export function useRepeatableInstanceEngine({
   useEffect(() => {
     engineModeRef.current = engineMode;
   }, [engineMode]);
+
+  useEffect(() => {
+    if (engineStoreMode === 'selector') {
+      console.info('[form0-react] selector store enabled (repeatable form)', {
+        repeatableKey: repInfo?.preferredKey || repInfo?.field?.data_name || repInfo?.id,
+      });
+      if (typeof window !== 'undefined') {
+        const info =
+          window.__FORM0_SELECTOR_INFO__ && typeof window.__FORM0_SELECTOR_INFO__ === 'object'
+            ? window.__FORM0_SELECTOR_INFO__
+            : { repeatables: [] };
+        if (!Array.isArray(info.repeatables)) {
+          info.repeatables = [];
+        }
+        const key = repInfo?.preferredKey || repInfo?.field?.data_name || repInfo?.id || null;
+        if (key && !info.repeatables.includes(key)) {
+          info.repeatables.push(key);
+        }
+        window.__FORM0_SELECTOR_INFO__ = info;
+      }
+    }
+  }, [engineStoreMode, repInfo?.field?.data_name, repInfo?.id, repInfo?.preferredKey]);
+
+  useStoreSyncEffect(() => {
+    engineStore.setState(state);
+  }, [engineStore, state]);
 
   useEffect(() => {
     baseValuesRef.current = baseValues || {};
@@ -185,21 +229,26 @@ export function useRepeatableInstanceEngine({
   const syncState = useCallback(
     (engine) => {
       if (!engine) {
-        setState(createEmptyState(repInfo));
+        const empty = createEmptyState(repInfo);
+        setState(empty);
+        engineStore.setState(empty);
         return;
       }
       const engineState = reduceEngineState(engine.getState());
       setState(engineState);
+      engineStore.setState(engineState);
       valuesRef.current = engineState.values;
     },
-    [reduceEngineState, repInfo]
+    [engineStore, reduceEngineState, repInfo]
   );
 
   const syncWorkerState = useCallback(
     (engineStateOverride = null, meta = {}) => {
       const sourceState = engineStateOverride || null;
       if (!sourceState) {
-        setState(createEmptyState(repInfo));
+        const empty = createEmptyState(repInfo);
+        setState(empty);
+        engineStore.setState(empty);
         return;
       }
 
@@ -240,9 +289,10 @@ export function useRepeatableInstanceEngine({
       }
 
       setState(preparedState);
+      engineStore.setState(preparedState);
       valuesRef.current = preparedState.values;
     },
-    [reduceEngineState, repInfo]
+    [engineStore, reduceEngineState, repInfo]
   );
 
   const createWorkerClient = useCallback(() => {
@@ -312,7 +362,9 @@ export function useRepeatableInstanceEngine({
       if (!schema || !repInfo) {
         engineRef.current = null;
         cleanupWorkerClient();
-        setState(createEmptyState(repInfo));
+        const empty = createEmptyState(repInfo);
+        setState(empty);
+        engineStore.setState(empty);
         return;
       }
 
@@ -379,6 +431,7 @@ export function useRepeatableInstanceEngine({
       buildEngine,
       cleanupWorkerClient,
       createWorkerClient,
+      engineStore,
       engineMode,
       flushPendingWorkerUpdates,
       repInfo,
@@ -693,6 +746,8 @@ export function useRepeatableInstanceEngine({
     setValues,
     reset,
     submit,
+    engineStore,
+    engineStoreMode,
     repeatable: repeatableState,
     addRepeatableInstance,
     updateRepeatableInstance,

@@ -2,10 +2,11 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Info, Image } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
 import { useFieldRegistry } from './field-registry-context.jsx';
+import { useEngineField } from './engine-store.js';
 
 const LABEL_SIDE = 'side';
 
-export const FieldRenderer = React.forwardRef(function FieldRenderer(
+const FieldRendererBase = React.forwardRef(function FieldRenderer(
   {
     field,
     value,
@@ -17,6 +18,8 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
     labelWidthPercent = 30,
     onKeyDown,
     onFocus,
+    engineStore = null,
+    storeMode = 'snapshot',
   },
   ref
 ) {
@@ -24,6 +27,26 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
   const FieldComponent = registry.getFieldComponent(field.type);
   const elementKey = field.key || field.data_name;
   const isLabelField = field.type === 'LabelField';
+  const selectorEnabled =
+    storeMode === 'selector' && engineStore && typeof field?.data_name === 'string';
+  const fieldSlice = useEngineField(engineStore, selectorEnabled ? field.data_name : '');
+  const resolvedValue =
+    selectorEnabled && value === undefined
+      ? fieldSlice?.value
+      : value;
+  const resolvedReadOnly =
+    selectorEnabled && fieldSlice && Object.prototype.hasOwnProperty.call(fieldSlice, 'read_only')
+      ? Boolean(readOnly || fieldSlice.read_only)
+      : readOnly;
+  const resolvedRequired =
+    selectorEnabled && fieldSlice && Object.prototype.hasOwnProperty.call(fieldSlice, 'required')
+      ? Boolean(fieldSlice.required)
+      : required;
+  const resolvedError =
+    selectorEnabled && fieldSlice && Object.prototype.hasOwnProperty.call(fieldSlice, 'error')
+      ? fieldSlice.error
+      : error;
+  const currentError = selectorEnabled ? resolvedError : error;
 
   if (!FieldComponent) {
     return (
@@ -64,9 +87,9 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
   const inputProps = shouldRenderLabelElement
     ? {
         name: field.data_name,
-        readOnly,
-        required,
-        disabled: readOnly,
+        readOnly: resolvedReadOnly,
+        required: resolvedRequired,
+        disabled: resolvedReadOnly,
         id: baseId,
         ...(isGroupedControl ? { 'aria-labelledby': labelId } : {}),
         ...(onFocus ? { onFocus } : {}),
@@ -186,10 +209,10 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
   const fieldInput = (
     <FieldComponent
       field={field}
-      value={value}
+      value={selectorEnabled ? resolvedValue : value}
       onChange={handleChange}
       onKeyDown={onKeyDown}
-      readOnly={readOnly}
+      readOnly={resolvedReadOnly}
       inputProps={inputProps}
       className={isLabelField ? undefined : styles.input}
     />
@@ -220,7 +243,7 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
       {...labelProps}
     >
       {field.label}
-      {required ? ' *' : ''}
+      {(selectorEnabled ? resolvedRequired : required) ? ' *' : ''}
     </label>
   ) : (
     <div className={labelClassNames.join(' ')} id={labelId} role="presentation">
@@ -259,7 +282,7 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
               />
             )}
             {fieldInput}
-            <div className={styles.error}>{error || '\u00A0'}</div>
+            <div className={styles.error}>{currentError || '\u00A0'}</div>
           </div>
         </div>
       ) : (
@@ -283,7 +306,7 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
             />
           )}
           {fieldInput}
-          <div className={styles.error}>{error || '\u00A0'}</div>
+          <div className={styles.error}>{currentError || '\u00A0'}</div>
         </>
       )}
 
@@ -348,3 +371,38 @@ export const FieldRenderer = React.forwardRef(function FieldRenderer(
     </div>
   );
 });
+
+export const FieldRenderer = React.memo(
+  FieldRendererBase,
+  (prev, next) => {
+    if (prev.storeMode !== next.storeMode) return false;
+    if (prev.storeMode === 'selector') {
+      return (
+        prev.field === next.field &&
+        prev.engineStore === next.engineStore &&
+        prev.onChange === next.onChange &&
+        prev.labelPosition === next.labelPosition &&
+        prev.labelWidthPercent === next.labelWidthPercent &&
+        prev.onKeyDown === next.onKeyDown &&
+        prev.onFocus === next.onFocus &&
+        prev.value === next.value &&
+        prev.readOnly === next.readOnly &&
+        prev.required === next.required &&
+        prev.error === next.error
+      );
+    }
+    return (
+      prev.field === next.field &&
+      prev.value === next.value &&
+      prev.readOnly === next.readOnly &&
+      prev.required === next.required &&
+      prev.error === next.error &&
+      prev.engineStore === next.engineStore &&
+      prev.onChange === next.onChange &&
+      prev.labelPosition === next.labelPosition &&
+      prev.labelWidthPercent === next.labelWidthPercent &&
+      prev.onKeyDown === next.onKeyDown &&
+      prev.onFocus === next.onFocus
+    );
+  }
+);

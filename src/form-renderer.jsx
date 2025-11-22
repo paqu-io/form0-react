@@ -532,6 +532,7 @@ export function FormRenderer({
   onRequestClose,
   autoCloseOverlayOnSubmit = false,
   engineMode = 'main-thread',
+  engineStoreMode = 'snapshot',
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -712,8 +713,9 @@ export function FormRenderer({
     () => ({
       onOperations: handleOperations,
       engineMode,
+      engineStoreMode,
     }),
-    [engineMode, handleOperations]
+    [engineMode, engineStoreMode, handleOperations]
   );
 
   const closeAlert = useCallback(() => {
@@ -731,6 +733,8 @@ export function FormRenderer({
     triggerEvent,
     schema: finalSchema,
     engine,
+    engineStore,
+    engineStoreMode: currentEngineStoreMode,
     engineReadyVersion,
     repeatable,
     repeatableMetadata,
@@ -3000,6 +3004,8 @@ export function FormRenderer({
           onFocus={() => handleFieldFocus(field.data_name)}
           labelPosition={labelPosition}
           labelWidthPercent={labelWidthPercent}
+          engineStore={engineStore}
+          storeMode={currentEngineStoreMode}
         />
       );
     });
@@ -3223,6 +3229,8 @@ function RepeatableEntryModal({
     getRepeatableInstances: getEntryRepeatableInstances,
     getRepeatableInstance: getEntryRepeatableInstance,
     repeatableMetadata: entryRepeatableMetadata,
+    engineStore: entryEngineStore,
+    engineStoreMode: entryEngineStoreMode,
   } = useRepeatableInstanceEngine({
     schema: modal.schema,
     repInfo: modal.repInfo,
@@ -4216,6 +4224,8 @@ function RepeatableEntryModal({
                         errors: entryErrors,
                       }}
                       setValue={setEntryValue}
+                      engineStore={entryEngineStore}
+                      engineStoreMode={entryEngineStoreMode}
                       labelPosition={labelPosition}
                       labelWidthPercent={labelWidthPercent}
                       controller={entryController}
@@ -4294,6 +4304,8 @@ function RepeatableEntryForm({
   contextPath,
   state,
   setValue,
+  engineStore = null,
+  engineStoreMode = 'snapshot',
   labelPosition,
   labelWidthPercent,
   controller,
@@ -4417,6 +4429,8 @@ function RepeatableEntryForm({
               contextPath={contextPath}
               state={state}
               setValue={setValue}
+              engineStore={engineStore}
+          engineStoreMode={engineStoreMode}
               labelPosition={labelPosition}
               labelWidthPercent={labelWidthPercent}
               controller={controller}
@@ -4525,6 +4539,8 @@ function RepeatableEntryForm({
             contextPath={contextPath}
             state={state}
             setValue={setValue}
+            engineStore={engineStore}
+            engineStoreMode={engineStoreMode}
             labelPosition={labelPosition}
             labelWidthPercent={labelWidthPercent}
             controller={controller}
@@ -4636,6 +4652,8 @@ function RepeatableEntryForm({
         labelPosition={labelPosition}
         labelWidthPercent={labelWidthPercent}
         onFocus={dataName ? () => onFieldFocus?.(dataName) : undefined}
+        engineStore={engineStore}
+        storeMode={engineStoreMode}
       />
     );
   });

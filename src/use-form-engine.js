@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from 'react';
 import { createFormEngine, validateSchema } from 'form0-core';
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import {
@@ -6,6 +13,7 @@ import {
   createEmptyRepeatableInstance,
 } from './utils/repeatable-manager.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
+import { createEngineStore } from './engine-store.js';
 
 const createEmptyState = () => ({
   values: {},
@@ -16,21 +24,30 @@ const createEmptyState = () => ({
 });
 
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
+const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export function useFormEngine(schema, initialValues = {}, overrideValues, options = {}) {
   const normalizedOptions = useMemo(() => {
     const desiredMode = options?.engineMode === 'worker' ? 'worker' : 'main-thread';
     const engineMode =
       desiredMode === 'worker' && CAN_USE_WORKERS ? 'worker' : 'main-thread';
+    const desiredStoreMode =
+      options?.engineStoreMode === 'selector' || options?.storeMode === 'selector'
+        ? 'selector'
+        : 'snapshot';
     return {
       ...options,
       engineMode,
+      engineStoreMode: desiredStoreMode,
     };
   }, [options]);
   const engineMode = normalizedOptions.engineMode;
+  const engineStoreMode = normalizedOptions.engineStoreMode;
   const [state, setState] = useState(createEmptyState);
   const [engineVersion, setEngineVersion] = useState(0);
   const engineRef = useRef(null);
+  const engineStoreRef = useRef(createEngineStore(createEmptyState()));
+  const engineStore = engineStoreRef.current;
   const initialValuesRef = useRef(initialValues || {});
   const initialValuesSignatureRef = useRef(null);
   const optionsRef = useRef(normalizedOptions || {});
@@ -57,6 +74,27 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   useEffect(() => {
     engineModeRef.current = engineMode;
   }, [engineMode]);
+
+  useStoreSyncEffect(() => {
+    engineStore.setState(state);
+  }, [engineStore, state]);
+
+  useEffect(() => {
+    if (engineStoreMode === 'selector') {
+      console.info('[form0-react] selector store enabled (parent form)');
+      if (typeof window !== 'undefined') {
+        const info =
+          window.__FORM0_SELECTOR_INFO__ && typeof window.__FORM0_SELECTOR_INFO__ === 'object'
+            ? window.__FORM0_SELECTOR_INFO__
+            : {};
+        if (!info.repeatables) {
+          info.repeatables = [];
+        }
+        info.parent = true;
+        window.__FORM0_SELECTOR_INFO__ = info;
+      }
+    }
+  }, [engineStoreMode]);
 
   const resetWorkerSyncState = useCallback(() => {
     workerStateVersionRef.current = 0;
@@ -315,22 +353,28 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         ? engineRef.current.getState()
         : null);
     if (!sourceState) {
-      setState(createEmptyState());
+      const empty = createEmptyState();
+      engineStore.setState(empty);
+      setState(empty);
       return;
     }
-    setState({
+    const preparedState = {
       values: { ...(sourceState.values || {}) },
       visible: { ...(sourceState.visible || {}) },
       required: { ...(sourceState.required || {}) },
       read_only: { ...(sourceState.read_only || {}) },
       errors: { ...(sourceState.errors || {}) },
-    });
-  }, []);
+    };
+    engineStore.setState(preparedState);
+    setState(preparedState);
+  }, [engineStore]);
 
   const syncWorkerState = useCallback((engineStateOverride = null, meta = {}) => {
     const sourceState = engineStateOverride || null;
     if (!sourceState) {
-      setState(createEmptyState());
+      const empty = createEmptyState();
+      engineStore.setState(empty);
+      setState(empty);
       return;
     }
 
@@ -376,8 +420,9 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       }
     }
 
+    engineStore.setState(preparedState);
     setState(preparedState);
-  }, []);
+  }, [engineStore]);
 
   const createWorkerClient = useCallback(() => {
     if (!CAN_USE_WORKERS) {
@@ -447,7 +492,9 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       if (!preparedSchema) {
         engineRef.current = null;
         cleanupWorkerClient();
-        setState(createEmptyState());
+        const empty = createEmptyState();
+        engineStore.setState(empty);
+        setState(empty);
         setEngineReadyVersion(0);
         return;
       }
@@ -530,6 +577,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       setEngineReadyVersion((version) => version + 1);
     },
     [
+      engineStore,
       cleanupWorkerClient,
       createWorkerClient,
       flushPendingWorkerUpdates,
@@ -807,16 +855,17 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     if (!preparedSchema) {
       engineRef.current = null;
       cleanupWorkerClient();
-      setState(createEmptyState());
-      return;
-    }
+        const empty = createEmptyState();
+        setState(empty);
+        return;
+      }
     rebuildEngineRef.current(initialValuesRef.current);
     initialValuesSignatureRef.current = initialValuesSignature;
     return () => {
       engineRef.current = null;
       cleanupWorkerClient();
     };
-  }, [cleanupWorkerClient, initialValuesSignature, preparedSchema]);
+  }, [cleanupWorkerClient, engineStore, initialValuesSignature, preparedSchema]);
 
   useEffect(() => {
     if (!engineRef.current) return;
@@ -912,6 +961,8 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     processOperations,
     schema: preparedSchema,
     engine: engineRef.current,
+    engineStore,
+    engineStoreMode,
     engineReadyVersion,
     repeatable: repeatableState,
     setRepeatableState: updateRepeatableState,
