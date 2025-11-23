@@ -645,6 +645,7 @@ export function FormRenderer({
   simplifiedMode = false,
   onSimplifiedNavigation,
   formPlacement = 'form-page',
+  interactionPresentations = null,
   onRequestClose,
   autoCloseOverlayOnSubmit = false,
   engineMode = 'main-thread',
@@ -687,6 +688,16 @@ export function FormRenderer({
       : null;
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
+  const presentation = useMemo(() => {
+    if (simplifiedMode) return 'simplified';
+    if (formPlacement === 'form-modal') return 'modal';
+    if (formPlacement === 'form-spotlight') return 'spotlight';
+    return 'standard';
+  }, [formPlacement, simplifiedMode]);
+  const presentationInitMode = useMemo(() => {
+    const initMode = interactionPresentations?.[presentation]?.initMode;
+    return initMode === 'on-edit' ? 'on-edit' : 'immediate';
+  }, [interactionPresentations, presentation]);
   const [altShortcutPrefix, setAltShortcutPrefix] = useState('Alt');
 
   useEffect(() => {
@@ -1071,15 +1082,38 @@ export function FormRenderer({
   }, [engineReadyVersion]);
 
   useEffect(() => {
-    if (loadEventTriggeredRef.current) {
+    if (loadEventTriggeredRef.current || !engineReadyVersion) {
       return;
     }
-    if (!engineReadyVersion) {
+    const shouldTriggerOnReady =
+      normalizedInitialMode !== 'readonly' || presentationInitMode === 'immediate';
+    if (!shouldTriggerOnReady) {
       return;
     }
     triggerEvent('load-record');
     loadEventTriggeredRef.current = true;
-  }, [engineReadyVersion, triggerEvent]);
+  }, [engineReadyVersion, normalizedInitialMode, presentationInitMode, triggerEvent]);
+
+  useEffect(() => {
+    if (loadEventTriggeredRef.current || !engineReadyVersion) {
+      return;
+    }
+    const shouldTriggerOnEdit =
+      normalizedInitialMode === 'readonly' &&
+      presentationInitMode === 'on-edit' &&
+      interactionMode === 'edit';
+    if (!shouldTriggerOnEdit) {
+      return;
+    }
+    triggerEvent('load-record');
+    loadEventTriggeredRef.current = true;
+  }, [
+    engineReadyVersion,
+    interactionMode,
+    normalizedInitialMode,
+    presentationInitMode,
+    triggerEvent,
+  ]);
 
   useEffect(() => {
     if (activeAlert || alertQueue.length === 0) {
