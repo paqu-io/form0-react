@@ -195,6 +195,110 @@ const isPathPrefix = (candidate = [], target = []) => {
   return candidate.every((id, idx) => target[idx] === id);
 };
 
+function useFocusTrap(active = false, containerRef, { initialFocusRef } = {}) {
+  useEffect(() => {
+    if (!active || typeof document === 'undefined') {
+      return undefined;
+    }
+    const container = containerRef?.current;
+    if (!container) {
+      return undefined;
+    }
+
+    const focusElement = (node) => {
+      if (!node || typeof node.focus !== 'function') {
+        return;
+      }
+      try {
+        node.focus({ preventScroll: true });
+      } catch {
+        node.focus();
+      }
+    };
+
+    const getFocusableElements = () => {
+      if (!containerRef.current) {
+        return [];
+      }
+      const selectors = [
+        'a[href]',
+        'button:not([disabled])',
+        'textarea:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ];
+      return Array.from(containerRef.current.querySelectorAll(selectors.join(','))).filter(
+        (el) => {
+          if (el.hasAttribute('disabled')) {
+            return false;
+          }
+          if (el.getAttribute('tabindex') === '-1') {
+            return false;
+          }
+          const rects = el.getClientRects();
+          return rects.length > 0 || el.offsetParent !== null;
+        }
+      );
+    };
+
+    const focusFirstElement = () => {
+      const focusable = getFocusableElements();
+      const target =
+        (initialFocusRef && initialFocusRef.current) ||
+        focusable[0] ||
+        containerRef.current;
+      focusElement(target);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const focusable = getFocusableElements();
+      const activeElement = document.activeElement;
+      if (focusable.length === 0) {
+        event.preventDefault();
+        focusElement(containerRef.current);
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const isInside = containerRef.current.contains(activeElement);
+
+      if (event.shiftKey) {
+        if (!isInside || activeElement === first) {
+          event.preventDefault();
+          focusElement(last);
+        }
+        return;
+      }
+
+      if (!isInside || activeElement === last) {
+        event.preventDefault();
+        focusElement(first);
+      }
+    };
+
+    const handleFocusIn = (event) => {
+      if (!containerRef.current) {
+        return;
+      }
+      if (!containerRef.current.contains(event.target)) {
+        focusFirstElement();
+      }
+    };
+
+    focusFirstElement();
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('focusin', handleFocusIn, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('focusin', handleFocusIn, true);
+    };
+  }, [active, containerRef, initialFocusRef]);
+}
+
 function collectValidatableFields(elements, { includeRepeatableChildren = false } = {}, acc = []) {
   if (!Array.isArray(elements)) {
     return acc;
@@ -546,6 +650,7 @@ export function FormRenderer({
   const [activeAlert, setActiveAlert] = useState(null);
   const loadEventTriggeredRef = useRef(false);
   const alertOkButtonRef = useRef(null);
+  const alertDialogRef = useRef(null);
   const previousAlertFocusRef = useRef(null);
   const insideSpecialSectionRef = useRef(false);
   const leftActionRef = useRef(null);
@@ -555,6 +660,8 @@ export function FormRenderer({
     right: MIN_TITLE_PADDING_PX,
   });
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
+  const discardDialogRef = useRef(null);
+  const discardCancelButtonRef = useRef(null);
   const [repeatableModals, setRepeatableModals] = useState([]);
   const [hasRootChanges, setHasRootChanges] = useState(false);
   const rootChangesRef = useRef(false);
@@ -562,6 +669,10 @@ export function FormRenderer({
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
+  const overlayPortalTarget =
+    typeof document !== 'undefined'
+      ? formRendererRootRef.current || document.body
+      : null;
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
   const [altShortcutPrefix, setAltShortcutPrefix] = useState('Alt');
@@ -591,6 +702,10 @@ export function FormRenderer({
   useEffect(() => {
     setInteractionMode(normalizedInitialMode);
   }, [normalizedInitialMode]);
+
+  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
+  useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
+  useFocusTrap(Boolean(activeAlert), alertDialogRef, { initialFocusRef: alertOkButtonRef });
 
   const enterEditMode = useCallback(() => {
     setInteractionMode('edit');
@@ -1025,15 +1140,6 @@ export function FormRenderer({
       document.body.style.paddingRight = originalPaddingRight;
     };
   }, [activeAlert]);
-
-  const handleAlertOverlayClick = useCallback(
-    (event) => {
-      if (event.target === event.currentTarget) {
-        closeAlert();
-      }
-    },
-    [closeAlert]
-  );
 
   // Flatten form elements for simplified mode
   const schemaForRender = finalSchema || schema;
@@ -1999,15 +2105,6 @@ export function FormRenderer({
     handleRootCancel();
   }, [handleRootCancel]);
 
-  const handleDiscardOverlayClick = useCallback(
-    (event) => {
-      if (event.target === event.currentTarget) {
-        closeDiscardDialog();
-      }
-    },
-    [closeDiscardDialog]
-  );
-
   const headerActions = useMemo(() => {
     const disableRootCancel = !discardPromptEnabled;
 
@@ -2501,7 +2598,7 @@ export function FormRenderer({
   const modeBannerNode = <ModeBanner mode={interactionMode} />;
 
   const discardDialogNode =
-    discardDialogVisible && typeof document !== 'undefined'
+    discardDialogVisible && overlayPortalTarget
       ? createPortal(
           <div
             className={styles.alertOverlay}
@@ -2509,9 +2606,12 @@ export function FormRenderer({
             aria-modal="true"
             aria-labelledby="form0-react-discard-title"
             aria-describedby="form0-react-discard-message"
-            onClick={handleDiscardOverlayClick}
           >
-            <div className={`${styles.alertDialog} ${themeClass}`}>
+            <div
+              className={`${styles.alertDialog} ${themeClass}`}
+              ref={discardDialogRef}
+              tabIndex={-1}
+            >
               <h3 id="form0-react-discard-title" className={styles.alertTitle}>
                 This record has unsaved changes
               </h3>
@@ -2522,6 +2622,7 @@ export function FormRenderer({
                 <button
                   type="button"
                   className={styles.confirmSecondaryButton}
+                  ref={discardCancelButtonRef}
                   onClick={closeDiscardDialog}
                 >
                   Cancel
@@ -2542,7 +2643,7 @@ export function FormRenderer({
               </div>
             </div>
           </div>,
-          document.body
+          overlayPortalTarget
         )
       : null;
 
@@ -2636,16 +2737,19 @@ export function FormRenderer({
           {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
         </form>
 
-        {activeAlert && typeof document !== 'undefined' && createPortal(
+        {activeAlert && overlayPortalTarget && createPortal(
           <div
             className={styles.alertOverlay}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="form0-react-alert-title"
             aria-describedby="form0-react-alert-message"
-            onClick={handleAlertOverlayClick}
           >
-            <div className={`${styles.alertDialog} ${themeClass}`}>
+            <div
+              className={`${styles.alertDialog} ${themeClass}`}
+              ref={alertDialogRef}
+              tabIndex={-1}
+            >
               <button
                 type="button"
                 className={styles.alertCloseButton}
@@ -2672,7 +2776,7 @@ export function FormRenderer({
               </div>
             </div>
           </div>,
-          document.body
+          overlayPortalTarget
         )}
         {discardDialogNode}
       </ThemeProvider>
@@ -3070,16 +3174,19 @@ export function FormRenderer({
           )
         : null}
 
-      {activeAlert && typeof document !== 'undefined' && createPortal(
+      {activeAlert && overlayPortalTarget && createPortal(
         <div
           className={styles.alertOverlay}
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="form0-react-alert-title"
           aria-describedby="form0-react-alert-message"
-          onClick={handleAlertOverlayClick}
         >
-          <div className={`${styles.alertDialog} ${themeClass}`}>
+          <div
+            className={`${styles.alertDialog} ${themeClass}`}
+            ref={alertDialogRef}
+            tabIndex={-1}
+          >
             <button
               type="button"
               className={styles.alertCloseButton}
@@ -3106,7 +3213,7 @@ export function FormRenderer({
             </div>
           </div>
         </div>,
-        document.body
+        overlayPortalTarget
       )}
       {discardDialogNode}
     </ThemeProvider>
@@ -3596,6 +3703,10 @@ function RepeatableEntryModal({
   }, [setModalActiveDrilldownPath, setModalHighlightedPath]);
 
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
+  const discardDialogRef = useRef(null);
+  const discardCancelButtonRef = useRef(null);
+  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
+  useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
 
   const openDiscardDialog = useCallback(() => {
     setDiscardDialogVisible(true);
@@ -3621,15 +3732,6 @@ function RepeatableEntryModal({
     }
     openDiscardDialog();
   }, [activeNestedRepeatable, handleExitNestedRepeatable, hasEntryChanges, modal, onCancel, openDiscardDialog]);
-
-  const handleDiscardOverlayClick = useCallback(
-    (event) => {
-      if (event.target === event.currentTarget) {
-        closeDiscardDialog();
-      }
-    },
-    [closeDiscardDialog]
-  );
 
   const repeatableMetadataFields = useMemo(
     () => createTimestampMetadataFields(`repeatable_${modal.modalId}`),
@@ -4260,10 +4362,13 @@ function RepeatableEntryModal({
           aria-modal="true"
           aria-labelledby="form0-react-repeatable-discard-title"
           aria-describedby="form0-react-repeatable-discard-message"
-          onClick={handleDiscardOverlayClick}
           style={{ zIndex: 70 + (modal.stackIndex || 0) * 2 }}
         >
-          <div className={`${styles.alertDialog} ${themeClass}`}>
+          <div
+            className={`${styles.alertDialog} ${themeClass}`}
+            ref={discardDialogRef}
+            tabIndex={-1}
+          >
             <h3 id="form0-react-repeatable-discard-title" className={styles.alertTitle}>
               This record has unsaved changes
             </h3>
@@ -4274,6 +4379,7 @@ function RepeatableEntryModal({
               <button
                 type="button"
                 className={styles.confirmSecondaryButton}
+                ref={discardCancelButtonRef}
                 onClick={closeDiscardDialog}
               >
                 Cancel

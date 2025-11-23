@@ -454,7 +454,6 @@ export const repeatableList = style({
 });
 
 export const repeatableListBlurred = style({
-  transform: 'translateX(-8px)',
   opacity: 0.6,
 });
 
