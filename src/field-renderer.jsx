@@ -20,6 +20,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     onFocus,
     engineStore = null,
     storeMode = 'snapshot',
+    showError = true,
   },
   ref
 ) {
@@ -282,7 +283,9 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
               />
             )}
             {fieldInput}
-            <div className={styles.error}>{currentError || '\u00A0'}</div>
+            {showError ? (
+              <div className={styles.error}>{currentError || '\u00A0'}</div>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -306,7 +309,9 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
             />
           )}
           {fieldInput}
-          <div className={styles.error}>{currentError || '\u00A0'}</div>
+          {showError ? (
+            <div className={styles.error}>{currentError || '\u00A0'}</div>
+          ) : null}
         </>
       )}
 
@@ -388,7 +393,8 @@ export const FieldRenderer = React.memo(
         prev.value === next.value &&
         prev.readOnly === next.readOnly &&
         prev.required === next.required &&
-        prev.error === next.error
+        prev.error === next.error &&
+        prev.showError === next.showError
       );
     }
     return (
@@ -402,7 +408,8 @@ export const FieldRenderer = React.memo(
       prev.labelPosition === next.labelPosition &&
       prev.labelWidthPercent === next.labelWidthPercent &&
       prev.onKeyDown === next.onKeyDown &&
-      prev.onFocus === next.onFocus
+      prev.onFocus === next.onFocus &&
+      prev.showError === next.showError
     );
   }
 );

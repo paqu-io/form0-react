@@ -508,7 +508,19 @@ function useRecordTimestamps({ initialValues, overrideValues, values }) {
     return cancelScheduledUpdate;
   }, [values, cancelScheduledUpdate]);
 
-  return { timestamps, timestampsRef };
+  const touchUpdatedAt = useCallback((nextTimestamp = new Date().toISOString()) => {
+    const update = (prev) => {
+      if (prev.updated_at_client === nextTimestamp) {
+        return prev;
+      }
+      const next = { ...prev, updated_at_client: nextTimestamp };
+      timestampsRef.current = next;
+      return next;
+    };
+    setTimestamps(update);
+  }, []);
+
+  return { timestamps, timestampsRef, touchUpdatedAt };
 }
 
 function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
@@ -1195,7 +1207,7 @@ export function FormRenderer({
 
   const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
 
-  const { timestamps, timestampsRef } = useRecordTimestamps({
+  const { timestamps, timestampsRef, touchUpdatedAt } = useRecordTimestamps({
     initialValues,
     overrideValues,
     values,
@@ -1593,12 +1605,26 @@ export function FormRenderer({
         return;
       }
       if (onSubmit) {
+        const submissionTimestamp = new Date().toISOString();
+        touchUpdatedAt(submissionTimestamp);
         const submission = submit();
+        const timestampSnapshot = {
+          ...timestampsRef.current,
+          updated_at_client: submissionTimestamp,
+        };
+        const submissionWithTimestamps = {
+          ...submission,
+          created_at: timestampSnapshot.created_at_client ?? null,
+          updated_at: timestampSnapshot.updated_at_server ?? null,
+          created_at_client: timestampSnapshot.created_at_client ?? null,
+          updated_at_client: timestampSnapshot.updated_at_client ?? null,
+          created_at_server: timestampSnapshot.created_at_server ?? null,
+          updated_at_server: timestampSnapshot.updated_at_server ?? null,
+        };
         const result =
           statusFieldName && statusFieldName.length > 0
-            ? { ...submission, [statusFieldName]: statusValue ?? null }
-            : submission;
-        const timestampSnapshot = timestampsRef.current;
+            ? { ...submissionWithTimestamps, [statusFieldName]: statusValue ?? null }
+            : submissionWithTimestamps;
         const meta = {
           repeatable: cloneDeepSafe(repeatable),
           timestamps: {
@@ -1631,6 +1657,7 @@ export function FormRenderer({
       statusValue,
       submit,
       timestampsRef,
+      touchUpdatedAt,
       closeOverlayAfterSubmit,
     ]
   );
@@ -2546,6 +2573,7 @@ export function FormRenderer({
             readOnly={fieldReadOnly}
             required={fieldRequired}
             error={fieldError}
+            showError={false}
             onChange={handleFieldChange}
             onFocus={() => handleFieldFocus(field.data_name)}
             labelPosition={labelPosition}
@@ -3361,7 +3389,11 @@ function RepeatableEntryModal({
     ]
   );
 
-  const { timestamps: entryTimestamps, timestampsRef: entryTimestampsRef } = useRecordTimestamps({
+  const {
+    timestamps: entryTimestamps,
+    timestampsRef: entryTimestampsRef,
+    touchUpdatedAt: touchEntryUpdatedAt,
+  } = useRecordTimestamps({
     initialValues: entryInitialTimestampValues,
     overrideValues: undefined,
     values: entryValues,
@@ -3739,6 +3771,10 @@ function RepeatableEntryModal({
   );
 
   const repeatableMetadataSection = useMemo(() => {
+    if (modalActiveDrilldownPath.length > 0) {
+      return null;
+    }
+
     const metadataFields = repeatableMetadataFields.map((field) => {
       const fieldValue = entryTimestamps[field.data_name] || null;
       return (
@@ -3749,6 +3785,7 @@ function RepeatableEntryModal({
           readOnly
           required={false}
           error={null}
+          showError={false}
           labelPosition={labelPosition}
           labelWidthPercent={labelWidthPercent}
         />
@@ -3764,7 +3801,7 @@ function RepeatableEntryModal({
         <div className={styles.recordMetadataFields}>{metadataFields}</div>
       </section>
     );
-  }, [entryTimestamps, labelPosition, labelWidthPercent, repeatableMetadataFields]);
+  }, [entryTimestamps, labelPosition, labelWidthPercent, modalActiveDrilldownPath.length, repeatableMetadataFields]);
 
   const handleSave = useCallback(() => {
     setEntrySubmitCount((count) => count + 1);
@@ -3774,7 +3811,12 @@ function RepeatableEntryModal({
       console.log('❌ [ENTRY SAVE] Save blocked due to validation errors');
       return;
     }
-    const timestampSnapshot = entryTimestampsRef.current;
+    const submissionTimestamp = new Date().toISOString();
+    touchEntryUpdatedAt(submissionTimestamp);
+    const timestampSnapshot = {
+      ...entryTimestampsRef.current,
+      updated_at_client: submissionTimestamp,
+    };
     onSave(modal, {
       id: modal.instanceId,
       values: cloneDeepSafe(entryValues),
@@ -3784,7 +3826,7 @@ function RepeatableEntryModal({
       created_at_server: timestampSnapshot?.created_at_server ?? null,
       updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
-  }, [entryRepeatable, entryTimestampsRef, entryValidationSummary, entryValues, modal, onSave]);
+  }, [entryRepeatable, entryTimestampsRef, entryValidationSummary, entryValues, modal, onSave, touchEntryUpdatedAt]);
 
   const handleModalNavigate = useCallback(
     (sectionId) => {
