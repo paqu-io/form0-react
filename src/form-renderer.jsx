@@ -650,6 +650,7 @@ export function FormRenderer({
   autoCloseOverlayOnSubmit = false,
   engineMode = 'main-thread',
   engineStoreMode = 'snapshot',
+  showPrimaryActionsInViewMode = true,
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -1610,7 +1611,6 @@ export function FormRenderer({
   const isReadOnlyMode = interactionMode === 'readonly';
   const hasSubmitHandler = typeof onSubmit === 'function';
   const canSubmitForm = !isReadOnlyMode && hasSubmitHandler;
-  const canEditRepeatables = !isReadOnlyMode;
   const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
   const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
 
@@ -2168,6 +2168,7 @@ export function FormRenderer({
 
   const headerActions = useMemo(() => {
     const disableRootCancel = !discardPromptEnabled;
+    const primaryActionsAllowed = showPrimaryActionsInViewMode || !isReadOnlyMode;
 
     let leftAction = null;
     let rightAction = null;
@@ -2201,7 +2202,7 @@ export function FormRenderer({
     }
 
     const canShowRepeatableAdd =
-      isRepeatableFirstPage && canEditRepeatables && Boolean(activeRepeatableListContext);
+      primaryActionsAllowed && isRepeatableFirstPage && Boolean(activeRepeatableListContext);
 
     if (canShowRepeatableAdd) {
       rightAction = {
@@ -2209,10 +2210,16 @@ export function FormRenderer({
         label: 'Add',
         icon: Plus,
         variant: 'primary',
-        onClick: handleRepeatableListAddFromHeader,
+        onClick: isReadOnlyMode ? undefined : handleRepeatableListAddFromHeader,
+        disabled: isReadOnlyMode,
         shortcutLabel: getAltShortcutLabel('a'),
       };
-    } else if (isFirstSpecialPage && !isRepeatableFirstPage && hasSubmitHandler) {
+    } else if (
+      primaryActionsAllowed &&
+      isFirstSpecialPage &&
+      !isRepeatableFirstPage &&
+      hasSubmitHandler
+    ) {
       rightAction = {
         id: 'save-section',
         label: 'Save',
@@ -2221,7 +2228,7 @@ export function FormRenderer({
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
       };
-    } else if (isRootPage && hasSubmitHandler) {
+    } else if (primaryActionsAllowed && isRootPage && hasSubmitHandler) {
       rightAction = {
         id: 'submit',
         label: 'Submit',
@@ -2248,7 +2255,6 @@ export function FormRenderer({
   }, [
     activeDrilldownSectionId,
     activeRepeatableListContext,
-    canEditRepeatables,
     canSubmitForm,
     enterEditMode,
     getAltShortcutLabel,
@@ -2262,6 +2268,7 @@ export function FormRenderer({
     isRootPage,
     isReadOnlyMode,
     mode,
+    showPrimaryActionsInViewMode,
     requestRootCancel,
     submitFromHeader,
   ]);
@@ -3230,6 +3237,7 @@ export function FormRenderer({
                 resolveRepeatableKey={resolveRepeatableKey}
                 recordStatusInfo={recordStatusInfo}
                 getAltShortcutLabel={getAltShortcutLabel}
+                showPrimaryActionsInViewMode={showPrimaryActionsInViewMode}
               />
             )),
             repeatableModalPortalRef.current
@@ -3385,6 +3393,7 @@ function RepeatableEntryModal({
   resolveRepeatableKey,
   recordStatusInfo,
   getAltShortcutLabel = () => null,
+  showPrimaryActionsInViewMode = true,
 }) {
   const {
     values: entryValues,
@@ -4101,8 +4110,9 @@ function RepeatableEntryModal({
       };
 
   let modalRightAction = null;
+  const modalPrimaryActionsAllowed = showPrimaryActionsInViewMode || !readOnly;
 
-  if (nestedListActive) {
+  if (modalPrimaryActionsAllowed && nestedListActive) {
     modalRightAction = {
       id: 'add',
       label: 'Add',
@@ -4112,7 +4122,7 @@ function RepeatableEntryModal({
       variant: 'primary',
       disabled: readOnly,
     };
-  } else if (!modalDrilldownActive) {
+  } else if (modalPrimaryActionsAllowed && !modalDrilldownActive) {
     modalRightAction = {
       id: 'save',
       label: 'Save',
