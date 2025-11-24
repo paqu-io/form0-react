@@ -205,15 +205,24 @@ function useFocusTrap(active = false, containerRef, { initialFocusRef } = {}) {
       return undefined;
     }
 
+    const redirectingRef = { current: false };
+
     const focusElement = (node) => {
       if (!node || typeof node.focus !== 'function') {
         return;
       }
+      if (redirectingRef.current) {
+        return;
+      }
+      redirectingRef.current = true;
       try {
         node.focus({ preventScroll: true });
       } catch {
         node.focus();
       }
+      setTimeout(() => {
+        redirectingRef.current = false;
+      }, 0);
     };
 
     const getFocusableElements = () => {
@@ -282,6 +291,9 @@ function useFocusTrap(active = false, containerRef, { initialFocusRef } = {}) {
 
     const handleFocusIn = (event) => {
       if (!containerRef.current) {
+        return;
+      }
+      if (redirectingRef.current) {
         return;
       }
       if (!containerRef.current.contains(event.target)) {
@@ -683,10 +695,7 @@ export function FormRenderer({
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
-  const overlayPortalTarget =
-    typeof document !== 'undefined'
-      ? formRendererRootRef.current || document.body
-      : null;
+  const overlayPortalTarget = typeof document !== 'undefined' ? document.body : null;
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
   const presentation = useMemo(() => {
@@ -727,7 +736,8 @@ export function FormRenderer({
     setInteractionMode(normalizedInitialMode);
   }, [normalizedInitialMode]);
 
-  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
+  const discardDialogActive =
+    discardDialogVisible && typeof document !== 'undefined' && !activeAlert;
   useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
   useFocusTrap(Boolean(activeAlert), alertDialogRef, { initialFocusRef: alertOkButtonRef });
 
@@ -736,7 +746,7 @@ export function FormRenderer({
   }, []);
 
   useEffect(() => {
-    const host = formRendererRootRef.current;
+    const host = typeof document !== 'undefined' ? document.body : null;
     const node = repeatableModalPortalRef.current;
     if (!host || !node) {
       return undefined;
@@ -1167,7 +1177,15 @@ export function FormRenderer({
     if (typeof document === 'undefined') {
       return undefined;
     }
-    if (!activeAlert) {
+
+    const anyOverlayOpen =
+      Boolean(activeAlert) ||
+      discardDialogVisible ||
+      repeatableModals.length > 0 ||
+      presentation === 'modal' ||
+      presentation === 'spotlight';
+
+    if (!anyOverlayOpen) {
       return undefined;
     }
 
@@ -1186,7 +1204,7 @@ export function FormRenderer({
       document.body.style.overflow = originalOverflow;
       document.body.style.paddingRight = originalPaddingRight;
     };
-  }, [activeAlert]);
+  }, [activeAlert, discardDialogVisible, repeatableModals.length, presentation]);
 
   // Flatten form elements for simplified mode
   const schemaForRender = finalSchema || schema;
@@ -2663,7 +2681,7 @@ export function FormRenderer({
         </div>
       </div>
     ) : null;
-  const recordMetadataSection = renderRecordMetadata();
+  const recordMetadataSection = simplifiedMode ? null : renderRecordMetadata();
   const modeBannerNode = <ModeBanner mode={interactionMode} />;
 
   const discardDialogNode =
@@ -2749,7 +2767,6 @@ export function FormRenderer({
         >
           {modeBannerNode}
           {stickyHeaderContent}
-          {recordMetadataSection}
           {/* Progress indicator */}
           <div className={styles.simplifiedProgress}>
             Question {currentFieldIndex + 1} of {flattenedElementsLength}
@@ -3780,7 +3797,8 @@ function RepeatableEntryModal({
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
   const discardDialogRef = useRef(null);
   const discardCancelButtonRef = useRef(null);
-  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
+  const discardDialogActive =
+    discardDialogVisible && typeof document !== 'undefined' && !activeAlert;
   useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
 
   const openDiscardDialog = useCallback(() => {

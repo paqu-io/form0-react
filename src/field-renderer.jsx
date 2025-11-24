@@ -495,7 +495,10 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
                 ×
               </button>
             </div>
-            <img
+            <p>
+              <strong>{field.label || field.data_name}</strong>
+              <br />
+              <img
               src={
                 supportingImage.path.startsWith('http')
                   ? supportingImage.path
@@ -504,7 +507,8 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
               alt={field.label || field.data_name}
               className={styles.supportingImage}
               style={{ height: 'auto' }}
-            />
+              />
+            </p>
           </div>
         </dialog>
       )}
