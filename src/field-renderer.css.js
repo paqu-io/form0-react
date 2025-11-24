@@ -74,6 +74,12 @@ export const labelSide = style({
   gap: vars.spacing.xs,
 });
 
+export const labelOnly = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.xs,
+});
+
 export const labelInputRow = style({
   display: 'flex',
   alignItems: 'center',
@@ -546,6 +552,46 @@ export const formLinkBanner = style({
   lineHeight: 1.45,
 });
 
+export const formLinkInfoIcon = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '24px',
+  height: '24px',
+  borderRadius: '999px',
+  border: `1px solid ${vars.color.border}`,
+  background: '#fff',
+  color: vars.color.foreground,
+  cursor: 'default',
+  transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      background: vars.color.foregroundMuted,
+      color: '#fff',
+      borderColor: vars.color.foregroundMuted,
+    },
+  },
+});
+
+export const formLinkTooltip = style({
+  position: 'absolute',
+  zIndex: 10,
+  minWidth: '260px',
+  maxWidth: '360px',
+  padding: vars.spacing.sm,
+  background: '#111827',
+  color: '#f9fafb',
+  borderRadius: vars.borderRadius,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+  fontSize: '0.9rem',
+  lineHeight: vars.lineHeight.snug,
+});
+
+export const formLinkTooltipLink = style({
+  color: '#93c5fd',
+  textDecoration: 'underline',
+});
+
 export const formLinkDocsLink = style({
   color: vars.color.primary,
   textDecoration: 'underline',
@@ -558,6 +604,20 @@ export const formLinkDocsLink = style({
       outlineOffset: '2px',
     },
   },
+});
+
+export const formLinkInfoWrapper = style({
+  position: 'relative',
+  display: 'inline-flex',
+  alignItems: 'center',
+});
+
+export const dialogTitleIcon = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginRight: vars.spacing.md,
+  verticalAlign: 'middle',
 });
 
 export const formLinkHiddenInput = style({
@@ -754,6 +814,8 @@ export const dialogTitle = style({
   lineHeight: vars.lineHeight.normal,
   margin: 0,
   color: vars.color.foreground,
+  display: 'flex',
+  alignItems: 'center',
 });
 
 export const choiceGroup = style({

@@ -108,7 +108,7 @@ export const formNameActionButton = style({
   alignItems: 'center',
   gap: '0.35rem',
   padding: '0.35rem 0.75rem',
-  borderRadius: '6px',
+  borderRadius: vars.borderRadius,
   border: `1px solid ${vars.color.border}`,
   background: 'transparent',
   color: vars.color.foreground,

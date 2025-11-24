@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Info, Image } from 'lucide-react';
+import { Info, Image, AlertTriangle } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
 import { useFieldRegistry } from './field-registry-context.jsx';
 import { useEngineField } from './engine-store.js';
@@ -65,7 +65,8 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   }
 
   const wrapperClass =
-    labelPosition === LABEL_SIDE ? styles.labelSide : styles.labelTop;
+    (isLabelField ? 'top' : labelPosition) === LABEL_SIDE ? styles.labelSide : styles.labelTop;
+  const effectiveLabelPosition = isLabelField ? 'top' : labelPosition;
   const labelClass =
     labelPosition === LABEL_SIDE
       ? `${styles.label} ${styles.labelSideFixed}`
@@ -117,6 +118,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
 
   const [isDescriptionOpen, setDescriptionOpen] = useState(false);
   const [isImageOpen, setImageOpen] = useState(false);
+  const [isFormLinkOpen, setFormLinkOpen] = useState(false);
 
   const descriptionMode = field.description_mode || 'default';
   const hasDialogDescription =
@@ -131,6 +133,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
 
   const descriptionDialogRef = useRef(null);
   const imageDialogRef = useRef(null);
+  const formLinkDialogRef = useRef(null);
 
   useEffect(() => {
     const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
@@ -174,8 +177,45 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     };
   }, [isImageOpen]);
 
+  useEffect(() => {
+    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
+    const dialog = formLinkDialogRef.current;
+    if (dialog && isFormLinkOpen) {
+      dialog.showModal();
+      dialog.addEventListener(
+        'close',
+        () => {
+          setFormLinkOpen(false);
+          previousActiveElement?.focus?.();
+        },
+        { once: true }
+      );
+    }
+    return () => {
+      if (dialog && dialog.open) {
+        dialog.close();
+      }
+    };
+  }, [isFormLinkOpen]);
+
+  const [isFormLinkTooltipOpen, setIsFormLinkTooltipOpen] = useState(false);
+
   const renderLabelControls = () => {
     const controls = [];
+
+    if (field.type === 'FormLinkField') {
+      controls.push(
+        <button
+          key="form-link-info"
+          type="button"
+          className={styles.infoIconButton}
+          aria-label="Form link field info"
+          onClick={() => setFormLinkOpen(true)}
+        >
+          <AlertTriangle size={16} strokeWidth={2} />
+        </button>
+      );
+    }
 
     if (supportingImage && supportingImage.displayMode === 'dialog') {
       controls.push(
@@ -279,7 +319,28 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     </legend>
   ) : null;
 
-  const content = labelPosition === LABEL_SIDE ? (
+  const content = isLabelField ? (
+    <div className={styles.labelOnly}>
+      <div className={styles.labelRow}>
+        {labelNode}
+        {renderLabelControls()}
+      </div>
+      {hasSubtextDescription && (
+        <div className={styles.subtext}>{field.description}</div>
+      )}
+      {showInlineImage && (
+        <img
+          src={
+            supportingImage.path.startsWith('http')
+              ? supportingImage.path
+              : `/supporting-images/${supportingImage.path}`
+          }
+          alt={field.label || field.data_name}
+          className={styles.supportingImage}
+        />
+      )}
+    </div>
+  ) : effectiveLabelPosition === LABEL_SIDE ? (
     <div className={styles.labelInputRow}>
       <div className={styles.labelColumn}>
         <div className={styles.labelRow}>
@@ -346,7 +407,10 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           <div className={styles.descriptionDialogContent}>
             <div className={styles.dialogHeader}>
               <h3 id={`${labelId}-desc-title`} className={styles.dialogTitle}>
-                {field.label || field.data_name}
+                <span className={styles.dialogTitleIcon}>
+                  <Info size={18} />
+                </span>
+                Field information
               </h3>
               <button
                 type="button"
@@ -357,7 +421,53 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
                 ×
               </button>
             </div>
-            <p>{field.description}</p>
+            <p>
+              <strong>{field.label || field.data_name}</strong>
+              <br />
+              {field.description}
+            </p>
+          </div>
+        </dialog>
+      )}
+
+      {field.type === 'FormLinkField' && (
+        <dialog
+          ref={formLinkDialogRef}
+          className={styles.descriptionDialog}
+          aria-labelledby={`${labelId}-form-link-title`}
+        >
+          <div className={styles.descriptionDialogContent}>
+            <div className={styles.dialogHeader}>
+              <h3 id={`${labelId}-form-link-title`} className={styles.dialogTitle}>
+                <span className={styles.dialogTitleIcon}>
+                  <AlertTriangle size={18} />
+                </span>
+                Warning
+              </h3>
+              <button
+                type="button"
+                className={styles.dialogCloseButton}
+                onClick={() => formLinkDialogRef.current?.close()}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <p>
+              The feature "FormLinkField" is not supported in form0-react. Full support available in
+              reform platform only.
+              <br />
+              Want to learn more?{' '}
+              <a
+                href="https://docs.form0.dev/unsupported-features/form-link-field"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.formLinkTooltipLink}
+              >
+                https://docs.form0.dev/unsupported-features/form-link-field
+              </a>
+              .
+            </p>
           </div>
         </dialog>
       )}
@@ -371,7 +481,10 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           <div className={styles.supportingImageDialogContent}>
             <div className={styles.dialogHeader}>
               <h3 id={`${labelId}-img-title`} className={styles.dialogTitle}>
-                {field.label || field.data_name}
+                <span className={styles.dialogTitleIcon}>
+                  <Image size={18} />
+                </span>
+                Supporting image
               </h3>
               <button
                 type="button"

@@ -240,22 +240,6 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
         </div>
       )}
 
-      <div className={styles.formLinkBanner} role="note">
-        The feature "FormLinkField" is not supported in form0-react. Full support available in
-        reform platform only.
-        <br />
-        Want to learn more?{' '}
-        <a
-          href="https://docs.form0.dev/unsupported-features/form-link-field"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.formLinkDocsLink}
-        >
-          https://docs.form0.dev/unsupported-features/form-link-field
-        </a>
-        .
-      </div>
-
       {activeModal && typeof document !== 'undefined' && createPortal(
         <div
           className={styles.formLinkModalOverlay}
