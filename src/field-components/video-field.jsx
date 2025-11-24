@@ -107,24 +107,24 @@ export function VideoFieldComponent({
   inputProps = {},
   className,
 }) {
-  const items = useMemo(() => normalizeVideos(value), [value]);
+  const objectUrlRef = useRef(new Set());
+
+  const items = useMemo(() => {
+    const normalized = normalizeVideos(value);
+    return normalized.map((item) => {
+      if (!item.previewUrl && item.file instanceof File) {
+        const url = URL.createObjectURL(item.file);
+        objectUrlRef.current.add(url);
+        return { ...item, previewUrl: url };
+      }
+      return item;
+    });
+  }, [value]);
+
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
-
-  const objectUrlRef = useRef(new Set());
-
-  const revokeAllObjectUrls = useCallback(() => {
-    objectUrlRef.current.forEach((url) => revokeObjectUrlSafe(url));
-    objectUrlRef.current.clear();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      revokeAllObjectUrls();
-    };
-  }, [revokeAllObjectUrls]);
 
   useEffect(() => {
     const activeBlobUrls = new Set(
@@ -254,15 +254,16 @@ export function VideoFieldComponent({
     (itemKey, caption) => {
       if (readOnly) return;
       const currentItems = itemsRef.current;
-      const nextCaption = caption?.trim() ? caption.trim() : null;
+      const nextCaption = caption ?? '';
+      const finalCaption = nextCaption === '' ? null : nextCaption;
       const updated = currentItems.map((item) =>
         item.key === itemKey
           ? {
               ...item,
-              caption: nextCaption,
+              caption: finalCaption,
               original: {
                 ...(item.original && typeof item.original === 'object' ? item.original : {}),
-                caption: nextCaption,
+                caption: finalCaption,
               },
             }
           : item
@@ -294,8 +295,13 @@ export function VideoFieldComponent({
     return `Total duration: ${formatDuration(total)}`;
   }, [items]);
 
-  const { readOnly: _ignoredReadOnly, required: _ignoredRequired, ...otherInputProps } =
-    inputProps;
+  const {
+    readOnly: _ignoredReadOnly,
+    required: _ignoredRequired,
+    id,
+    name,
+    ...otherInputProps
+  } = inputProps;
 
   if (readOnly) {
     if (items.length === 0) {
@@ -342,6 +348,8 @@ export function VideoFieldComponent({
     <div className={`${styles.videoField} ${className || ''}`}>
       <div className={styles.videoFieldControls}>
         <input
+          id={id}
+          name={name || field.data_name || 'video_upload'}
           type="file"
           accept="video/*"
           multiple
@@ -378,11 +386,14 @@ export function VideoFieldComponent({
                 <span className={styles.videoDuration}>{formatDuration(item.duration)}</span>
               </div>
               <input
+                id={`${id || field.data_name || 'video'}_${item.key}_caption`}
+                name={`${name || field.data_name || 'video_upload'}[${item.key}][caption]`}
                 type="text"
-                className={styles.videoCaptionInput}
+                className={`${styles.videoCaptionInput} ${styles.input}`}
                 placeholder="Add caption…"
                 value={item.caption || ''}
                 onChange={(event) => handleCaptionChange(item.key, event.target.value)}
+                autoComplete="off"
               />
               <button
                 type="button"

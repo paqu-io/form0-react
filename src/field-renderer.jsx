@@ -82,8 +82,12 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     (field.type === 'SingleChoiceField' && field.display === 'radio') ||
     (field.type === 'MultiChoiceField' && field.display === 'checkbox') ||
     field.type === 'BooleanField' ||
-    isSignatureField;
+    isSignatureField ||
+    field.type === 'PhotoField' ||
+    field.type === 'VideoField';
   const shouldRenderLabelElement = !isLabelField;
+
+  const labelledById = isGroupedControl ? `${labelId}-legend` : labelId;
 
   const inputProps = shouldRenderLabelElement
     ? {
@@ -92,7 +96,8 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         required: resolvedRequired,
         disabled: resolvedReadOnly,
         id: baseId,
-        ...(isGroupedControl ? { 'aria-labelledby': labelId } : {}),
+        autoComplete: field?.autocomplete ?? 'off',
+        'aria-labelledby': labelledById,
         ...(onFocus ? { onFocus } : {}),
       }
     : {};
@@ -237,84 +242,101 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     };
   }
 
-  const labelNode = shouldRenderLabelElement ? (
-    <label
-      className={labelClassNames.join(' ')}
-      id={labelId}
-      {...labelProps}
-    >
+  const labelContent = (
+    <>
       {field.label}
       {(selectorEnabled ? resolvedRequired : required) ? ' *' : ''}
-    </label>
+    </>
+  );
+
+  const labelNode = shouldRenderLabelElement ? (
+    isGroupedControl ? (
+      <div
+        className={labelClassNames.join(' ')}
+        id={labelId}
+        role="presentation"
+      >
+        {labelContent}
+      </div>
+    ) : (
+      <label
+        className={labelClassNames.join(' ')}
+        id={labelId}
+        {...labelProps}
+      >
+        {labelContent}
+      </label>
+    )
   ) : (
     <div className={labelClassNames.join(' ')} id={labelId} role="presentation">
-      {field.label}
+      {labelContent}
     </div>
   );
 
-  return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      className={`${styles.fieldWrapper} ${wrapperClass}`}
-      style={wrapperStyle}
-    >
-      {labelPosition === LABEL_SIDE ? (
-        <div className={styles.labelInputRow}>
-          <div className={styles.labelColumn}>
-            <div className={styles.labelRow}>
-              {labelNode}
-              {renderLabelControls()}
-            </div>
-            {hasSubtextDescription && (
-              <div className={styles.subtext}>{field.description}</div>
-            )}
-          </div>
-          <div className={styles.inputWrapper}>
-            {showInlineImage && (
-              <img
-                src={
-                  supportingImage.path.startsWith('http')
-                    ? supportingImage.path
-                    : `/supporting-images/${supportingImage.path}`
-                }
-                alt={field.label || field.data_name}
-                className={styles.supportingImage}
-              />
-            )}
-            {fieldInput}
-            {showError ? (
-              <div className={styles.error}>{currentError || '\u00A0'}</div>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className={styles.labelRow}>
-            {labelNode}
-            {renderLabelControls()}
-          </div>
-          {hasSubtextDescription && (
-            <div className={styles.subtext}>{field.description}</div>
-          )}
-          {showInlineImage && (
-            <img
-              src={
-                supportingImage.path.startsWith('http')
-                  ? supportingImage.path
-                  : `/supporting-images/${supportingImage.path}`
-              }
-              alt={field.label || field.data_name}
-              className={styles.supportingImage}
-            />
-          )}
-          {fieldInput}
-          {showError ? (
-            <div className={styles.error}>{currentError || '\u00A0'}</div>
-          ) : null}
-        </>
-      )}
+  const legendNode = isGroupedControl ? (
+    <legend className={styles.legendSrOnly} id={`${labelId}-legend`}>
+      {labelContent}
+    </legend>
+  ) : null;
 
+  const content = labelPosition === LABEL_SIDE ? (
+    <div className={styles.labelInputRow}>
+      <div className={styles.labelColumn}>
+        <div className={styles.labelRow}>
+          {labelNode}
+          {renderLabelControls()}
+        </div>
+        {hasSubtextDescription && (
+          <div className={styles.subtext}>{field.description}</div>
+        )}
+      </div>
+      <div className={styles.inputWrapper}>
+        {showInlineImage && (
+          <img
+            src={
+              supportingImage.path.startsWith('http')
+                ? supportingImage.path
+                : `/supporting-images/${supportingImage.path}`
+            }
+            alt={field.label || field.data_name}
+            className={styles.supportingImage}
+          />
+        )}
+        {fieldInput}
+        {showError ? (
+          <div className={styles.error}>{currentError || '\u00A0'}</div>
+        ) : null}
+      </div>
+    </div>
+  ) : (
+    <>
+      <div className={styles.labelRow}>
+        {labelNode}
+        {renderLabelControls()}
+      </div>
+      {hasSubtextDescription && (
+        <div className={styles.subtext}>{field.description}</div>
+      )}
+      {showInlineImage && (
+        <img
+          src={
+            supportingImage.path.startsWith('http')
+              ? supportingImage.path
+              : `/supporting-images/${supportingImage.path}`
+          }
+          alt={field.label || field.data_name}
+          className={styles.supportingImage}
+        />
+      )}
+      {fieldInput}
+      {showError ? (
+        <div className={styles.error}>{currentError || '\u00A0'}</div>
+      ) : null}
+    </>
+  );
+
+  const dialogs = (
+    <>
       {hasDialogDescription && (
         <dialog
           ref={descriptionDialogRef}
@@ -373,6 +395,36 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           </div>
         </dialog>
       )}
+    </>
+  );
+
+  const containerClassName = `${styles.fieldWrapper} ${wrapperClass}`;
+
+  if (isGroupedControl) {
+    return (
+      <fieldset
+        ref={ref}
+        tabIndex={-1}
+        className={`${containerClassName} ${styles.fieldsetReset}`}
+        style={wrapperStyle}
+        aria-labelledby={`${labelId}-legend`}
+      >
+        {legendNode}
+        {content}
+        {dialogs}
+      </fieldset>
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      tabIndex={-1}
+      className={containerClassName}
+      style={wrapperStyle}
+    >
+      {content}
+      {dialogs}
     </div>
   );
 });

@@ -52,24 +52,24 @@ export function PhotoFieldComponent({
   inputProps = {},
   className,
 }) {
-  const items = useMemo(() => normalizePhotos(value), [value]);
+  const objectUrlRef = useRef(new Set());
+
+  const items = useMemo(() => {
+    const normalized = normalizePhotos(value);
+    return normalized.map((item) => {
+      if (!item.previewUrl && item.file instanceof File) {
+        const url = URL.createObjectURL(item.file);
+        objectUrlRef.current.add(url);
+        return { ...item, previewUrl: url };
+      }
+      return item;
+    });
+  }, [value]);
+
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
-
-  const objectUrlRef = useRef(new Set());
-
-  const revokeAllObjectUrls = useCallback(() => {
-    objectUrlRef.current.forEach((url) => URL.revokeObjectURL(url));
-    objectUrlRef.current.clear();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      revokeAllObjectUrls();
-    };
-  }, [revokeAllObjectUrls]);
 
   useEffect(() => {
     const activeUrls = new Set(
@@ -213,13 +213,20 @@ export function PhotoFieldComponent({
     );
   }
 
-  const { readOnly: _ignoredReadOnly, required: _ignoredRequired, ...otherInputProps } =
-    inputProps;
+  const {
+    readOnly: _ignoredReadOnly,
+    required: _ignoredRequired,
+    id,
+    name,
+    ...otherInputProps
+  } = inputProps;
 
   return (
     <div className={`${styles.photoField} ${className || ''}`}>
       <div className={styles.photoFieldControls}>
         <input
+          id={id}
+          name={name || field.data_name || 'photo_upload'}
           type="file"
           accept="image/*"
           multiple
@@ -248,11 +255,14 @@ export function PhotoFieldComponent({
                 )}
               </div>
               <input
+                id={`${id || field.data_name || 'photo'}_${item.key}_caption`}
+                name={`${name || field.data_name || 'photo_upload'}[${item.key}][caption]`}
                 type="text"
-                className={styles.photoCaptionInput}
+                className={`${styles.photoCaptionInput} ${styles.input}`}
                 placeholder="Add caption…"
                 value={item.caption || ''}
                 onChange={(event) => handleCaptionChange(item.key, event.target.value)}
+                autoComplete="off"
               />
               <button
                 type="button"

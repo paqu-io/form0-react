@@ -106,6 +106,25 @@ export const labelText = style({
   flex: '1 1 auto',
 });
 
+export const fieldsetReset = style({
+  border: 'none',
+  margin: 0,
+  padding: 0,
+  minWidth: 0,
+});
+
+export const legendSrOnly = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+});
+
 export const labelFieldLabel = style({
   display: 'block',
   fontWeight: 400,
