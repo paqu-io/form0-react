@@ -695,7 +695,12 @@ export function FormRenderer({
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
-  const overlayPortalTarget = typeof document !== 'undefined' ? document.body : null;
+  const blockingPortalTarget =
+    typeof document !== 'undefined' ? document.body : null;
+  const overlayPortalTarget =
+    typeof document !== 'undefined'
+      ? formRendererRootRef.current || document.body
+      : null;
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
   const presentation = useMemo(() => {
@@ -736,8 +741,20 @@ export function FormRenderer({
     setInteractionMode(normalizedInitialMode);
   }, [normalizedInitialMode]);
 
-  const discardDialogActive =
-    discardDialogVisible && typeof document !== 'undefined' && !activeAlert;
+  useEffect(() => {
+    // Avoid locking scroll on full-page rendering; only lock when the form is in an overlay.
+    const scrollLockEnabled = formPlacement === 'form-modal' || formPlacement === 'form-spotlight';
+    if (!scrollLockEnabled || !blockingPortalTarget) return undefined;
+    const shouldLockScroll = discardDialogVisible || Boolean(activeAlert);
+    if (!shouldLockScroll) return undefined;
+    const previousOverflow = blockingPortalTarget.style.overflow;
+    blockingPortalTarget.style.overflow = 'hidden';
+    return () => {
+      blockingPortalTarget.style.overflow = previousOverflow;
+    };
+  }, [blockingPortalTarget, discardDialogVisible, activeAlert, formPlacement]);
+
+  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
   useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
   useFocusTrap(Boolean(activeAlert), alertDialogRef, { initialFocusRef: alertOkButtonRef });
 
@@ -746,7 +763,7 @@ export function FormRenderer({
   }, []);
 
   useEffect(() => {
-    const host = typeof document !== 'undefined' ? document.body : null;
+    const host = overlayPortalTarget;
     const node = repeatableModalPortalRef.current;
     if (!host || !node) {
       return undefined;
@@ -758,7 +775,7 @@ export function FormRenderer({
         host.removeChild(node);
       }
     };
-  }, []);
+  }, [overlayPortalTarget]);
 
   const markRootDirty = useCallback(() => {
     if (!rootChangesRef.current) {
@@ -2685,7 +2702,7 @@ export function FormRenderer({
   const modeBannerNode = <ModeBanner mode={interactionMode} />;
 
   const discardDialogNode =
-    discardDialogVisible && overlayPortalTarget
+    discardDialogVisible && blockingPortalTarget
       ? createPortal(
           <div
             className={styles.alertOverlay}
@@ -2730,7 +2747,7 @@ export function FormRenderer({
               </div>
             </div>
           </div>,
-          overlayPortalTarget
+          blockingPortalTarget
         )
       : null;
 
@@ -2823,7 +2840,7 @@ export function FormRenderer({
           {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
         </form>
 
-        {activeAlert && overlayPortalTarget && createPortal(
+        {activeAlert && blockingPortalTarget && createPortal(
           <div
             className={styles.alertOverlay}
             role="alertdialog"
@@ -2862,7 +2879,7 @@ export function FormRenderer({
               </div>
             </div>
           </div>,
-          overlayPortalTarget
+          blockingPortalTarget
         )}
         {discardDialogNode}
       </ThemeProvider>
@@ -3261,7 +3278,7 @@ export function FormRenderer({
           )
         : null}
 
-      {activeAlert && overlayPortalTarget && createPortal(
+      {activeAlert && blockingPortalTarget && createPortal(
         <div
           className={styles.alertOverlay}
           role="alertdialog"
@@ -3300,7 +3317,7 @@ export function FormRenderer({
             </div>
           </div>
         </div>,
-        overlayPortalTarget
+        blockingPortalTarget
       )}
       {discardDialogNode}
     </ThemeProvider>
@@ -3797,8 +3814,7 @@ function RepeatableEntryModal({
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
   const discardDialogRef = useRef(null);
   const discardCancelButtonRef = useRef(null);
-  const discardDialogActive =
-    discardDialogVisible && typeof document !== 'undefined' && !activeAlert;
+  const discardDialogActive = discardDialogVisible && typeof document !== 'undefined';
   useFocusTrap(discardDialogActive, discardDialogRef, { initialFocusRef: discardCancelButtonRef });
 
   const openDiscardDialog = useCallback(() => {

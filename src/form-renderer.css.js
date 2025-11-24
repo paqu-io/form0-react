@@ -584,7 +584,7 @@ export const repeatableModalOverlay = style({
   alignItems: 'center',
   justifyContent: 'center',
   padding: '1.5vh 2vw',
-  zIndex: 60,
+  zIndex: 11000,
   fontFamily: vars.fontFamily.base,
 });
 
@@ -735,7 +735,7 @@ export const alertOverlay = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 9999,
+  zIndex: 12000,
   padding: '1.5rem',
   pointerEvents: 'auto',
 });
