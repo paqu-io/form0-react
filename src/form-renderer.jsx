@@ -44,6 +44,7 @@ const MIN_TITLE_PADDING_PX = 32;
 const ROOT_NAV_NODE_ID = '__form_root';
 const MODAL_ROOT_NAV_NODE_ID = '__modal_form_root';
 const ROOT_NAV_LABEL = 'Root';
+const BODY_SCROLL_LOCK_ATTR = 'data-form0-scroll-lock';
 
 const ModeBanner = ({ mode }) => {
   const isViewMode = mode === 'readonly';
@@ -741,6 +742,20 @@ export function FormRenderer({
     setInteractionMode(normalizedInitialMode);
   }, [normalizedInitialMode]);
 
+  // Release any stale scroll lock left behind by an unmounted overlay.
+  useEffect(() => {
+    if (!blockingPortalTarget) return undefined;
+    const staleLock =
+      blockingPortalTarget.hasAttribute(BODY_SCROLL_LOCK_ATTR) &&
+      blockingPortalTarget.style.overflow === 'hidden';
+    if (staleLock && !discardDialogVisible && !activeAlert) {
+      const prev = blockingPortalTarget.getAttribute(BODY_SCROLL_LOCK_ATTR) || '';
+      blockingPortalTarget.style.overflow = prev;
+      blockingPortalTarget.removeAttribute(BODY_SCROLL_LOCK_ATTR);
+    }
+    return undefined;
+  }, [blockingPortalTarget, discardDialogVisible, activeAlert]);
+
   useEffect(() => {
     // Avoid locking scroll on full-page rendering; only lock when the form is in an overlay.
     const scrollLockEnabled = formPlacement === 'form-modal' || formPlacement === 'form-spotlight';
@@ -748,9 +763,12 @@ export function FormRenderer({
     const shouldLockScroll = discardDialogVisible || Boolean(activeAlert);
     if (!shouldLockScroll) return undefined;
     const previousOverflow = blockingPortalTarget.style.overflow;
+    blockingPortalTarget.setAttribute(BODY_SCROLL_LOCK_ATTR, previousOverflow || '');
     blockingPortalTarget.style.overflow = 'hidden';
     return () => {
-      blockingPortalTarget.style.overflow = previousOverflow;
+      const prev = blockingPortalTarget.getAttribute(BODY_SCROLL_LOCK_ATTR);
+      blockingPortalTarget.style.overflow = prev || '';
+      blockingPortalTarget.removeAttribute(BODY_SCROLL_LOCK_ATTR);
     };
   }, [blockingPortalTarget, discardDialogVisible, activeAlert, formPlacement]);
 
