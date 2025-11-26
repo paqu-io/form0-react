@@ -108,6 +108,11 @@ function deepEqual(a, b) {
 const BP_NODE_KEYS = {
   floors: 'floors',
   rooms: 'rooms',
+  walls: 'walls',
+  columns: 'columns',
+  beams: 'beams',
+  doors: 'doors',
+  windows: 'windows',
 };
 
 function getBuildingPlanMetaEntry(metaList, dataName) {
@@ -285,6 +290,65 @@ function buildPerimeterWallsFromRoomValues(buildingPlanMeta, repeatableKey, room
   }
 
   return { wallsKey, walls };
+}
+
+function rectFromVerticesList(vertices = []) {
+  if (!Array.isArray(vertices) || vertices.length === 0) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const xs = vertices.map((p) => Number(p?.x) || 0);
+  const ys = vertices.map((p) => Number(p?.y) || 0);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function parseVertexPayload(raw, { defaultUnit = 'meters', defaultGrid = 20 } = {}) {
+  if (!raw) return { unit: defaultUnit, gridSize: defaultGrid, vertices: [] };
+  let parsed = raw;
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { unit: defaultUnit, gridSize: defaultGrid, vertices: [] };
+  }
+  const vertices = Array.isArray(parsed.vertices) ? parsed.vertices : [];
+  return {
+    unit: parsed.unit || defaultUnit,
+    gridSize: parsed.gridSize || defaultGrid,
+    vertices,
+  };
+}
+
+function transformVerticesByRect(vertices, oldRect, newRect) {
+  const deltaX = newRect.x - oldRect.x;
+  const deltaY = newRect.y - oldRect.y;
+  return (vertices || []).map((point) => {
+    if (!point) return { x: 0, y: 0 };
+    if (oldRect.width === 0 || oldRect.height === 0) {
+      return {
+        x: Number(point.x) + deltaX,
+        y: Number(point.y) + deltaY,
+      };
+    }
+    const relX = (Number(point.x) - oldRect.x) / oldRect.width;
+    const relY = (Number(point.y) - oldRect.y) / oldRect.height;
+    return {
+      x: newRect.x + relX * newRect.width,
+      y: newRect.y + relY * newRect.height,
+    };
+  });
 }
 
 const TIMESTAMP_METADATA_FIELD_DEFS = [
@@ -1286,6 +1350,111 @@ export function FormRenderer({
     },
     [formRepeatableController, markRootDirty]
   );
+
+  const buildingPlanRoomCacheRef = useRef(new Map());
+
+  // Keep wall geometry in sync with room moves/resizes in the parent canvas (CLI parity)
+  useEffect(() => {
+    if (!Array.isArray(buildingPlanMeta) || buildingPlanMeta.length === 0) return;
+    const cache = buildingPlanRoomCacheRef.current;
+    const nextCache = new Map();
+
+    buildingPlanMeta.forEach((metaEntry) => {
+      if (!metaEntry) return;
+      const floorsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.floors);
+      const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
+      const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
+      if (!floorsKey || !roomsKey || !wallsKey) return;
+
+      const roomVerticesField = getBuildingPlanFieldDataName(
+        metaEntry,
+        BP_NODE_KEYS.rooms,
+        'room_vertices',
+        'room_vertices'
+      );
+      const wallGeometryField = getBuildingPlanFieldDataName(
+        metaEntry,
+        BP_NODE_KEYS.walls,
+        'wall_geometry',
+        'wall_geometry'
+      );
+      if (!roomVerticesField || !wallGeometryField) return;
+
+      const floors = formRepeatableController.getInstances(floorsKey, []) || [];
+      floors.forEach((floor) => {
+        const floorPath = [{ key: floorsKey, id: floor.id }];
+        const rooms =
+          floor?.repeatable && Array.isArray(floor.repeatable[roomsKey])
+            ? floor.repeatable[roomsKey]
+            : [];
+
+        rooms.forEach((room) => {
+          const roomPath = [...floorPath, { key: roomsKey, id: room.id }];
+          const roomPayload = parseVertexPayload(room?.values?.[roomVerticesField]);
+          const cacheKey = room.id;
+          const prevPayload = cache.get(cacheKey);
+          nextCache.set(cacheKey, roomPayload);
+
+          if (!prevPayload) {
+            return;
+          }
+
+          const oldRect = rectFromVerticesList(prevPayload.vertices);
+          const newRect = rectFromVerticesList(roomPayload.vertices);
+
+          if (
+            oldRect.x === newRect.x &&
+            oldRect.y === newRect.y &&
+            oldRect.width === newRect.width &&
+            oldRect.height === newRect.height
+          ) {
+            return;
+          }
+
+          const walls =
+            room?.repeatable && Array.isArray(room.repeatable[wallsKey])
+              ? room.repeatable[wallsKey]
+              : [];
+          if (walls.length === 0) return;
+
+          let changed = false;
+          const updatedWalls = walls.map((wall) => {
+            const wallPayload = parseVertexPayload(wall?.values?.[wallGeometryField], {
+              defaultUnit: roomPayload.unit,
+              defaultGrid: roomPayload.gridSize,
+            });
+            const nextVertices = transformVerticesByRect(
+              wallPayload.vertices,
+              oldRect,
+              newRect
+            );
+            const nextPayload = {
+              unit: wallPayload.unit || roomPayload.unit,
+              gridSize: wallPayload.gridSize || roomPayload.gridSize || 20,
+              vertices: nextVertices,
+            };
+            const nextString = JSON.stringify(nextPayload);
+            if (wall?.values?.[wallGeometryField] !== nextString) {
+              changed = true;
+            }
+            return {
+              ...wall,
+              values: {
+                ...(wall?.values || {}),
+                [wallGeometryField]: nextString,
+              },
+            };
+          });
+
+          if (changed) {
+            formRepeatableController.setInstances(wallsKey, updatedWalls, roomPath);
+          }
+        });
+      });
+    });
+
+    buildingPlanRoomCacheRef.current = nextCache;
+  }, [buildingPlanMeta, formRepeatableController, repeatable]);
 
   const persistRepeatableEntry = useCallback((modalConfig, payload) => {
     const { controller, repeatableKey, parentPath, mode } = modalConfig;
@@ -3872,6 +4041,7 @@ function RepeatableEntryModal({
 
   useEffect(() => {
     setEntrySubmitCount(0);
+    prevRoomVerticesRef.current = null;
   }, [modal.modalId]);
 
   const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
@@ -4005,6 +4175,113 @@ function RepeatableEntryModal({
     }
     if (Array.isArray(walls) && walls.length > 0) {
       entryController.setInstances(wallsKey, walls, []);
+    }
+  }, [entryController, entryValues, modal.buildingPlanMeta, modal.repInfo?.preferredKey]);
+
+  const prevRoomVerticesRef = useRef(null);
+
+  // Keep wall geometry aligned when room vertices change (mirrors CLI behavior)
+  useEffect(() => {
+    if (!modal.buildingPlanMeta || !entryController || !modal.repInfo?.preferredKey) return;
+
+    const metaEntry = findMetaByRepeatableKey(modal.buildingPlanMeta, modal.repInfo.preferredKey);
+    const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
+    if (!roomsKey || roomsKey !== modal.repInfo.preferredKey) {
+      return;
+    }
+    const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
+    if (!wallsKey) return;
+
+    const roomVerticesField = getBuildingPlanFieldDataName(
+      metaEntry,
+      BP_NODE_KEYS.rooms,
+      'room_vertices',
+      'room_vertices'
+    );
+    const wallGeometryField = getBuildingPlanFieldDataName(
+      metaEntry,
+      BP_NODE_KEYS.walls,
+      'wall_geometry',
+      'wall_geometry'
+    );
+    if (!roomVerticesField || !wallGeometryField) return;
+
+    const rawRoom = entryValues?.[roomVerticesField];
+    if (!rawRoom) return;
+    let parsedRoom = null;
+    try {
+      parsedRoom = typeof rawRoom === 'string' ? JSON.parse(rawRoom) : rawRoom;
+    } catch {
+      parsedRoom = null;
+    }
+    if (!parsedRoom || !Array.isArray(parsedRoom.vertices)) return;
+
+    const currentRoomPayload = {
+      unit: parsedRoom.unit || 'meters',
+      gridSize: parsedRoom.gridSize || 20,
+      vertices: parsedRoom.vertices,
+    };
+
+    const previousRoomPayload = prevRoomVerticesRef.current;
+    prevRoomVerticesRef.current = currentRoomPayload;
+    if (!previousRoomPayload) {
+      return;
+    }
+
+    const oldRect = rectFromVerticesList(previousRoomPayload.vertices);
+    const newRect = rectFromVerticesList(currentRoomPayload.vertices);
+    const deltaX = newRect.x - oldRect.x;
+    const deltaY = newRect.y - oldRect.y;
+
+    const walls = entryController.getInstances(wallsKey, []);
+    if (!Array.isArray(walls) || walls.length === 0) {
+      return;
+    }
+
+    const transformPoint = (point) => {
+      if (!point) return { x: 0, y: 0 };
+      if (oldRect.width === 0 || oldRect.height === 0) {
+        return { x: Number(point.x) + deltaX, y: Number(point.y) + deltaY };
+      }
+      const relX = (Number(point.x) - oldRect.x) / oldRect.width;
+      const relY = (Number(point.y) - oldRect.y) / oldRect.height;
+      return {
+        x: newRect.x + relX * newRect.width,
+        y: newRect.y + relY * newRect.height,
+      };
+    };
+
+    let changed = false;
+    const updatedWalls = walls.map((wall) => {
+      const rawWall = wall?.values?.[wallGeometryField];
+      let parsedWall = null;
+      try {
+        parsedWall = typeof rawWall === 'string' ? JSON.parse(rawWall) : rawWall;
+      } catch {
+        parsedWall = null;
+      }
+      const wallVertices = Array.isArray(parsedWall?.vertices) ? parsedWall.vertices : [];
+      const nextVertices = wallVertices.map((p) => transformPoint(p));
+      const nextPayload = {
+        unit: parsedWall?.unit || currentRoomPayload.unit,
+        gridSize: parsedWall?.gridSize || currentRoomPayload.gridSize || 20,
+        vertices: nextVertices,
+      };
+      const nextString = JSON.stringify(nextPayload);
+      if (rawWall !== nextString) {
+        changed = true;
+      }
+      return {
+        ...wall,
+        values: {
+          ...(wall?.values || {}),
+          [wallGeometryField]: nextString,
+        },
+      };
+    });
+
+    if (changed) {
+      entryController.setInstances(wallsKey, updatedWalls, []);
     }
   }, [entryController, entryValues, modal.buildingPlanMeta, modal.repInfo?.preferredKey]);
   const modalNavigationSections = useMemo(() => {
