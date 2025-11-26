@@ -116,6 +116,8 @@ export function useBuildingPlanController({
       // Base permissions
       const base = {
         canSelect: true,
+        canMove: false,
+        canResize: false,
         canMoveResize: false,
         canDrawFloor: false,
         canDrawRoom: false,
@@ -128,13 +130,17 @@ export function useBuildingPlanController({
 
       if (mode === 'parent') {
         // View-only unless at least one room exists; no drawing
-        base.canMoveResize = hasAnyRooms;
+        base.canMove = hasAnyRooms;
+        base.canResize = hasAnyRooms;
+        base.canMoveResize = base.canMove && base.canResize;
         return base;
       }
 
       if (mode === 'floor-modal') {
         // Same as parent but scoped to a floor
-        base.canMoveResize = hasRoomsInScope;
+        base.canMove = hasRoomsInScope;
+        base.canResize = hasRoomsInScope;
+        base.canMoveResize = base.canMove && base.canResize;
         return base;
       }
 
@@ -142,6 +148,8 @@ export function useBuildingPlanController({
         // Full editing for current room (no adding floors/rooms from canvas)
         return {
           ...base,
+          canMove: true,
+          canResize: true,
           canMoveResize: true,
           canDrawWall: true,
           canDrawColumn: true,
@@ -162,6 +170,11 @@ export function useBuildingPlanController({
       hasFloors: mappedFloors.length > 0,
       hasAnyRooms,
       toolbarState,
+      // Back-compat for any consumers still checking the old combined flag
+      toolbarStateLegacy: {
+        ...toolbarState,
+        canMoveResize: toolbarState.canMove && toolbarState.canResize,
+      },
       scope: {
         floorId: scope.floorId || null,
         roomId: scope.roomId || null,

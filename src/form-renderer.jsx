@@ -107,6 +107,7 @@ function deepEqual(a, b) {
 // ---- Building Plan helpers ----
 const BP_NODE_KEYS = {
   floors: 'floors',
+  rooms: 'rooms',
 };
 
 function getBuildingPlanMetaEntry(metaList, dataName) {
@@ -131,6 +132,159 @@ function getBuildingPlanRepeatableKey(metaEntry, nodeKey) {
     return fromList.preferredKey || fromList.key;
   }
   return null;
+}
+
+function getBuildingPlanFieldDataName(metaEntry, nodeKey, originalDataName, fallback) {
+  const nodeMeta = metaEntry?.repeatablesByNodeKey?.[nodeKey];
+  if (!nodeMeta) return fallback;
+  if (nodeMeta.fieldsByOriginalDataName?.[originalDataName]?.dataName) {
+    return nodeMeta.fieldsByOriginalDataName[originalDataName].dataName;
+  }
+  const match = Array.isArray(nodeMeta.fields)
+    ? nodeMeta.fields.find((f) => f?.originalDataName === originalDataName && f?.dataName)
+    : null;
+  return match?.dataName || fallback;
+}
+
+function findMetaByRepeatableKey(buildingPlanMeta, repeatableKey) {
+  if (!Array.isArray(buildingPlanMeta) || !repeatableKey) return null;
+  for (const entry of buildingPlanMeta) {
+    if (!entry) continue;
+    const list = Array.isArray(entry.repeatables) ? entry.repeatables : [];
+    const match = list.find(
+      (r) => r?.preferredKey === repeatableKey || r?.key === repeatableKey
+    );
+    if (match) return entry;
+  }
+  return buildingPlanMeta[0] || null;
+}
+
+function buildDefaultRoomInstance(buildingPlanMeta, repeatableKey) {
+  const metaEntry = findMetaByRepeatableKey(buildingPlanMeta, repeatableKey);
+  if (!metaEntry) return null;
+
+  const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
+  if (!roomsKey || roomsKey !== repeatableKey) return null;
+
+  const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
+  const roomVerticesField = getBuildingPlanFieldDataName(
+    metaEntry,
+    BP_NODE_KEYS.rooms,
+    'room_vertices',
+    'room_vertices'
+  );
+  const wallGeometryField = wallsKey
+    ? getBuildingPlanFieldDataName(metaEntry, BP_NODE_KEYS.walls, 'wall_geometry', 'wall_geometry')
+    : null;
+  const wallLabelField = wallsKey
+    ? getBuildingPlanFieldDataName(metaEntry, BP_NODE_KEYS.walls, 'wall_label', 'wall_label')
+    : null;
+
+  const defaultGrid = 20;
+  const v0 = { x: 0, y: 0 };
+  const v1 = { x: 4, y: 0 };
+  const v2 = { x: 4, y: 3 };
+  const v3 = { x: 0, y: 3 };
+  const defaultRoomPayload = {
+    unit: 'meters',
+    gridSize: defaultGrid,
+    vertices: [v0, v1, v2, v3],
+  };
+
+  const walls = [];
+  if (wallsKey && wallGeometryField) {
+    const wallVertices = [
+      [v0, v1],
+      [v1, v2],
+      [v2, v3],
+      [v3, v0],
+    ];
+    wallVertices.forEach((pair, idx) => {
+      const payload = {
+        unit: 'meters',
+        gridSize: defaultGrid,
+        vertices: pair,
+      };
+      walls.push({
+        id: uuidv7(),
+        values: {
+          [wallGeometryField]: JSON.stringify(payload),
+          ...(wallLabelField ? { [wallLabelField]: `W#${idx + 1}` } : {}),
+        },
+        repeatable: {},
+      });
+    });
+  }
+
+  return {
+    id: uuidv7(),
+    values: {
+      [roomVerticesField]: JSON.stringify(defaultRoomPayload),
+    },
+    repeatable: wallsKey && walls.length > 0 ? { [wallsKey]: walls } : {},
+  };
+}
+
+function buildPerimeterWallsFromRoomValues(buildingPlanMeta, repeatableKey, roomValues = {}) {
+  const metaEntry = findMetaByRepeatableKey(buildingPlanMeta, repeatableKey);
+  if (!metaEntry) return null;
+  const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
+  if (!wallsKey) return null;
+
+  const roomVerticesField = getBuildingPlanFieldDataName(
+    metaEntry,
+    BP_NODE_KEYS.rooms,
+    'room_vertices',
+    'room_vertices'
+  );
+  const wallGeometryField = getBuildingPlanFieldDataName(
+    metaEntry,
+    BP_NODE_KEYS.walls,
+    'wall_geometry',
+    'wall_geometry'
+  );
+  const wallLabelField = getBuildingPlanFieldDataName(
+    metaEntry,
+    BP_NODE_KEYS.walls,
+    'wall_label',
+    'wall_label'
+  );
+
+  const raw = roomValues?.[roomVerticesField];
+  if (!raw) return null;
+  let parsed = null;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    parsed = null;
+  }
+  if (!parsed || !Array.isArray(parsed.vertices) || parsed.vertices.length < 3) {
+    return null;
+  }
+
+  const verts = parsed.vertices;
+  const gridSize = Number(parsed.gridSize) || 20;
+  const unit = parsed.unit || 'meters';
+  const walls = [];
+  for (let i = 0; i < verts.length; i += 1) {
+    const a = verts[i];
+    const b = verts[(i + 1) % verts.length];
+    if (!a || !b) continue;
+    const payload = { unit, gridSize, vertices: [a, b] };
+    const values = {
+      [wallGeometryField]: JSON.stringify(payload),
+    };
+    if (wallLabelField) {
+      values[wallLabelField] = `W#${i + 1}`;
+    }
+    walls.push({
+      id: uuidv7(),
+      values,
+      repeatable: {},
+    });
+  }
+
+  return { wallsKey, walls };
 }
 
 const TIMESTAMP_METADATA_FIELD_DEFS = [
@@ -612,7 +766,12 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
           };
         }
 
-        const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
+        // For BuildingPlanSection we intentionally hide its inner repeatables from navigation
+        // (canvas handles them via drilldowns), so do not descend for nav tree purposes.
+        const shouldDescend = el.type !== 'BuildingPlanSection';
+        const childNodes = shouldDescend
+          ? traverse(el.elements || [], nextSectionPath, nextDrilldownPath)
+          : [];
 
         if (
           hasSectionId &&
@@ -1042,10 +1201,11 @@ export function FormRenderer({
           repInfo,
           controller,
           initialInstance,
+          buildingPlanMeta,
         },
       ]);
     },
-    [formRepeatableController, repeatableMetadata]
+    [buildingPlanMeta, formRepeatableController, repeatableMetadata]
   );
 
   const handleRepeatableAdd = useCallback(
@@ -1055,6 +1215,10 @@ export function FormRenderer({
         return;
       }
       const label = field?.label || 'Repeatable Section';
+
+      // If adding a BuildingPlan room via modal, seed default vertices so the canvas has geometry
+      const initialInstance = buildDefaultRoomInstance(buildingPlanMeta, repeatableKey);
+
       openRepeatableModal(
         {
           repeatableKey,
@@ -1067,11 +1231,12 @@ export function FormRenderer({
           schema: finalSchema,
           engineOptions,
           parentValues: controller.buildParentValues(parentPath),
+          initialInstance,
         },
         controller
       );
     },
-    [engineOptions, finalSchema, formRepeatableController, openRepeatableModal]
+    [engineOptions, finalSchema, formRepeatableController, openRepeatableModal, buildingPlanMeta]
   );
 
   const handleRepeatableEdit = useCallback(
@@ -3218,12 +3383,26 @@ export function FormRenderer({
       handleRepeatableRemove(floorKey, floorId, repeatableContextPath);
     };
 
+    const repeatableApi = {
+      addInstance: (repeatableKey, options = {}) =>
+        addRepeatableInstance(repeatableKey, options),
+      updateInstance: (repeatableKey, instanceId, updater, parentPath = []) =>
+        updateRepeatableInstance(repeatableKey, instanceId, updater, parentPath),
+      removeInstance: (repeatableKey, instanceId, parentPath = []) =>
+        removeRepeatableInstance(repeatableKey, instanceId, parentPath),
+      setInstances: (repeatableKey, instances = [], parentPath = []) =>
+        setRepeatableInstances(repeatableKey, instances, parentPath),
+      getInstances: (repeatableKey, parentPath = []) =>
+        getRepeatableInstances(repeatableKey, parentPath),
+    };
+
     return (
       <BuildingPlanSectionView
         key={sectionId}
         section={field}
         buildingPlanMeta={buildingPlanMeta}
         repeatableState={repeatable}
+        repeatableApi={repeatableApi}
         onViewFloor={handleViewFloor}
         onRemoveFloor={handleRemoveFloor}
       />
@@ -3547,6 +3726,9 @@ function RepeatableSectionList({
 }) {
   const showInlineAddButton = variant !== 'drilldown';
   const showInlineBackButton = variant !== 'drilldown' && typeof onBack === 'function';
+  const addLabel =
+    field?.add_label ||
+    (field?.label ? `Add ${String(field.label).replace(/s\\b/i, '').trim()}` : 'Add');
   return (
     <div
       className={`${styles.repeatableList} ${
@@ -3569,7 +3751,7 @@ function RepeatableSectionList({
         {showInlineAddButton && !readOnly && (
           <button type="button" className={styles.repeatableAddButton} onClick={onAdd}>
             <Plus size={16} strokeWidth={1.8} />
-            Add
+            {addLabel}
           </button>
         )}
       </div>
@@ -3806,6 +3988,25 @@ function RepeatableEntryModal({
       showModalValidationList,
     ]
   );
+
+  // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing
+  useEffect(() => {
+    if (!modal.buildingPlanMeta || !entryController || !modal.repInfo?.preferredKey) return;
+    const wallsInfo = buildPerimeterWallsFromRoomValues(
+      modal.buildingPlanMeta,
+      modal.repInfo.preferredKey,
+      entryValues
+    );
+    if (!wallsInfo) return;
+    const { wallsKey, walls } = wallsInfo;
+    const existing = entryController.getInstances(wallsKey, []);
+    if (Array.isArray(existing) && existing.length > 0) {
+      return;
+    }
+    if (Array.isArray(walls) && walls.length > 0) {
+      entryController.setInstances(wallsKey, walls, []);
+    }
+  }, [entryController, entryValues, modal.buildingPlanMeta, modal.repInfo?.preferredKey]);
   const modalNavigationSections = useMemo(() => {
     if (!modalSectionTree || modalSectionTree.length === 0) {
       return [];
@@ -4221,6 +4422,7 @@ function RepeatableEntryModal({
 
   const handleNestedAdd = useCallback(
     (field, repeatableKey, parentPath = []) => {
+      const initialInstance = buildDefaultRoomInstance(modal.buildingPlanMeta, repeatableKey);
       openNestedModal(
         {
           repeatableKey,
@@ -4233,11 +4435,12 @@ function RepeatableEntryModal({
           schema: modal.schema,
           engineOptions: modal.engineOptions,
           parentValues: entryController.buildParentValues(parentPath),
+          initialInstance,
         },
         entryController
       );
     },
-    [entryController, modal.engineOptions, modal.schema, openNestedModal]
+    [entryController, modal.buildingPlanMeta, modal.engineOptions, modal.schema, openNestedModal]
   );
 
   const handleNestedEdit = useCallback(

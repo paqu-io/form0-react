@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useBuildingPlanController } from './controller.js';
-import { BuildingPlanCanvasPlaceholder } from './canvas-placeholder.jsx';
+import { BuildingPlanCanvasHost } from './canvas-host.jsx';
 import * as styles from '../form-renderer.css.js';
 import { ChevronRight, Trash2 } from 'lucide-react';
 
@@ -12,6 +12,7 @@ export function BuildingPlanSectionView({
   section,
   buildingPlanMeta,
   repeatableState,
+  repeatableApi,
   mode = 'parent',
   onViewFloor,
   onRemoveFloor,
@@ -50,7 +51,12 @@ export function BuildingPlanSectionView({
             gap: '16px',
           }}
         >
-          <BuildingPlanCanvasPlaceholder
+          <BuildingPlanCanvasHost
+            section={section}
+            buildingPlanMeta={buildingPlanMeta}
+            repeatableState={repeatableState}
+            repeatableApi={repeatableApi}
+            mode={mode}
             toolbarState={controller?.toolbarState || {}}
             scope={controller?.scope || {}}
           />
