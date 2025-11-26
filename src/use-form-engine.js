@@ -6,7 +6,7 @@ import {
   useState,
   useLayoutEffect,
 } from 'react';
-import { createFormEngine, validateSchema } from 'form0-core';
+import { createFormEngine, validateSchema, expandBuildingPlanSchema } from 'form0-core';
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import {
   buildRepeatableInfo,
@@ -124,17 +124,25 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
 
   useEffect(() => () => cleanupWorkerClient(), [cleanupWorkerClient]);
 
-  const preparedSchema = useMemo(() => {
-    if (!schema) return null;
+  const { schema: preparedSchema, buildingPlanMeta } = useMemo(() => {
+    if (!schema) return { schema: null, buildingPlanMeta: [] };
+
+    // Clone and ensure stable keys before expanding building plan nodes
     const copy = prepareSchema(schema);
-    const form = copy?.form;
+
+    // Expand BuildingPlanSection into scoped repeatables and collect meta
+    const { schema: expandedSchema, buildingPlanMeta = [] } = expandBuildingPlanSchema(copy);
+
+    const form = expandedSchema?.form;
     if (!form || !Array.isArray(form.elements)) {
       throw new Error('form0-react: schema.form.elements must be defined');
     }
-    // ensureSchemaKeys is invoked within prepareSchema, but call defensively
+
+    // Defensive: ensure any newly added elements still have keys
     ensureSchemaKeys(form.elements);
     validateSchema(form);
-    return copy;
+
+    return { schema: expandedSchema, buildingPlanMeta };
   }, [schema]);
 
   const repeatableMetadata = useMemo(() => {
@@ -973,6 +981,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     getRepeatableInstances,
     getRepeatableInstance,
     repeatableMetadata,
+    buildingPlanMeta,
   };
 }
 

@@ -12,6 +12,7 @@ import { FieldRenderer } from './field-renderer';
 import { NavigationTree } from './navigation-tree';
 import { ThemeProvider } from './theme-context';
 import * as styles from './form-renderer.css.js';
+import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import {
   standardThemeLight,
   standardThemeDark,
@@ -101,6 +102,35 @@ function deepEqual(a, b) {
     return true;
   }
   return false;
+}
+
+// ---- Building Plan helpers ----
+const BP_NODE_KEYS = {
+  floors: 'floors',
+};
+
+function getBuildingPlanMetaEntry(metaList, dataName) {
+  if (!Array.isArray(metaList) || metaList.length === 0) return null;
+  if (dataName) {
+    const match = metaList.find((entry) => entry?.dataName === dataName);
+    if (match) return match;
+  }
+  return metaList[0] || null;
+}
+
+function getBuildingPlanRepeatableKey(metaEntry, nodeKey) {
+  if (!metaEntry) return null;
+  const byKey = metaEntry.repeatablesByNodeKey?.[nodeKey];
+  if (byKey?.preferredKey || byKey?.key) {
+    return byKey.preferredKey || byKey.key;
+  }
+  const fromList = Array.isArray(metaEntry.repeatables)
+    ? metaEntry.repeatables.find((entry) => entry?.nodeKey === nodeKey)
+    : null;
+  if (fromList?.preferredKey || fromList?.key) {
+    return fromList.preferredKey || fromList.key;
+  }
+  return null;
 }
 
 const TIMESTAMP_METADATA_FIELD_DEFS = [
@@ -556,7 +586,9 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
         const sectionId = el.data_name || el.key;
         const hasSectionId = typeof sectionId === 'string' && sectionId.length > 0;
         const display =
-          el.type === 'RepeatableSection' ? 'drilldown' : el.display || 'inline';
+          el.type === 'RepeatableSection' || el.type === 'BuildingPlanSection'
+            ? 'drilldown'
+            : el.display || 'inline';
         const nextSectionPath = hasSectionId ? [...sectionPath, sectionId] : sectionPath;
         const shouldExtendDrilldown = display === 'drilldown' && hasSectionId;
         const nextDrilldownPath = shouldExtendDrilldown
@@ -582,7 +614,10 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
 
         const childNodes = traverse(el.elements || [], nextSectionPath, nextDrilldownPath);
 
-        if (hasSectionId && (el.type === 'Section' || el.type === 'RepeatableSection')) {
+        if (
+          hasSectionId &&
+          (el.type === 'Section' || el.type === 'RepeatableSection' || el.type === 'BuildingPlanSection')
+        ) {
           treeNodes.push({
             id: sectionId,
             label: el.label || el.data_name || 'Unnamed Section',
@@ -928,6 +963,7 @@ export function FormRenderer({
     setRepeatableInstances,
     getRepeatableInstances,
     getRepeatableInstance,
+    buildingPlanMeta,
   } = useFormEngine(schema, initialValues, overrideValues, engineOptions);
 
   const buildParentValuesForPath = useCallback(
@@ -1120,8 +1156,8 @@ export function FormRenderer({
   );
 
   useEffect(() => {
-    if (onSchemaReady) onSchemaReady(finalSchema);
-  }, [finalSchema]);
+    if (onSchemaReady) onSchemaReady(finalSchema, buildingPlanMeta);
+  }, [finalSchema, buildingPlanMeta, onSchemaReady]);
 
   useEffect(() => {
     loadEventTriggeredRef.current = false;
@@ -1931,21 +1967,100 @@ export function FormRenderer({
   const showNavigationPanel = hasNavigableSections || showRootValidationList;
 
   const activeRepeatableListContext = useMemo(() => {
-    if (!isRepeatableFirstPage) {
-      return null;
+    // Standard RepeatableSection first page
+    if (isRepeatableFirstPage) {
+      const field = activeDrilldownSectionInfo?.field;
+      const repeatableKey =
+        activeDrilldownSectionInfo?.repeatableKey || resolveRepeatableKey(field);
+      if (!field || !repeatableKey) {
+        return null;
+      }
+      return {
+        field,
+        repeatableKey,
+        parentPath: activeDrilldownSectionInfo?.repeatableParentPath || [],
+        kind: 'repeatable',
+      };
     }
-    const field = activeDrilldownSectionInfo?.field;
-    const repeatableKey =
-      activeDrilldownSectionInfo?.repeatableKey || resolveRepeatableKey(field);
-    if (!field || !repeatableKey) {
-      return null;
+
+    // BuildingPlanSection first page: map header Add to the Floors repeatable
+    if (
+      isFirstSpecialPage &&
+      activeDrilldownSectionInfo?.type === 'BuildingPlanSection' &&
+      activeDrilldownSectionInfo?.field
+    ) {
+      const bpField = activeDrilldownSectionInfo.field;
+      const metaEntry = getBuildingPlanMetaEntry(buildingPlanMeta, bpField.data_name);
+      const floorRepeatableKey = getBuildingPlanRepeatableKey(metaEntry, 'floors');
+
+      const findFirstRepeatable = (nodes = []) => {
+        for (const el of nodes || []) {
+          if (!el) continue;
+          if (el.type === 'RepeatableSection') return el;
+          const found = findFirstRepeatable(el.elements || []);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      const floorField = findFirstRepeatable(bpField.elements || []);
+      const repeatableKey = floorRepeatableKey || resolveRepeatableKey(floorField);
+
+      if (!floorField || !repeatableKey) {
+        return null;
+      }
+
+      return {
+        field: floorField,
+        repeatableKey,
+        parentPath: [], // Floors live at the top of BuildingPlanSection
+        kind: 'building-plan-floor',
+      };
     }
-    return {
-      field,
-      repeatableKey,
-      parentPath: activeDrilldownSectionInfo?.repeatableParentPath || [],
-    };
-  }, [activeDrilldownSectionInfo, isRepeatableFirstPage, resolveRepeatableKey]);
+
+    // BuildingPlanSection first page: treat similarly to repeatable for header controls
+    if (
+      isFirstSpecialPage &&
+      activeDrilldownSectionInfo?.type === 'BuildingPlanSection' &&
+      activeDrilldownSectionInfo?.field
+    ) {
+      const bpField = activeDrilldownSectionInfo.field;
+      const metaEntry = getBuildingPlanMetaEntry(buildingPlanMeta, bpField.data_name);
+      const floorRepeatableKey = getBuildingPlanRepeatableKey(metaEntry, 'floors');
+
+      const findFirstRepeatable = (nodes = []) => {
+        for (const el of nodes || []) {
+          if (!el) continue;
+          if (el.type === 'RepeatableSection') return el;
+          const found = findFirstRepeatable(el.elements || []);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      const floorField = findFirstRepeatable(bpField.elements || []);
+      const repeatableKey = floorRepeatableKey || resolveRepeatableKey(floorField);
+
+      if (!floorField || !repeatableKey) {
+        return null;
+      }
+
+      return {
+        field: floorField,
+        repeatableKey,
+        parentPath: [], // Floors live at the top of BuildingPlanSection
+        kind: 'building-plan-floor',
+      };
+    }
+
+    return null;
+  }, [
+    activeDrilldownSectionInfo,
+    buildingPlanMeta,
+    isFirstSpecialPage,
+    isRepeatableFirstPage,
+    resolveRepeatableKey,
+  ]);
 
   const handleRepeatableListAddFromHeader = useCallback(() => {
     if (!activeRepeatableListContext) {
@@ -2227,7 +2342,7 @@ export function FormRenderer({
     let rightAction = null;
     let secondaryRightAction = null;
 
-    if (isNestedDrilldownPage || isRepeatableFirstPage) {
+    if (isNestedDrilldownPage || isRepeatableFirstPage || (isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'BuildingPlanSection')) {
       leftAction = {
         id: 'back',
         label: 'Back',
@@ -2254,13 +2369,19 @@ export function FormRenderer({
       };
     }
 
-    const canShowRepeatableAdd =
-      primaryActionsAllowed && isRepeatableFirstPage && Boolean(activeRepeatableListContext);
+  const canShowRepeatableAdd =
+    primaryActionsAllowed &&
+    isFirstSpecialPage &&
+    Boolean(activeRepeatableListContext) &&
+    (activeRepeatableListContext.kind === 'repeatable' ||
+      activeRepeatableListContext.kind === 'building-plan-floor');
 
     if (canShowRepeatableAdd) {
+      const addLabel =
+        activeRepeatableListContext?.kind === 'building-plan-floor' ? 'Add Floor' : 'Add';
       rightAction = {
         id: 'add-repeatable',
-        label: 'Add',
+        label: addLabel,
         icon: Plus,
         variant: 'primary',
         onClick: isReadOnlyMode ? undefined : handleRepeatableListAddFromHeader,
@@ -3018,12 +3139,103 @@ export function FormRenderer({
     ]
   );
 
-  const renderElements = (
+  function renderBuildingPlanSectionNode(field, parentSectionPath, repeatableContextPath) {
+    const sectionId = field.data_name || field.key;
+    if (!sectionId) return null;
+
+    const sectionInfo = sectionMetadata[sectionId];
+    const drilldownPath = sectionInfo?.drilldownPath ?? [];
+    const isDescendantOfActive =
+      activeDrilldownPath.length > 0
+        ? isPathPrefix(activeDrilldownPath, drilldownPath)
+        : false;
+    const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
+    const isCurrentLevelActive =
+      isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
+
+    if (activeDrilldownPath.length > 0 && !isOnActivePath && !isDescendantOfActive) {
+      return null;
+    }
+
+    const metaEntry = getBuildingPlanMetaEntry(buildingPlanMeta, field.data_name);
+    const floorKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.floors);
+    const floorInstances =
+      floorKey && repeatable?.[floorKey] && Array.isArray(repeatable[floorKey])
+        ? repeatable[floorKey]
+        : [];
+    const floorCount = floorInstances.length;
+    const countLabel = `${floorCount} floor${floorCount === 1 ? '' : 's'}`;
+    const countPillClass =
+      floorCount === 0
+        ? `${styles.repeatableCountPill} ${styles.repeatableCountPillEmpty}`
+        : `${styles.repeatableCountPill} ${styles.repeatableCountPillFilled}`;
+
+    if (!isCurrentLevelActive) {
+      const label = field.label || 'Building Plan';
+      return (
+        <div key={sectionId} className={styles.drilldownInactive}>
+          <div className={styles.drilldownInfo}>
+            <span className={styles.drilldownLabel}>{label}</span>
+            <span className={countPillClass}>{countLabel}</span>
+          </div>
+          <button
+            type="button"
+            className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
+            onClick={() => {
+              setActiveDrilldownForSection(sectionId);
+              markNavigationInteraction();
+              focusSectionAfterNavigation(sectionId);
+            }}
+          >
+            <span>View</span>
+            <span className={styles.formNameActionIcon} aria-hidden="true">
+              <ChevronRight size={16} strokeWidth={1.8} />
+            </span>
+          </button>
+        </div>
+      );
+    }
+
+    // Resolve floor repeatable for actions (reuse metaEntry/floorKey above)
+    const findFirstRepeatable = (nodes = []) => {
+      for (const el of nodes || []) {
+        if (!el) continue;
+        if (el.type === 'RepeatableSection') return el;
+        const found = findFirstRepeatable(el.elements || []);
+        if (found) return found;
+      }
+      return null;
+    };
+    const floorField = findFirstRepeatable(field.elements || []);
+
+    const handleViewFloor = (floorId) => {
+      if (!floorField || !floorKey) return;
+      handleRepeatableEdit(floorField, floorKey, floorId, repeatableContextPath);
+    };
+
+    const handleRemoveFloor = (floorId) => {
+      if (!floorKey) return;
+      handleRepeatableRemove(floorKey, floorId, repeatableContextPath);
+    };
+
+    return (
+      <BuildingPlanSectionView
+        key={sectionId}
+        section={field}
+        buildingPlanMeta={buildingPlanMeta}
+        repeatableState={repeatable}
+        onViewFloor={handleViewFloor}
+        onRemoveFloor={handleRemoveFloor}
+      />
+    );
+  }
+
+  function renderElements(
     elements = [],
     parentSectionPath = [],
     insideSpecialSection = false,
     repeatableContextPath = []
-  ) => {
+  ) {
     // Update the ref based on whether we're inside a special section
     insideSpecialSectionRef.current = insideSpecialSection;
 
@@ -3071,27 +3283,7 @@ export function FormRenderer({
 
       // Handle BuildingPlanSection
       if (field.type === 'BuildingPlanSection') {
-        const sectionId = field.data_name || field.key;
-        if (!sectionId) {
-          return (
-            <React.Fragment key={field.key || Math.random()}>
-              {renderElements(field.elements || [], parentSectionPath, true, repeatableContextPath)}
-            </React.Fragment>
-          );
-        }
-
-        const sectionPath = [...parentSectionPath, sectionId];
-        return (
-          <div
-            key={sectionId}
-            className={styles.section}
-            ref={(node) => registerSectionNode(sectionId, node)}
-            tabIndex={-1}
-          >
-            <h3 className={styles.sectionHeader}>{field.label}</h3>
-            {renderElements(field.elements || [], sectionPath, true, repeatableContextPath)}
-          </div>
-        );
+        return renderBuildingPlanSectionNode(field, parentSectionPath, repeatableContextPath);
       }
 
       if (field.type === 'Section') {
@@ -3234,7 +3426,7 @@ export function FormRenderer({
         />
       );
     });
-  };
+  }
 
   return (
     <ThemeProvider themeClass={themeClass}>

@@ -1,4 +1,5 @@
 export { FormRenderer } from './form-renderer.jsx';
+export { useBuildingPlanController } from './building-plan/controller.js';
 export {
   registerFieldComponent,
   unregisterFieldComponent,
