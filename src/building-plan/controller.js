@@ -137,10 +137,11 @@ export function useBuildingPlanController({
       }
 
       if (mode === 'floor-modal') {
-        // Same as parent but scoped to a floor
+        // Floor modal: allow drawing rooms and adjusting existing geometry within this floor
         base.canMove = hasRoomsInScope;
         base.canResize = hasRoomsInScope;
         base.canMoveResize = base.canMove && base.canResize;
+        base.canDrawRoom = true;
         return base;
       }
 

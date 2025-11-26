@@ -13,6 +13,8 @@ import { NavigationTree } from './navigation-tree';
 import { ThemeProvider } from './theme-context';
 import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
+import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
+import { useBuildingPlanController } from './building-plan/controller.js';
 import {
   standardThemeLight,
   standardThemeDark,
@@ -37,6 +39,7 @@ import {
 } from 'lucide-react';
 import { uuidv7 } from './utils/uuid.js';
 import { useRepeatableInstanceEngine } from './use-repeatable-instance.js';
+import { createStructuredRecord, flattenFields } from 'form0-core';
 
 const SECTION_LIKE_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPlanSection']);
 const SPECIAL_SECTION_TYPES = new Set(['RepeatableSection', 'BuildingPlanSection']);
@@ -310,6 +313,20 @@ function rectFromVerticesList(vertices = []) {
   };
 }
 
+function findBuildingPlanSection(elements = [], dataName) {
+  for (const el of elements || []) {
+    if (!el || typeof el !== 'object') continue;
+    if (el.type === 'BuildingPlanSection' && (!dataName || el.data_name === dataName)) {
+      return el;
+    }
+    if (el.type === 'Section' || el.type === 'RepeatableSection') {
+      const found = findBuildingPlanSection(el.elements, dataName);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function parseVertexPayload(raw, { defaultUnit = 'meters', defaultGrid = 20 } = {}) {
   if (!raw) return { unit: defaultUnit, gridSize: defaultGrid, vertices: [] };
   let parsed = raw;
@@ -329,6 +346,30 @@ function parseVertexPayload(raw, { defaultUnit = 'meters', defaultGrid = 20 } = 
     gridSize: parsed.gridSize || defaultGrid,
     vertices,
   };
+}
+
+function toCanvasVertices(payload) {
+  const grid = Number(payload.gridSize) || 20;
+  if (!Array.isArray(payload.vertices)) return [];
+  if (payload.unit && String(payload.unit).toLowerCase().startsWith('meter')) {
+    return payload.vertices.map((p) => ({
+      x: Number(p?.x) * grid,
+      y: Number(p?.y) * grid,
+    }));
+  }
+  return payload.vertices.map((p) => ({ x: Number(p?.x) || 0, y: Number(p?.y) || 0 }));
+}
+
+function fromCanvasVertices(canvasVertices, payloadTemplate) {
+  const grid = Number(payloadTemplate.gridSize) || 20;
+  const unit = payloadTemplate.unit || 'meters';
+  if (unit && String(unit).toLowerCase().startsWith('meter')) {
+    return canvasVertices.map((p) => ({
+      x: Number(p?.x) / grid,
+      y: Number(p?.y) / grid,
+    }));
+  }
+  return canvasVertices.map((p) => ({ x: Number(p?.x) || 0, y: Number(p?.y) || 0 }));
 }
 
 function transformVerticesByRect(vertices, oldRect, newRect) {
@@ -922,6 +963,7 @@ export function FormRenderer({
   engineMode = 'main-thread',
   engineStoreMode = 'snapshot',
   showPrimaryActionsInViewMode = true,
+  fieldKeyMode = 'prefer-key',
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -1189,6 +1231,11 @@ export function FormRenderer({
     buildingPlanMeta,
   } = useFormEngine(schema, initialValues, overrideValues, engineOptions);
 
+  const flattenedSchemaFields = useMemo(
+    () => flattenFields(finalSchema?.form?.elements || []),
+    [finalSchema]
+  );
+
   const buildParentValuesForPath = useCallback(
     (path = []) => {
       let merged = { ...values };
@@ -1350,111 +1397,6 @@ export function FormRenderer({
     },
     [formRepeatableController, markRootDirty]
   );
-
-  const buildingPlanRoomCacheRef = useRef(new Map());
-
-  // Keep wall geometry in sync with room moves/resizes in the parent canvas (CLI parity)
-  useEffect(() => {
-    if (!Array.isArray(buildingPlanMeta) || buildingPlanMeta.length === 0) return;
-    const cache = buildingPlanRoomCacheRef.current;
-    const nextCache = new Map();
-
-    buildingPlanMeta.forEach((metaEntry) => {
-      if (!metaEntry) return;
-      const floorsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.floors);
-      const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
-      const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
-      if (!floorsKey || !roomsKey || !wallsKey) return;
-
-      const roomVerticesField = getBuildingPlanFieldDataName(
-        metaEntry,
-        BP_NODE_KEYS.rooms,
-        'room_vertices',
-        'room_vertices'
-      );
-      const wallGeometryField = getBuildingPlanFieldDataName(
-        metaEntry,
-        BP_NODE_KEYS.walls,
-        'wall_geometry',
-        'wall_geometry'
-      );
-      if (!roomVerticesField || !wallGeometryField) return;
-
-      const floors = formRepeatableController.getInstances(floorsKey, []) || [];
-      floors.forEach((floor) => {
-        const floorPath = [{ key: floorsKey, id: floor.id }];
-        const rooms =
-          floor?.repeatable && Array.isArray(floor.repeatable[roomsKey])
-            ? floor.repeatable[roomsKey]
-            : [];
-
-        rooms.forEach((room) => {
-          const roomPath = [...floorPath, { key: roomsKey, id: room.id }];
-          const roomPayload = parseVertexPayload(room?.values?.[roomVerticesField]);
-          const cacheKey = room.id;
-          const prevPayload = cache.get(cacheKey);
-          nextCache.set(cacheKey, roomPayload);
-
-          if (!prevPayload) {
-            return;
-          }
-
-          const oldRect = rectFromVerticesList(prevPayload.vertices);
-          const newRect = rectFromVerticesList(roomPayload.vertices);
-
-          if (
-            oldRect.x === newRect.x &&
-            oldRect.y === newRect.y &&
-            oldRect.width === newRect.width &&
-            oldRect.height === newRect.height
-          ) {
-            return;
-          }
-
-          const walls =
-            room?.repeatable && Array.isArray(room.repeatable[wallsKey])
-              ? room.repeatable[wallsKey]
-              : [];
-          if (walls.length === 0) return;
-
-          let changed = false;
-          const updatedWalls = walls.map((wall) => {
-            const wallPayload = parseVertexPayload(wall?.values?.[wallGeometryField], {
-              defaultUnit: roomPayload.unit,
-              defaultGrid: roomPayload.gridSize,
-            });
-            const nextVertices = transformVerticesByRect(
-              wallPayload.vertices,
-              oldRect,
-              newRect
-            );
-            const nextPayload = {
-              unit: wallPayload.unit || roomPayload.unit,
-              gridSize: wallPayload.gridSize || roomPayload.gridSize || 20,
-              vertices: nextVertices,
-            };
-            const nextString = JSON.stringify(nextPayload);
-            if (wall?.values?.[wallGeometryField] !== nextString) {
-              changed = true;
-            }
-            return {
-              ...wall,
-              values: {
-                ...(wall?.values || {}),
-                [wallGeometryField]: nextString,
-              },
-            };
-          });
-
-          if (changed) {
-            formRepeatableController.setInstances(wallsKey, updatedWalls, roomPath);
-          }
-        });
-      });
-    });
-
-    buildingPlanRoomCacheRef.current = nextCache;
-  }, [buildingPlanMeta, formRepeatableController, repeatable]);
 
   const persistRepeatableEntry = useCallback((modalConfig, payload) => {
     const { controller, repeatableKey, parentPath, mode } = modalConfig;
@@ -2078,10 +2020,28 @@ export function FormRenderer({
           created_at_server: timestampSnapshot.created_at_server ?? null,
           updated_at_server: timestampSnapshot.updated_at_server ?? null,
         };
-        const result =
+        const rawValues =
           statusFieldName && statusFieldName.length > 0
             ? { ...submissionWithTimestamps, [statusFieldName]: statusValue ?? null }
             : submissionWithTimestamps;
+
+        let structuredRecord = rawValues;
+        try {
+          structuredRecord = createStructuredRecord(
+            { values: rawValues, repeatable: cloneDeepSafe(repeatable) },
+            flattenedSchemaFields,
+            {
+              fieldKeyMode,
+              originalElements: finalSchema?.form?.elements || [],
+              title_field: finalSchema?.form?.title_field || null,
+              status_field: finalSchema?.form?.status_field || null,
+              '@status': statusFieldName ? statusValue ?? null : undefined,
+            }
+          );
+        } catch (err) {
+          console.error('form0-react: failed to build structured record, falling back to raw values', err);
+          structuredRecord = rawValues;
+        }
         const meta = {
           repeatable: cloneDeepSafe(repeatable),
           timestamps: {
@@ -2091,8 +2051,9 @@ export function FormRenderer({
             updated_at_server: timestampSnapshot?.updated_at_server ?? null,
           },
           validationSummary,
+          rawValues,
         };
-        const submitReturn = onSubmit(result, meta);
+        const submitReturn = onSubmit(structuredRecord, meta);
         if (submitReturn && typeof submitReturn.then === 'function') {
           submitReturn
             .then(() => {
@@ -2116,6 +2077,9 @@ export function FormRenderer({
       timestampsRef,
       touchUpdatedAt,
       closeOverlayAfterSubmit,
+      flattenedSchemaFields,
+      finalSchema,
+      fieldKeyMode,
     ]
   );
 
@@ -4041,7 +4005,6 @@ function RepeatableEntryModal({
 
   useEffect(() => {
     setEntrySubmitCount(0);
-    prevRoomVerticesRef.current = null;
   }, [modal.modalId]);
 
   const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
@@ -4135,6 +4098,138 @@ function RepeatableEntryModal({
     ]
   );
 
+  // Building Plan modal canvas context (scoped to current floor/room)
+  const buildingPlanModalContext = useMemo(() => {
+    if (!modal.buildingPlanMeta || !modal.repInfo?.preferredKey) return null;
+    const metaEntry = findMetaByRepeatableKey(modal.buildingPlanMeta, modal.repInfo.preferredKey);
+    if (!metaEntry) return null;
+
+    const bpSection =
+      findBuildingPlanSection(modal.schema?.form?.elements || [], metaEntry.dataName) || null;
+
+    const floorsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.floors);
+    const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
+    const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
+    if (!floorsKey || !roomsKey) return null;
+
+    const isRoomModal = modal.repInfo.preferredKey === roomsKey;
+    const isFloorModal = modal.repInfo.preferredKey === floorsKey;
+    if (!isRoomModal && !isFloorModal) return null;
+
+    const floorId =
+      (isRoomModal && modal.parentValues?.id) ||
+      (isRoomModal && modal.parentValues?.floor_id) ||
+      modal.instanceId ||
+      `__bp_floor_${modal.modalId}`;
+
+    const roomInstance = {
+      id: modal.instanceId,
+      values: entryValues,
+      repeatable: entryRepeatable,
+    };
+
+    const floorInstance = {
+      id: floorId,
+      values: isRoomModal ? modal.parentValues || {} : entryValues,
+      repeatable: {
+        ...(isRoomModal ? { [roomsKey]: [roomInstance] } : entryRepeatable || {}),
+      },
+    };
+
+    const repeatableState = {
+      [floorsKey]: [floorInstance],
+    };
+
+    const toLocalPath = (path = []) => {
+      const normalized = Array.isArray(path) ? [...path] : [];
+      if (isRoomModal) {
+        if (normalized[0]?.key === floorsKey) {
+          normalized.shift();
+        }
+        if (normalized[0]?.key === roomsKey) {
+          normalized.shift();
+        }
+      } else if (isFloorModal) {
+        if (normalized[0]?.key === floorsKey) {
+          normalized.shift();
+        }
+      }
+      return normalized;
+    };
+
+    const repeatableApi = {
+      addInstance: (repeatableKey, { parentPath = [], seedValues = {}, instanceId } = {}) => {
+        const localPath = toLocalPath(parentPath);
+        const instances = entryController.getInstances(repeatableKey, localPath) || [];
+        const created = {
+          id: instanceId || uuidv7(),
+          values: { ...(seedValues || {}) },
+          repeatable: {},
+        };
+        entryController.setInstances(repeatableKey, [...instances, created], localPath);
+        return created;
+      },
+      updateInstance: (repeatableKey, instanceId, updater, parentPath = []) => {
+        const localPath = toLocalPath(parentPath);
+        const instances = entryController.getInstances(repeatableKey, localPath) || [];
+        const next = instances.map((inst) => {
+          if (inst.id !== instanceId) return inst;
+          return typeof updater === 'function'
+            ? updater(cloneDeepSafe(inst))
+            : { ...inst, ...updater };
+        });
+        entryController.setInstances(repeatableKey, next, localPath);
+      },
+      removeInstance: (repeatableKey, instanceId, parentPath = []) => {
+        const localPath = toLocalPath(parentPath);
+        const instances = entryController.getInstances(repeatableKey, localPath) || [];
+        const next = instances.filter((inst) => inst.id !== instanceId);
+        entryController.setInstances(repeatableKey, next, localPath);
+      },
+      setInstances: (repeatableKey, instances = [], parentPath = []) =>
+        entryController.setInstances(repeatableKey, instances, toLocalPath(parentPath)),
+      getInstances: (repeatableKey, parentPath = []) =>
+        entryController.getInstances(repeatableKey, toLocalPath(parentPath)),
+    };
+
+    const scope = {
+      floorId: floorId || null,
+      roomId: isRoomModal ? modal.instanceId : null,
+    };
+
+    const mode = isRoomModal ? 'room-modal' : 'floor-modal';
+
+    return {
+      metaEntry,
+      repeatableState,
+      repeatableApi,
+      scope,
+      mode,
+      floorsKey,
+      roomsKey,
+      wallsKey,
+      section: bpSection,
+    };
+  }, [
+    entryController,
+    entryRepeatable,
+    entryValues,
+    modal.buildingPlanMeta,
+    modal.instanceId,
+    modal.modalId,
+    modal.parentValues,
+    modal.repInfo?.preferredKey,
+    modal.schema?.form?.elements,
+  ]);
+
+  const buildingPlanModalController = useBuildingPlanController({
+    sectionDataName: buildingPlanModalContext?.metaEntry?.dataName,
+    buildingPlanMeta: modal.buildingPlanMeta,
+    repeatableState: buildingPlanModalContext?.repeatableState || {},
+    mode: buildingPlanModalContext?.mode || 'parent',
+    scope: buildingPlanModalContext?.scope || {},
+  });
+
   const entryElements = modal.repInfo?.field?.elements || [];
   const modalFieldLookup = useMemo(() => buildFieldLookup(entryElements), [entryElements]);
   const {
@@ -4178,112 +4273,7 @@ function RepeatableEntryModal({
     }
   }, [entryController, entryValues, modal.buildingPlanMeta, modal.repInfo?.preferredKey]);
 
-  const prevRoomVerticesRef = useRef(null);
-
-  // Keep wall geometry aligned when room vertices change (mirrors CLI behavior)
-  useEffect(() => {
-    if (!modal.buildingPlanMeta || !entryController || !modal.repInfo?.preferredKey) return;
-
-    const metaEntry = findMetaByRepeatableKey(modal.buildingPlanMeta, modal.repInfo.preferredKey);
-    const roomsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.rooms);
-    if (!roomsKey || roomsKey !== modal.repInfo.preferredKey) {
-      return;
-    }
-    const wallsKey = getBuildingPlanRepeatableKey(metaEntry, BP_NODE_KEYS.walls);
-    if (!wallsKey) return;
-
-    const roomVerticesField = getBuildingPlanFieldDataName(
-      metaEntry,
-      BP_NODE_KEYS.rooms,
-      'room_vertices',
-      'room_vertices'
-    );
-    const wallGeometryField = getBuildingPlanFieldDataName(
-      metaEntry,
-      BP_NODE_KEYS.walls,
-      'wall_geometry',
-      'wall_geometry'
-    );
-    if (!roomVerticesField || !wallGeometryField) return;
-
-    const rawRoom = entryValues?.[roomVerticesField];
-    if (!rawRoom) return;
-    let parsedRoom = null;
-    try {
-      parsedRoom = typeof rawRoom === 'string' ? JSON.parse(rawRoom) : rawRoom;
-    } catch {
-      parsedRoom = null;
-    }
-    if (!parsedRoom || !Array.isArray(parsedRoom.vertices)) return;
-
-    const currentRoomPayload = {
-      unit: parsedRoom.unit || 'meters',
-      gridSize: parsedRoom.gridSize || 20,
-      vertices: parsedRoom.vertices,
-    };
-
-    const previousRoomPayload = prevRoomVerticesRef.current;
-    prevRoomVerticesRef.current = currentRoomPayload;
-    if (!previousRoomPayload) {
-      return;
-    }
-
-    const oldRect = rectFromVerticesList(previousRoomPayload.vertices);
-    const newRect = rectFromVerticesList(currentRoomPayload.vertices);
-    const deltaX = newRect.x - oldRect.x;
-    const deltaY = newRect.y - oldRect.y;
-
-    const walls = entryController.getInstances(wallsKey, []);
-    if (!Array.isArray(walls) || walls.length === 0) {
-      return;
-    }
-
-    const transformPoint = (point) => {
-      if (!point) return { x: 0, y: 0 };
-      if (oldRect.width === 0 || oldRect.height === 0) {
-        return { x: Number(point.x) + deltaX, y: Number(point.y) + deltaY };
-      }
-      const relX = (Number(point.x) - oldRect.x) / oldRect.width;
-      const relY = (Number(point.y) - oldRect.y) / oldRect.height;
-      return {
-        x: newRect.x + relX * newRect.width,
-        y: newRect.y + relY * newRect.height,
-      };
-    };
-
-    let changed = false;
-    const updatedWalls = walls.map((wall) => {
-      const rawWall = wall?.values?.[wallGeometryField];
-      let parsedWall = null;
-      try {
-        parsedWall = typeof rawWall === 'string' ? JSON.parse(rawWall) : rawWall;
-      } catch {
-        parsedWall = null;
-      }
-      const wallVertices = Array.isArray(parsedWall?.vertices) ? parsedWall.vertices : [];
-      const nextVertices = wallVertices.map((p) => transformPoint(p));
-      const nextPayload = {
-        unit: parsedWall?.unit || currentRoomPayload.unit,
-        gridSize: parsedWall?.gridSize || currentRoomPayload.gridSize || 20,
-        vertices: nextVertices,
-      };
-      const nextString = JSON.stringify(nextPayload);
-      if (rawWall !== nextString) {
-        changed = true;
-      }
-      return {
-        ...wall,
-        values: {
-          ...(wall?.values || {}),
-          [wallGeometryField]: nextString,
-        },
-      };
-    });
-
-    if (changed) {
-      entryController.setInstances(wallsKey, updatedWalls, []);
-    }
-  }, [entryController, entryValues, modal.buildingPlanMeta, modal.repInfo?.preferredKey]);
+  // Wall geometry updates now rely on legacy canvas/controller behavior; no extra syncing here.
   const modalNavigationSections = useMemo(() => {
     if (!modalSectionTree || modalSectionTree.length === 0) {
       return [];
@@ -5125,39 +5115,111 @@ function RepeatableEntryModal({
                 ) : (
                   <>
                     {repeatableMetadataSection}
-                    <RepeatableEntryForm
-                      elements={modal.repInfo?.field?.elements || []}
-                      contextPath={[]}
-                      state={{
-                        values: entryValues,
-                        visible: entryVisible,
-                        required: entryRequired,
-                        read_only: entryReadOnlyState,
-                        errors: entryErrors,
-                      }}
-                      setValue={setEntryValue}
-                      engineStore={entryEngineStore}
-                      engineStoreMode={entryEngineStoreMode}
-                      labelPosition={labelPosition}
-                      labelWidthPercent={labelWidthPercent}
-                      controller={entryController}
-                      onAddRepeatable={handleNestedAdd}
-                      onEditRepeatable={handleNestedEdit}
-                      onRemoveRepeatable={handleNestedRemove}
-                      resolveRepeatableKey={resolveRepeatableKey}
-                      readOnly={readOnly}
-                      onEnterRepeatable={handleEnterNestedRepeatable}
-                      registerSectionNode={registerModalSectionNode}
-                      onFieldFocus={handleModalFieldFocus}
-                      highlightedSections={modalHighlightedSections}
-                      submitCount={entrySubmitCount}
-                      registerFieldNode={registerModalFieldNode}
-                      sectionMetadata={modalSectionMetadata}
-                      activeDrilldownPath={modalActiveDrilldownPath}
-                      activeDrilldownSectionId={modalActiveDrilldownSectionId}
-                      activateDrilldownSection={setModalActiveDrilldownForSection}
-                      focusSection={focusModalSectionAfterNavigation}
-                    />
+                    {buildingPlanModalContext ? (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(360px, 1fr) minmax(360px, 1fr)',
+                          gap: '16px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'var(--form0-color-surface, #f8f8f9)',
+                            border: '1px solid var(--form0-color-border-subtle, #e5e7eb)',
+                            borderRadius: '8px',
+                            padding: '8px',
+                          }}
+                        >
+                          <BuildingPlanCanvasHost
+                            section={
+                              buildingPlanModalContext.section || {
+                                data_name:
+                                  buildingPlanModalContext.metaEntry?.dataName ||
+                                  buildingPlanModalContext.metaEntry?.key,
+                                label: modal.label || 'Building Plan',
+                                elements: [],
+                              }
+                            }
+                            buildingPlanMeta={modal.buildingPlanMeta}
+                            repeatableState={buildingPlanModalContext.repeatableState}
+                            repeatableApi={buildingPlanModalContext.repeatableApi}
+                            mode={buildingPlanModalContext.mode}
+                            scope={buildingPlanModalContext.scope}
+                            toolbarState={buildingPlanModalController?.toolbarState}
+                          />
+                        </div>
+                        <div>
+                          <RepeatableEntryForm
+                            elements={modal.repInfo?.field?.elements || []}
+                            contextPath={[]}
+                            state={{
+                              values: entryValues,
+                              visible: entryVisible,
+                              required: entryRequired,
+                              read_only: entryReadOnlyState,
+                              errors: entryErrors,
+                            }}
+                            setValue={setEntryValue}
+                            engineStore={entryEngineStore}
+                            engineStoreMode={entryEngineStoreMode}
+                            labelPosition={labelPosition}
+                            labelWidthPercent={labelWidthPercent}
+                            controller={entryController}
+                            onAddRepeatable={handleNestedAdd}
+                            onEditRepeatable={handleNestedEdit}
+                            onRemoveRepeatable={handleNestedRemove}
+                            resolveRepeatableKey={resolveRepeatableKey}
+                            readOnly={readOnly}
+                            onEnterRepeatable={handleEnterNestedRepeatable}
+                            registerSectionNode={registerModalSectionNode}
+                            onFieldFocus={handleModalFieldFocus}
+                            highlightedSections={modalHighlightedSections}
+                            submitCount={entrySubmitCount}
+                            registerFieldNode={registerModalFieldNode}
+                            sectionMetadata={modalSectionMetadata}
+                            activeDrilldownPath={modalActiveDrilldownPath}
+                            activeDrilldownSectionId={modalActiveDrilldownSectionId}
+                            activateDrilldownSection={setModalActiveDrilldownForSection}
+                            focusSection={focusModalSectionAfterNavigation}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <RepeatableEntryForm
+                        elements={modal.repInfo?.field?.elements || []}
+                        contextPath={[]}
+                        state={{
+                          values: entryValues,
+                          visible: entryVisible,
+                          required: entryRequired,
+                          read_only: entryReadOnlyState,
+                          errors: entryErrors,
+                        }}
+                        setValue={setEntryValue}
+                        engineStore={entryEngineStore}
+                        engineStoreMode={entryEngineStoreMode}
+                        labelPosition={labelPosition}
+                        labelWidthPercent={labelWidthPercent}
+                        controller={entryController}
+                        onAddRepeatable={handleNestedAdd}
+                        onEditRepeatable={handleNestedEdit}
+                        onRemoveRepeatable={handleNestedRemove}
+                        resolveRepeatableKey={resolveRepeatableKey}
+                        readOnly={readOnly}
+                        onEnterRepeatable={handleEnterNestedRepeatable}
+                        registerSectionNode={registerModalSectionNode}
+                        onFieldFocus={handleModalFieldFocus}
+                        highlightedSections={modalHighlightedSections}
+                        submitCount={entrySubmitCount}
+                        registerFieldNode={registerModalFieldNode}
+                        sectionMetadata={modalSectionMetadata}
+                        activeDrilldownPath={modalActiveDrilldownPath}
+                        activeDrilldownSectionId={modalActiveDrilldownSectionId}
+                        activateDrilldownSection={setModalActiveDrilldownForSection}
+                        focusSection={focusModalSectionAfterNavigation}
+                      />
+                    )}
                   </>
                 )}
               </div>
