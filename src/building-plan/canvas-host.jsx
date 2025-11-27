@@ -168,14 +168,14 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
   };
 
   const setFieldValueAtContextShim = (fieldName, path = [], value) => {
-    if (!fieldName) return;
+    if (!fieldName) return false;
     const parentPath = path.slice(0, -1);
     const segment = path[path.length - 1];
-    if (!segment || typeof segment.key !== 'string') return;
+    if (!segment || typeof segment.key !== 'string') return false;
     const list = getRepeatableInstancesByIndexPath(segment.key, parentPath);
-    if (!Array.isArray(list)) return;
+    if (!Array.isArray(list)) return false;
     const instance = list[segment.index];
-    if (!instance) return;
+    if (!instance) return false;
     const parentIdPath = indexPathToIdPath(parentPath) || [];
     if (typeof repeatableApi.updateInstance === 'function') {
       repeatableApi.updateInstance(segment.key, instance.id, (current) => {
@@ -202,6 +202,7 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
       if (!localInstance) return;
       localInstance.values = { ...(localInstance.values || {}), [fieldName]: value };
     });
+    return true;
   };
 
   const formatContextPath = (path = []) =>

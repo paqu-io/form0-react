@@ -3961,6 +3961,7 @@ function RepeatableEntryModal({
     read_only: entryReadOnlyState,
     errors: entryErrors,
     setValue: setEntryValue,
+    setValues: setEntryValues,
     repeatable: entryRepeatable,
     setRepeatableInstances: setEntryRepeatableInstances,
     getRepeatableInstances: getEntryRepeatableInstances,
@@ -4171,6 +4172,28 @@ function RepeatableEntryModal({
       },
       updateInstance: (repeatableKey, instanceId, updater, parentPath = []) => {
         const localPath = toLocalPath(parentPath);
+        const isRoomRootUpdate =
+          isRoomModal && repeatableKey === roomsKey && localPath.length === 0 && instanceId === modal.instanceId;
+
+        if (isRoomRootUpdate) {
+          const currentRoom = {
+            id: modal.instanceId,
+            values: entryValues,
+            repeatable: entryRepeatable,
+          };
+          const nextRoom =
+            typeof updater === 'function'
+              ? updater(cloneDeepSafe(currentRoom))
+              : { ...currentRoom, ...updater };
+
+          if (nextRoom && nextRoom.values && typeof setEntryValues === 'function') {
+            setEntryValues(nextRoom.values);
+          } else if (nextRoom && nextRoom.values) {
+            Object.entries(nextRoom.values).forEach(([key, value]) => setEntryValue(key, value));
+          }
+          return;
+        }
+
         const instances = entryController.getInstances(repeatableKey, localPath) || [];
         const next = instances.map((inst) => {
           if (inst.id !== instanceId) return inst;
@@ -4214,6 +4237,8 @@ function RepeatableEntryModal({
     entryController,
     entryRepeatable,
     entryValues,
+    setEntryValue,
+    setEntryValues,
     modal.buildingPlanMeta,
     modal.instanceId,
     modal.modalId,
