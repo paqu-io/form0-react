@@ -116,7 +116,18 @@ const BP_NODE_KEYS = {
   beams: 'beams',
   doors: 'doors',
   windows: 'windows',
+  objects: 'objects',
 };
+
+const BP_MODAL_TARGET_NODE_KEYS = new Set([
+  BP_NODE_KEYS.floors,
+  BP_NODE_KEYS.rooms,
+  BP_NODE_KEYS.columns,
+  BP_NODE_KEYS.beams,
+  BP_NODE_KEYS.objects,
+  BP_NODE_KEYS.windows,
+  BP_NODE_KEYS.doors,
+]);
 
 function getBuildingPlanMetaEntry(metaList, dataName) {
   if (!Array.isArray(metaList) || metaList.length === 0) return null;
@@ -140,6 +151,20 @@ function getBuildingPlanRepeatableKey(metaEntry, nodeKey) {
     return fromList.preferredKey || fromList.key;
   }
   return null;
+}
+
+function isBuildingPlanModalTarget(repeatableKey, buildingPlanMeta) {
+  if (!repeatableKey || !Array.isArray(buildingPlanMeta)) return false;
+  for (const entry of buildingPlanMeta) {
+    if (!entry) continue;
+    for (const nodeKey of BP_MODAL_TARGET_NODE_KEYS) {
+      const key = getBuildingPlanRepeatableKey(entry, nodeKey);
+      if (key && key === repeatableKey) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function getBuildingPlanFieldDataName(metaEntry, nodeKey, originalDataName, fallback) {
@@ -964,6 +989,7 @@ export function FormRenderer({
   engineStoreMode = 'snapshot',
   showPrimaryActionsInViewMode = true,
   fieldKeyMode = 'prefer-key',
+  buildingPlanModalWidthOverride = null,
   ...rest
 }) {
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
@@ -1275,6 +1301,19 @@ export function FormRenderer({
     ]
   );
 
+  const buildModalLayoutOverrides = useCallback(
+    (repeatableKey) => {
+      if (
+        buildingPlanModalWidthOverride &&
+        isBuildingPlanModalTarget(repeatableKey, buildingPlanMeta)
+      ) {
+        return { formWidth: buildingPlanModalWidthOverride };
+      }
+      return null;
+    },
+    [buildingPlanMeta, buildingPlanModalWidthOverride]
+  );
+
   const openRepeatableModal = useCallback(
     (config, controller = formRepeatableController) => {
       if (!controller) {
@@ -1351,10 +1390,11 @@ export function FormRenderer({
           controller,
           initialInstance,
           buildingPlanMeta,
+          layoutOverrides: buildModalLayoutOverrides(repeatableKey),
         },
       ]);
     },
-    [buildingPlanMeta, formRepeatableController, repeatableMetadata]
+    [buildModalLayoutOverrides, buildingPlanMeta, formRepeatableController, repeatableMetadata]
   );
 
   const handleRepeatableAdd = useCallback(
@@ -4060,6 +4100,10 @@ function RepeatableEntryModal({
     setEntryMode('edit');
   }, []);
 
+  const repeatableModalStyle = modal?.layoutOverrides?.formWidth
+    ? { width: modal.layoutOverrides.formWidth, maxWidth: '100%' }
+    : undefined;
+
   const entryValidationFields = useMemo(
     () =>
       collectValidatableFields(modal.repInfo?.field?.elements || [], {
@@ -5142,7 +5186,7 @@ function RepeatableEntryModal({
         className={styles.repeatableModalOverlay}
         style={{ zIndex: 60 + (modal.stackIndex || 0) * 2 }}
       >
-        <div className={`${styles.repeatableModal} ${themeClass}`}>
+        <div className={`${styles.repeatableModal} ${themeClass}`} style={repeatableModalStyle}>
           <ModeBanner mode={entryMode} />
           <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
             <div className={styles.repeatableModalHeaderTopRow}>
