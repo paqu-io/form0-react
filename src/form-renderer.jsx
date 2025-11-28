@@ -1296,6 +1296,35 @@ export function FormRenderer({
       }
       const modalId = config.modalId || uuidv7();
       const instanceId = config.instanceId || uuidv7();
+      const parentPath = Array.isArray(config.parentPath) ? config.parentPath : [];
+
+      const computeInstanceIndex = () => {
+        if (!controller || typeof controller.getInstances !== 'function') {
+          return null;
+        }
+        const instances = controller.getInstances(repeatableKey, parentPath) || [];
+        const idx = instances.findIndex((inst) => inst && inst.id === instanceId);
+        return idx >= 0 ? idx : null;
+      };
+
+      const computeParentIndices = () => {
+        if (!controller || typeof controller.getInstances !== 'function') {
+          return [];
+        }
+        const indices = [];
+        let cursorPath = [];
+        parentPath.forEach((segment) => {
+          if (!segment?.key || !segment?.id) {
+            indices.push(-1);
+            return;
+          }
+          const list = controller.getInstances(segment.key, cursorPath) || [];
+          indices.push(list.findIndex((inst) => inst && inst.id === segment.id));
+          cursorPath = [...cursorPath, { key: segment.key, id: segment.id }];
+        });
+        return indices;
+      };
+
       const initialInstance =
         config.initialInstance ||
         {
@@ -1303,12 +1332,21 @@ export function FormRenderer({
           values: config.initialValues || {},
           repeatable: config.initialRepeatable || {},
         };
+      const instanceIndex =
+        config.instanceIndex != null ? config.instanceIndex : computeInstanceIndex();
+      const parentIndices =
+        config.parentIndices && Array.isArray(config.parentIndices)
+          ? config.parentIndices
+          : computeParentIndices();
       setRepeatableModals((prev) => [
         ...prev,
         {
           ...config,
           modalId,
           instanceId,
+          parentPath,
+          instanceIndex,
+          parentIndices,
           repInfo,
           controller,
           initialInstance,
@@ -4129,6 +4167,24 @@ function RepeatableEntryModal({
       modal.instanceId ||
       `__bp_floor_${modal.modalId}`;
 
+    // Preserve the original floor index so floor tabs render the correct number
+    let floorIndex = null;
+    if (Array.isArray(modal.parentIndices) && modal.parentIndices.length > 0) {
+      floorIndex = modal.parentIndices[0];
+    }
+    if (!Number.isInteger(floorIndex) && Number.isInteger(modal.instanceIndex)) {
+      floorIndex = modal.instanceIndex;
+    }
+    if (!Number.isInteger(floorIndex) && modal.controller?.getInstances) {
+      const floorList = modal.controller.getInstances(floorsKey, []) || [];
+      const found = floorList.findIndex((floor) => floor && floor.id === floorId);
+      if (found >= 0) {
+        floorIndex = found;
+      } else if (modal.mode === 'create') {
+        floorIndex = floorList.length;
+      }
+    }
+
     const roomInstance = {
       id: modal.instanceId,
       values: entryValues,
@@ -4141,6 +4197,7 @@ function RepeatableEntryModal({
       repeatable: {
         ...(isRoomModal ? { [roomsKey]: [roomInstance] } : entryRepeatable || {}),
       },
+      ...(Number.isInteger(floorIndex) ? { _bpOriginalIndex: floorIndex } : {}),
     };
 
     const repeatableState = {
@@ -4242,10 +4299,14 @@ function RepeatableEntryModal({
     setEntryValues,
     modal.buildingPlanMeta,
     modal.instanceId,
+    modal.instanceIndex,
+    modal.parentIndices,
+    modal.controller,
     modal.modalId,
     modal.parentValues,
     modal.repInfo?.preferredKey,
     modal.schema?.form?.elements,
+    modal.mode,
   ]);
 
   const buildingPlanModalController = useBuildingPlanController({

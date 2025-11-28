@@ -1829,6 +1829,7 @@ export class BuildingPlanController {
       floors: this.floors.map((floor) => ({
         id: floor.id,
         index: floor.index,
+        displayIndex: floor.displayIndex,
         label: floor.label,
       })),
       activeFloorIndex: this.activeFloorIndex,
@@ -1997,11 +1998,19 @@ export class BuildingPlanController {
         floorInstance && floorInstance.id
           ? floorInstance.id
           : this.formRenderer.formatContextPath(floorPath);
-      const label = 'Floor #' + (floorIndex + 1);
+      const displayIndex =
+        floorInstance && Number.isInteger(floorInstance._bpOriginalIndex)
+          ? floorInstance._bpOriginalIndex
+          : floorIndex;
+      const label =
+        (floorInstance && floorInstance.values && floorInstance.values.floor_name) ||
+        (floorInstance && floorInstance.values && floorInstance.values.name) ||
+        'Floor #' + (displayIndex + 1);
 
       this.floors.push({
         id: floorId,
         index: floorIndex,
+        displayIndex,
         label,
         path: floorPath,
       });

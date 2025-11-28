@@ -2644,7 +2644,10 @@ export class BuildingPlanCanvas {
     this.floors.forEach((floor) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = floor.label || 'Floor #' + (floor.index + 1);
+      const displayNumber =
+        typeof floor.displayIndex === 'number' ? floor.displayIndex + 1 : floor.index + 1;
+      const buttonLabel = floor.label || 'Floor #' + displayNumber;
+      button.textContent = buttonLabel;
       button.className = 'building-plan-floor-tab';
       if (floor.index === this.activeFloorIndex) {
         button.classList.add('active');
