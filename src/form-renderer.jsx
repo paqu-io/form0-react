@@ -3966,6 +3966,7 @@ function RepeatableEntryModal({
     setRepeatableInstances: setEntryRepeatableInstances,
     getRepeatableInstances: getEntryRepeatableInstances,
     getRepeatableInstance: getEntryRepeatableInstance,
+    updateRepeatableInstance: updateEntryRepeatableInstance,
     repeatableMetadata: entryRepeatableMetadata,
     engineStore: entryEngineStore,
     engineStoreMode: entryEngineStoreMode,
@@ -4088,6 +4089,9 @@ function RepeatableEntryModal({
         setEntryRepeatableInstances(repeatableKey, instances, parentPath),
       getInstance: (repeatableKey, instanceId, parentPath = []) =>
         getEntryRepeatableInstance(repeatableKey, instanceId, parentPath),
+      // Use functional update for batching compatibility
+      updateInstance: (repeatableKey, instanceId, updater, parentPath = []) =>
+        updateEntryRepeatableInstance(repeatableKey, instanceId, updater, parentPath),
       buildParentValues: buildEntryParentValues,
     }),
     [
@@ -4096,6 +4100,7 @@ function RepeatableEntryModal({
       getEntryRepeatableInstance,
       getEntryRepeatableInstances,
       setEntryRepeatableInstances,
+      updateEntryRepeatableInstance,
     ]
   );
 
@@ -4194,14 +4199,9 @@ function RepeatableEntryModal({
           return;
         }
 
-        const instances = entryController.getInstances(repeatableKey, localPath) || [];
-        const next = instances.map((inst) => {
-          if (inst.id !== instanceId) return inst;
-          return typeof updater === 'function'
-            ? updater(cloneDeepSafe(inst))
-            : { ...inst, ...updater };
-        });
-        entryController.setInstances(repeatableKey, next, localPath);
+        // Use functional update for proper React state batching.
+        // This ensures multiple wall updates don't overwrite each other.
+        entryController.updateInstance(repeatableKey, instanceId, updater, localPath);
       },
       removeInstance: (repeatableKey, instanceId, parentPath = []) => {
         const localPath = toLocalPath(parentPath);

@@ -30,6 +30,23 @@ function createRepeatableKeyLookup(meta) {
     (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.key ||
     null;
 
+  const getDataName = (nodeKey) =>
+    meta?.repeatablesByNodeKey?.[nodeKey]?.dataName ||
+    meta?.repeatablesByNodeKey?.[nodeKey]?.data_name ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.dataName ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.data_name ||
+    null;
+
+  // Build a map from data_name to preferred key for exact matching
+  const dataNameToKey = {};
+  for (const nodeKey of Object.values(NODE_KEYS)) {
+    const dataName = getDataName(nodeKey);
+    const key = get(nodeKey);
+    if (dataName && key) {
+      dataNameToKey[dataName] = key;
+    }
+  }
+
   return {
     floors: get(NODE_KEYS.floors),
     rooms: get(NODE_KEYS.rooms),
@@ -38,6 +55,8 @@ function createRepeatableKeyLookup(meta) {
     beams: get(NODE_KEYS.beams),
     doors: get(NODE_KEYS.doors),
     windows: get(NODE_KEYS.windows),
+    // Expose the dataName-to-key map for exact matching
+    byDataName: dataNameToKey,
   };
 }
 
@@ -54,23 +73,26 @@ function resolveContainer(rootRepeatableState, path = []) {
   return cursor;
 }
 
-function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
+function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
+  // Resolve the repeatable key for a section.
+  // Uses exact data_name matching against meta configuration to ensure
+  // keys used for storing/looking up instances match the repeatableState keys.
   const getKeyForSection = (section) => {
-    const dataName = section?.data_name || section?.dataName || section?.key || null;
-    // Try matching against known node keys by data name heuristics
-    if (dataName && dataName.includes('floor')) return keyLookup.floors || dataName;
-    if (dataName && dataName.includes('room')) return keyLookup.rooms || dataName;
-    if (dataName && dataName.includes('wall')) return keyLookup.walls || dataName;
-    if (dataName && dataName.includes('column')) return keyLookup.columns || dataName;
-    if (dataName && dataName.includes('beam')) return keyLookup.beams || dataName;
-    if (dataName && dataName.includes('door')) return keyLookup.doors || dataName;
-    if (dataName && dataName.includes('window')) return keyLookup.windows || dataName;
+    const dataName = section?.data_name || section?.dataName || null;
+
+    // First, try exact match against meta's dataName-to-key mapping.
+    // This ensures we use the same keys as repeatableState.
+    if (dataName && keyLookup.byDataName?.[dataName]) {
+      return keyLookup.byDataName[dataName];
+    }
+
+    // Fall back to section's own preferred_key/key/data_name.
+    // This handles cases where the section isn't in the meta.
     return (
       section?.preferred_key ||
       section?.preferredKey ||
       section?.key ||
-      section?.data_name ||
-      section?.dataName ||
+      dataName ||
       null
     );
   };
@@ -111,9 +133,9 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
 
   const addRepeatableInstanceShim = (section, path = [], options = {}) => {
     const key = getKeyForSection(section);
-    if (!key || typeof repeatableApi.addInstance !== 'function') return null;
+    if (!key || typeof repeatableApiRef.current?.addInstance !== 'function') return null;
     const parentIdPath = indexPathToIdPath(path) || [];
-    const created = repeatableApi.addInstance(key, {
+    const created = repeatableApiRef.current.addInstance(key, {
       parentPath: parentIdPath,
       seedValues: options.seedValues,
       instanceId: options.instanceId,
@@ -142,13 +164,13 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
 
   const removeRepeatableInstanceShim = (section, parentPath = [], index = null) => {
     const key = getKeyForSection(section);
-    if (!key || typeof repeatableApi.removeInstance !== 'function') return;
+    if (!key || typeof repeatableApiRef.current?.removeInstance !== 'function') return;
     const list = getRepeatableInstancesByIndexPath(key, parentPath);
     if (!Array.isArray(list)) return;
     const target = index != null ? list[index] : null;
     if (!target) return;
     const parentIdPath = indexPathToIdPath(parentPath) || [];
-    repeatableApi.removeInstance(key, target.id, parentIdPath);
+    repeatableApiRef.current.removeInstance(key, target.id, parentIdPath);
     mutateLocalRepeatable((draft) => {
       let container = draft;
       for (const segment of parentPath) {
@@ -177,8 +199,8 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
     const instance = list[segment.index];
     if (!instance) return false;
     const parentIdPath = indexPathToIdPath(parentPath) || [];
-    if (typeof repeatableApi.updateInstance === 'function') {
-      repeatableApi.updateInstance(segment.key, instance.id, (current) => {
+    if (typeof repeatableApiRef.current?.updateInstance === 'function') {
+      repeatableApiRef.current.updateInstance(segment.key, instance.id, (current) => {
         const next = { ...current, values: { ...(current?.values || {}) } };
         next.values[fieldName] = value;
         return next;
@@ -213,9 +235,10 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApi }) {
   return {
     formRenderer: {
       getPreferredKey(section) {
-        return (
-          section?.preferred_key || section?.preferredKey || section?.key || section?.data_name || null
-        );
+        // Use the same key resolution as getKeyForSection for consistency.
+        // This ensures walls (and other repeatables) are stored and looked up
+        // under the same key, preventing coordinate update failures.
+        return getKeyForSection(section);
       },
       getRepeatableInstances: getRepeatableInstancesByIndexPath,
       formatContextPath,
@@ -271,7 +294,7 @@ export function BuildingPlanCanvasHost({
     const { formRenderer, formStateManager } = makeAdapters({
       repeatableRef,
       keyLookup,
-      repeatableApi: repeatableApiRef.current,
+      repeatableApiRef,
     });
 
     const controller = new LegacyBuildingPlanController(
