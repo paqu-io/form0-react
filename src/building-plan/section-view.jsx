@@ -39,9 +39,6 @@ export function BuildingPlanSectionView({
 
   return (
     <div className={styles.section} data-type="building-plan-section">
-      <div style={headerStyle}>
-        <div className={styles.sectionHeader}>{section?.label || 'Building Plan'}</div>
-      </div>
 
       <div style={{ padding: 0 }}>
         <div

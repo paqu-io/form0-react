@@ -2391,13 +2391,13 @@ export class BuildingPlanCanvas {
     if (!this.floorTabsContainer) return;
     this.floorTabsContainer.innerHTML = '';
 
-    if (!this.floors || this.floors.length === 0) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'building-plan-floor-placeholder';
-      placeholder.textContent = 'Add a floor to enable drawing';
-      this.floorTabsContainer.appendChild(placeholder);
-      return;
-    }
+    // if (!this.floors || this.floors.length === 0) {
+    //   const placeholder = document.createElement('div');
+    //   placeholder.className = 'building-plan-floor-placeholder';
+    //   placeholder.textContent = 'Add a floor to enable drawing';
+    //   this.floorTabsContainer.appendChild(placeholder);
+    //   return;
+    // }
 
     this.floors.forEach((floor) => {
       const button = document.createElement('button');
