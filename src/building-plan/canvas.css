@@ -13,6 +13,16 @@
   min-height: 360px;
 }
 
+.building-plan-canvas-panel-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* Isolate stacking context so zoom controls don't escape to overlay modals */
+  isolation: isolate;
+}
+
 .building-plan-canvas-panel {
   flex: 1;
   min-width: 0;
@@ -124,7 +134,55 @@
 }
 
 .building-plan-floor-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed #c5c5c5;
+  background: transparent;
+  color: #9a9a9a;
+  border-radius: 4px;
+  padding: 4px 10px;
   font-size: 13px;
-  color: #6c6c6c;
-  padding: 4px 0;
+  cursor: default;
+  position: relative;
+  min-height: 26px;
+}
+
+.building-plan-floor-placeholder::before {
+  content: '+';
+  font-size: 14px;
+  font-weight: 500;
+  color: #b5b5b5;
+}
+
+/* Tooltip for floor placeholder */
+.building-plan-floor-placeholder[data-tooltip] {
+  position: relative;
+}
+
+.building-plan-floor-placeholder[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #171717;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-floor-placeholder[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
 }

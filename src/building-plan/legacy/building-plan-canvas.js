@@ -41,6 +41,13 @@ const DEFAULT_BEAM_WIDTH_M = 0.25;
 const DEFAULT_BEAM_HEIGHT_M = 0.4;
 const MIN_OPENING_RATIO = 0.05;
 const ROUND_DECIMALS = 3;
+
+// Zoom configuration
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.25;
+const ZOOM_WHEEL_SENSITIVITY = 0.002;
+
 const DEFAULT_LABEL_SETTINGS = {
   rooms: true,
   walls: true,
@@ -258,6 +265,16 @@ export class BuildingPlanCanvas {
       this.controller.setGridSize(this.gridSize);
     }
 
+    // Zoom and pan state
+    this.zoomLevel = 1;
+    this.panOffset = { x: 0, y: 0 };
+    this.onZoomChange = null; // Callback for React integration
+
+    // Panning state (always allowed, even in readOnly mode)
+    this.isPanning = false;
+    this.panStartPoint = null;
+    this.panStartOffset = null;
+
     this.unsubscribe = null;
     this.floorTabsContainer = null;
 
@@ -282,6 +299,7 @@ export class BuildingPlanCanvas {
       this.canvas.removeEventListener('mousemove', this.boundMouseMove);
       window.removeEventListener('mouseup', this.boundMouseUp);
       this.canvas.removeEventListener('mouseleave', this.boundMouseLeave);
+      this.canvas.removeEventListener('wheel', this.boundWheelHandler);
     }
     if (this.unsubscribe) {
       this.unsubscribe();
@@ -298,6 +316,108 @@ export class BuildingPlanCanvas {
     if (changed) {
       this.render();
     }
+  }
+
+  // ─── Zoom Methods ────────────────────────────────────────────────────────────
+
+  /**
+   * Set the zoom level, clamped to valid range.
+   * @param {number} level - New zoom level
+   * @param {Object} [focalPoint] - Optional point to zoom toward (canvas coordinates)
+   */
+  setZoom(level, focalPoint = null) {
+    const prevZoom = this.zoomLevel;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, level));
+
+    if (newZoom === prevZoom) return;
+
+    // If a focal point is provided, adjust pan to keep that point stationary
+    if (focalPoint) {
+      // Convert focal point to world coordinates at old zoom
+      const worldX = (focalPoint.x - this.panOffset.x) / prevZoom;
+      const worldY = (focalPoint.y - this.panOffset.y) / prevZoom;
+
+      // Calculate new pan offset to keep focal point at same screen position
+      this.panOffset.x = focalPoint.x - worldX * newZoom;
+      this.panOffset.y = focalPoint.y - worldY * newZoom;
+    }
+
+    this.zoomLevel = newZoom;
+    this.notifyZoomChange();
+    this.render();
+  }
+
+  /**
+   * Get the current zoom level.
+   */
+  getZoom() {
+    return this.zoomLevel;
+  }
+
+  /**
+   * Zoom in by one step.
+   */
+  zoomIn() {
+    const center = this.getCanvasCenter();
+    this.setZoom(this.zoomLevel + ZOOM_STEP, center);
+  }
+
+  /**
+   * Zoom out by one step.
+   */
+  zoomOut() {
+    const center = this.getCanvasCenter();
+    this.setZoom(this.zoomLevel - ZOOM_STEP, center);
+  }
+
+  /**
+   * Reset zoom to 100% and center the view.
+   */
+  resetZoom() {
+    this.zoomLevel = 1;
+    this.panOffset = { x: 0, y: 0 };
+    this.notifyZoomChange();
+    this.render();
+  }
+
+  /**
+   * Get the center point of the canvas in screen coordinates.
+   */
+  getCanvasCenter() {
+    return {
+      x: this.canvas.width / 2,
+      y: this.canvas.height / 2,
+    };
+  }
+
+  /**
+   * Notify listeners of zoom level changes.
+   */
+  notifyZoomChange() {
+    if (typeof this.onZoomChange === 'function') {
+      this.onZoomChange(this.zoomLevel);
+    }
+  }
+
+  /**
+   * Handle mouse wheel for zooming.
+   */
+  handleWheel(event) {
+    // Prevent default scroll behavior
+    event.preventDefault();
+
+    // Get mouse position relative to canvas
+    const rect = this.canvas.getBoundingClientRect();
+    const focalPoint = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+
+    // Calculate zoom delta (negative deltaY = zoom in)
+    const delta = -event.deltaY * ZOOM_WHEEL_SENSITIVITY;
+    const newZoom = this.zoomLevel * (1 + delta);
+
+    this.setZoom(newZoom, focalPoint);
   }
 
   shouldShowLabel(type) {
@@ -473,11 +593,13 @@ export class BuildingPlanCanvas {
     this.boundMouseMove = (event) => this.handleMouseMove(event);
     this.boundMouseUp = (event) => this.handleMouseUp(event);
     this.boundMouseLeave = () => this.handleMouseLeave();
+    this.boundWheelHandler = (event) => this.handleWheel(event);
 
     this.canvas.addEventListener('mousedown', this.boundMouseDown);
     this.canvas.addEventListener('mousemove', this.boundMouseMove);
     window.addEventListener('mouseup', this.boundMouseUp);
     this.canvas.addEventListener('mouseleave', this.boundMouseLeave);
+    this.canvas.addEventListener('wheel', this.boundWheelHandler, { passive: false });
   }
 
   subscribeToController() {
@@ -679,7 +801,18 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseDown(event) {
-    // Block all interactions in read-only mode
+    // Panning with middle mouse button or space+left click (always allowed)
+    if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
+      event.preventDefault();
+      const rect = this.canvas.getBoundingClientRect();
+      this.isPanning = true;
+      this.panStartPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      this.panStartOffset = { ...this.panOffset };
+      this.canvas.style.cursor = 'grabbing';
+      return;
+    }
+
+    // Block all other interactions in read-only mode
     if (this.readOnly) return;
 
     const caps = getCapabilities(this.controller);
@@ -1073,7 +1206,20 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseMove(event) {
-    // Block all interactions in read-only mode
+    // Handle panning (always allowed)
+    if (this.isPanning && this.panStartPoint && this.panStartOffset) {
+      const rect = this.canvas.getBoundingClientRect();
+      const currentX = event.clientX - rect.left;
+      const currentY = event.clientY - rect.top;
+      this.panOffset = {
+        x: this.panStartOffset.x + (currentX - this.panStartPoint.x),
+        y: this.panStartOffset.y + (currentY - this.panStartPoint.y),
+      };
+      this.render();
+      return;
+    }
+
+    // Block all other interactions in read-only mode
     if (this.readOnly) return;
 
     const point = this.getCanvasPoint(event);
@@ -1437,7 +1583,16 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseUp(event) {
-    // Block all interactions in read-only mode
+    // Stop panning (always allowed)
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.panStartPoint = null;
+      this.panStartOffset = null;
+      this.updateCursor();
+      return;
+    }
+
+    // Block all other interactions in read-only mode
     if (this.readOnly) return;
 
     const point = this.getCanvasPoint(event);
@@ -1681,11 +1836,29 @@ export class BuildingPlanCanvas {
     this.render();
   }
 
+  /**
+   * Convert screen coordinates to world (canvas) coordinates,
+   * accounting for zoom and pan.
+   */
   getCanvasPoint(event) {
     const rect = this.canvas.getBoundingClientRect();
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
+
+    // Convert screen coordinates to world coordinates
     return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: (screenX - this.panOffset.x) / this.zoomLevel,
+      y: (screenY - this.panOffset.y) / this.zoomLevel,
+    };
+  }
+
+  /**
+   * Convert world coordinates to screen coordinates.
+   */
+  worldToScreen(worldPoint) {
+    return {
+      x: worldPoint.x * this.zoomLevel + this.panOffset.x,
+      y: worldPoint.y * this.zoomLevel + this.panOffset.y,
     };
   }
 
@@ -1702,12 +1875,34 @@ export class BuildingPlanCanvas {
     };
   }
 
+  /**
+   * Get the effective snap size based on current zoom level.
+   * At higher zoom levels, use finer snapping.
+   * At lower zoom levels, use coarser snapping.
+   *
+   * Thresholds:
+   * - zoom <= 0.5: snap to 5m (gridSize * 5)
+   * - zoom < 1.5: snap to 1m (gridSize)
+   * - zoom >= 1.5: snap to 10cm (gridSize / 10)
+   */
+  getEffectiveSnapSize() {
+    if (this.zoomLevel <= 0.5) {
+      return this.gridSize * 5; // 5m snap at very low zoom
+    }
+    if (this.zoomLevel >= 1.5) {
+      return this.gridSize / 10; // 10cm snap at high zoom
+    }
+    return this.gridSize; // 1m snap at normal zoom
+  }
+
   snapCoordinate(value) {
-    return Math.round(value / this.gridSize) * this.gridSize;
+    const snapSize = this.getEffectiveSnapSize();
+    return Math.round(value / snapSize) * snapSize;
   }
 
   snapSize(value) {
-    return Math.max(this.gridSize, Math.round(value / this.gridSize) * this.gridSize);
+    const snapSize = this.getEffectiveSnapSize();
+    return Math.max(snapSize, Math.round(value / snapSize) * snapSize);
   }
 
   snapPoint(point) {
@@ -2171,10 +2366,28 @@ export class BuildingPlanCanvas {
   render() {
     if (!this.ctx) return;
 
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const ctx = this.ctx;
+    const { width, height } = this.canvas;
+
+    // Clear at native resolution (no transform)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    // Apply zoom and pan transform
+    ctx.setTransform(
+      this.zoomLevel,
+      0,
+      0,
+      this.zoomLevel,
+      this.panOffset.x,
+      this.panOffset.y
+    );
+
     this.drawGrid();
 
     if (!this.hasFloors) {
+      // Draw overlay without transform to cover full canvas
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.drawNoFloorOverlay();
       return;
     }
@@ -2207,6 +2420,9 @@ export class BuildingPlanCanvas {
       };
       this.drawDraftRoom(snapped);
     }
+
+    // Reset transform for any subsequent operations
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   computeLabelRect(text, anchor, { position = 'top', paddingX = LABEL_PADDING_X, paddingY = LABEL_PADDING_Y } = {}) {
@@ -2415,13 +2631,15 @@ export class BuildingPlanCanvas {
     if (!this.floorTabsContainer) return;
     this.floorTabsContainer.innerHTML = '';
 
-    // if (!this.floors || this.floors.length === 0) {
-    //   const placeholder = document.createElement('div');
-    //   placeholder.className = 'building-plan-floor-placeholder';
-    //   placeholder.textContent = 'Add a floor to enable drawing';
-    //   this.floorTabsContainer.appendChild(placeholder);
-    //   return;
-    // }
+    // Show ghost placeholder when no floors exist
+    if (!this.floors || this.floors.length === 0) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'building-plan-floor-placeholder';
+      placeholder.textContent = 'No floors';
+      placeholder.setAttribute('data-tooltip', 'Add a floor to begin drawing');
+      this.floorTabsContainer.appendChild(placeholder);
+      return;
+    }
 
     this.floors.forEach((floor) => {
       const button = document.createElement('button');
@@ -2541,44 +2759,161 @@ export class BuildingPlanCanvas {
     ctx.restore();
   }
 
-  drawGrid() {
+  /**
+   * Calculate the visible world bounds based on canvas size, zoom, and pan.
+   */
+  getVisibleWorldBounds() {
     const { width, height } = this.canvas;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.strokeStyle = '#e6e6e6';
-    ctx.lineWidth = 1;
+    return {
+      minX: -this.panOffset.x / this.zoomLevel,
+      minY: -this.panOffset.y / this.zoomLevel,
+      maxX: (width - this.panOffset.x) / this.zoomLevel,
+      maxY: (height - this.panOffset.y) / this.zoomLevel,
+    };
+  }
 
-    for (let x = 0; x <= width; x += this.gridSize) {
+  drawGrid() {
+    const ctx = this.ctx;
+    const bounds = this.getVisibleWorldBounds();
+
+    // Add padding to ensure grid covers edges
+    const padding = this.gridSize * 2;
+
+    // Adjust line width to remain consistent regardless of zoom
+    const baseLineWidth = 1 / this.zoomLevel;
+
+    // Determine grid configuration based on zoom level
+    const showFineGrid = this.zoomLevel >= 1.5;
+    const showCoarseGrid = this.zoomLevel <= 0.5;
+    const fineGridSize = this.gridSize / 10; // 10cm subdivisions
+    const coarseGridSize = this.gridSize * 5; // 5m major lines
+
+    // Calculate primary grid bounds (1m)
+    const startX = Math.floor((bounds.minX - padding) / this.gridSize) * this.gridSize;
+    const startY = Math.floor((bounds.minY - padding) / this.gridSize) * this.gridSize;
+    const endX = Math.ceil((bounds.maxX + padding) / this.gridSize) * this.gridSize;
+    const endY = Math.ceil((bounds.maxY + padding) / this.gridSize) * this.gridSize;
+
+    // Draw fine grid first (behind primary grid) - only when zoomed in
+    if (showFineGrid) {
+    ctx.save();
+      ctx.strokeStyle = '#f0f0f0';
+      ctx.lineWidth = 0.5 / this.zoomLevel;
+
+      const fineStartX = Math.floor((bounds.minX - padding) / fineGridSize) * fineGridSize;
+      const fineStartY = Math.floor((bounds.minY - padding) / fineGridSize) * fineGridSize;
+      const fineEndX = Math.ceil((bounds.maxX + padding) / fineGridSize) * fineGridSize;
+      const fineEndY = Math.ceil((bounds.maxY + padding) / fineGridSize) * fineGridSize;
+
+      // Draw fine vertical lines (skip primary grid lines)
+      for (let x = fineStartX; x <= fineEndX; x += fineGridSize) {
+        if (Math.abs(x % this.gridSize) < 0.001) continue;
       ctx.beginPath();
-      ctx.moveTo(x + 0.5, 0);
-      ctx.lineTo(x + 0.5, height);
+        ctx.moveTo(x, fineStartY);
+        ctx.lineTo(x, fineEndY);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= height; y += this.gridSize) {
+      // Draw fine horizontal lines (skip primary grid lines)
+      for (let y = fineStartY; y <= fineEndY; y += fineGridSize) {
+        if (Math.abs(y % this.gridSize) < 0.001) continue;
       ctx.beginPath();
-      ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(width, y + 0.5);
+        ctx.moveTo(fineStartX, y);
+        ctx.lineTo(fineEndX, y);
       ctx.stroke();
     }
 
     ctx.restore();
+    }
 
+    // Draw primary grid (1m lines)
+    // When zoomed out, make these lighter as they become secondary
+    ctx.save();
+    ctx.strokeStyle = showCoarseGrid ? '#ebebeb' : '#e6e6e6';
+    ctx.lineWidth = showCoarseGrid ? 0.5 / this.zoomLevel : baseLineWidth;
+
+    for (let x = startX; x <= endX; x += this.gridSize) {
+      // When showing coarse grid, skip lines that aren't on 5m boundaries
+      if (showCoarseGrid && Math.abs(x % coarseGridSize) >= 0.001) {
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, endY);
+        ctx.stroke();
+      } else if (!showCoarseGrid) {
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, endY);
+        ctx.stroke();
+      }
+    }
+
+    for (let y = startY; y <= endY; y += this.gridSize) {
+      if (showCoarseGrid && Math.abs(y % coarseGridSize) >= 0.001) {
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(endX, y);
+        ctx.stroke();
+      } else if (!showCoarseGrid) {
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(endX, y);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+
+    // Draw coarse grid (5m lines) when zoomed out - these are the prominent lines
+    if (showCoarseGrid) {
+      ctx.save();
+      ctx.strokeStyle = '#d0d0d0';
+      ctx.lineWidth = 1.5 / this.zoomLevel;
+
+      const coarseStartX = Math.floor((bounds.minX - padding) / coarseGridSize) * coarseGridSize;
+      const coarseStartY = Math.floor((bounds.minY - padding) / coarseGridSize) * coarseGridSize;
+      const coarseEndX = Math.ceil((bounds.maxX + padding) / coarseGridSize) * coarseGridSize;
+      const coarseEndY = Math.ceil((bounds.maxY + padding) / coarseGridSize) * coarseGridSize;
+
+      for (let x = coarseStartX; x <= coarseEndX; x += coarseGridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, coarseStartY);
+        ctx.lineTo(x, coarseEndY);
+        ctx.stroke();
+      }
+
+      for (let y = coarseStartY; y <= coarseEndY; y += coarseGridSize) {
+        ctx.beginPath();
+        ctx.moveTo(coarseStartX, y);
+        ctx.lineTo(coarseEndX, y);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    // Draw origin axes (thicker, different color)
     ctx.save();
     ctx.strokeStyle = '#9fb3d9';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 / this.zoomLevel;
     ctx.beginPath();
-    ctx.moveTo(0.5, 0);
-    ctx.lineTo(0.5, height);
-    ctx.moveTo(0, 0.5);
-    ctx.lineTo(width, 0.5);
+    // Y axis (at x=0)
+    if (0 >= startX && 0 <= endX) {
+      ctx.moveTo(0, startY);
+      ctx.lineTo(0, endY);
+    }
+    // X axis (at y=0)
+    if (0 >= startY && 0 <= endY) {
+      ctx.moveTo(startX, 0);
+      ctx.lineTo(endX, 0);
+    }
     ctx.stroke();
 
+    // Draw origin label
     ctx.fillStyle = '#55607a';
-    ctx.font = '11px sans-serif';
+    ctx.font = `${11 / this.zoomLevel}px sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('0,0', 6, 4);
+    ctx.fillText('0,0', 6 / this.zoomLevel, 4 / this.zoomLevel);
     ctx.restore();
   }
 

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
 import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
 import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
+import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import './canvas.css';
 
@@ -285,6 +286,9 @@ export function BuildingPlanCanvasHost({
   // Track active tool mode for the new toolbar
   const [activeToolMode, setActiveToolMode] = useState(TOOL_MODES.SELECT);
 
+  // Track zoom level for the zoom controls
+  const [zoomLevel, setZoomLevel] = useState(1);
+
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
     setActiveToolMode(newMode);
@@ -299,6 +303,28 @@ export function BuildingPlanCanvasHost({
     const canvas = canvasRef.current;
     if (canvas && typeof canvas.clearSelection === 'function') {
       canvas.clearSelection();
+    }
+  }, []);
+
+  // Zoom control handlers
+  const handleZoomIn = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.zoomIn === 'function') {
+      canvas.zoomIn();
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.zoomOut === 'function') {
+      canvas.zoomOut();
+    }
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.resetZoom === 'function') {
+      canvas.resetZoom();
     }
   }, []);
 
@@ -385,6 +411,11 @@ export function BuildingPlanCanvasHost({
     // Apply once on mount
     applyToolbarGating(toolbarState);
 
+    // Wire up zoom change callback
+    canvas.onZoomChange = (level) => {
+      setZoomLevel(level);
+    };
+
     controllerRef.current = controller;
     canvasRef.current = canvas;
 
@@ -441,7 +472,16 @@ export function BuildingPlanCanvasHost({
         onClearSelection={handleClearSelection}
         disabled={readOnly}
       />
+      <div className="building-plan-canvas-panel-wrapper">
       <div ref={containerRef} className="building-plan-canvas-panel" />
+        <ZoomControls
+          zoomLevel={zoomLevel}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onReset={handleZoomReset}
+          disabled={readOnly}
+        />
+      </div>
     </div>
   );
 }
