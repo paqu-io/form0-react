@@ -128,25 +128,20 @@ export function useBuildingPlanController({
         canDrawWindow: false,
       };
 
+      // Parent canvas: select only (no move, no resize)
       if (mode === 'parent') {
-        // View-only unless at least one room exists; no drawing
-        base.canMove = hasAnyRooms;
-        base.canResize = hasAnyRooms;
-        base.canMoveResize = base.canMove && base.canResize;
         return base;
       }
 
-      if (mode === 'floor-modal') {
-        // Floor modal: allow drawing rooms and adjusting existing geometry within this floor
-        base.canMove = hasRoomsInScope;
-        base.canResize = hasRoomsInScope;
-        base.canMoveResize = base.canMove && base.canResize;
-        base.canDrawRoom = true;
+      // Floor canvas/modal: select + move (no resize)
+      if (mode === 'floor-modal' || mode === 'floor') {
+        base.canMove = true;
+        base.canDrawRoom = true; // Can draw rooms in floor view
         return base;
       }
 
-      if (mode === 'room-modal') {
-        // Full editing for current room (no adding floors/rooms from canvas)
+      // Room canvas/modal: select + move + resize, full drawing
+      if (mode === 'room-modal' || mode === 'room') {
         return {
           ...base,
           canMove: true,

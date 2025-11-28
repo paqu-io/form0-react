@@ -3538,6 +3538,7 @@ export function FormRenderer({
         repeatableApi={repeatableApi}
         onViewFloor={handleViewFloor}
         onRemoveFloor={handleRemoveFloor}
+        readOnly={isReadOnlyMode}
       />
     );
   }
@@ -5172,6 +5173,7 @@ function RepeatableEntryModal({
                             mode={buildingPlanModalContext.mode}
                             scope={buildingPlanModalContext.scope}
                             toolbarState={buildingPlanModalController?.toolbarState}
+                            readOnly={readOnly}
                           />
                         </div>
                         <div>

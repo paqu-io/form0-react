@@ -219,10 +219,12 @@ function roundPoints(points, decimals = ROUND_DECIMALS) {
 }
 
 export class BuildingPlanCanvas {
-  constructor({ container, controller, labelSettings = {} }) {
+  constructor({ container, controller, labelSettings = {}, externalToolbar = false, readOnly = false }) {
     this.container = container;
     this.controller = controller;
     this.labelSettings = { ...DEFAULT_LABEL_SETTINGS, ...labelSettings };
+    this.externalToolbar = externalToolbar;
+    this.readOnly = readOnly;
 
     this.mode = MODE_SELECT;
     this.rooms = [];
@@ -310,41 +312,44 @@ export class BuildingPlanCanvas {
     this.container.innerHTML = '';
     this.container.classList.add('building-plan-canvas-wrapper');
 
-    this.toolbar = document.createElement('div');
-    this.toolbar.className = 'building-plan-toolbar';
+    // Only create the legacy toolbar if not using external (React) toolbar
+    if (!this.externalToolbar) {
+      this.toolbar = document.createElement('div');
+      this.toolbar.className = 'building-plan-toolbar';
 
-    this.selectButton = this.createToolbarButton('Select / Move / Resize', MODE_SELECT);
-    this.floorButton = document.createElement('button');
-    this.floorButton.type = 'button';
-    this.floorButton.className = 'building-plan-toolbar-button';
-    this.floorButton.textContent = 'Draw Floor';
-    this.floorButton.addEventListener('click', () => {
-      if (this.controller && typeof this.controller.createFloor === 'function') {
-        this.controller.createFloor();
-      }
-    });
-    this.roomButton = this.createToolbarButton('Draw Room', MODE_DRAW_ROOM);
-    this.wallButton = this.createToolbarButton('Draw Wall', MODE_DRAW_WALL);
-    this.columnButton = this.createToolbarButton('Place Column', MODE_DRAW_COLUMN);
-    this.beamButton = this.createToolbarButton('Draw Beam', MODE_DRAW_BEAM);
-    this.doorButton = this.createToolbarButton('Place Door', MODE_DRAW_DOOR);
-    this.windowButton = this.createToolbarButton('Place Window', MODE_DRAW_WINDOW);
+      this.selectButton = this.createToolbarButton('Select / Move / Resize', MODE_SELECT);
+      this.floorButton = document.createElement('button');
+      this.floorButton.type = 'button';
+      this.floorButton.className = 'building-plan-toolbar-button';
+      this.floorButton.textContent = 'Draw Floor';
+      this.floorButton.addEventListener('click', () => {
+        if (this.controller && typeof this.controller.createFloor === 'function') {
+          this.controller.createFloor();
+        }
+      });
+      this.roomButton = this.createToolbarButton('Draw Room', MODE_DRAW_ROOM);
+      this.wallButton = this.createToolbarButton('Draw Wall', MODE_DRAW_WALL);
+      this.columnButton = this.createToolbarButton('Place Column', MODE_DRAW_COLUMN);
+      this.beamButton = this.createToolbarButton('Draw Beam', MODE_DRAW_BEAM);
+      this.doorButton = this.createToolbarButton('Place Door', MODE_DRAW_DOOR);
+      this.windowButton = this.createToolbarButton('Place Window', MODE_DRAW_WINDOW);
 
-    this.clearButton = document.createElement('button');
-    this.clearButton.type = 'button';
-    this.clearButton.className = 'building-plan-toolbar-button';
-    this.clearButton.textContent = 'Clear Selection';
-    this.clearButton.addEventListener('click', () => this.clearSelection());
+      this.clearButton = document.createElement('button');
+      this.clearButton.type = 'button';
+      this.clearButton.className = 'building-plan-toolbar-button';
+      this.clearButton.textContent = 'Clear Selection';
+      this.clearButton.addEventListener('click', () => this.clearSelection());
 
-    this.toolbar.appendChild(this.selectButton);
-    this.toolbar.appendChild(this.floorButton);
-    this.toolbar.appendChild(this.roomButton);
-    this.toolbar.appendChild(this.wallButton);
-    this.toolbar.appendChild(this.columnButton);
-    this.toolbar.appendChild(this.beamButton);
-    this.toolbar.appendChild(this.doorButton);
-    this.toolbar.appendChild(this.windowButton);
-    this.toolbar.appendChild(this.clearButton);
+      this.toolbar.appendChild(this.selectButton);
+      this.toolbar.appendChild(this.floorButton);
+      this.toolbar.appendChild(this.roomButton);
+      this.toolbar.appendChild(this.wallButton);
+      this.toolbar.appendChild(this.columnButton);
+      this.toolbar.appendChild(this.beamButton);
+      this.toolbar.appendChild(this.doorButton);
+      this.toolbar.appendChild(this.windowButton);
+      this.toolbar.appendChild(this.clearButton);
+    }
 
     this.canvasContainer = document.createElement('div');
     this.canvasContainer.className = 'building-plan-canvas-container';
@@ -358,7 +363,10 @@ export class BuildingPlanCanvas {
     this.floorTabsContainer.className = 'building-plan-floor-tabs';
     this.container.appendChild(this.floorTabsContainer);
 
-    this.container.appendChild(this.toolbar);
+    // Only append toolbar if it was created
+    if (this.toolbar) {
+      this.container.appendChild(this.toolbar);
+    }
     this.container.appendChild(this.canvasContainer);
 
     this.renderFloorTabs();
@@ -424,9 +432,16 @@ export class BuildingPlanCanvas {
       return;
     }
     this.mode = mode;
-    this.selectButton.classList.toggle('active', mode === MODE_SELECT);
-    this.roomButton.classList.toggle('active', mode === MODE_DRAW_ROOM);
-    this.wallButton.classList.toggle('active', mode === MODE_DRAW_WALL);
+    // Only update button states if not using external toolbar
+    if (this.selectButton) {
+      this.selectButton.classList.toggle('active', mode === MODE_SELECT);
+    }
+    if (this.roomButton) {
+      this.roomButton.classList.toggle('active', mode === MODE_DRAW_ROOM);
+    }
+    if (this.wallButton) {
+      this.wallButton.classList.toggle('active', mode === MODE_DRAW_WALL);
+    }
     if (this.columnButton) {
       this.columnButton.classList.toggle('active', mode === MODE_DRAW_COLUMN);
     }
@@ -664,6 +679,9 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseDown(event) {
+    // Block all interactions in read-only mode
+    if (this.readOnly) return;
+
     const caps = getCapabilities(this.controller);
     const point = this.getCanvasPoint(event);
 
@@ -1055,6 +1073,9 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseMove(event) {
+    // Block all interactions in read-only mode
+    if (this.readOnly) return;
+
     const point = this.getCanvasPoint(event);
 
     if (
@@ -1416,6 +1437,9 @@ export class BuildingPlanCanvas {
   }
 
   handleMouseUp(event) {
+    // Block all interactions in read-only mode
+    if (this.readOnly) return;
+
     const point = this.getCanvasPoint(event);
 
     if (this.mode === MODE_DRAW_ROOM && this.roomDraft) {

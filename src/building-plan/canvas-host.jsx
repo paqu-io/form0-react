@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
 import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
+import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
+import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import './canvas.css';
 
 const NODE_KEYS = {
@@ -272,12 +274,33 @@ export function BuildingPlanCanvasHost({
   mode = 'parent',
   scope = { floorId: null, roomId: null },
   toolbarState = {},
+  readOnly = false,
 }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const controllerRef = useRef(null);
   const repeatableRef = useRef(repeatableState);
   const repeatableApiRef = useRef(repeatableApi);
+
+  // Track active tool mode for the new toolbar
+  const [activeToolMode, setActiveToolMode] = useState(TOOL_MODES.SELECT);
+
+  // Handle tool mode change from the new toolbar
+  const handleModeChange = useCallback((newMode) => {
+    setActiveToolMode(newMode);
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.setMode === 'function') {
+      canvas.setMode(newMode);
+    }
+  }, []);
+
+  // Handle clear selection action
+  const handleClearSelection = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.clearSelection === 'function') {
+      canvas.clearSelection();
+    }
+  }, []);
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;
@@ -312,6 +335,8 @@ export function BuildingPlanCanvasHost({
       container,
       controller,
       labelSettings: {},
+      externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
+      readOnly, // Disable canvas interactions in view mode
     });
 
     // Persistently gate tools per toolbarState (legacy updateButtonStates may flip them)
@@ -397,8 +422,26 @@ export function BuildingPlanCanvasHost({
   // Scope is not yet forwarded into the legacy canvas; placeholder for dimming support
   useEffect(() => {
     void scope; // reserved for future dimming support
-    void mode;
-  }, [scope, mode]);
+  }, [scope]);
 
-  return <div ref={containerRef} className="building-plan-canvas-panel" />;
+  // Sync readOnly state to canvas when it changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.readOnly = readOnly;
+    }
+  }, [readOnly]);
+
+  return (
+    <div className="building-plan-canvas-host">
+      <BuildingPlanToolbar
+        canvasMode={mode}
+        activeToolMode={activeToolMode}
+        onModeChange={handleModeChange}
+        onClearSelection={handleClearSelection}
+        disabled={readOnly}
+      />
+      <div ref={containerRef} className="building-plan-canvas-panel" />
+    </div>
+  );
 }
