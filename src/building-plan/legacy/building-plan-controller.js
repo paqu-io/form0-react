@@ -249,13 +249,23 @@ function highlightElement(element) {
   }, 1500);
 }
 
+const DEFAULT_SCOPE = { floorId: null, roomId: null };
+
 export class BuildingPlanController {
-  constructor(formRenderer, formStateManager, section, contextPath = [], meta = null) {
+  constructor(
+    formRenderer,
+    formStateManager,
+    section,
+    contextPath = [],
+    meta = null,
+    scope = DEFAULT_SCOPE
+  ) {
     this.formRenderer = formRenderer;
     this.formStateManager = formStateManager;
     this.section = section;
     this.contextPath = Array.isArray(contextPath) ? contextPath : [];
     this.meta = meta;
+    this.scope = { ...DEFAULT_SCOPE, ...(scope || {}) };
 
     this.repeatableDataNames = {
       floors: getRepeatableDataName(meta, 'floors', 'building_plan_floors'),
@@ -416,7 +426,8 @@ export class BuildingPlanController {
     this.beams = new Map();
     this.doors = new Map();
     this.windows = new Map();
-    this.roomColors = new Map();
+    this.roomColorByFloor = new Map();
+    this.dimmedRoomIds = new Set();
     this.listeners = new Set();
     this.floorCount = 0;
     this.floors = [];
@@ -569,7 +580,7 @@ export class BuildingPlanController {
       floorIndex: this.activeFloorIndex,
       vertices: roundedVertices,
       rect: { ...rectangle },
-      color: this.ensureRoomColor(roomId),
+      color: this.ensureRoomColor(roomId, activeFloor.id),
     };
     this.rooms.set(roomId, provisionalRoom);
     this.emitUpdate();
@@ -1840,6 +1851,7 @@ export class BuildingPlanController {
         vertices: cloneVertices(room.vertices),
         rect: { ...room.rect },
         color: room.color,
+        isDimmed: Boolean(room.isDimmed),
         displayLabel: room.displayLabel || (typeof room.index === 'number' ? `R#${room.index + 1}` : null),
       })),
       walls: activeWalls.map((wall) => ({
@@ -1852,6 +1864,7 @@ export class BuildingPlanController {
         windows: Array.isArray(wall.windows) ? [...wall.windows] : [],
         label: wall.label,
         displayLabel: wall.displayLabel,
+        isDimmed: Boolean(wall.isDimmed),
       })),
       columns: activeColumns.map((column) => ({
         id: column.id,
@@ -1867,6 +1880,7 @@ export class BuildingPlanController {
         wallRatio: column.wallRatio,
         label: column.label,
         displayLabel: column.displayLabel,
+        isDimmed: Boolean(column.isDimmed),
       })),
       beams: activeBeams.map((beam) => ({
         id: beam.id,
@@ -1885,6 +1899,7 @@ export class BuildingPlanController {
         length: beam.length,
         label: beam.label,
         displayLabel: beam.displayLabel,
+        isDimmed: Boolean(beam.isDimmed),
       })),
       doors: activeDoors.map((door) => ({
         id: door.id,
@@ -1900,6 +1915,7 @@ export class BuildingPlanController {
         label: door.label,
         displayLabel: door.displayLabel,
         wallReference: door.wallReference,
+        isDimmed: Boolean(door.isDimmed),
       })),
       windows: activeWindows.map((window) => ({
         id: window.id,
@@ -1916,6 +1932,7 @@ export class BuildingPlanController {
         label: window.label,
         displayLabel: window.displayLabel,
         wallReference: window.wallReference,
+        isDimmed: Boolean(window.isDimmed),
       })),
     };
   }
@@ -1960,13 +1977,34 @@ export class BuildingPlanController {
     return floor ? [...floor.path] : [];
   }
 
-  ensureRoomColor(roomId) {
-    if (!this.roomColors.has(roomId)) {
-      const palette = ['#79b8ff', '#b392f0', '#ffab70', '#ff938a', '#f7c843', '#46d1b8'];
-      const color = palette[this.roomColors.size % palette.length];
-      this.roomColors.set(roomId, color);
+  ensureRoomColor(roomId, floorId) {
+    const palette = ['#79b8ff', '#b392f0', '#ffab70', '#ff938a', '#f7c843', '#46d1b8'];
+    const bucketKey = floorId || '__default__';
+    if (!this.roomColorByFloor.has(bucketKey)) {
+      this.roomColorByFloor.set(bucketKey, new Map());
     }
-    return this.roomColors.get(roomId);
+    const bucket = this.roomColorByFloor.get(bucketKey);
+    if (!bucket.has(roomId)) {
+      const color = palette[bucket.size % palette.length];
+      bucket.set(roomId, color);
+    }
+    return bucket.get(roomId);
+  }
+
+  setScope(nextScope = DEFAULT_SCOPE) {
+    const normalized = { ...DEFAULT_SCOPE, ...(nextScope || {}) };
+    const changed =
+      normalized.floorId !== this.scope.floorId || normalized.roomId !== this.scope.roomId;
+    this.scope = normalized;
+    if (changed) {
+      this.syncFromState();
+      this.emitUpdate();
+    }
+  }
+
+  isRoomDimmed(roomId) {
+    if (!this.scope || !this.scope.roomId) return false;
+    return roomId !== this.scope.roomId;
   }
 
   syncFromState() {
@@ -1977,6 +2015,7 @@ export class BuildingPlanController {
     this.doors.clear();
     this.windows.clear();
     this.floors = [];
+    this.dimmedRoomIds = new Set();
 
     if (!this.floorSection || !this.roomSection) {
       this.floorCount = 0;
@@ -2045,7 +2084,11 @@ export class BuildingPlanController {
           roomInstance && roomInstance.id
             ? roomInstance.id
             : this.formRenderer.formatContextPath(roomPath);
-        const color = this.ensureRoomColor(roomId);
+        const color = this.ensureRoomColor(roomId, floorId);
+        const isDimmedRoom = this.isRoomDimmed(roomId);
+        if (isDimmedRoom) {
+          this.dimmedRoomIds.add(roomId);
+        }
 
         this.rooms.set(roomId, {
           id: roomId,
@@ -2055,6 +2098,7 @@ export class BuildingPlanController {
           vertices,
           rect,
           color,
+          isDimmed: isDimmedRoom,
           displayLabel: `R#${roomIndex + 1}`,
         });
 
@@ -2152,6 +2196,7 @@ export class BuildingPlanController {
               wallRatio,
               label: trimmedLabel || displayLabel,
               displayLabel,
+              isDimmed: isDimmedRoom,
             });
           });
         }
@@ -2289,6 +2334,7 @@ export class BuildingPlanController {
               length: lengthMeters,
               label: trimmedLabel || displayLabel,
               displayLabel,
+              isDimmed: isDimmedRoom,
             });
           });
         }
@@ -2353,6 +2399,7 @@ export class BuildingPlanController {
             windows: [],
             label: trimmedWallLabel,
             displayLabel,
+            isDimmed: isDimmedRoom,
           };
 
           this.walls.set(wallId, wallEntry);
@@ -2435,6 +2482,7 @@ export class BuildingPlanController {
                 label: trimmedDoorLabel,
                 displayLabel,
                 wallReference,
+                isDimmed: isDimmedRoom,
               };
 
               wallEntry.doors.push(doorId);
@@ -2531,6 +2579,7 @@ export class BuildingPlanController {
                 label: trimmedWindowLabel,
                 displayLabel,
                 wallReference,
+                isDimmed: isDimmedRoom,
               };
 
               wallEntry.windows.push(windowId);

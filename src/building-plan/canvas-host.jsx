@@ -351,7 +351,8 @@ export function BuildingPlanCanvasHost({
       formStateManager,
       section,
       [],
-      metaEntry
+      metaEntry,
+      scope
     );
 
     // We handle repeatable sync manually; avoid listening to DOM events the React stack never emits
@@ -450,9 +451,24 @@ export function BuildingPlanCanvasHost({
     }
   }, [toolbarState]);
 
-  // Scope is not yet forwarded into the legacy canvas; placeholder for dimming support
+  // Forward scope (active floor/room) to the legacy controller for dimming rules.
+  // Only clear selection when the scope actually changes to avoid flicker.
+  const prevScopeRef = useRef({ floorId: null, roomId: null });
   useEffect(() => {
-    void scope; // reserved for future dimming support
+    const controller = controllerRef.current;
+    const nextScope = scope || { floorId: null, roomId: null };
+    const prevScope = prevScopeRef.current;
+    const changed =
+      prevScope.floorId !== nextScope.floorId || prevScope.roomId !== nextScope.roomId;
+    if (controller && typeof controller.setScope === 'function') {
+      controller.setScope(nextScope);
+    }
+    if (changed && canvasRef.current && typeof canvasRef.current.clearSelection === 'function') {
+      canvasRef.current.clearSelection();
+    }
+    if (changed) {
+      prevScopeRef.current = nextScope;
+    }
   }, [scope]);
 
   // Sync readOnly state to canvas when it changes

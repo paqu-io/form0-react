@@ -59,6 +59,7 @@ const DEFAULT_LABEL_SETTINGS = {
 
 const CAPABILITY_DEFAULTS = {
   canMove: false,
+  canMoveStructural: false,
   canResize: false,
   canDrawFloor: false,
   canDrawRoom: false,
@@ -552,6 +553,14 @@ export class BuildingPlanCanvas {
       return;
     }
     this.mode = mode;
+
+    // Ensure a primary room is selected when entering wall mode
+    if (mode === MODE_DRAW_WALL && !this.selectedRoomId && Array.isArray(this.rooms)) {
+      const primary = this.rooms.find((room) => room && !room.isDimmed) || this.rooms[0];
+      if (primary) {
+        this.selectedRoomId = primary.id;
+      }
+    }
     // Only update button states if not using external toolbar
     if (this.selectButton) {
       this.selectButton.classList.toggle('active', mode === MODE_SELECT);
@@ -618,6 +627,14 @@ export class BuildingPlanCanvas {
       this.activeFloorIndex =
         typeof snapshot.activeFloorIndex === 'number' ? snapshot.activeFloorIndex : 0;
       this.hasFloors = this.floors.length > 0;
+
+      // Auto-select a primary room (preferring non-dimmed) when none is selected.
+      if (!this.selectedRoomId && Array.isArray(this.rooms) && this.rooms.length > 0) {
+        const primary = this.rooms.find((room) => room && !room.isDimmed) || this.rooms[0];
+        if (primary) {
+          this.selectedRoomId = primary.id;
+        }
+      }
 
       if (prevActiveFloor !== this.activeFloorIndex || prevFloorCount !== this.floors.length) {
         this.selectedRoomId = null;
@@ -931,7 +948,7 @@ export class BuildingPlanCanvas {
 
       const wallHandleHit = this.findWallHandle(point);
       if (wallHandleHit && wallHandleHit.wall) {
-        if (!caps.canResize) return;
+        if (!caps.canResize || !caps.canMoveStructural) return;
         const { wall, index } = wallHandleHit;
         const basePoints =
           wall.previewPoints && wall.previewPoints.length > 0
@@ -959,7 +976,7 @@ export class BuildingPlanCanvas {
 
       const columnHit = this.findColumnHit(point);
       if (columnHit) {
-        if (!caps.canMove) return;
+        if (!caps.canMoveStructural) return;
         const { column } = columnHit;
         this.selectedColumnId = column.id;
         this.selectedBeamId = null;
@@ -986,7 +1003,7 @@ export class BuildingPlanCanvas {
 
       const beamHandleHit = this.findBeamHandle(point);
       if (beamHandleHit) {
-        if (!caps.canResize) return;
+        if (!caps.canResize || !caps.canMoveStructural) return;
         const { beam, handle } = beamHandleHit;
         this.selectedBeamId = beam.id;
         this.selectedColumnId = null;
@@ -1025,7 +1042,7 @@ export class BuildingPlanCanvas {
 
       const beamHit = this.findBeamHit(point);
       if (beamHit) {
-        if (!caps.canMove) return;
+        if (!caps.canMoveStructural) return;
         const { beam } = beamHit;
         this.selectedBeamId = beam.id;
         this.selectedColumnId = null;
@@ -1141,7 +1158,12 @@ export class BuildingPlanCanvas {
     if (this.mode === MODE_DRAW_WALL) {
       if (!caps.canDrawWall) return;
       if (!this.selectedRoomId) {
-        return;
+        const hitRoom = this.findRoomAtPoint(point);
+        if (hitRoom) {
+          this.selectedRoomId = hitRoom.id;
+        } else {
+          return;
+        }
       }
       const room = this.findRoomAtPoint(point);
       if (!room || room.id !== this.selectedRoomId) {
@@ -1160,7 +1182,7 @@ export class BuildingPlanCanvas {
     const room = this.findRoomAtPoint(point);
 
     if (this.mode === MODE_SELECT && wall) {
-      if (!caps.canMove) return;
+      if (!caps.canMoveStructural) return;
       const basePoints =
         wall.previewPoints && wall.previewPoints.length > 0
           ? clonePoints(wall.previewPoints)
@@ -1996,6 +2018,7 @@ export class BuildingPlanCanvas {
   findRoomAtPoint(point) {
     for (let i = this.rooms.length - 1; i >= 0; i -= 1) {
       const room = this.rooms[i];
+      if (room && room.isDimmed) continue;
       if (room._labelRect && pointInRect(point, room._labelRect)) {
         return room;
       }
@@ -2085,6 +2108,7 @@ export class BuildingPlanCanvas {
     for (let i = this.columns.length - 1; i >= 0; i -= 1) {
       const column = this.columns[i];
       if (!column) continue;
+      if (column.isDimmed) continue;
       const rect = column._renderRect ? inflateRect(column._renderRect, tolerance / 2) : null;
       const labelRect = column._labelRect;
       if (labelRect && pointInRect(point, labelRect)) {
@@ -2103,6 +2127,7 @@ export class BuildingPlanCanvas {
     for (let i = 0; i < this.beams.length; i += 1) {
       const beam = this.beams[i];
       if (!beam) continue;
+      if (beam.isDimmed) continue;
       const start = beam._renderStart;
       const end = beam._renderEnd;
       if (start && distance(point, start) <= tolerance) {
@@ -2121,6 +2146,7 @@ export class BuildingPlanCanvas {
     for (let i = this.beams.length - 1; i >= 0; i -= 1) {
       const beam = this.beams[i];
       if (!beam) continue;
+      if (beam.isDimmed) continue;
       const start = beam._renderStart;
       const end = beam._renderEnd;
       if (start && end) {
@@ -2152,6 +2178,7 @@ export class BuildingPlanCanvas {
     const hitOffset = ROOM_HANDLE_HIT_SIZE / 2;
     for (let i = this.rooms.length - 1; i >= 0; i -= 1) {
       const room = this.rooms[i];
+      if (room && room.isDimmed) continue;
       const rect = room.previewRect || room.rect;
       if (!rect) continue;
       const handles = this.getRoomHandlePositions(rect);
@@ -2174,6 +2201,7 @@ export class BuildingPlanCanvas {
     let bestDistance = WALL_HIT_TOLERANCE;
 
     this.walls.forEach((wall) => {
+      if (wall && wall.isDimmed) return;
       if (roomId && wall.roomId !== roomId) {
         return;
       }
@@ -2242,6 +2270,7 @@ export class BuildingPlanCanvas {
 
     for (let i = 0; i < testWalls.length; i += 1) {
       const wall = testWalls[i];
+      if (wall && wall.isDimmed) continue;
       const points = this.getRenderedWallPoints(wall);
       if (!Array.isArray(points) || points.length < 2) continue;
       for (let index = 0; index < 2; index += 1) {
@@ -2516,6 +2545,9 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const isSelected = this.selectedColumnId === column.id;
     ctx.save();
+    if (column.isDimmed) {
+      ctx.globalAlpha = 0.35;
+    }
     ctx.fillStyle = COLUMN_COLOR;
     ctx.beginPath();
     ctx.rect(info.rect.x, info.rect.y, info.rect.width, info.rect.height);
@@ -2584,6 +2616,9 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const isSelected = this.selectedBeamId === beam.id;
     ctx.save();
+    if (beam.isDimmed) {
+      ctx.globalAlpha = 0.35;
+    }
     ctx.strokeStyle = isSelected ? STRUCTURAL_SELECTED_COLOR : BEAM_COLOR;
     ctx.lineWidth = info.lineWidth;
     ctx.lineCap = 'round';
@@ -2928,15 +2963,16 @@ export class BuildingPlanCanvas {
     room._labelRect = null;
 
     const isSelected = this.selectedRoomId === room.id;
+    const isDimmed = Boolean(room.isDimmed);
 
     ctx.save();
     ctx.fillStyle = room.color || '#79b8ff';
-    ctx.globalAlpha = isSelected ? 0.55 : 0.35;
+    ctx.globalAlpha = isDimmed ? 0.18 : isSelected ? 0.55 : 0.35;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 
     ctx.globalAlpha = 1;
     ctx.lineWidth = isSelected ? 4 : 2;
-    ctx.strokeStyle = isSelected ? '#1b4b91' : '#3a6fb0';
+    ctx.strokeStyle = isSelected ? '#1b4b91' : isDimmed ? 'rgba(58, 111, 176, 0.45)' : '#3a6fb0';
     ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
 
     if (isSelected) {
@@ -2998,6 +3034,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const points = this.getRenderedWallPoints(wall);
     if (!Array.isArray(points) || points.length < 2) return;
+    const isDimmed = Boolean(wall.isDimmed);
     const start = points[0];
     const end = points[points.length - 1] || points[0];
 
@@ -3008,6 +3045,9 @@ export class BuildingPlanCanvas {
     ctx.save();
     ctx.strokeStyle = this.selectedWallId === wall.id ? '#d12d2d' : '#444';
     ctx.lineWidth = this.selectedWallId === wall.id ? 4 : 3;
+    if (isDimmed) {
+      ctx.globalAlpha = 0.35;
+    }
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
     for (let i = 1; i < points.length; i += 1) {
@@ -3169,11 +3209,15 @@ export class BuildingPlanCanvas {
       : this.selectedWindowId === opening.id;
     const strokeColor = isSelected ? OPENING_SELECTED_COLOR : isDoor ? DOOR_COLOR : WINDOW_COLOR;
     const lineWidth = isDoor ? DOOR_LINE_WIDTH : WINDOW_LINE_WIDTH;
+    const isDimmed = Boolean(opening.isDimmed);
 
     ctx.save();
+    if (isDimmed) {
+      ctx.globalAlpha = 0.4;
+    }
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = lineWidth;
-   ctx.lineCap = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(geometry.startPoint.x, geometry.startPoint.y);
     ctx.lineTo(geometry.endPoint.x, geometry.endPoint.y);
@@ -3181,7 +3225,7 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     const labelType = isDoor ? 'doors' : 'windows';
-    if (this.shouldShowLabel(labelType)) {
+    if (this.shouldShowLabel(labelType) && !isDimmed) {
       const baseLabel = opening.displayLabel || opening.label;
       const fallbackIndex =
         typeof opening.index === 'number' ? opening.index + 1 : null;
@@ -3254,18 +3298,20 @@ export class BuildingPlanCanvas {
     const priority = [];
     if (this.selectedDoorId) {
       const door = this.getOpeningById('door', this.selectedDoorId);
-      if (door) priority.push({ type: 'door', opening: door });
+      if (door && !door.isDimmed) priority.push({ type: 'door', opening: door });
     }
     if (this.selectedWindowId) {
       const window = this.getOpeningById('window', this.selectedWindowId);
-      if (window) priority.push({ type: 'window', opening: window });
+      if (window && !window.isDimmed) priority.push({ type: 'window', opening: window });
     }
     this.doors.forEach((door) => {
+      if (door?.isDimmed) return;
       if (!priority.find((entry) => entry.opening.id === door.id)) {
         priority.push({ type: 'door', opening: door });
       }
     });
     this.windows.forEach((window) => {
+      if (window?.isDimmed) return;
       if (!priority.find((entry) => entry.opening.id === window.id)) {
         priority.push({ type: 'window', opening: window });
       }
@@ -3273,6 +3319,7 @@ export class BuildingPlanCanvas {
 
     for (let i = 0; i < priority.length; i += 1) {
       const { type, opening } = priority[i];
+      if (opening?.isDimmed) continue;
       const geometry = this.getOpeningGeometry(opening);
       if (!geometry) continue;
       const startDist = distance(point, geometry.startPoint);
@@ -3296,18 +3343,20 @@ export class BuildingPlanCanvas {
     const candidates = [];
     if (this.selectedDoorId) {
       const door = this.getOpeningById('door', this.selectedDoorId);
-      if (door) candidates.push({ type: 'door', opening: door });
+      if (door && !door.isDimmed) candidates.push({ type: 'door', opening: door });
     }
     if (this.selectedWindowId) {
       const window = this.getOpeningById('window', this.selectedWindowId);
-      if (window) candidates.push({ type: 'window', opening: window });
+      if (window && !window.isDimmed) candidates.push({ type: 'window', opening: window });
     }
     this.doors.forEach((door) => {
+      if (door?.isDimmed) return;
       if (!candidates.find((entry) => entry.opening.id === door.id)) {
         candidates.push({ type: 'door', opening: door });
       }
     });
     this.windows.forEach((window) => {
+      if (window?.isDimmed) return;
       if (!candidates.find((entry) => entry.opening.id === window.id)) {
         candidates.push({ type: 'window', opening: window });
       }
@@ -3317,6 +3366,7 @@ export class BuildingPlanCanvas {
     let bestDistance = OPENING_HIT_TOLERANCE;
 
     candidates.forEach(({ type, opening }) => {
+      if (opening?.isDimmed) return;
       const geometry = this.getOpeningGeometry(opening);
       if (!geometry || geometry.segmentLength === 0) return;
       if (opening._labelRect && pointInRect(point, opening._labelRect)) {

@@ -136,6 +136,7 @@ export function useBuildingPlanController({
       // Floor canvas/modal: select + move (no resize)
       if (mode === 'floor-modal' || mode === 'floor') {
         base.canMove = true;
+        base.canMoveStructural = false; // Only move rooms; walls/columns/beams stay fixed here
         base.canDrawRoom = true; // Can draw rooms in floor view
         return base;
       }
@@ -145,6 +146,7 @@ export function useBuildingPlanController({
         return {
           ...base,
           canMove: true,
+          canMoveStructural: true,
           canResize: true,
           canMoveResize: true,
           canDrawWall: true,

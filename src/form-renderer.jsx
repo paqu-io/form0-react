@@ -4235,13 +4235,61 @@ function RepeatableEntryModal({
       repeatable: entryRepeatable,
     };
 
+    // Gather the full floor + its rooms so the room modal can render sibling rooms dimmed.
+    // Falls back to the current room only when parent data is unavailable.
+    const parentPath = Array.isArray(modal.parentPath) ? modal.parentPath : [];
+    const existingRooms =
+      isRoomModal && typeof modal.controller?.getInstances === 'function'
+        ? modal.controller.getInstances(roomsKey, parentPath)
+        : null;
+
+    const floorFromController =
+      isRoomModal && typeof modal.controller?.getInstance === 'function'
+        ? modal.controller.getInstance(floorsKey, floorId, [])
+        : null;
+
+    const roomsForFloor = (() => {
+      if (!isRoomModal) return null;
+      const list = [];
+      let activeFound = false;
+      if (Array.isArray(existingRooms) && existingRooms.length > 0) {
+        existingRooms.forEach((room) => {
+          if (!room) return;
+          if (room.id === modal.instanceId) {
+            activeFound = true;
+            // Use live values for the active room
+            list.push({ ...cloneDeepSafe(room), values: entryValues, repeatable: entryRepeatable });
+          } else {
+            list.push(cloneDeepSafe(room));
+          }
+        });
+      }
+      if (!activeFound) {
+        // Ensure the active room is present even if not yet in the parent controller state (newly created)
+        list.push(roomInstance);
+      }
+      return list;
+    })();
+
     const floorInstance = {
       id: floorId,
-      values: isRoomModal ? modal.parentValues || {} : entryValues,
-      repeatable: {
-        ...(isRoomModal ? { [roomsKey]: [roomInstance] } : entryRepeatable || {}),
-      },
-      ...(Number.isInteger(floorIndex) ? { _bpOriginalIndex: floorIndex } : {}),
+      values: isRoomModal
+        ? floorFromController?.values || modal.parentValues || {}
+        : entryValues,
+      repeatable: (() => {
+        const base = isRoomModal
+          ? cloneDeepSafe(floorFromController?.repeatable) || {}
+          : entryRepeatable || {};
+        if (isRoomModal && roomsForFloor) {
+          base[roomsKey] = roomsForFloor;
+        }
+        return base;
+      })(),
+      ...(Number.isInteger(floorIndex)
+        ? { _bpOriginalIndex: floorIndex }
+        : floorFromController?._bpOriginalIndex != null
+          ? { _bpOriginalIndex: floorFromController._bpOriginalIndex }
+          : {}),
     };
 
     const repeatableState = {
