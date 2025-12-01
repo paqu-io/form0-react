@@ -982,7 +982,7 @@ export function FormRenderer({
   simplifiedMode = false,
   onSimplifiedNavigation,
   formPlacement = 'form-page',
-  interactionPresentations = null,
+  interactionPresentations: _interactionPresentations = null,
   onRequestClose,
   autoCloseOverlayOnSubmit = false,
   engineMode = 'main-thread',
@@ -1002,6 +1002,7 @@ export function FormRenderer({
   const [alertQueue, setAlertQueue] = useState([]);
   const [activeAlert, setActiveAlert] = useState(null);
   const loadEventTriggeredRef = useRef(false);
+  const previousInteractionModeRef = useRef(null);
   const alertOkButtonRef = useRef(null);
   const alertDialogRef = useRef(null);
   const previousAlertFocusRef = useRef(null);
@@ -1036,10 +1037,6 @@ export function FormRenderer({
     if (formPlacement === 'form-spotlight') return 'spotlight';
     return 'standard';
   }, [formPlacement, simplifiedMode]);
-  const presentationInitMode = useMemo(() => {
-    const initMode = interactionPresentations?.[presentation]?.initMode;
-    return initMode === 'on-edit' ? 'on-edit' : 'immediate';
-  }, [interactionPresentations, presentation]);
   const [altShortcutPrefix, setAltShortcutPrefix] = useState('Alt');
 
   useEffect(() => {
@@ -1515,41 +1512,28 @@ export function FormRenderer({
 
   useEffect(() => {
     loadEventTriggeredRef.current = false;
+    previousInteractionModeRef.current = null;
   }, [engineReadyVersion]);
 
   useEffect(() => {
     if (loadEventTriggeredRef.current || !engineReadyVersion) {
       return;
     }
-    const shouldTriggerOnReady =
-      normalizedInitialMode !== 'readonly' || presentationInitMode === 'immediate';
-    if (!shouldTriggerOnReady) {
-      return;
-    }
     triggerEvent('load-record');
     loadEventTriggeredRef.current = true;
-  }, [engineReadyVersion, normalizedInitialMode, presentationInitMode, triggerEvent]);
+  }, [engineReadyVersion, triggerEvent]);
 
   useEffect(() => {
-    if (loadEventTriggeredRef.current || !engineReadyVersion) {
+    if (!engineReadyVersion) {
       return;
     }
-    const shouldTriggerOnEdit =
-      normalizedInitialMode === 'readonly' &&
-      presentationInitMode === 'on-edit' &&
-      interactionMode === 'edit';
-    if (!shouldTriggerOnEdit) {
-      return;
+    const previousMode = previousInteractionModeRef.current;
+    const enteringEdit = interactionMode === 'edit' && previousMode !== 'edit';
+    if (enteringEdit) {
+      triggerEvent('edit-record');
     }
-    triggerEvent('load-record');
-    loadEventTriggeredRef.current = true;
-  }, [
-    engineReadyVersion,
-    interactionMode,
-    normalizedInitialMode,
-    presentationInitMode,
-    triggerEvent,
-  ]);
+    previousInteractionModeRef.current = interactionMode;
+  }, [engineReadyVersion, interactionMode, triggerEvent]);
 
   useEffect(() => {
     if (activeAlert || alertQueue.length === 0) {
