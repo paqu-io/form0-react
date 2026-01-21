@@ -64,7 +64,7 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
   - Add component tests (React Testing Library) for critical field behaviors.  
   - Smoke tests that mount real schemas and assert engine <> UI synchronization.
 - [ ] **Vite example template**  
-  - Treat `form0-test1` as the canonical starter app once it matches production expectations (theme modes, multi-schema routing, connector examples).  
+  - Treat `form0-web-tmpl-react-vite` as the canonical starter app once it matches production expectations (theme modes, multi-schema routing, connector examples).  
   - Keep the template in-repo/GitHub for now; no need to publish an npm package unless distribution via npm proves necessary.  
   - When CLI scaffolding is ready, have `form0-cli` copy/clone this template so developers get the same baseline experience.
 
@@ -87,10 +87,10 @@ This roadmap captures the current priorities for evolving `form0-react` so it ca
 
 ## Summary of Revised Approach
 
-After discussion about field registry extensibility, theming, and how form0-test1 should serve as the reference template, we've clarified a **layered architecture** where:
+After discussion about field registry extensibility, theming, and how form0-web-tmpl-react-vite should serve as the reference template, we've clarified a **layered architecture** where:
 
 1. **form0-react (library)** ships with **minimal, functional HTML components** (no opinionated styling)
-2. **form0-test1 (Vite template)** ships with **production-ready, pre-styled field renderers** using Tailwind + custom components
+2. **form0-web-tmpl-react-vite (Vite template)** ships with **production-ready, pre-styled field renderers** using Tailwind + custom components
 3. **Future templates** (Next.js, TanStack Start, etc.) can use different styling approaches while building on the same form0-react foundation
 4. **Developers** get polished fields out-of-the-box from templates, with easy customization via theme tokens/Tailwind config
 
@@ -112,7 +112,7 @@ After discussion about field registry extensibility, theming, and how form0-test
 ### What Needs Work 🔨
 - **Documentation** of the extension API and renderer contract
 - **Context-based registry** (optional enhancement for SSR/testing isolation)
-- **Production-ready field renderers** in form0-test1 template
+- **Production-ready field renderers** in form0-web-tmpl-react-vite template
 - **Template scaffolding** via CLI (`form0-cli forge react --template vite`)
 
 ## Revised Priorities by Section
@@ -142,7 +142,7 @@ registerFieldComponent('DateField', CustomDatePicker);
 
 **What changes:**
 - **form0-react core:** Keep minimal styling (current vanilla-extract classes are sufficient)
-- **form0-test1 template:** Implement comprehensive theming via Tailwind + CSS variables
+- **form0-web-tmpl-react-vite template:** Implement comprehensive theming via Tailwind + CSS variables
 - **Template responsibility:** Define theme tokens, color schemes, typography, spacing
 
 **Rationale:**
@@ -154,16 +154,16 @@ registerFieldComponent('DateField', CustomDatePicker);
 **Status:** This becomes the critical path
 
 **What changes:**
-- **Vite template (form0-test1) priority:** Build production-ready field renderers with:
+- **Vite template (form0-web-tmpl-react-vite) priority:** Build production-ready field renderers with:
   - Tailwind for styling
   - Third-party libraries where appropriate (react-datepicker, etc.)
   - Custom icons and polish
   - Theme customization via Tailwind config
   - Register all custom renderers in `main.jsx`
-- **CLI scaffolding:** `form0-cli forge react --template vite` copies form0-test1
+- **CLI scaffolding:** `form0-cli forge react --template vite` copies form0-web-tmpl-react-vite
 - **Template structure:**
   ```
-  form0-test1/
+  form0-web-tmpl-react-vite/
   ├── src/
   │   ├── field-renderers/          # Production-ready custom components
   │   │   ├── text-field.jsx
@@ -187,7 +187,7 @@ registerFieldComponent('DateField', CustomDatePicker);
 
 ### A. Minimal Library, Polished Templates
 - **form0-react** remains framework-agnostic with basic HTML inputs
-- **Templates** (form0-test1, future Next.js, etc.) demonstrate production-ready styling
+- **Templates** (form0-web-tmpl-react-vite, future Next.js, etc.) demonstrate production-ready styling
 - **Benefit:** Supports any styling system, no forced dependencies
 
 ### B. Global Registration by Default
@@ -213,7 +213,7 @@ registerFieldComponent('DateField', CustomDatePicker);
    - [ ] (Optional) Add `<FieldRegistryProvider>` for context-based registration
    - [ ] Ensure all utility helpers are exported (`prepareSchema`, etc.)
 
-2. **form0-test1 (template):**
+2. **form0-web-tmpl-react-vite (template):**
    - [ ] Create `src/field-renderers/` directory
    - [ ] Build production-ready renderers for all field types:
      - [ ] TextField, NumericField (basic but styled)
@@ -228,7 +228,7 @@ registerFieldComponent('DateField', CustomDatePicker);
 
 3. **form0-cli:**
    - [ ] Implement `form0-cli forge react --template vite` command
-   - [ ] Copy form0-test1 as base template with all custom renderers
+   - [ ] Copy form0-web-tmpl-react-vite as base template with all custom renderers
    - [ ] Include README explaining customization options
 
 4. **Documentation:**
@@ -239,7 +239,7 @@ registerFieldComponent('DateField', CustomDatePicker);
 
 ## Questions for Review / Feedback
 
-1. **Styling approach for form0-test1:** Tailwind + custom components vs. Tailwind + shadcn/ui? -> Tailwinf + custom components
+1. **Styling approach for form0-web-tmpl-react-vite:** Tailwind + custom components vs. Tailwind + shadcn/ui? -> Tailwinf + custom components
 2. **Context-based registry:** Required now or defer until use case emerges? -> TBD
 3. **Helper hooks:** Add `useFieldState()`/`useFieldActions()` proactively or wait for patterns? -> TBD
 4. **Template distribution:** Keep in-repo vs. publish as npm package (e.g., `create-form0-app`)? -> TBD
