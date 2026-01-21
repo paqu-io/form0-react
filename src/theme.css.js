@@ -23,17 +23,38 @@ export const vars = createThemeContract({
     drilldownButtonFg: '',
     backButtonBg: '',
     backButtonFg: '',
+    // Icon colors
+    icon: '',
+    iconHover: '',
+    // View/Edit banners
+    bannerViewBg: '',
+    bannerViewFg: '',
+    bannerViewBorder: '',
+    bannerEditBg: '',
+    bannerEditFg: '',
+    bannerEditBorder: '',
   },
   borderRadius: '',
+  fontFamily: {
+    base: '',
+  },
   fontSize: {
     base: '',
+    button: '',
     label: '',
     section: '',
   },
+  lineHeight: {
+    tight: '',
+    normal: '',
+    relaxed: '',
+  },
   spacing: {
+    xs: '',
     sm: '',
     md: '',
     lg: '',
+    xl: '',
   },
 });
 
@@ -58,17 +79,36 @@ export const standardThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280', // neutral gray
+    iconHover: '#111', // darker on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '8px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -93,31 +133,50 @@ export const standardThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af', // lighter gray for dark mode
+    iconHover: '#f3f4f6', // lighter on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '8px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
 // Modal theme (light)
 export const modalThemeLight = createTheme(vars, {
   color: {
-    background: '#f3f4f6',
+    background: '#fff',
     foreground: '#111',
-    border: '#d1d5db',
-    primary: '#2563eb',
+    border: '#e5e7eb',
+    primary: '#111',
     error: '#e11d48',
-    section: '#fff',
-    sectionBorder: '#d1d5db',
-    sectionHeader: '#2563eb',
+    section: '#f9fafb',
+    sectionBorder: '#e5e7eb',
+    sectionHeader: '#111',
     buttonBg: '#ff007a', // vivid pink
     buttonFg: '#fff',
     buttonBorder: '#ff007a',
@@ -128,31 +187,50 @@ export const modalThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280', // neutral gray
+    iconHover: '#111', // darker on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '12px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.75rem',
-    md: '1.25rem',
-    lg: '2.5rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
 // Modal theme (dark)
 export const modalThemeDark = createTheme(vars, {
   color: {
-    background: '#232326',
+    background: '#18181b',
     foreground: '#f3f4f6',
-    border: '#3f3f46',
-    primary: '#60a5fa',
+    border: '#27272a',
+    primary: '#38bdf8',
     error: '#f87171',
-    section: '#18181b',
+    section: '#232326',
     sectionBorder: '#27272a',
-    sectionHeader: '#60a5fa',
+    sectionHeader: '#38bdf8',
     buttonBg: '#00ffae', // vivid green
     buttonFg: '#18181b',
     buttonBorder: '#00ffae',
@@ -163,17 +241,36 @@ export const modalThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af', // lighter gray for dark mode
+    iconHover: '#f3f4f6', // lighter on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '12px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.75rem',
-    md: '1.25rem',
-    lg: '2.5rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -198,17 +295,36 @@ export const simplifiedThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280',
+    iconHover: '#10b981', // green primary on hover
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '6px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -233,17 +349,36 @@ export const simplifiedThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af',
+    iconHover: '#6ee7b7', // green primary on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '6px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -268,17 +403,36 @@ export const spotlightThemeLight = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ffe600', // vivid yellow
     backButtonFg: '#111',
+    icon: '#6b7280',
+    iconHover: '#111',
+    bannerViewBg: '#fef3c7',
+    bannerViewFg: '#92400e',
+    bannerViewBorder: '#fcd34d',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '8px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });
 
@@ -303,16 +457,35 @@ export const spotlightThemeDark = createTheme(vars, {
     drilldownButtonFg: '#fff',
     backButtonBg: '#ff00e6', // vivid magenta
     backButtonFg: '#fff',
+    icon: '#9ca3af',
+    iconHover: '#38bdf8', // cyan primary on hover
+    bannerViewBg: 'rgba(251, 191, 36, 0.2)',
+    bannerViewFg: '#fde68a',
+    bannerViewBorder: '#fbbf24',
+    bannerEditBg: '#dbeafe',
+    bannerEditFg: '#1e40af',
+    bannerEditBorder: '#60a5fa',
   },
-  borderRadius: '8px',
+  borderRadius: '0.375rem',
+  fontFamily: {
+    base: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
   fontSize: {
-    base: '1rem',
-    label: '1rem',
-    section: '1.125rem',
+    base: '0.875rem',
+    button: '0.875rem',
+    label: '0.875rem',
+    section: '0.95rem',
+  },
+  lineHeight: {
+    tight: '1.25',
+    normal: '1.5',
+    relaxed: '1.625',
   },
   spacing: {
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '2rem',
+    xs: '0.125rem',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '1rem',
+    xl: '1.5rem',
   },
 });

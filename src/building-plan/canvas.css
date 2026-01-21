@@ -1,0 +1,193 @@
+.building-plan-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+
+.building-plan-canvas-host {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1 1 50%;
+  min-height: 360px;
+}
+
+.building-plan-canvas-panel-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* Isolate stacking context so zoom controls don't escape to overlay modals */
+  isolation: isolate;
+}
+
+.building-plan-canvas-panel {
+  /* Fixed aspect ratio container; adjust via CSS custom property if needed */
+  --building-plan-canvas-aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.building-plan-detail-panel {
+  flex: 1 1 50%;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.building-plan-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.building-plan-toolbar-button {
+  border: 1px solid #b5b5b5;
+  background: #f7f7f7;
+  color: #333;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.building-plan-toolbar-button:hover {
+  background: #ececec;
+}
+
+.building-plan-toolbar-button.active {
+  background: #3567d6;
+  border-color: #2854b2;
+  color: #fff;
+}
+
+.building-plan-canvas-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.building-plan-canvas-container {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--building-plan-canvas-aspect-ratio, 16 / 9);
+  min-height: 320px;
+  max-height: 70vh;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.building-plan-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #fafafa;
+  cursor: crosshair;
+}
+
+.building-plan-focus {
+  animation: building-plan-focus-highlight 1.5s ease;
+  outline: 2px solid #3567d6;
+}
+
+@keyframes building-plan-focus-highlight {
+  0% {
+    background-color: rgba(53, 103, 214, 0.12);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.building-plan-floor-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.building-plan-floor-tab {
+  border: 1px solid #b5b5b5;
+  background: #f7f7f7;
+  color: #333;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.building-plan-floor-tab:hover {
+  background: #ececec;
+}
+
+.building-plan-floor-tab.active {
+  background: #3567d6;
+  border-color: #2854b2;
+  color: #fff;
+}
+
+.building-plan-floor-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed #c5c5c5;
+  background: transparent;
+  color: #9a9a9a;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: default;
+  position: relative;
+  min-height: 26px;
+}
+
+.building-plan-floor-placeholder::before {
+  content: '+';
+  font-size: 14px;
+  font-weight: 500;
+  color: #b5b5b5;
+}
+
+/* Tooltip for floor placeholder */
+.building-plan-floor-placeholder[data-tooltip] {
+  position: relative;
+}
+
+.building-plan-floor-placeholder[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #171717;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-floor-placeholder[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+}

@@ -1,0 +1,503 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
+import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
+import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
+import { ZoomControls } from './zoom-controls.jsx';
+import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
+import './canvas.css';
+
+const NODE_KEYS = {
+  floors: 'floors',
+  rooms: 'rooms',
+  walls: 'walls',
+  columns: 'columns',
+  beams: 'beams',
+  doors: 'doors',
+  windows: 'windows',
+};
+
+function pickMetaEntry(buildingPlanMeta, dataName) {
+  if (!Array.isArray(buildingPlanMeta)) return null;
+  if (dataName) {
+    const match = buildingPlanMeta.find((entry) => entry?.dataName === dataName);
+    if (match) return match;
+  }
+  return buildingPlanMeta[0] || null;
+}
+
+function createRepeatableKeyLookup(meta) {
+  const get = (nodeKey) =>
+    meta?.repeatablesByNodeKey?.[nodeKey]?.preferredKey ||
+    meta?.repeatablesByNodeKey?.[nodeKey]?.key ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.preferredKey ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.key ||
+    null;
+
+  const getDataName = (nodeKey) =>
+    meta?.repeatablesByNodeKey?.[nodeKey]?.dataName ||
+    meta?.repeatablesByNodeKey?.[nodeKey]?.data_name ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.dataName ||
+    (meta?.repeatables || []).find((r) => r?.nodeKey === nodeKey)?.data_name ||
+    null;
+
+  // Build a map from data_name to preferred key for exact matching
+  const dataNameToKey = {};
+  for (const nodeKey of Object.values(NODE_KEYS)) {
+    const dataName = getDataName(nodeKey);
+    const key = get(nodeKey);
+    if (dataName && key) {
+      dataNameToKey[dataName] = key;
+    }
+  }
+
+  return {
+    floors: get(NODE_KEYS.floors),
+    rooms: get(NODE_KEYS.rooms),
+    walls: get(NODE_KEYS.walls),
+    columns: get(NODE_KEYS.columns),
+    beams: get(NODE_KEYS.beams),
+    doors: get(NODE_KEYS.doors),
+    windows: get(NODE_KEYS.windows),
+    // Expose the dataName-to-key map for exact matching
+    byDataName: dataNameToKey,
+  };
+}
+
+function resolveContainer(rootRepeatableState, path = []) {
+  let cursor = { repeatable: rootRepeatableState };
+  for (const segment of path) {
+    const { key, index } = segment || {};
+    if (!key || index == null) return null;
+    const arr = (cursor.repeatable || {})[key];
+    if (!Array.isArray(arr)) return null;
+    cursor = arr[index];
+    if (!cursor) return null;
+  }
+  return cursor;
+}
+
+function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
+  // Resolve the repeatable key for a section.
+  // Uses exact data_name matching against meta configuration to ensure
+  // keys used for storing/looking up instances match the repeatableState keys.
+  const getKeyForSection = (section) => {
+    const dataName = section?.data_name || section?.dataName || null;
+
+    // First, try exact match against meta's dataName-to-key mapping.
+    // This ensures we use the same keys as repeatableState.
+    if (dataName && keyLookup.byDataName?.[dataName]) {
+      return keyLookup.byDataName[dataName];
+    }
+
+    // Fall back to section's own preferred_key/key/data_name.
+    // This handles cases where the section isn't in the meta.
+    return (
+      section?.preferred_key ||
+      section?.preferredKey ||
+      section?.key ||
+      dataName ||
+      null
+    );
+  };
+
+  const getRepeatableInstancesByIndexPath = (sectionOrKey, path = []) => {
+    const key = typeof sectionOrKey === 'string' ? sectionOrKey : getKeyForSection(sectionOrKey);
+    if (!key) return [];
+    const parent = resolveContainer(repeatableRef.current, path);
+    if (!parent) return [];
+    const source = path.length === 0 ? repeatableRef.current : parent.repeatable || {};
+    const instances = source[key];
+    return Array.isArray(instances) ? instances : [];
+  };
+
+  const mutateLocalRepeatable = (mutator) => {
+    const base = repeatableRef.current && typeof repeatableRef.current === 'object'
+      ? repeatableRef.current
+      : {};
+    const draft = typeof structuredClone === 'function' ? structuredClone(base) : JSON.parse(JSON.stringify(base));
+    mutator(draft);
+    repeatableRef.current = draft;
+  };
+
+  const indexPathToIdPath = (indexPath = []) => {
+    const idPath = [];
+    let container = repeatableRef.current;
+    for (const segment of indexPath) {
+      if (!segment || typeof segment.key !== 'string') return null;
+      const list = container?.[segment.key];
+      if (!Array.isArray(list)) return null;
+      const instance = list[segment.index];
+      if (!instance || !instance.id) return null;
+      idPath.push({ key: segment.key, id: instance.id });
+      container = instance.repeatable || {};
+    }
+    return idPath;
+  };
+
+  const addRepeatableInstanceShim = (section, path = [], options = {}) => {
+    const key = getKeyForSection(section);
+    if (!key || typeof repeatableApiRef.current?.addInstance !== 'function') return null;
+    const parentIdPath = indexPathToIdPath(path) || [];
+    const created = repeatableApiRef.current.addInstance(key, {
+      parentPath: parentIdPath,
+      seedValues: options.seedValues,
+      instanceId: options.instanceId,
+    });
+    if (created) {
+      mutateLocalRepeatable((draft) => {
+        let container = draft;
+        for (const segment of path) {
+          if (!segment || typeof segment.key !== 'string') return;
+          if (!Array.isArray(container[segment.key])) return;
+          const instance = container[segment.key][segment.index];
+          if (!instance) return;
+          if (!instance.repeatable || typeof instance.repeatable !== 'object') {
+            instance.repeatable = {};
+          }
+          container = instance.repeatable;
+        }
+        if (!Array.isArray(container[key])) {
+          container[key] = [];
+        }
+        container[key].push(created);
+      });
+    }
+    return created;
+  };
+
+  const removeRepeatableInstanceShim = (section, parentPath = [], index = null) => {
+    const key = getKeyForSection(section);
+    if (!key || typeof repeatableApiRef.current?.removeInstance !== 'function') return;
+    const list = getRepeatableInstancesByIndexPath(key, parentPath);
+    if (!Array.isArray(list)) return;
+    const target = index != null ? list[index] : null;
+    if (!target) return;
+    const parentIdPath = indexPathToIdPath(parentPath) || [];
+    repeatableApiRef.current.removeInstance(key, target.id, parentIdPath);
+    mutateLocalRepeatable((draft) => {
+      let container = draft;
+      for (const segment of parentPath) {
+        if (!segment || typeof segment.key !== 'string') return;
+        if (!Array.isArray(container[segment.key])) return;
+        const instance = container[segment.key][segment.index];
+        if (!instance) return;
+        if (!instance.repeatable || typeof instance.repeatable !== 'object') {
+          instance.repeatable = {};
+        }
+        container = instance.repeatable;
+      }
+      if (Array.isArray(container[key])) {
+        container[key] = container[key].filter((inst) => inst && inst.id !== target.id);
+      }
+    });
+  };
+
+  const setFieldValueAtContextShim = (fieldName, path = [], value) => {
+    if (!fieldName) return false;
+    const parentPath = path.slice(0, -1);
+    const segment = path[path.length - 1];
+    if (!segment || typeof segment.key !== 'string') return false;
+    const list = getRepeatableInstancesByIndexPath(segment.key, parentPath);
+    if (!Array.isArray(list)) return false;
+    const instance = list[segment.index];
+    if (!instance) return false;
+    const parentIdPath = indexPathToIdPath(parentPath) || [];
+    if (typeof repeatableApiRef.current?.updateInstance === 'function') {
+      repeatableApiRef.current.updateInstance(segment.key, instance.id, (current) => {
+        const next = { ...current, values: { ...(current?.values || {}) } };
+        next.values[fieldName] = value;
+        return next;
+      }, parentIdPath);
+    }
+    mutateLocalRepeatable((draft) => {
+      let container = draft;
+      for (const seg of parentPath) {
+        if (!seg || typeof seg.key !== 'string') return;
+        if (!Array.isArray(container[seg.key])) return;
+        const inst = container[seg.key][seg.index];
+        if (!inst) return;
+        if (!inst.repeatable || typeof inst.repeatable !== 'object') {
+          inst.repeatable = {};
+        }
+        container = inst.repeatable;
+      }
+      const listRef = container[segment.key];
+      if (!Array.isArray(listRef)) return;
+      const localInstance = listRef[segment.index];
+      if (!localInstance) return;
+      localInstance.values = { ...(localInstance.values || {}), [fieldName]: value };
+    });
+    return true;
+  };
+
+  const formatContextPath = (path = []) =>
+    path
+      .map((segment) => `${segment?.key || 'unknown'}[${segment?.index ?? '?'}]`)
+      .join('/');
+
+  return {
+    formRenderer: {
+      getPreferredKey(section) {
+        // Use the same key resolution as getKeyForSection for consistency.
+        // This ensures walls (and other repeatables) are stored and looked up
+        // under the same key, preventing coordinate update failures.
+        return getKeyForSection(section);
+      },
+      getRepeatableInstances: getRepeatableInstancesByIndexPath,
+      formatContextPath,
+      addRepeatableInstance: addRepeatableInstanceShim,
+      removeRepeatableInstance: removeRepeatableInstanceShim,
+      getRepeatableInstanceContainer(path = []) {
+        return resolveContainer(repeatableRef.current, path);
+      },
+      ensureRepeatablePathExpanded() {},
+      rebuildRepeatableSection() {},
+      getRepeatableStateContainer(path = []) {
+        return resolveContainer(repeatableRef.current, path);
+      },
+    },
+    formStateManager: {
+      setFieldValueAtContext: setFieldValueAtContextShim,
+      updateFormState() {},
+      suspendEngineUpdates() {},
+      resumeEngineUpdates() {},
+      registerPendingFieldCallback() {},
+      clearPendingValuesUnderPath() {},
+    },
+  };
+}
+
+export function BuildingPlanCanvasHost({
+  section,
+  buildingPlanMeta = [],
+  repeatableState = {},
+  repeatableApi = {},
+  mode = 'parent',
+  scope = { floorId: null, roomId: null },
+  toolbarState = {},
+  readOnly = false,
+}) {
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+  const controllerRef = useRef(null);
+  const repeatableRef = useRef(repeatableState);
+  const repeatableApiRef = useRef(repeatableApi);
+
+  // Track active tool mode for the new toolbar
+  const [activeToolMode, setActiveToolMode] = useState(TOOL_MODES.SELECT);
+
+  // Track zoom level for the zoom controls
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Handle tool mode change from the new toolbar
+  const handleModeChange = useCallback((newMode) => {
+    setActiveToolMode(newMode);
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.setMode === 'function') {
+      canvas.setMode(newMode);
+    }
+  }, []);
+
+  // Handle clear selection action
+  const handleClearSelection = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.clearSelection === 'function') {
+      canvas.clearSelection();
+    }
+  }, []);
+
+  // Zoom control handlers
+  const handleZoomIn = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.zoomIn === 'function') {
+      canvas.zoomIn();
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.zoomOut === 'function') {
+      canvas.zoomOut();
+    }
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas && typeof canvas.resetZoom === 'function') {
+      canvas.resetZoom();
+    }
+  }, []);
+
+  useEffect(() => {
+    repeatableApiRef.current = repeatableApi;
+  }, [repeatableApi]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const container = containerRef.current;
+    if (!section || !container) return undefined;
+
+    const metaEntry = pickMetaEntry(buildingPlanMeta, section.data_name);
+    const keyLookup = createRepeatableKeyLookup(metaEntry);
+    repeatableRef.current = repeatableState;
+    const { formRenderer, formStateManager } = makeAdapters({
+      repeatableRef,
+      keyLookup,
+      repeatableApiRef,
+    });
+
+    const controller = new LegacyBuildingPlanController(
+      formRenderer,
+      formStateManager,
+      section,
+      [],
+      metaEntry,
+      scope
+    );
+
+    // We handle repeatable sync manually; avoid listening to DOM events the React stack never emits
+    document.removeEventListener('form0:repeatable-change', controller.handleRepeatableChange);
+
+    const canvas = new LegacyBuildingPlanCanvas({
+      container,
+      controller,
+      labelSettings: {},
+      externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
+      readOnly, // Disable canvas interactions in view mode
+    });
+
+    // Persistently gate tools per toolbarState (legacy updateButtonStates may flip them)
+    const applyToolbarGating = (state) => {
+      const nextState = state || controller?.toolbarState || toolbarState;
+      if (!nextState || !canvas) return;
+      const {
+        canDrawFloor,
+        canDrawRoom,
+        canDrawWall,
+        canDrawColumn,
+        canDrawBeam,
+        canDrawDoor,
+        canDrawWindow,
+      } = nextState;
+
+      const forceDisable = (button, allowed) => {
+        if (!button) return;
+        button.disabled = !allowed;
+        button.style.pointerEvents = allowed ? '' : 'none';
+        if (!allowed && button.classList.contains('active')) {
+          button.classList.remove('active');
+        }
+      };
+
+      // Floor drawing is not supported in parent view; hide when disallowed
+      if (canvas.floorButton) {
+        const allowed = Boolean(canDrawFloor);
+        canvas.floorButton.style.display = allowed ? '' : 'none';
+        forceDisable(canvas.floorButton, allowed);
+      }
+      forceDisable(canvas.roomButton, Boolean(canDrawRoom));
+      forceDisable(canvas.wallButton, Boolean(canDrawWall));
+      forceDisable(canvas.columnButton, Boolean(canDrawColumn));
+      forceDisable(canvas.beamButton, Boolean(canDrawBeam));
+      forceDisable(canvas.doorButton, Boolean(canDrawDoor));
+      forceDisable(canvas.windowButton, Boolean(canDrawWindow));
+    };
+
+    const originalUpdateButtons = canvas.updateButtonStates.bind(canvas);
+    canvas.updateButtonStates = () => {
+      originalUpdateButtons();
+      applyToolbarGating(controller.toolbarState || toolbarState);
+    };
+
+    // Apply once on mount
+    applyToolbarGating(toolbarState);
+
+    // Wire up zoom change callback
+    canvas.onZoomChange = (level) => {
+      setZoomLevel(level);
+    };
+
+    controllerRef.current = controller;
+    canvasRef.current = canvas;
+
+    // Initial sync to reflect the current repeatable state
+    controller.syncFromState();
+
+    return () => {
+      canvas?.destroy?.();
+      controller?.dispose?.();
+    };
+  }, [section, buildingPlanMeta]);
+
+  // When repeatable state changes, refresh the controller snapshot without full re-init
+  useEffect(() => {
+    const controller = controllerRef.current;
+    if (controller) {
+      repeatableRef.current = repeatableState;
+      controller.syncFromState();
+      controller.emitUpdate?.();
+    }
+  }, [repeatableState]);
+
+  // Reflect toolbar gating (lightweight): disable toolbar buttons when editing is off
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const controller = controllerRef.current;
+    if (controller) {
+      controller.toolbarState = toolbarState;
+    }
+    if (canvas && typeof canvas.updateButtonStates === 'function') {
+      canvas.updateButtonStates();
+    }
+  }, [toolbarState]);
+
+  // Forward scope (active floor/room) to the legacy controller for dimming rules.
+  // Only clear selection when the scope actually changes to avoid flicker.
+  const prevScopeRef = useRef({ floorId: null, roomId: null });
+  useEffect(() => {
+    const controller = controllerRef.current;
+    const nextScope = scope || { floorId: null, roomId: null };
+    const prevScope = prevScopeRef.current;
+    const changed =
+      prevScope.floorId !== nextScope.floorId || prevScope.roomId !== nextScope.roomId;
+    if (controller && typeof controller.setScope === 'function') {
+      controller.setScope(nextScope);
+    }
+    if (changed && canvasRef.current && typeof canvasRef.current.clearSelection === 'function') {
+      canvasRef.current.clearSelection();
+    }
+    if (changed) {
+      prevScopeRef.current = nextScope;
+    }
+  }, [scope]);
+
+  // Sync readOnly state to canvas when it changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.readOnly = readOnly;
+    }
+  }, [readOnly]);
+
+  return (
+    <div className="building-plan-canvas-host">
+      <BuildingPlanToolbar
+        canvasMode={mode}
+        activeToolMode={activeToolMode}
+        onModeChange={handleModeChange}
+        onClearSelection={handleClearSelection}
+        disabled={readOnly}
+      />
+      <div className="building-plan-canvas-panel-wrapper">
+      <div ref={containerRef} className="building-plan-canvas-panel" />
+        <ZoomControls
+          zoomLevel={zoomLevel}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onReset={handleZoomReset}
+          disabled={readOnly}
+        />
+      </div>
+    </div>
+  );
+}
