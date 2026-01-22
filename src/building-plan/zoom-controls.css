@@ -1,0 +1,207 @@
+/**
+ * Zoom Controls - Floating overlay for canvas zoom
+ */
+
+.building-plan-zoom-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+  /* Low z-index - only needs to be above canvas within its wrapper.
+     The wrapper's stacking context ensures these don't escape to overlay modals. */
+  z-index: 10;
+}
+
+.building-plan-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #525252;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.building-plan-zoom-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+  color: #171717;
+}
+
+.building-plan-zoom-btn:active:not(:disabled) {
+  background: #e5e5e5;
+}
+
+.building-plan-zoom-btn:disabled {
+  color: #d4d4d4;
+  cursor: not-allowed;
+}
+
+.building-plan-zoom-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.building-plan-zoom-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.building-plan-zoom-separator {
+  width: 100%;
+  height: 1px;
+  background: #e5e5e5;
+  margin: 2px 0;
+}
+
+.building-plan-zoom-level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #525252;
+  padding: 4px 0;
+  min-width: 32px;
+  user-select: none;
+  position: relative;
+}
+
+/* Tooltip for zoom level */
+.building-plan-zoom-level[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  background: #171717;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-zoom-level[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  right: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+  border: 4px solid transparent;
+  border-left-color: #171717;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-zoom-level[data-tooltip]:hover::after,
+.building-plan-zoom-level[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip for zoom buttons */
+.building-plan-zoom-btn[data-tooltip] {
+  position: relative;
+}
+
+.building-plan-zoom-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  background: #171717;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-zoom-btn[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  right: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+  border: 4px solid transparent;
+  border-left-color: #171717;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.building-plan-zoom-btn[data-tooltip]:hover::after,
+.building-plan-zoom-btn[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Pan hint at bottom of controls */
+.building-plan-zoom-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Static button style (non-interactive, just for visual consistency) */
+.building-plan-zoom-btn-static {
+  cursor: default;
+  color: #a3a3a3;
+}
+
+.building-plan-zoom-btn-static:hover {
+  background: transparent;
+  color: #a3a3a3;
+}
+
+.building-plan-zoom-hint-text {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #a3a3a3;
+  text-align: center;
+  line-height: 1.1;
+  user-select: none;
+}
+

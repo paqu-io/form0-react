@@ -1,4 +1,4 @@
-import { generateKey } from './generate-keys';
+import { generateKey } from './generate-keys.js';
 
 export function ensureKeys(elements) {
   elements.forEach((field) => {
