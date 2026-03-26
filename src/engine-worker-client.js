@@ -1,36 +1,42 @@
-const resolveWorkerUrl = () => {
-  // ESM/browser path (bundlers rewrite import.meta.url relative paths)
-  if (typeof import.meta !== 'undefined' && import.meta?.url) {
-    try {
-      return new URL('./engine-worker.js', import.meta.url);
-    } catch (_err) {
-      // fall through to next strategy
-    }
-  }
-
-  // Browser fallback when import.meta.url is unavailable (e.g., CJS build)
+const resolveLegacyWorkerUrl = () => {
   if (typeof window !== 'undefined') {
     const base = document?.currentScript?.src || window.location.href;
     try {
       return new URL('./engine-worker.js', base);
     } catch (_err) {
-      // last resort: let Worker resolve relative to the current page
       return './engine-worker.js';
     }
   }
 
-  // Non-browser environments should never construct the worker
   return './engine-worker.js';
 };
 
-const WORKER_URL = resolveWorkerUrl();
+const createDefaultWorker = () =>
+  new Worker(new URL('./engine-worker.js', import.meta.url), { type: 'module' });
+
+const createWorkerFromUrl = (workerUrl) => new Worker(workerUrl, { type: 'module' });
 
 export class EngineWorkerClient {
-  constructor({ onState, onWarning } = {}) {
+  constructor({ onState, onWarning, createWorker, workerUrl } = {}) {
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
       throw new Error('form0-react: Web Workers are not available in this environment');
     }
-    this.worker = new Worker(WORKER_URL, { type: 'module' });
+
+    try {
+      if (typeof createWorker === 'function') {
+        this.worker = createWorker();
+      } else if (workerUrl) {
+        this.worker = createWorkerFromUrl(workerUrl);
+      } else {
+        this.worker = createDefaultWorker();
+      }
+    } catch (error) {
+      if (typeof createWorker === 'function' || workerUrl) {
+        throw error;
+      }
+      this.worker = createWorkerFromUrl(resolveLegacyWorkerUrl());
+    }
+
     this.pending = new Map();
     this.nextId = 1;
     this.onState = onState || null;
