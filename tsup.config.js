@@ -26,7 +26,6 @@ export default defineConfig([
     format: ['esm'],
     clean: false, // keep library outputs when rebuilding worker
     splitting: false, // single-file worker
-    noExternal: ['form0-core'], // bundle the engine into the worker to avoid bare imports in consumers
     platform: 'browser',
   },
 ]);
