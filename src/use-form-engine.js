@@ -437,8 +437,11 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       return null;
     }
     try {
+      const workerOptions = optionsRef.current || {};
       const client = new EngineWorkerClient({
         onState: (nextState, meta) => syncWorkerState(nextState, meta),
+        createWorker: workerOptions.createWorker,
+        workerUrl: workerOptions.workerUrl,
       });
       workerClientRef.current = client;
       return client;

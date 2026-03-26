@@ -300,8 +300,11 @@ export function useRepeatableInstanceEngine({
       return null;
     }
     try {
+      const workerOptions = engineOptionsRef.current || {};
       const client = new EngineWorkerClient({
         onState: (nextState, meta) => syncWorkerState(nextState, meta),
+        createWorker: workerOptions.createWorker,
+        workerUrl: workerOptions.workerUrl,
       });
       workerClientRef.current = client;
       return client;

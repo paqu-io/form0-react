@@ -21,6 +21,10 @@ form0-react is the React UI layer of the [form0 ecosystem](https://form0.dev), w
 ## Requirements
 
 - Node.js 18+
+- Worker mode expects a bundler/runtime that supports ESM module workers and rewrites
+  `new Worker(new URL('./engine-worker.js', import.meta.url), { type: 'module' })`.
+  Vite-based apps are supported. If a consumer has custom worker infrastructure, the
+  internal hooks also accept `workerUrl` or `createWorker` overrides through engine options.
 
 ## Contributing
 
