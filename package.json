@@ -27,7 +27,8 @@
   "scripts": {
     "build": "tsup",
     "prepack": "npm run build",
-    "test": "echo 'no tests yet'",
+    "pretest": "npm run build",
+    "test": "vitest run",
     "format": "prettier --write \"**/*.{js,jsx,json,ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,json,ts,tsx,md}\""
   },
@@ -59,12 +60,15 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.2.0",
     "@vanilla-extract/css": "^1.17.4",
     "@vanilla-extract/esbuild-plugin": "^2.3.18",
     "ignore": "^7.0.5",
+    "jsdom": "^27.0.0",
     "prettier": "^3.5.3",
     "tsup": "^8.5.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.0.5"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",

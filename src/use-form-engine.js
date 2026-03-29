@@ -10,6 +10,7 @@ import { createFormEngine, validateSchema, expandBuildingPlanSchema } from 'form
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import {
   buildRepeatableInfo,
+  cloneRepeatableState,
   createEmptyRepeatableInstance,
 } from './utils/repeatable-manager.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
@@ -26,7 +27,13 @@ const createEmptyState = () => ({
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
 const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
-export function useFormEngine(schema, initialValues = {}, overrideValues, options = {}) {
+export function useFormEngine(
+  schema,
+  initialValues = {},
+  overrideValues,
+  options = {},
+  initialRepeatable = {}
+) {
   const normalizedOptions = useMemo(() => {
     const desiredMode = options?.engineMode === 'worker' ? 'worker' : 'main-thread';
     const engineMode =
@@ -50,6 +57,8 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   const engineStore = engineStoreRef.current;
   const initialValuesRef = useRef(initialValues || {});
   const initialValuesSignatureRef = useRef(null);
+  const initialRepeatableRef = useRef(cloneRepeatableState(initialRepeatable || {}));
+  const initialRepeatableSignatureRef = useRef(null);
   const optionsRef = useRef(normalizedOptions || {});
   const warningCleanupRef = useRef(null);
   const fieldDefinitionsRef = useRef(new Map());
@@ -182,6 +191,10 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   }, [initialValues]);
 
   useEffect(() => {
+    initialRepeatableRef.current = cloneRepeatableState(initialRepeatable || {});
+  }, [initialRepeatable]);
+
+  useEffect(() => {
     repeatableStateRef.current = repeatableState;
   }, [repeatableState]);
 
@@ -197,10 +210,6 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       return next;
     });
   }, []);
-
-  useEffect(() => {
-    updateRepeatableState({});
-  }, [preparedSchema, updateRepeatableState]);
 
   const mutateRepeatableState = useCallback(
     (mutator) => {
@@ -881,6 +890,11 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     [initialValues]
   );
 
+  const initialRepeatableSignature = useMemo(
+    () => JSON.stringify(initialRepeatable || {}),
+    [initialRepeatable]
+  );
+
   const rebuildEngineRef = useRef(rebuildEngine);
   useEffect(() => {
     rebuildEngineRef.current = rebuildEngine;
@@ -896,23 +910,45 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       }
     rebuildEngineRef.current(initialValuesRef.current);
     initialValuesSignatureRef.current = initialValuesSignature;
+    initialRepeatableSignatureRef.current = initialRepeatableSignature;
+    updateRepeatableState(cloneRepeatableState(initialRepeatableRef.current || {}));
     return () => {
       engineRef.current = null;
       cleanupWorkerClient();
     };
-  }, [cleanupWorkerClient, engineStore, initialValuesSignature, preparedSchema]);
+  }, [
+    cleanupWorkerClient,
+    engineStore,
+    initialRepeatableSignature,
+    initialValuesSignature,
+    preparedSchema,
+    updateRepeatableState,
+  ]);
 
   useEffect(() => {
     if (!engineRef.current) return;
     if (initialValuesSignatureRef.current === null) {
       initialValuesSignatureRef.current = initialValuesSignature;
+      initialRepeatableSignatureRef.current = initialRepeatableSignature;
       return;
     }
-    if (initialValuesSignatureRef.current !== initialValuesSignature) {
+    if (
+      initialValuesSignatureRef.current !== initialValuesSignature ||
+      initialRepeatableSignatureRef.current !== initialRepeatableSignature
+    ) {
       initialValuesSignatureRef.current = initialValuesSignature;
+      initialRepeatableSignatureRef.current = initialRepeatableSignature;
       reset(initialValues);
+      updateRepeatableState(cloneRepeatableState(initialRepeatable || {}));
     }
-  }, [initialValues, initialValuesSignature, reset]);
+  }, [
+    initialRepeatable,
+    initialRepeatableSignature,
+    initialValues,
+    initialValuesSignature,
+    reset,
+    updateRepeatableState,
+  ]);
 
   useEffect(() => {
     if (!overrideValues || !engineRef.current) return;
