@@ -497,6 +497,36 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     }
   }, [sendWorkerValueUpdates]);
 
+  const normalizeSeedValueForField = useCallback((fieldName, value) => {
+    const fieldDef = fieldDefinitionsRef.current.get(fieldName);
+    if (!fieldDef) {
+      return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
+    }
+    switch (fieldDef.type) {
+      case 'SingleChoiceField':
+      case 'BooleanField':
+        return normalizeSingleChoiceValue(fieldDef, value);
+      case 'MultiChoiceField':
+        return normalizeMultiChoiceValue(fieldDef, value);
+      default:
+        return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
+    }
+  }, []);
+
+  const normalizeSeedValues = useCallback(
+    (inputValues = {}) => {
+      if (!inputValues || typeof inputValues !== 'object') {
+        return {};
+      }
+
+      return Object.entries(inputValues).reduce((acc, [fieldName, value]) => {
+        acc[fieldName] = normalizeSeedValueForField(fieldName, value);
+        return acc;
+      }, {});
+    },
+    [normalizeSeedValueForField]
+  );
+
   const rebuildEngine = useCallback(
     (seedValues = initialValuesRef.current) => {
       //console.log('[form0-react] rebuildEngine start', { mode: engineModeRef.current });
@@ -509,6 +539,8 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         setEngineReadyVersion(0);
         return;
       }
+
+      const normalizedSeedValues = normalizeSeedValues(seedValues || {});
 
       const isWorkerMode = engineModeRef.current === 'worker';
 
@@ -531,7 +563,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
           client
             .init({
               schema: preparedSchema,
-              initialValues: { ...(seedValues || {}) },
+              initialValues: normalizedSeedValues,
               helpers: optionsRef.current.helpers,
               security: optionsRef.current.security,
             })
@@ -577,7 +609,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       cleanupWorkerClient({ bumpToken: !isWorkerMode });
       const engine = createFormEngine({
         schema: preparedSchema,
-        initialValues: { ...(seedValues || {}) },
+        initialValues: normalizedSeedValues,
         helpers: optionsRef.current.helpers,
         security: optionsRef.current.security,
       });
@@ -592,6 +624,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
       cleanupWorkerClient,
       createWorkerClient,
       flushPendingWorkerUpdates,
+      normalizeSeedValues,
       preparedSchema,
       syncState,
       syncWorkerState,
@@ -654,6 +687,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
   const setValues = useCallback(
     (updates = {}) => {
       if (!updates || typeof updates !== 'object') return;
+      const normalizedUpdates = normalizeSeedValues(updates);
       //console.log('[form0-react] setValues called', updates, 'mode=', engineModeRef.current);
       if (engineModeRef.current === 'worker') {
         if (!workerClientRef.current) {
@@ -662,22 +696,25 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         }
         const updateVersion = valueUpdateVersionRef.current + 1;
         valueUpdateVersionRef.current = updateVersion;
-        Object.keys(updates || {}).forEach((field) => {
+        Object.keys(normalizedUpdates || {}).forEach((field) => {
           fieldUpdateVersionRef.current.set(field, updateVersion);
         });
-        applyOptimisticValues(updates);
+        applyOptimisticValues(normalizedUpdates);
         if (!workerReadyRef.current) {
           //console.log('[form0-react] worker not ready, queueing updates');
-          pendingWorkerUpdatesRef.current.push({ updates: { ...updates }, updateVersion });
+          pendingWorkerUpdatesRef.current.push({
+            updates: { ...normalizedUpdates },
+            updateVersion,
+          });
           return;
         }
-        sendWorkerValueUpdates(updates, updateVersion);
+        sendWorkerValueUpdates(normalizedUpdates, updateVersion);
         return;
       }
       if (!engineRef.current) return;
       const engineState = engineRef.current.getState();
       let dirty = false;
-      for (const [field, value] of Object.entries(updates)) {
+      for (const [field, value] of Object.entries(normalizedUpdates)) {
         if (engineState.values[field] !== value) {
           engineState.values[field] = value;
           dirty = true;
@@ -687,7 +724,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         evaluateAndSync();
       }
     },
-    [applyOptimisticValues, evaluateAndSync, sendWorkerValueUpdates]
+    [applyOptimisticValues, evaluateAndSync, normalizeSeedValues, sendWorkerValueUpdates]
   );
 
   const setValue = useCallback(
@@ -720,22 +757,6 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
     return cloneDeep(values) || {};
   }, []);
 
-  const normalizeValueForField = useCallback((fieldName, value) => {
-    const fieldDef = fieldDefinitionsRef.current.get(fieldName);
-    if (!fieldDef) {
-      return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
-    }
-    switch (fieldDef.type) {
-      case 'SingleChoiceField':
-      case 'BooleanField':
-        return normalizeSingleChoiceValue(fieldDef, value);
-      case 'MultiChoiceField':
-        return normalizeMultiChoiceValue(fieldDef, value);
-      default:
-        return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
-    }
-  }, []);
-
   const defaultProcessOperations = useCallback(
     (operations = [], meta = {}) => {
       if (!Array.isArray(operations) || operations.length === 0) {
@@ -757,7 +778,10 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
             console.warn('form0-react: SETVALUE operation missing fieldDataName.', operation);
             return;
           }
-          pendingValueUpdates[fieldDataName] = normalizeValueForField(fieldDataName, valueToSet);
+          pendingValueUpdates[fieldDataName] = normalizeSeedValueForField(
+            fieldDataName,
+            valueToSet
+          );
           return;
         }
 
@@ -788,7 +812,7 @@ export function useFormEngine(schema, initialValues = {}, overrideValues, option
         setValues(pendingValueUpdates);
       }
     },
-    [setValues, normalizeValueForField]
+    [setValues, normalizeSeedValueForField]
   );
 
   const processOperations = useCallback(
