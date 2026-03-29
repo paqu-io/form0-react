@@ -71,6 +71,39 @@ const cloneDeepSafe = (value) => {
   return JSON.parse(JSON.stringify(value));
 };
 
+const buildSubmissionTimestampSnapshot = (timestamps, updatedAtClientOverride = null) => ({
+  created_at_client: timestamps?.created_at_client ?? null,
+  updated_at_client: updatedAtClientOverride ?? timestamps?.updated_at_client ?? null,
+  created_at_server: timestamps?.created_at_server ?? null,
+  updated_at_server: timestamps?.updated_at_server ?? null,
+});
+
+const buildSubmissionRawValues = ({
+  values,
+  timestampSnapshot,
+  statusFieldName,
+  statusValue,
+}) => {
+  const submissionWithTimestamps = {
+    ...cloneDeepSafe(values || {}),
+    created_at: timestampSnapshot.created_at_client ?? null,
+    updated_at: timestampSnapshot.updated_at_server ?? null,
+    created_at_client: timestampSnapshot.created_at_client ?? null,
+    updated_at_client: timestampSnapshot.updated_at_client ?? null,
+    created_at_server: timestampSnapshot.created_at_server ?? null,
+    updated_at_server: timestampSnapshot.updated_at_server ?? null,
+  };
+
+  if (!statusFieldName || statusFieldName.length === 0) {
+    return submissionWithTimestamps;
+  }
+
+  return {
+    ...submissionWithTimestamps,
+    [statusFieldName]: statusValue ?? null,
+  };
+};
+
 const isObjectLike = (value) => value !== null && typeof value === 'object';
 
 function deepEqual(a, b) {
@@ -970,6 +1003,7 @@ export function FormRenderer({
   initialValues,
   overrideValues,
   onSubmit,
+  onSnapshotChange,
   mode = 'edit',
   debug = false,
   onSchemaReady,
@@ -1839,6 +1873,28 @@ export function FormRenderer({
     return next;
   }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values, timestamps]);
 
+  const submissionSnapshot = useMemo(() => {
+    const timestampSnapshot = buildSubmissionTimestampSnapshot(timestamps);
+    return {
+      raw_values: buildSubmissionRawValues({
+        values,
+        timestampSnapshot,
+        statusFieldName,
+        statusValue,
+      }),
+      repeatable: cloneDeepSafe(repeatable),
+      timestamps: timestampSnapshot,
+    };
+  }, [repeatable, statusFieldName, statusValue, timestamps, values]);
+
+  useEffect(() => {
+    if (typeof onSnapshotChange !== 'function') {
+      return;
+    }
+
+    onSnapshotChange(cloneDeepSafe(submissionSnapshot));
+  }, [onSnapshotChange, submissionSnapshot]);
+
   const recordStatusInfo = useMemo(() => {
     if (!statusField) {
       return null;
@@ -2069,23 +2125,16 @@ export function FormRenderer({
         const submissionTimestamp = new Date().toISOString();
         touchUpdatedAt(submissionTimestamp);
         const submission = submit();
-        const timestampSnapshot = {
-          ...timestampsRef.current,
-          updated_at_client: submissionTimestamp,
-        };
-        const submissionWithTimestamps = {
-          ...submission,
-          created_at: timestampSnapshot.created_at_client ?? null,
-          updated_at: timestampSnapshot.updated_at_server ?? null,
-          created_at_client: timestampSnapshot.created_at_client ?? null,
-          updated_at_client: timestampSnapshot.updated_at_client ?? null,
-          created_at_server: timestampSnapshot.created_at_server ?? null,
-          updated_at_server: timestampSnapshot.updated_at_server ?? null,
-        };
-        const rawValues =
-          statusFieldName && statusFieldName.length > 0
-            ? { ...submissionWithTimestamps, [statusFieldName]: statusValue ?? null }
-            : submissionWithTimestamps;
+        const timestampSnapshot = buildSubmissionTimestampSnapshot(
+          timestampsRef.current,
+          submissionTimestamp
+        );
+        const rawValues = buildSubmissionRawValues({
+          values: submission,
+          timestampSnapshot,
+          statusFieldName,
+          statusValue,
+        });
 
         let structuredRecord = rawValues;
         try {
