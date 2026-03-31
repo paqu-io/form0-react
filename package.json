@@ -73,7 +73,7 @@
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-switch": "^1.2.5",
-    "form0-core": "^0.1.11",
+    "form0-core": "^0.1.12",
     "lucide-react": "^0.553.0"
   },
   "repository": {
