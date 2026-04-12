@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as styles from '../field-renderer.css.js';
 
+function createClientMediaId(prefix) {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${randomId}`;
+}
+
+function fileCapturedAt(file, fallback) {
+  return file?.lastModified ? new Date(file.lastModified).toISOString() : fallback;
+}
+
 function normalizePhotos(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -15,17 +27,20 @@ function normalizePhotos(value) {
         entry.previewUrl ||
         entry.url ||
         entry.thumbnail_url ||
+        entry.preview_url ||
         entry.file_url ||
         null;
+      const mediaId = entry.media_id || entry.photo_id || entry.asset_id || null;
 
       return {
-        key: entry._localId || entry.photo_id || `${filename}-${index}`,
-        photo_id: entry.photo_id ?? null,
+        key: entry._localId || mediaId || `${filename}-${index}`,
+        photo_id: entry.photo_id ?? mediaId,
+        media_id: mediaId,
         filename,
         caption,
         previewUrl,
         file: entry.file || null,
-        _localId: entry._localId || null,
+        _localId: entry._localId || mediaId || null,
         original: entry,
       };
     });
@@ -35,6 +50,7 @@ function mapToValue(items) {
   return items.map((item) => ({
     ...(item.original && typeof item.original === 'object' ? { ...item.original } : {}),
     photo_id: item.photo_id ?? null,
+    media_id: item.media_id ?? item.photo_id ?? null,
     filename: item.filename || 'photo',
     caption: item.caption ?? null,
     previewUrl: item.previewUrl || null,
@@ -106,24 +122,35 @@ export function PhotoFieldComponent({
 
       Array.from(fileList).forEach((file) => {
         if (!file) return;
-        const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const localId = createClientMediaId('photo');
+        const attachedAtClient = new Date().toISOString();
         const objectUrl = URL.createObjectURL(file);
         objectUrlRef.current.add(objectUrl);
         nextItems.push({
           key: localId,
-          photo_id: null,
+          photo_id: localId,
+          media_id: localId,
           filename: file.name || localId,
           caption: null,
           previewUrl: objectUrl,
           file,
           _localId: localId,
           original: {
-            photo_id: null,
+            photo_id: localId,
+            media_id: localId,
             filename: file.name || localId,
             caption: null,
             previewUrl: objectUrl,
             _localId: localId,
             file,
+            field_key: field.key || field.data_name || null,
+            field_data_name: field.data_name || field.key || null,
+            attached_at_client: attachedAtClient,
+            captured_at_client: fileCapturedAt(file, attachedAtClient),
+            mime_type: file.type || null,
+            size: file.size || null,
+            size_bytes: file.size || null,
+            upload_status: 'local',
           },
         });
       });
@@ -131,7 +158,7 @@ export function PhotoFieldComponent({
       emitChange(nextItems);
       event.target.value = '';
     },
-    [emitChange, readOnly]
+    [emitChange, field.data_name, field.key, readOnly]
   );
 
   const handleRemove = useCallback(
