@@ -5,6 +5,42 @@ const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 150;
 const PNG_DATA_PREFIX = /^data:image\/png;base64,/;
 
+function createClientMediaId(prefix) {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${randomId}`;
+}
+
+function copyMediaFields(value, output) {
+  [
+    'asset_id',
+    'upload_id',
+    'upload_status',
+    'mime_type',
+    'size',
+    'size_bytes',
+    'checksum_sha256',
+    'thumbnail_url',
+    'preview_url',
+    'url',
+    'field_key',
+    'field_data_name',
+    'attached_at_client',
+    'captured_at_client',
+    'signed_at_client',
+    'uploaded_at_server',
+    'ready_at_server',
+    'error',
+  ].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      output[key] = value[key];
+    }
+  });
+  return output;
+}
+
 function normalizeSignatureValue(value) {
   if (!value) {
     return null;
@@ -21,16 +57,17 @@ function normalizeSignatureValue(value) {
   }
 
   if (typeof value === 'object') {
-    const signatureId = value.signature_id ?? null;
+    const signatureId = value.signature_id ?? value.media_id ?? value.asset_id ?? null;
     const rawData = typeof value.data === 'string' ? value.data : '';
     const trimmed = rawData.replace(PNG_DATA_PREFIX, '').trim();
-    if (!trimmed) {
+    if (!trimmed && !value.asset_id) {
       return null;
     }
-    return {
+    return copyMediaFields(value, {
       signature_id: signatureId,
+      media_id: value.media_id ?? signatureId,
       data: trimmed,
-    };
+    });
   }
 
   return null;
@@ -60,10 +97,12 @@ export function SignatureFieldComponent({
   const hasStrokesRef = useRef(false);
   const appliedValueKeyRef = useRef(null);
   const signatureIdRef = useRef(normalizedValue?.signature_id ?? null);
+  const signatureMetaRef = useRef(normalizedValue);
 
   useEffect(() => {
     signatureIdRef.current = normalizedValue?.signature_id ?? null;
-  }, [normalizedValue?.signature_id]);
+    signatureMetaRef.current = normalizedValue;
+  }, [normalizedValue]);
 
   const emitValue = useCallback(() => {
     if (typeof onChange !== 'function' || readOnly) {
@@ -86,9 +125,21 @@ export function SignatureFieldComponent({
       return;
     }
 
+    const signatureId = signatureIdRef.current ?? createClientMediaId('signature');
+    const signedAtClient =
+      signatureMetaRef.current?.signed_at_client ?? new Date().toISOString();
+    signatureIdRef.current = signatureId;
     const payload = {
-      signature_id: signatureIdRef.current ?? null,
+      ...(signatureMetaRef.current && typeof signatureMetaRef.current === 'object'
+        ? { ...signatureMetaRef.current }
+        : {}),
+      signature_id: signatureId,
+      media_id: signatureMetaRef.current?.media_id ?? signatureId,
       data: base64Data,
+      signed_at_client: signedAtClient,
+      attached_at_client: signatureMetaRef.current?.attached_at_client ?? signedAtClient,
+      mime_type: 'image/png',
+      upload_status: signatureMetaRef.current?.upload_status ?? 'local',
     };
     appliedValueKeyRef.current = computeValueKey(payload);
     onChange(payload);
@@ -110,6 +161,8 @@ export function SignatureFieldComponent({
     if (typeof onChange === 'function') {
       appliedValueKeyRef.current = 'null';
       onChange(null);
+      signatureIdRef.current = null;
+      signatureMetaRef.current = null;
     }
   }, [clearCanvas, onChange, readOnly]);
 
@@ -249,7 +302,9 @@ export function SignatureFieldComponent({
   }, [clearCanvas, normalizedValue, readOnly]);
 
   if (readOnly) {
-    const dataUrl = normalizedValue ? `data:image/png;base64,${normalizedValue.data}` : null;
+    const dataUrl = normalizedValue?.data
+      ? `data:image/png;base64,${normalizedValue.data}`
+      : normalizedValue?.preview_url || normalizedValue?.thumbnail_url || normalizedValue?.url || null;
     return (
       <div className={`${styles.signatureReadOnly} ${className || ''}`}>
         {field.agreement_text && (
@@ -282,6 +337,13 @@ export function SignatureFieldComponent({
     normalizedValue && normalizedValue.data
       ? JSON.stringify({
           signature_id: normalizedValue.signature_id ?? null,
+          media_id: normalizedValue.media_id ?? normalizedValue.signature_id ?? null,
+          asset_id: normalizedValue.asset_id ?? null,
+          upload_id: normalizedValue.upload_id ?? null,
+          upload_status: normalizedValue.upload_status ?? null,
+          signed_at_client: normalizedValue.signed_at_client ?? null,
+          attached_at_client: normalizedValue.attached_at_client ?? null,
+          mime_type: normalizedValue.mime_type ?? 'image/png',
           data: normalizedValue.data,
         })
       : '';

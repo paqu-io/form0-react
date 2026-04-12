@@ -3,6 +3,18 @@ import * as styles from '../field-renderer.css.js';
 
 const PLACEHOLDER_ICON = '🎬';
 
+function createClientMediaId(prefix) {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${randomId}`;
+}
+
+function fileCapturedAt(file, fallback) {
+  return file?.lastModified ? new Date(file.lastModified).toISOString() : fallback;
+}
+
 function normalizeVideos(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -23,12 +35,15 @@ function normalizeVideos(value) {
         entry.url ||
         entry.file_url ||
         entry.thumbnail_url ||
+        entry.preview_url ||
         entry.asset_url ||
         null;
+      const mediaId = entry.media_id || entry.video_id || entry.asset_id || null;
 
       return {
-        key: entry._localId || entry.video_id || `${filename}-${index}`,
-        video_id: entry.video_id ?? null,
+        key: entry._localId || mediaId || `${filename}-${index}`,
+        video_id: entry.video_id ?? mediaId,
+        media_id: mediaId,
         filename,
         caption,
         duration,
@@ -52,6 +67,7 @@ function mapToValue(items) {
     return {
       ...base,
       video_id: item.video_id ?? null,
+      media_id: item.media_id ?? item.video_id ?? null,
       filename: item.filename || item.original?.filename || 'video',
       caption: item.caption ?? null,
       duration,
@@ -204,13 +220,15 @@ export function VideoFieldComponent({
       const metadata = await Promise.all(files.map((file) => extractMetadataForFile(file)));
 
       files.forEach((file, index) => {
-        const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const localId = createClientMediaId('video');
+        const attachedAtClient = new Date().toISOString();
         const filename = file.name || localId;
         const { objectUrl, duration } = metadata[index] || {};
 
         nextItems.push({
           key: localId,
-          video_id: null,
+          video_id: localId,
+          media_id: localId,
           filename,
           caption: null,
           duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : 0,
@@ -218,13 +236,22 @@ export function VideoFieldComponent({
           file,
           _localId: localId,
           original: {
-            video_id: null,
+            video_id: localId,
+            media_id: localId,
             filename,
             caption: null,
             duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : 0,
             previewUrl: objectUrl || null,
             _localId: localId,
             file,
+            field_key: field.key || field.data_name || null,
+            field_data_name: field.data_name || field.key || null,
+            attached_at_client: attachedAtClient,
+            captured_at_client: fileCapturedAt(file, attachedAtClient),
+            mime_type: file.type || null,
+            size: file.size || null,
+            size_bytes: file.size || null,
+            upload_status: 'local',
           },
         });
       });
@@ -232,7 +259,7 @@ export function VideoFieldComponent({
       emitChange(nextItems);
       event.target.value = '';
     },
-    [emitChange, extractMetadataForFile, readOnly]
+    [emitChange, extractMetadataForFile, field.data_name, field.key, readOnly]
   );
 
   const handleRemove = useCallback(
