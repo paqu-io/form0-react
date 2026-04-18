@@ -1004,6 +1004,7 @@ export function FormRenderer({
   initialValues,
   initialSnapshot,
   overrideValues,
+  recordMetadataFields = [],
   onSubmit,
   onSnapshotChange,
   mode = 'edit',
@@ -1702,11 +1703,18 @@ export function FormRenderer({
 
   const headerFields = useMemo(() => {
     const fields = createTimestampMetadataFields();
+    if (Array.isArray(recordMetadataFields)) {
+      recordMetadataFields.forEach((field) => {
+        if (field && typeof field === 'object') {
+          fields.push(field);
+        }
+      });
+    }
     if (statusField && statusField.enabled !== false) {
       fields.push(statusField);
     }
     return fields;
-  }, [statusField]);
+  }, [recordMetadataFields, statusField]);
 
   const statusFieldName = statusField?.data_name || null;
 

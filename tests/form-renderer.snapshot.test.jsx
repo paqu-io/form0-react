@@ -194,4 +194,44 @@ describe('FormRenderer snapshot contract', () => {
       });
     });
   });
+
+  it('renders external record metadata fields and includes changes in raw snapshots', async () => {
+    const events = [];
+
+    render(
+      <FormRenderer
+        schema={BASE_SCHEMA}
+        recordMetadataFields={[
+          createTextField('project_name', 'Project', 'metadata_project'),
+        ]}
+        initialSnapshot={{
+          raw_values: {
+            name: 'Alpha',
+            status: 'pending',
+            project_name: 'Project A',
+          },
+          repeatable: {},
+          timestamps: {
+            created_at_client: '2026-03-29T10:00:00.000Z',
+            updated_at_client: '2026-03-29T10:05:00.000Z',
+            created_at_server: null,
+            updated_at_server: null,
+          },
+        }}
+        onSnapshotChange={(snapshot, meta) => {
+          events.push({ snapshot, meta });
+        }}
+      />,
+    );
+
+    const input = await screen.findByLabelText('Project');
+    expect(input).toHaveValue('Project A');
+
+    fireEvent.change(input, { target: { value: 'Project B' } });
+
+    await waitFor(() => {
+      expect(events.at(-1)?.snapshot.raw_values.project_name).toBe('Project B');
+    });
+  });
+
 });
