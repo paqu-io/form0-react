@@ -114,6 +114,7 @@ export function NavigationTree({
   validationIssues = [],
   validationEnabled = false,
   onSelectValidationIssue,
+  forceRender = false,
 }) {
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
@@ -122,7 +123,8 @@ export function NavigationTree({
 
   const hasSections = sectionTree && sectionTree.length > 0;
   const hasValidationIssues = Array.isArray(validationIssues) && validationIssues.length > 0;
-  const shouldRenderNavigation = hasSections || validationEnabled || hasValidationIssues;
+  const shouldRenderNavigation =
+    forceRender || hasSections || validationEnabled || hasValidationIssues;
   const [activeTab, setActiveTab] = useState(hasSections ? 'navigation' : 'validation');
 
   useEffect(() => {

@@ -74,6 +74,15 @@ const BASE_SCHEMA = {
   },
 };
 
+const FLAT_SCHEMA = {
+  form: {
+    name: 'Flat Form',
+    id: 'flat-form',
+    status_field: null,
+    elements: [createTextField('flat_name', 'Flat Name', 'flat_name')],
+  },
+};
+
 afterEach(() => {
   cleanup();
 });
@@ -232,6 +241,22 @@ describe('FormRenderer snapshot contract', () => {
     await waitFor(() => {
       expect(events.at(-1)?.snapshot.raw_values.project_name).toBe('Project B');
     });
+  });
+
+  it('can force the sidebar visible even when the form has no sections yet', async () => {
+    render(
+      <FormRenderer
+        schema={FLAT_SCHEMA}
+        forceShowNavigationPanel={true}
+      />,
+    );
+
+    expect(
+      screen.getByRole('navigation', { name: 'Form sidebar' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Submit or validate the form to view validation results.'),
+    ).toBeTruthy();
   });
 
 });

@@ -1025,6 +1025,7 @@ export function FormRenderer({
   engineMode = 'main-thread',
   engineStoreMode = 'snapshot',
   showPrimaryActionsInViewMode = true,
+  forceShowNavigationPanel = false,
   fieldKeyMode = 'prefer-key',
   buildingPlanModalWidthOverride = null,
   ...rest
@@ -2445,7 +2446,8 @@ export function FormRenderer({
       showRootValidationList,
     ]
   );
-  const showNavigationPanel = hasNavigableSections || showRootValidationList;
+  const showNavigationPanel =
+    forceShowNavigationPanel || hasNavigableSections || showRootValidationList;
 
   const activeRepeatableListContext = useMemo(() => {
     // Standard RepeatableSection first page
@@ -3943,6 +3945,7 @@ export function FormRenderer({
               validationIssues={rootValidationIssues}
               validationEnabled={submitCount > 0}
               onSelectValidationIssue={handleValidationIssueSelect}
+              forceRender={forceShowNavigationPanel}
             />
           )}
           <div className={styles.formColumn}>
@@ -5381,6 +5384,7 @@ function RepeatableEntryModal({
                     validationIssues={modalValidationIssues}
                     validationEnabled={entrySubmitCount > 0}
                     onSelectValidationIssue={handleModalValidationIssueSelect}
+                    forceRender={forceShowNavigationPanel}
                   />
                 </div>
               )}
