@@ -1027,6 +1027,7 @@ export function FormRenderer({
   showPrimaryActionsInViewMode = true,
   forceShowNavigationPanel = false,
   allowReadOnlyEditToggle = true,
+  readOnlyEditToggleDisabledReason = null,
   fieldKeyMode = 'prefer-key',
   buildingPlanModalWidthOverride = null,
   ...rest
@@ -2898,13 +2899,19 @@ export function FormRenderer({
       };
     }
 
-    if (mode === 'readonly' && isReadOnlyMode && allowReadOnlyEditToggle) {
+    if (
+      mode === 'readonly' &&
+      isReadOnlyMode &&
+      (allowReadOnlyEditToggle || readOnlyEditToggleDisabledReason)
+    ) {
       secondaryRightAction = {
         id: 'enter-edit-mode',
         label: 'Edit',
         icon: Pencil,
         variant: 'edit',
-        onClick: enterEditMode,
+        onClick: readOnlyEditToggleDisabledReason ? undefined : enterEditMode,
+        disabled: Boolean(readOnlyEditToggleDisabledReason),
+        title: readOnlyEditToggleDisabledReason || undefined,
         shortcutLabel: getAltShortcutLabel('m'),
       };
     }
@@ -2927,6 +2934,7 @@ export function FormRenderer({
     isReadOnlyMode,
     mode,
     allowReadOnlyEditToggle,
+    readOnlyEditToggleDisabledReason,
     showPrimaryActionsInViewMode,
     requestRootCancel,
     submitFromHeader,
@@ -3098,7 +3106,8 @@ export function FormRenderer({
       if (
         matchesKey(event, 'KeyM', 'm') &&
         currentSecondaryRightAction &&
-        currentSecondaryRightAction.id === 'enter-edit-mode'
+        currentSecondaryRightAction.id === 'enter-edit-mode' &&
+        !currentSecondaryRightAction.disabled
       ) {
         event.preventDefault();
         if (typeof currentSecondaryRightAction.onClick === 'function') {
@@ -3159,28 +3168,33 @@ export function FormRenderer({
           {items.map((action) => {
             const IconComponent = action.icon;
             return (
-              <button
+              <span
                 key={action.id || action.label}
-                type="button"
-                className={styles.formNameActionButton}
-                data-variant={action.variant || 'ghost'}
-                onClick={action.onClick}
-                disabled={action.disabled}
+                title={action.title || undefined}
+                style={{ display: 'inline-flex' }}
               >
-                {IconComponent && (
-                  <span className={styles.formNameActionIcon} aria-hidden="true">
-                    <IconComponent size={16} strokeWidth={1.8} />
-                  </span>
-                )}
-                <span className={styles.formNameActionLabel}>
-                  <span>{action.label}</span>
-                  {action.shortcutLabel ? (
-                    <span className={styles.shortcutBadge} aria-hidden="true">
-                      {action.shortcutLabel}
+                <button
+                  type="button"
+                  className={styles.formNameActionButton}
+                  data-variant={action.variant || 'ghost'}
+                  onClick={action.onClick}
+                  disabled={action.disabled}
+                >
+                  {IconComponent && (
+                    <span className={styles.formNameActionIcon} aria-hidden="true">
+                      <IconComponent size={16} strokeWidth={1.8} />
                     </span>
-                  ) : null}
-                </span>
-              </button>
+                  )}
+                  <span className={styles.formNameActionLabel}>
+                    <span>{action.label}</span>
+                    {action.shortcutLabel ? (
+                      <span className={styles.shortcutBadge} aria-hidden="true">
+                        {action.shortcutLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              </span>
             );
           })}
         </div>
@@ -5138,12 +5152,14 @@ function RepeatableEntryModal({
   }
 
   const modalSecondaryRightAction =
-    allowEditToggle && isEntryReadOnly
+    (allowEditToggle || readOnlyEditToggleDisabledReason) && isEntryReadOnly
       ? {
           id: 'modal-enter-edit-mode',
           label: 'Edit',
           icon: Pencil,
-          onClick: enterEntryEditMode,
+          onClick: readOnlyEditToggleDisabledReason ? undefined : enterEntryEditMode,
+          disabled: Boolean(readOnlyEditToggleDisabledReason),
+          title: readOnlyEditToggleDisabledReason || undefined,
           shortcutLabel: getAltShortcutLabel('m'),
           variant: 'edit',
         }
@@ -5235,7 +5251,8 @@ function RepeatableEntryModal({
       if (
         matchesKey(event, 'KeyM', 'm') &&
         modalSecondaryRightAction &&
-        modalSecondaryRightAction.id === 'modal-enter-edit-mode'
+        modalSecondaryRightAction.id === 'modal-enter-edit-mode' &&
+        !modalSecondaryRightAction.disabled
       ) {
         haltEvent(event);
         if (typeof modalSecondaryRightAction.onClick === 'function') {
@@ -5310,28 +5327,33 @@ function RepeatableEntryModal({
           const IconComponent = action.icon;
           const disabled = Boolean(action.disabled) || !isTopModal;
           return (
-            <button
+            <span
               key={action.id || action.label}
-              type="button"
-              className={styles.formNameActionButton}
-              data-variant={action.variant || 'ghost'}
-              onClick={disabled ? undefined : action.onClick}
-              disabled={disabled}
+              title={action.title || undefined}
+              style={{ display: 'inline-flex' }}
             >
-              {IconComponent && (
-                <span className={styles.formNameActionIcon} aria-hidden="true">
-                  <IconComponent size={16} strokeWidth={1.8} />
-                </span>
-              )}
-              <span className={styles.formNameActionLabel}>
-                <span>{action.label}</span>
-                {action.shortcutLabel ? (
-                  <span className={styles.shortcutBadge} aria-hidden="true">
-                    {action.shortcutLabel}
+              <button
+                type="button"
+                className={styles.formNameActionButton}
+                data-variant={action.variant || 'ghost'}
+                onClick={disabled ? undefined : action.onClick}
+                disabled={disabled}
+              >
+                {IconComponent && (
+                  <span className={styles.formNameActionIcon} aria-hidden="true">
+                    <IconComponent size={16} strokeWidth={1.8} />
                   </span>
-                ) : null}
-              </span>
-            </button>
+                )}
+                <span className={styles.formNameActionLabel}>
+                  <span>{action.label}</span>
+                  {action.shortcutLabel ? (
+                    <span className={styles.shortcutBadge} aria-hidden="true">
+                      {action.shortcutLabel}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </span>
           );
         })}
       </div>
