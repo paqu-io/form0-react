@@ -1026,6 +1026,7 @@ export function FormRenderer({
   engineStoreMode = 'snapshot',
   showPrimaryActionsInViewMode = true,
   forceShowNavigationPanel = false,
+  allowReadOnlyEditToggle = true,
   fieldKeyMode = 'prefer-key',
   buildingPlanModalWidthOverride = null,
   ...rest
@@ -2897,7 +2898,7 @@ export function FormRenderer({
       };
     }
 
-    if (mode === 'readonly' && isReadOnlyMode) {
+    if (mode === 'readonly' && isReadOnlyMode && allowReadOnlyEditToggle) {
       secondaryRightAction = {
         id: 'enter-edit-mode',
         label: 'Edit',
@@ -2925,6 +2926,7 @@ export function FormRenderer({
     isRootPage,
     isReadOnlyMode,
     mode,
+    allowReadOnlyEditToggle,
     showPrimaryActionsInViewMode,
     requestRootCancel,
     submitFromHeader,
@@ -3973,7 +3975,7 @@ export function FormRenderer({
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
                 initialMode={modal.mode === 'create' ? 'edit' : 'readonly'}
-                allowEditToggle={modal.mode !== 'create'}
+                allowEditToggle={allowReadOnlyEditToggle && modal.mode !== 'create'}
                 onSave={handleRepeatableModalSave}
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
