@@ -234,7 +234,7 @@ describe('FormRenderer snapshot contract', () => {
     );
 
     const input = await screen.findByLabelText('Project');
-    expect(input).toHaveValue('Project A');
+    expect(input.value).toBe('Project A');
 
     fireEvent.change(input, { target: { value: 'Project B' } });
 
@@ -257,6 +257,26 @@ describe('FormRenderer snapshot contract', () => {
     expect(
       screen.getByText('Submit or validate the form to view validation results.'),
     ).toBeTruthy();
+  });
+
+  it('opens a repeatable create modal from drilldown add without crashing', async () => {
+    render(<FormRenderer schema={BASE_SCHEMA} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('group', { name: 'Repeatable entry summary' }),
+      ).toBeTruthy();
+    });
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 
 });

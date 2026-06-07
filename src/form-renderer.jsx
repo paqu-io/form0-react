@@ -3990,6 +3990,7 @@ export function FormRenderer({
                 labelWidthPercent={labelWidthPercent}
                 initialMode={modal.mode === 'create' ? 'edit' : 'readonly'}
                 allowEditToggle={allowReadOnlyEditToggle && modal.mode !== 'create'}
+                readOnlyEditToggleDisabledReason={readOnlyEditToggleDisabledReason}
                 onSave={handleRepeatableModalSave}
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
@@ -4149,6 +4150,7 @@ function RepeatableEntryModal({
   labelWidthPercent,
   initialMode = 'edit',
   allowEditToggle = false,
+  readOnlyEditToggleDisabledReason = null,
   onSave,
   onCancel,
   openNestedModal,
