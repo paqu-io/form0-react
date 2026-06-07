@@ -260,7 +260,12 @@ describe('FormRenderer snapshot contract', () => {
   });
 
   it('opens a repeatable create modal from drilldown add without crashing', async () => {
-    render(<FormRenderer schema={BASE_SCHEMA} />);
+    render(
+      <FormRenderer
+        schema={BASE_SCHEMA}
+        forceShowNavigationPanel={true}
+      />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
@@ -276,6 +281,9 @@ describe('FormRenderer snapshot contract', () => {
       ).toBeTruthy();
     });
 
+    expect(
+      screen.getAllByRole('navigation', { name: 'Form sidebar' }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 

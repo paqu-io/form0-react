@@ -3991,6 +3991,7 @@ export function FormRenderer({
                 initialMode={modal.mode === 'create' ? 'edit' : 'readonly'}
                 allowEditToggle={allowReadOnlyEditToggle && modal.mode !== 'create'}
                 readOnlyEditToggleDisabledReason={readOnlyEditToggleDisabledReason}
+                forceShowNavigationPanel={forceShowNavigationPanel}
                 onSave={handleRepeatableModalSave}
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
@@ -4151,6 +4152,7 @@ function RepeatableEntryModal({
   initialMode = 'edit',
   allowEditToggle = false,
   readOnlyEditToggleDisabledReason = null,
+  forceShowNavigationPanel = false,
   onSave,
   onCancel,
   openNestedModal,
