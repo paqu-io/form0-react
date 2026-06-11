@@ -204,6 +204,60 @@ describe('FormRenderer snapshot contract', () => {
     });
   });
 
+  it('does not re-seed when a consumer echoes live snapshots back into initialSnapshot', async () => {
+    const events = [];
+
+    function EchoSnapshotHarness() {
+      const [snapshot, setSnapshot] = React.useState({
+        raw_values: {
+          name: 'Echo Seed',
+          status: 'pending',
+        },
+        repeatable: {},
+        timestamps: {
+          created_at_client: '2026-03-29T10:00:00.000Z',
+          updated_at_client: '2026-03-29T10:05:00.000Z',
+          created_at_server: null,
+          updated_at_server: null,
+        },
+      });
+
+      return (
+        <FormRenderer
+          schema={BASE_SCHEMA}
+          initialSnapshot={snapshot}
+          onSnapshotChange={(nextSnapshot, meta) => {
+            events.push(meta);
+            setSnapshot(nextSnapshot);
+          }}
+        />
+      );
+    }
+
+    render(<EchoSnapshotHarness />);
+
+    const input = await screen.findByLabelText('Name');
+    expect(input.value).toBe('Echo Seed');
+
+    await waitFor(() => {
+      expect(events.some((event) => event?.kind === 'seed')).toBe(true);
+    });
+
+    const settledSeedCount = events.filter((event) => event?.kind === 'seed').length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(events.filter((event) => event?.kind === 'seed')).toHaveLength(settledSeedCount);
+
+    fireEvent.change(input, { target: { value: 'Echo Updated' } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name').value).toBe('Echo Updated');
+    });
+
+    await waitFor(() => {
+      expect(events.some((event) => event?.kind === 'change' && event?.dirty === true)).toBe(true);
+    });
+  });
+
   it('renders external record metadata fields and includes changes in raw snapshots', async () => {
     const events = [];
 

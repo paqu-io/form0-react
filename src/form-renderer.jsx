@@ -140,6 +140,26 @@ function deepEqual(a, b) {
   return false;
 }
 
+// Parity guard: ignore echoed snapshot seeds that only mirror the renderer's live state.
+// Keep this isolated so it is easy to remove if form0-react moves to an explicit reset key.
+function buildSnapshotSeedSignature(rawValues = {}, repeatable = {}) {
+  return JSON.stringify({
+    raw_values: rawValues || {},
+    repeatable: repeatable || {},
+  });
+}
+
+function snapshotSeedMatchesLiveState(rawValues = {}, repeatable = {}, snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return false;
+  }
+
+  return (
+    deepEqual(snapshot.raw_values || {}, rawValues || {}) &&
+    deepEqual(snapshot.repeatable || {}, repeatable || {})
+  );
+}
+
 // ---- Building Plan helpers ----
 const BP_NODE_KEYS = {
   floors: 'floors',
@@ -1060,6 +1080,10 @@ export function FormRenderer({
   const [hasRootChanges, setHasRootChanges] = useState(false);
   const rootChangesRef = useRef(false);
   const snapshotBaselineRef = useRef(null);
+  const onSnapshotChangeRef = useRef(onSnapshotChange);
+  const appliedSnapshotSeedSignatureRef = useRef(null);
+  const appliedSchemaRef = useRef(schema);
+  const submissionSnapshotRef = useRef(null);
   const formRendererRootRef = useRef(null);
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
@@ -1103,6 +1127,15 @@ export function FormRenderer({
     };
   }, [initialSnapshot, initialSnapshotRawValues, initialValues]);
   const rendererInitialValues = initialSnapshot ? initialSnapshotRawValues || {} : initialValues;
+  const [appliedRendererInitialValues, setAppliedRendererInitialValues] = useState(() =>
+    cloneDeepSafe(rendererInitialValues || {})
+  );
+  const [appliedInitialTimestampSeedValues, setAppliedInitialTimestampSeedValues] = useState(() =>
+    cloneDeepSafe(initialTimestampSeedValues || {})
+  );
+  const [appliedInitialRepeatableSeed, setAppliedInitialRepeatableSeed] = useState(() =>
+    cloneDeepSafe(initialSnapshotRepeatable || {})
+  );
   const [altShortcutPrefix, setAltShortcutPrefix] = useState('Alt');
 
   useEffect(() => {
@@ -1130,6 +1163,10 @@ export function FormRenderer({
   useEffect(() => {
     setInteractionMode(normalizedInitialMode);
   }, [normalizedInitialMode]);
+
+  useEffect(() => {
+    onSnapshotChangeRef.current = onSnapshotChange;
+  }, [onSnapshotChange]);
 
   // Release any stale scroll lock left behind by an unmounted overlay.
   useEffect(() => {
@@ -1201,17 +1238,58 @@ export function FormRenderer({
   useEffect(() => {
     resetRootChanges();
   }, [
-    initialSnapshot,
-    initialSnapshotRepeatable,
+    appliedInitialRepeatableSeed,
+    appliedRendererInitialValues,
     overrideValues,
-    rendererInitialValues,
     schema,
     resetRootChanges,
   ]);
 
   useEffect(() => {
     snapshotBaselineRef.current = null;
-  }, [initialSnapshot, initialSnapshotRepeatable, overrideValues, rendererInitialValues, schema]);
+  }, [appliedInitialRepeatableSeed, appliedRendererInitialValues, overrideValues, schema]);
+
+  useEffect(() => {
+    const nextInitialValues = cloneDeepSafe(rendererInitialValues || {});
+    const nextTimestampSeedValues = cloneDeepSafe(initialTimestampSeedValues || {});
+    const nextRepeatableSeed = cloneDeepSafe(initialSnapshotRepeatable || {});
+    const nextSeedSignature = buildSnapshotSeedSignature(
+      nextInitialValues,
+      nextRepeatableSeed
+    );
+    const schemaChanged = appliedSchemaRef.current !== schema;
+
+    if (
+      !schemaChanged &&
+      appliedSnapshotSeedSignatureRef.current === nextSeedSignature
+    ) {
+      return;
+    }
+
+    if (
+      !schemaChanged &&
+      appliedSnapshotSeedSignatureRef.current !== null &&
+      snapshotSeedMatchesLiveState(
+        nextInitialValues,
+        nextRepeatableSeed,
+        submissionSnapshotRef.current
+      )
+    ) {
+      appliedSnapshotSeedSignatureRef.current = nextSeedSignature;
+      return;
+    }
+
+    appliedSchemaRef.current = schema;
+    appliedSnapshotSeedSignatureRef.current = nextSeedSignature;
+    setAppliedRendererInitialValues(nextInitialValues);
+    setAppliedInitialTimestampSeedValues(nextTimestampSeedValues);
+    setAppliedInitialRepeatableSeed(nextRepeatableSeed);
+  }, [
+    initialSnapshotRepeatable,
+    initialTimestampSeedValues,
+    rendererInitialValues,
+    schema,
+  ]);
 
   const resolveRepeatableKey = useCallback((field) => {
     if (!field) return null;
@@ -1331,10 +1409,10 @@ export function FormRenderer({
     buildingPlanMeta,
   } = useFormEngine(
     schema,
-    rendererInitialValues,
+    appliedRendererInitialValues,
     overrideValues,
     engineOptions,
-    initialSnapshotRepeatable
+    appliedInitialRepeatableSeed
   );
 
   const flattenedSchemaFields = useMemo(
@@ -1732,14 +1810,14 @@ export function FormRenderer({
   }, [statusFieldName, overrideValues]);
 
   const initialStatusSignature = useMemo(() => {
-    if (!statusFieldName || !rendererInitialValues) {
+    if (!statusFieldName || !appliedRendererInitialValues) {
       return '__no_initial__';
     }
-    if (!Object.prototype.hasOwnProperty.call(rendererInitialValues, statusFieldName)) {
+    if (!Object.prototype.hasOwnProperty.call(appliedRendererInitialValues, statusFieldName)) {
       return '__no_initial__';
     }
-    return JSON.stringify(rendererInitialValues[statusFieldName]);
-  }, [rendererInitialValues, statusFieldName]);
+    return JSON.stringify(appliedRendererInitialValues[statusFieldName]);
+  }, [appliedRendererInitialValues, statusFieldName]);
 
   const computeStatusSourceValue = () => {
     if (!statusField || !statusFieldName) {
@@ -1749,10 +1827,10 @@ export function FormRenderer({
       return overrideValues[statusFieldName];
     }
     if (
-      rendererInitialValues &&
-      Object.prototype.hasOwnProperty.call(rendererInitialValues, statusFieldName)
+      appliedRendererInitialValues &&
+      Object.prototype.hasOwnProperty.call(appliedRendererInitialValues, statusFieldName)
     ) {
-      return rendererInitialValues[statusFieldName];
+      return appliedRendererInitialValues[statusFieldName];
     }
     if (statusField.default_value !== undefined) {
       return statusField.default_value;
@@ -1763,7 +1841,7 @@ export function FormRenderer({
   const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
 
   const { timestamps, timestampsRef, touchUpdatedAt } = useRecordTimestamps({
-    initialValues: initialTimestampSeedValues,
+    initialValues: appliedInitialTimestampSeedValues,
     overrideValues,
     values,
   });
@@ -1947,7 +2025,12 @@ export function FormRenderer({
   }, [repeatable, statusFieldName, statusValue, timestamps, values]);
 
   useEffect(() => {
-    if (typeof onSnapshotChange !== 'function') {
+    submissionSnapshotRef.current = submissionSnapshot;
+  }, [submissionSnapshot]);
+
+  useEffect(() => {
+    const handleSnapshotChange = onSnapshotChangeRef.current;
+    if (typeof handleSnapshotChange !== 'function') {
       return;
     }
 
@@ -1957,18 +2040,18 @@ export function FormRenderer({
 
     if (!hasUserChanges || snapshotBaselineRef.current === null) {
       snapshotBaselineRef.current = nextSnapshot;
-      onSnapshotChange(nextSnapshot, {
+      handleSnapshotChange(nextSnapshot, {
         kind: 'seed',
         dirty: false,
       });
       return;
     }
 
-    onSnapshotChange(nextSnapshot, {
+    handleSnapshotChange(nextSnapshot, {
       kind: 'change',
       dirty: !deepEqual(snapshotBaselineRef.current, nextSnapshot),
     });
-  }, [onSnapshotChange, submissionSnapshot]);
+  }, [submissionSnapshot]);
 
   const recordStatusInfo = useMemo(() => {
     if (!statusField) {

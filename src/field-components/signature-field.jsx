@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as styles from '../field-renderer.css.js';
 
 const CANVAS_WIDTH = 400;
@@ -89,6 +89,7 @@ export function SignatureFieldComponent({
   className,
 }) {
   const normalizedValue = useMemo(() => normalizeSignatureValue(value), [value]);
+  const isReadOnly = readOnly || inputProps.readOnly;
   const canvasRef = useRef(null);
   const contextRef = useRef(null);
   const isDrawingRef = useRef(false);
@@ -98,14 +99,29 @@ export function SignatureFieldComponent({
   const appliedValueKeyRef = useRef(null);
   const signatureIdRef = useRef(normalizedValue?.signature_id ?? null);
   const signatureMetaRef = useRef(normalizedValue);
+  const [isPadOpen, setIsPadOpen] = useState(false);
+  const [padStrokeCount, setPadStrokeCount] = useState(0);
 
   useEffect(() => {
     signatureIdRef.current = normalizedValue?.signature_id ?? null;
     signatureMetaRef.current = normalizedValue;
   }, [normalizedValue]);
 
+  useEffect(() => {
+    if (!isPadOpen || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isPadOpen]);
+
   const emitValue = useCallback(() => {
-    if (typeof onChange !== 'function' || readOnly) {
+    if (typeof onChange !== 'function' || isReadOnly) {
       return;
     }
     const canvas = canvasRef.current;
@@ -143,7 +159,7 @@ export function SignatureFieldComponent({
     };
     appliedValueKeyRef.current = computeValueKey(payload);
     onChange(payload);
-  }, [onChange, readOnly]);
+  }, [isReadOnly, onChange]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -153,10 +169,11 @@ export function SignatureFieldComponent({
     ctx.beginPath();
     hasStrokesRef.current = false;
     pointerMovedRef.current = false;
+    setPadStrokeCount(0);
   }, []);
 
   const handleClear = useCallback(() => {
-    if (readOnly) return;
+    if (isReadOnly) return;
     clearCanvas();
     if (typeof onChange === 'function') {
       appliedValueKeyRef.current = 'null';
@@ -164,7 +181,30 @@ export function SignatureFieldComponent({
       signatureIdRef.current = null;
       signatureMetaRef.current = null;
     }
-  }, [clearCanvas, onChange, readOnly]);
+  }, [clearCanvas, isReadOnly, onChange]);
+
+  const handleOpenPad = useCallback(() => {
+    if (isReadOnly) {
+      return;
+    }
+    setIsPadOpen(true);
+  }, [isReadOnly]);
+
+  const handleClosePad = useCallback(() => {
+    isDrawingRef.current = false;
+    pointerMovedRef.current = false;
+    clearCanvas();
+    setIsPadOpen(false);
+  }, [clearCanvas]);
+
+  const handleSavePad = useCallback(() => {
+    if (!hasStrokesRef.current) {
+      return;
+    }
+
+    emitValue();
+    setIsPadOpen(false);
+  }, [emitValue]);
 
   const getRelativePoint = useCallback((event) => {
     const canvas = canvasRef.current;
@@ -178,7 +218,7 @@ export function SignatureFieldComponent({
 
   const handlePointerDown = useCallback(
     (event) => {
-      if (readOnly) return;
+      if (isReadOnly) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -193,16 +233,17 @@ export function SignatureFieldComponent({
       pointerMovedRef.current = false;
       lastPointRef.current = point;
       hasStrokesRef.current = true;
+      setPadStrokeCount(1);
 
       ctx.beginPath();
       ctx.moveTo(point.x, point.y);
     },
-    [getRelativePoint, readOnly]
+    [getRelativePoint, isReadOnly]
   );
 
   const handlePointerMove = useCallback(
     (event) => {
-      if (readOnly || !isDrawingRef.current) return;
+      if (isReadOnly || !isDrawingRef.current) return;
       event.preventDefault();
       event.stopPropagation();
       const ctx = contextRef.current;
@@ -217,7 +258,7 @@ export function SignatureFieldComponent({
       lastPointRef.current = point;
       pointerMovedRef.current = true;
     },
-    [getRelativePoint, readOnly]
+    [getRelativePoint, isReadOnly]
   );
 
   const finishDrawing = useCallback(
@@ -239,9 +280,8 @@ export function SignatureFieldComponent({
       canvas.releasePointerCapture?.(event?.pointerId);
       isDrawingRef.current = false;
       pointerMovedRef.current = false;
-      emitValue();
     },
-    [emitValue]
+    []
   );
 
   const handlePointerUp = useCallback(
@@ -259,11 +299,12 @@ export function SignatureFieldComponent({
   );
 
   useEffect(() => {
-    if (readOnly) return;
+    if (isReadOnly || !isPadOpen) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(Math.round(rect.width), CANVAS_WIDTH);
+    canvas.height = Math.max(Math.round(rect.height), CANVAS_HEIGHT);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -274,34 +315,14 @@ export function SignatureFieldComponent({
     ctx.fillStyle = '#222';
     contextRef.current = ctx;
     clearCanvas();
-  }, [clearCanvas, readOnly]);
+  }, [clearCanvas, isPadOpen, isReadOnly]);
 
   useEffect(() => {
-    if (readOnly) return;
-    const canvas = canvasRef.current;
-    const ctx = contextRef.current;
-    if (!canvas || !ctx) return;
-
-    const key = computeValueKey(normalizedValue);
-    if (appliedValueKeyRef.current === key) {
-      return;
-    }
-
-    appliedValueKeyRef.current = key;
+    if (isReadOnly || !isPadOpen) return;
     clearCanvas();
+  }, [clearCanvas, isPadOpen, isReadOnly]);
 
-    if (normalizedValue && normalizedValue.data) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        hasStrokesRef.current = true;
-      };
-      img.src = `data:image/png;base64,${normalizedValue.data}`;
-    }
-  }, [clearCanvas, normalizedValue, readOnly]);
-
-  if (readOnly) {
+  if (isReadOnly) {
     const dataUrl = normalizedValue?.data
       ? `data:image/png;base64,${normalizedValue.data}`
       : normalizedValue?.preview_url || normalizedValue?.thumbnail_url || normalizedValue?.url || null;
@@ -347,30 +368,31 @@ export function SignatureFieldComponent({
           data: normalizedValue.data,
         })
       : '';
+  const dataUrl = normalizedValue?.data
+    ? `data:image/png;base64,${normalizedValue.data}`
+    : normalizedValue?.preview_url || normalizedValue?.thumbnail_url || normalizedValue?.url || null;
+  const primaryButtonLabel = normalizedValue ? 'Replace signature' : 'Add signature';
 
   return (
     <div className={`${styles.signatureField} ${className || ''}`}>
       {field.agreement_text && (
         <div className={styles.signatureAgreement}>{field.agreement_text}</div>
       )}
-      <canvas
-        ref={canvasRef}
-        className={styles.signatureCanvas}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        role="img"
-        aria-label={field.label ? `${field.label} signature capture` : 'Signature capture'}
-        tabIndex={0}
-        id={id}
-        aria-labelledby={id ? `${id}-label` : undefined}
-        aria-disabled={disabledAttr || undefined}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerLeave}
-        onPointerLeave={handlePointerLeave}
-        {...restInputProps}
-      />
+      <div className={styles.signaturePreviewSurface}>
+        {dataUrl ? (
+          <div className={styles.signatureImageWrapper}>
+            <img
+              src={dataUrl}
+              alt={field.label ? `${field.label} signature` : 'Signature'}
+              className={styles.signatureImage}
+            />
+          </div>
+        ) : (
+          <div className={styles.signaturePlaceholder}>
+            Open the signature pad to capture a signature.
+          </div>
+        )}
+      </div>
       <input
         type="hidden"
         value={hiddenValue}
@@ -384,13 +406,82 @@ export function SignatureFieldComponent({
       <div className={styles.signatureControls}>
         <button
           type="button"
+          className={styles.signaturePrimaryButton}
+          onClick={handleOpenPad}
+          disabled={disabledAttr}
+        >
+          {primaryButtonLabel}
+        </button>
+        <button
+          type="button"
           className={styles.signatureClearButton}
           onClick={handleClear}
-          disabled={readOnly}
+          disabled={disabledAttr || !normalizedValue}
         >
-          Clear
+          Clear signature
         </button>
       </div>
+      {isPadOpen ? (
+        <div
+          className={styles.signatureModalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={field.label ? `${field.label} signature pad` : 'Signature pad'}
+        >
+          <div className={styles.signatureModalCard}>
+            <div className={styles.signatureModalHeader}>
+              <button
+                type="button"
+                className={styles.signatureClearButton}
+                onClick={handleClosePad}
+              >
+                Cancel
+              </button>
+              <p className={styles.signatureModalTitle}>
+                {field.label || 'Capture signature'}
+              </p>
+              <button
+                type="button"
+                className={styles.signaturePrimaryButton}
+                onClick={handleSavePad}
+                disabled={padStrokeCount === 0}
+              >
+                Save
+              </button>
+            </div>
+            <div className={styles.signatureModalHint}>
+              Draw your signature below. Saving replaces the current signature.
+            </div>
+            <canvas
+              ref={canvasRef}
+              className={styles.signatureModalCanvas}
+              width={CANVAS_WIDTH}
+              height={CANVAS_HEIGHT}
+              role="img"
+              aria-label={field.label ? `${field.label} signature capture` : 'Signature capture'}
+              tabIndex={0}
+              id={id}
+              aria-labelledby={id ? `${id}-label` : undefined}
+              aria-disabled={disabledAttr || undefined}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerLeave}
+              onPointerLeave={handlePointerLeave}
+              {...restInputProps}
+            />
+            <div className={styles.signatureControls}>
+              <button
+                type="button"
+                className={styles.signatureClearButton}
+                onClick={clearCanvas}
+              >
+                Clear pad
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -206,10 +206,50 @@ export const signatureCanvas = style({
   maxWidth: '400px',
 });
 
+export const signaturePreviewSurface = style({
+  border: `1.5px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  backgroundColor: '#fff',
+  padding: vars.spacing.xs,
+  width: '100%',
+  maxWidth: '400px',
+  minHeight: `${150}px`,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
 export const signatureControls = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.spacing.xs,
+  flexWrap: 'wrap',
+});
+
+export const signaturePrimaryButton = style({
+  appearance: 'none',
+  border: `1px solid ${vars.color.primary}`,
+  background: vars.color.buttonBg,
+  color: vars.color.buttonFg,
+  borderRadius: vars.borderRadius,
+  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  fontSize: '0.9rem',
+  cursor: 'pointer',
+  transition: 'background 0.2s ease, border 0.2s ease',
+  selectors: {
+    '&:hover:not(:disabled)': {
+      background: vars.color.buttonHoverBg,
+      borderColor: vars.color.buttonHoverBorder,
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+  },
 });
 
 export const signatureClearButton = style({
@@ -265,6 +305,64 @@ export const signaturePlaceholder = style({
   fontSize: '0.9rem',
   color: vars.color.foreground,
   opacity: 0.7,
+});
+
+export const signatureModalOverlay = style({
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(15, 23, 42, 0.58)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: vars.spacing.lg,
+  zIndex: 999,
+});
+
+export const signatureModalCard = style({
+  width: 'min(960px, 100%)',
+  maxHeight: '100%',
+  overflow: 'auto',
+  borderRadius: '20px',
+  border: `1px solid ${vars.color.border}`,
+  background: vars.color.background,
+  boxShadow: '0 22px 70px rgba(15, 23, 42, 0.22)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.spacing.md,
+  padding: vars.spacing.lg,
+});
+
+export const signatureModalHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: vars.spacing.sm,
+});
+
+export const signatureModalTitle = style({
+  fontSize: '1rem',
+  fontWeight: 600,
+  color: vars.color.foreground,
+  margin: 0,
+});
+
+export const signatureModalHint = style({
+  fontSize: '0.9rem',
+  color: vars.color.foreground,
+  opacity: 0.78,
+  lineHeight: vars.lineHeight.normal,
+});
+
+export const signatureModalCanvas = style({
+  border: `1.5px solid ${vars.color.border}`,
+  borderRadius: '16px',
+  backgroundColor: '#fff',
+  cursor: 'crosshair',
+  display: 'block',
+  touchAction: 'none',
+  userSelect: 'none',
+  width: '100%',
+  minHeight: `${260}px`,
 });
 
 export const photoFieldControls = style({
