@@ -3,6 +3,10 @@ import * as styles from '../field-renderer.css.js';
 
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 150;
+const SIGNATURE_STROKE_WIDTH = 2;
+const SIGNATURE_EXPORT_PADDING = 18;
+const SIGNATURE_MIN_EXPORT_WIDTH = 120;
+const SIGNATURE_MIN_EXPORT_HEIGHT = 72;
 const PNG_DATA_PREFIX = /^data:image\/png;base64,/;
 
 function createClientMediaId(prefix) {
@@ -80,6 +84,116 @@ function computeValueKey(value) {
   return `${id}:${data.length}:${data.slice(0, 16)}`;
 }
 
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(Math.max(value, min), max);
+}
+
+function extendBounds(bounds, x, y, radius = 0) {
+  const pointRadius = Number.isFinite(radius) ? Math.max(radius, 0) : 0;
+  const minX = x - pointRadius;
+  const maxX = x + pointRadius;
+  const minY = y - pointRadius;
+  const maxY = y + pointRadius;
+
+  if (!bounds) {
+    return { minX, maxX, minY, maxY };
+  }
+
+  return {
+    minX: Math.min(bounds.minX, minX),
+    maxX: Math.max(bounds.maxX, maxX),
+    minY: Math.min(bounds.minY, minY),
+    maxY: Math.max(bounds.maxY, maxY),
+  };
+}
+
+function expandRangeToMinimum(min, max, minSize, limit) {
+  const safeLimit = Math.max(Number.isFinite(limit) ? limit : 0, 1);
+  let start = clamp(min, 0, safeLimit);
+  let end = clamp(max, 0, safeLimit);
+
+  if (end <= start) {
+    end = Math.min(safeLimit, start + 1);
+  }
+
+  const targetSize = Math.min(Math.max(Math.ceil(minSize), 1), safeLimit);
+  const currentSize = end - start;
+  if (currentSize >= targetSize) {
+    return { start, end };
+  }
+
+  const center = (start + end) / 2;
+  let nextStart = center - targetSize / 2;
+  let nextEnd = center + targetSize / 2;
+
+  if (nextStart < 0) {
+    nextEnd = Math.min(safeLimit, nextEnd - nextStart);
+    nextStart = 0;
+  }
+
+  if (nextEnd > safeLimit) {
+    const overflow = nextEnd - safeLimit;
+    nextStart = Math.max(0, nextStart - overflow);
+    nextEnd = safeLimit;
+  }
+
+  return {
+    start: clamp(nextStart, 0, safeLimit),
+    end: clamp(nextEnd, 0, safeLimit),
+  };
+}
+
+function buildSignatureExportCanvas(sourceCanvas, bounds) {
+  if (!sourceCanvas || !bounds) {
+    return null;
+  }
+
+  const safeWidth = Math.max(Math.round(sourceCanvas.width || 0), 1);
+  const safeHeight = Math.max(Math.round(sourceCanvas.height || 0), 1);
+  const left = clamp(bounds.minX - SIGNATURE_EXPORT_PADDING, 0, safeWidth);
+  const right = clamp(bounds.maxX + SIGNATURE_EXPORT_PADDING, 0, safeWidth);
+  const top = clamp(bounds.minY - SIGNATURE_EXPORT_PADDING, 0, safeHeight);
+  const bottom = clamp(bounds.maxY + SIGNATURE_EXPORT_PADDING, 0, safeHeight);
+  const horizontalRange = expandRangeToMinimum(
+    left,
+    right,
+    SIGNATURE_MIN_EXPORT_WIDTH,
+    safeWidth
+  );
+  const verticalRange = expandRangeToMinimum(
+    top,
+    bottom,
+    SIGNATURE_MIN_EXPORT_HEIGHT,
+    safeHeight
+  );
+  const exportWidth = Math.max(Math.ceil(horizontalRange.end - horizontalRange.start), 1);
+  const exportHeight = Math.max(Math.ceil(verticalRange.end - verticalRange.start), 1);
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = exportWidth;
+  exportCanvas.height = exportHeight;
+  const exportContext = exportCanvas.getContext('2d');
+  if (!exportContext) {
+    return null;
+  }
+
+  exportContext.drawImage(
+    sourceCanvas,
+    horizontalRange.start,
+    verticalRange.start,
+    exportWidth,
+    exportHeight,
+    0,
+    0,
+    exportWidth,
+    exportHeight
+  );
+
+  return exportCanvas;
+}
+
 export function SignatureFieldComponent({
   field,
   value,
@@ -96,6 +210,7 @@ export function SignatureFieldComponent({
   const pointerMovedRef = useRef(false);
   const lastPointRef = useRef({ x: 0, y: 0 });
   const hasStrokesRef = useRef(false);
+  const strokeBoundsRef = useRef(null);
   const appliedValueKeyRef = useRef(null);
   const signatureIdRef = useRef(normalizedValue?.signature_id ?? null);
   const signatureMetaRef = useRef(normalizedValue);
@@ -133,7 +248,8 @@ export function SignatureFieldComponent({
       return;
     }
 
-    const dataUrl = canvas.toDataURL('image/png');
+    const exportCanvas = buildSignatureExportCanvas(canvas, strokeBoundsRef.current);
+    const dataUrl = (exportCanvas || canvas).toDataURL('image/png');
     const base64Data = dataUrl.replace(PNG_DATA_PREFIX, '');
     if (!base64Data) {
       appliedValueKeyRef.current = 'null';
@@ -169,6 +285,7 @@ export function SignatureFieldComponent({
     ctx.beginPath();
     hasStrokesRef.current = false;
     pointerMovedRef.current = false;
+    strokeBoundsRef.current = null;
     setPadStrokeCount(0);
   }, []);
 
@@ -233,6 +350,12 @@ export function SignatureFieldComponent({
       pointerMovedRef.current = false;
       lastPointRef.current = point;
       hasStrokesRef.current = true;
+      strokeBoundsRef.current = extendBounds(
+        strokeBoundsRef.current,
+        point.x,
+        point.y,
+        SIGNATURE_STROKE_WIDTH
+      );
       setPadStrokeCount(1);
 
       ctx.beginPath();
@@ -257,6 +380,12 @@ export function SignatureFieldComponent({
       ctx.stroke();
       lastPointRef.current = point;
       pointerMovedRef.current = true;
+      strokeBoundsRef.current = extendBounds(
+        strokeBoundsRef.current,
+        point.x,
+        point.y,
+        SIGNATURE_STROKE_WIDTH
+      );
     },
     [getRelativePoint, isReadOnly]
   );
@@ -275,6 +404,12 @@ export function SignatureFieldComponent({
         ctx.beginPath();
         ctx.arc(lastPoint.x, lastPoint.y, 1.5, 0, Math.PI * 2);
         ctx.fill();
+        strokeBoundsRef.current = extendBounds(
+          strokeBoundsRef.current,
+          lastPoint.x,
+          lastPoint.y,
+          1.5 + SIGNATURE_STROKE_WIDTH
+        );
       }
 
       canvas.releasePointerCapture?.(event?.pointerId);
