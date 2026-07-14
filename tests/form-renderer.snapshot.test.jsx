@@ -67,10 +67,7 @@ const BASE_SCHEMA = {
         },
       ],
     },
-    elements: [
-      createTextField('name', 'Name', 'name'),
-      createRepeatableSection(),
-    ],
+    elements: [createTextField('name', 'Name', 'name'), createRepeatableSection()],
   },
 };
 
@@ -88,6 +85,101 @@ afterEach(() => {
 });
 
 describe('FormRenderer snapshot contract', () => {
+  it('does not render statically hidden inline or drilldown sections', async () => {
+    const hiddenSection = (display, key) => ({
+      type: 'Section',
+      key,
+      data_name: key,
+      label: `${display} hidden section`,
+      display,
+      description: null,
+      description_mode: null,
+      visible: false,
+      visible_conditions: null,
+      elements: [createTextField(`${key}_field`, `${display} hidden field`, `${key}_field`)],
+    });
+
+    render(
+      <FormRenderer
+        schema={{
+          form: {
+            ...FLAT_SCHEMA.form,
+            elements: [
+              hiddenSection('inline', 'hidden_inline'),
+              hiddenSection('drilldown', 'hidden_drilldown'),
+              {
+                ...createRepeatableSection(),
+                key: 'hidden_repeatable',
+                data_name: 'hidden_repeatable',
+                label: 'hidden repeatable section',
+                visible: false,
+              },
+              createTextField('shown', 'Shown field', 'shown'),
+            ],
+          },
+        }}
+      />
+    );
+
+    expect(await screen.findByLabelText('Shown field')).toBeTruthy();
+    expect(screen.queryByText('inline hidden section')).toBeNull();
+    expect(screen.queryByText('drilldown hidden section')).toBeNull();
+    expect(screen.queryByText('hidden repeatable section')).toBeNull();
+    expect(screen.queryByLabelText('inline hidden field')).toBeNull();
+    expect(screen.queryByLabelText('drilldown hidden field')).toBeNull();
+  });
+
+  it('exits an active drilldown when a visibility condition hides it', async () => {
+    const trigger = createTextField('trigger', 'Trigger', 'trigger');
+    const conditionalSection = {
+      type: 'Section',
+      key: 'conditional_section',
+      data_name: 'conditional_section',
+      label: 'Conditional section',
+      display: 'drilldown',
+      description: null,
+      description_mode: null,
+      visible: false,
+      visible_conditions: {
+        and: [{ field_id: 'trigger', operator: 'equal_to', value: 'show' }],
+      },
+      elements: [createTextField('conditional_value', 'Conditional value', 'conditional_value')],
+    };
+
+    const { rerender } = render(
+      <FormRenderer
+        schema={{
+          form: {
+            ...FLAT_SCHEMA.form,
+            elements: [trigger, conditionalSection],
+          },
+        }}
+        initialValues={{ trigger: 'show' }}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View' }));
+    expect(await screen.findByLabelText('Conditional value')).toBeTruthy();
+    rerender(
+      <FormRenderer
+        schema={{
+          form: {
+            ...FLAT_SCHEMA.form,
+            elements: [
+              trigger,
+              { ...conditionalSection, visible_conditions: null, visible: false },
+            ],
+          },
+        }}
+        initialValues={{ trigger: 'hide' }}
+      />
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Conditional section')).toBeNull();
+      expect(screen.queryByLabelText('Conditional value')).toBeNull();
+    });
+  });
+
   it('seeds from initialSnapshot and ignores initialValues when both are provided', async () => {
     const events = [];
 
@@ -124,7 +216,7 @@ describe('FormRenderer snapshot contract', () => {
         onSnapshotChange={(snapshot, meta) => {
           events.push({ snapshot, meta });
         }}
-      />,
+      />
     );
 
     await waitFor(() => {
@@ -177,7 +269,7 @@ describe('FormRenderer snapshot contract', () => {
         onSnapshotChange={(snapshot, meta) => {
           events.push({ snapshot, meta });
         }}
-      />,
+      />
     );
 
     await waitFor(() => {
@@ -264,9 +356,7 @@ describe('FormRenderer snapshot contract', () => {
     render(
       <FormRenderer
         schema={BASE_SCHEMA}
-        recordMetadataFields={[
-          createTextField('project_name', 'Project', 'metadata_project'),
-        ]}
+        recordMetadataFields={[createTextField('project_name', 'Project', 'metadata_project')]}
         initialSnapshot={{
           raw_values: {
             name: 'Alpha',
@@ -284,7 +374,7 @@ describe('FormRenderer snapshot contract', () => {
         onSnapshotChange={(snapshot, meta) => {
           events.push({ snapshot, meta });
         }}
-      />,
+      />
     );
 
     const input = await screen.findByLabelText('Project');
@@ -298,28 +388,16 @@ describe('FormRenderer snapshot contract', () => {
   });
 
   it('can force the sidebar visible even when the form has no sections yet', async () => {
-    render(
-      <FormRenderer
-        schema={FLAT_SCHEMA}
-        forceShowNavigationPanel={true}
-      />,
-    );
+    render(<FormRenderer schema={FLAT_SCHEMA} forceShowNavigationPanel={true} />);
 
+    expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
     expect(
-      screen.getByRole('navigation', { name: 'Form sidebar' }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Submit or validate the form to view validation results.'),
+      screen.getByText('Submit or validate the form to view validation results.')
     ).toBeTruthy();
   });
 
   it('opens a repeatable create modal from drilldown add without crashing', async () => {
-    render(
-      <FormRenderer
-        schema={BASE_SCHEMA}
-        forceShowNavigationPanel={true}
-      />,
-    );
+    render(<FormRenderer schema={BASE_SCHEMA} forceShowNavigationPanel={true} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
@@ -330,15 +408,10 @@ describe('FormRenderer snapshot contract', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('group', { name: 'Repeatable entry summary' }),
-      ).toBeTruthy();
+      expect(screen.getByRole('group', { name: 'Repeatable entry summary' })).toBeTruthy();
     });
 
-    expect(
-      screen.getAllByRole('navigation', { name: 'Form sidebar' }).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole('navigation', { name: 'Form sidebar' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
-
 });

@@ -1,11 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
@@ -78,12 +71,7 @@ const buildSubmissionTimestampSnapshot = (timestamps, updatedAtClientOverride = 
   updated_at_server: timestamps?.updated_at_server ?? null,
 });
 
-const buildSubmissionRawValues = ({
-  values,
-  timestampSnapshot,
-  statusFieldName,
-  statusValue,
-}) => {
+const buildSubmissionRawValues = ({ values, timestampSnapshot, statusFieldName, statusValue }) => {
   const submissionWithTimestamps = {
     ...cloneDeepSafe(values || {}),
     created_at: timestampSnapshot.created_at_client ?? null,
@@ -237,9 +225,7 @@ function findMetaByRepeatableKey(buildingPlanMeta, repeatableKey) {
   for (const entry of buildingPlanMeta) {
     if (!entry) continue;
     const list = Array.isArray(entry.repeatables) ? entry.repeatables : [];
-    const match = list.find(
-      (r) => r?.preferredKey === repeatableKey || r?.key === repeatableKey
-    );
+    const match = list.find((r) => r?.preferredKey === repeatableKey || r?.key === repeatableKey);
     if (match) return entry;
   }
   return buildingPlanMeta[0] || null;
@@ -606,26 +592,22 @@ function useFocusTrap(active = false, containerRef, { initialFocusRef } = {}) {
         'select:not([disabled])',
         '[tabindex]:not([tabindex="-1"])',
       ];
-      return Array.from(containerRef.current.querySelectorAll(selectors.join(','))).filter(
-        (el) => {
-          if (el.hasAttribute('disabled')) {
-            return false;
-          }
-          if (el.getAttribute('tabindex') === '-1') {
-            return false;
-          }
-          const rects = el.getClientRects();
-          return rects.length > 0 || el.offsetParent !== null;
+      return Array.from(containerRef.current.querySelectorAll(selectors.join(','))).filter((el) => {
+        if (el.hasAttribute('disabled')) {
+          return false;
         }
-      );
+        if (el.getAttribute('tabindex') === '-1') {
+          return false;
+        }
+        const rects = el.getClientRects();
+        return rects.length > 0 || el.offsetParent !== null;
+      });
     };
 
     const focusFirstElement = () => {
       const focusable = getFocusableElements();
       const target =
-        (initialFocusRef && initialFocusRef.current) ||
-        focusable[0] ||
-        containerRef.current;
+        (initialFocusRef && initialFocusRef.current) || focusable[0] || containerRef.current;
       focusElement(target);
     };
 
@@ -765,7 +747,11 @@ function buildFieldLookup(elements) {
       if (!element || typeof element !== 'object') {
         return;
       }
-      if (element.type === 'Section' || element.type === 'RepeatableSection' || element.type === 'BuildingPlanSection') {
+      if (
+        element.type === 'Section' ||
+        element.type === 'RepeatableSection' ||
+        element.type === 'BuildingPlanSection'
+      ) {
         collect(element.elements || []);
         return;
       }
@@ -798,11 +784,11 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
       return;
     }
     const dataName =
-      (typeof issue.field?.data_name === 'string' && issue.field.data_name.length > 0
+      typeof issue.field?.data_name === 'string' && issue.field.data_name.length > 0
         ? issue.field.data_name
         : typeof issue.fieldName === 'string' && issue.fieldName.length > 0
-        ? issue.fieldName
-        : null);
+          ? issue.fieldName
+          : null;
     if (!dataName) {
       return;
     }
@@ -904,7 +890,7 @@ function useRecordTimestamps({ initialValues, overrideValues, values }) {
   return { timestamps, timestampsRef, touchUpdatedAt };
 }
 
-function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
+function buildSectionHierarchy(elements = [], resolveRepeatableKey, isVisible = () => true) {
   const metadata = {};
   const fieldPathMap = {};
 
@@ -917,6 +903,9 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
 
     nodes.forEach((el) => {
       if (!el) {
+        return;
+      }
+      if (!isVisible(el)) {
         return;
       }
 
@@ -959,7 +948,9 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey) {
 
         if (
           hasSectionId &&
-          (el.type === 'Section' || el.type === 'RepeatableSection' || el.type === 'BuildingPlanSection')
+          (el.type === 'Section' ||
+            el.type === 'RepeatableSection' ||
+            el.type === 'BuildingPlanSection')
         ) {
           treeNodes.push({
             id: sectionId,
@@ -1088,12 +1079,9 @@ export function FormRenderer({
   const repeatableModalPortalRef = useRef(
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
-  const blockingPortalTarget =
-    typeof document !== 'undefined' ? document.body : null;
+  const blockingPortalTarget = typeof document !== 'undefined' ? document.body : null;
   const overlayPortalTarget =
-    typeof document !== 'undefined'
-      ? formRendererRootRef.current || document.body
-      : null;
+    typeof document !== 'undefined' ? formRendererRootRef.current || document.body : null;
   const normalizedInitialMode = mode === 'readonly' ? 'readonly' : 'edit';
   const [interactionMode, setInteractionMode] = useState(normalizedInitialMode);
   const presentation = useMemo(() => {
@@ -1253,16 +1241,10 @@ export function FormRenderer({
     const nextInitialValues = cloneDeepSafe(rendererInitialValues || {});
     const nextTimestampSeedValues = cloneDeepSafe(initialTimestampSeedValues || {});
     const nextRepeatableSeed = cloneDeepSafe(initialSnapshotRepeatable || {});
-    const nextSeedSignature = buildSnapshotSeedSignature(
-      nextInitialValues,
-      nextRepeatableSeed
-    );
+    const nextSeedSignature = buildSnapshotSeedSignature(nextInitialValues, nextRepeatableSeed);
     const schemaChanged = appliedSchemaRef.current !== schema;
 
-    if (
-      !schemaChanged &&
-      appliedSnapshotSeedSignatureRef.current === nextSeedSignature
-    ) {
+    if (!schemaChanged && appliedSnapshotSeedSignatureRef.current === nextSeedSignature) {
       return;
     }
 
@@ -1284,12 +1266,7 @@ export function FormRenderer({
     setAppliedRendererInitialValues(nextInitialValues);
     setAppliedInitialTimestampSeedValues(nextTimestampSeedValues);
     setAppliedInitialRepeatableSeed(nextRepeatableSeed);
-  }, [
-    initialSnapshotRepeatable,
-    initialTimestampSeedValues,
-    rendererInitialValues,
-    schema,
-  ]);
+  }, [initialSnapshotRepeatable, initialTimestampSeedValues, rendererInitialValues, schema]);
 
   const resolveRepeatableKey = useCallback((field) => {
     if (!field) return null;
@@ -1324,11 +1301,8 @@ export function FormRenderer({
     [setTouchVersion]
   );
 
-  const isFieldTouched = useCallback(
-    (dataName) => touchedFieldsRef.current.has(dataName),
-    []
-  );
-  
+  const isFieldTouched = useCallback((dataName) => touchedFieldsRef.current.has(dataName), []);
+
   const handleOperations = useCallback(
     (operations, meta, fallback) => {
       if (!Array.isArray(operations) || operations.length === 0) {
@@ -1522,13 +1496,11 @@ export function FormRenderer({
         return indices;
       };
 
-      const initialInstance =
-        config.initialInstance ||
-        {
-          id: instanceId,
-          values: config.initialValues || {},
-          repeatable: config.initialRepeatable || {},
-        };
+      const initialInstance = config.initialInstance || {
+        id: instanceId,
+        values: config.initialValues || {},
+        repeatable: config.initialRepeatable || {},
+      };
       const instanceIndex =
         config.instanceIndex != null ? config.instanceIndex : computeInstanceIndex();
       const parentIndices =
@@ -1634,23 +1606,26 @@ export function FormRenderer({
     [formRepeatableController, markRootDirty]
   );
 
-  const persistRepeatableEntry = useCallback((modalConfig, payload) => {
-    const { controller, repeatableKey, parentPath, mode } = modalConfig;
-    if (!controller) {
-      return;
-    }
-    const existing = controller.getInstances(repeatableKey, parentPath);
-    let next = [];
-    if (mode === 'edit') {
-      next = existing.map((instance) => (instance.id === payload.id ? payload : instance));
-    } else {
-      next = [...existing, payload];
-    }
-    controller.setInstances(repeatableKey, next, parentPath);
-    if (controller === formRepeatableController) {
-      markRootDirty();
-    }
-  }, [formRepeatableController, markRootDirty]);
+  const persistRepeatableEntry = useCallback(
+    (modalConfig, payload) => {
+      const { controller, repeatableKey, parentPath, mode } = modalConfig;
+      if (!controller) {
+        return;
+      }
+      const existing = controller.getInstances(repeatableKey, parentPath);
+      let next = [];
+      if (mode === 'edit') {
+        next = existing.map((instance) => (instance.id === payload.id ? payload : instance));
+      } else {
+        next = [...existing, payload];
+      }
+      controller.setInstances(repeatableKey, next, parentPath);
+      if (controller === formRepeatableController) {
+        markRootDirty();
+      }
+    },
+    [formRepeatableController, markRootDirty]
+  );
 
   const handleRepeatableModalSave = useCallback(
     (modalConfig, entryPayload) => {
@@ -1945,8 +1920,7 @@ export function FormRenderer({
     const parts = [];
     for (const ref of titleField.elements) {
       if (typeof ref !== 'string') continue;
-      const referencedField =
-        fieldLookup.byKey.get(ref) || fieldLookup.byDataName.get(ref);
+      const referencedField = fieldLookup.byKey.get(ref) || fieldLookup.byDataName.get(ref);
       if (!referencedField || !referencedField.data_name) continue;
       const rawValue = values[referencedField.data_name];
       if (rawValue == null) continue;
@@ -2035,8 +2009,7 @@ export function FormRenderer({
     }
 
     const nextSnapshot = cloneDeepSafe(submissionSnapshot);
-    const hasUserChanges =
-      rootChangesRef.current || touchedFieldsRef.current.size > 0;
+    const hasUserChanges = rootChangesRef.current || touchedFieldsRef.current.size > 0;
 
     if (!hasUserChanges || snapshotBaselineRef.current === null) {
       snapshotBaselineRef.current = nextSnapshot;
@@ -2064,8 +2037,8 @@ export function FormRenderer({
       statusValue != null
         ? statusValue
         : statusField.default_value != null
-        ? statusField.default_value
-        : null;
+          ? statusField.default_value
+          : null;
     const selectedChoice = effectiveValue != null ? getChoice(effectiveValue) : null;
     const color = selectedChoice?.color || '#d4d4d8';
     const label = selectedChoice?.label || selectedChoice?.value || effectiveValue || '';
@@ -2074,9 +2047,7 @@ export function FormRenderer({
 
   const elementsForFlattening = baseElements;
 
-  const flattenedElements = simplifiedMode
-    ? flattenFormElements(elementsForFlattening)
-    : [];
+  const flattenedElements = simplifiedMode ? flattenFormElements(elementsForFlattening) : [];
   const flattenedElementsLength = flattenedElements.length;
 
   const resolveFieldVisibility = useCallback(
@@ -2182,9 +2153,8 @@ export function FormRenderer({
   );
 
   // Get current field in simplified mode
-  const currentField = simplifiedMode && flattenedElementsLength > 0
-    ? flattenedElements[currentFieldIndex] 
-    : null;
+  const currentField =
+    simplifiedMode && flattenedElementsLength > 0 ? flattenedElements[currentFieldIndex] : null;
 
   // Check if current field is visible
   const isCurrentFieldVisible = currentField ? resolveFieldVisibility(currentField) : true;
@@ -2304,11 +2274,14 @@ export function FormRenderer({
               originalElements: finalSchema?.form?.elements || [],
               title_field: finalSchema?.form?.title_field || null,
               status_field: finalSchema?.form?.status_field || null,
-              '@status': statusFieldName ? statusValue ?? null : undefined,
+              '@status': statusFieldName ? (statusValue ?? null) : undefined,
             }
           );
         } catch (err) {
-          console.error('form0-react: failed to build structured record, falling back to raw values', err);
+          console.error(
+            'form0-react: failed to build structured record, falling back to raw values',
+            err
+          );
           structuredRecord = rawValues;
         }
         const meta = {
@@ -2363,7 +2336,7 @@ export function FormRenderer({
           currentIndex: currentFieldIndex,
           nextIndex,
           currentField,
-          nextField: flattenedElements[nextIndex]
+          nextField: flattenedElements[nextIndex],
         });
       }
     }
@@ -2379,7 +2352,7 @@ export function FormRenderer({
           currentIndex: currentFieldIndex,
           prevIndex,
           currentField,
-          prevField: flattenedElements[prevIndex]
+          prevField: flattenedElements[prevIndex],
         });
       }
     }
@@ -2422,7 +2395,13 @@ export function FormRenderer({
       document.addEventListener('keydown', handleGlobalKeyDown);
       return () => document.removeEventListener('keydown', handleGlobalKeyDown);
     }
-  }, [simplifiedMode, currentFieldIndex, isCurrentFieldValid, hasCurrentFieldError, flattenedElementsLength]);
+  }, [
+    simplifiedMode,
+    currentFieldIndex,
+    isCurrentFieldValid,
+    hasCurrentFieldError,
+    flattenedElementsLength,
+  ]);
 
   const themeMap = {
     'standard-light': standardThemeLight,
@@ -2466,9 +2445,19 @@ export function FormRenderer({
   }
 
   const { sectionTree, sectionMetadata, fieldToSectionPath } = useMemo(
-    () => buildSectionHierarchy(baseElements, resolveRepeatableKey),
-    [baseElements, resolveRepeatableKey]
+    () => buildSectionHierarchy(baseElements, resolveRepeatableKey, resolveFieldVisibility),
+    [baseElements, resolveFieldVisibility, resolveRepeatableKey]
   );
+
+  useEffect(() => {
+    if (
+      activeDrilldownPath.length > 0 &&
+      activeDrilldownPath.some((sectionId) => !sectionMetadata[sectionId])
+    ) {
+      setActiveDrilldownPath([]);
+      setHighlightedSections([ROOT_NAV_NODE_ID]);
+    }
+  }, [activeDrilldownPath, sectionMetadata]);
 
   const [highlightedSections, setHighlightedSections] = useState([ROOT_NAV_NODE_ID]);
   const [navigationClickTimestamp, setNavigationClickTimestamp] = useState(0);
@@ -2491,7 +2480,8 @@ export function FormRenderer({
   const drilldownDepth = activeDrilldownPath.length;
   const isRootPage = drilldownDepth === 0;
   const isFirstSpecialPage = drilldownDepth === 1 && isSpecialSectionActive;
-  const isNestedDrilldownPage = drilldownDepth > 0 && (!isSpecialSectionActive || drilldownDepth > 1);
+  const isNestedDrilldownPage =
+    drilldownDepth > 0 && (!isSpecialSectionActive || drilldownDepth > 1);
   const isRepeatableFirstPage =
     isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'RepeatableSection';
   const navigationSections = useMemo(() => {
@@ -2516,7 +2506,12 @@ export function FormRenderer({
         children: childNodes,
       },
     ];
-  }, [sectionTree, activeDrilldownSectionId, activeDrilldownSectionInfo?.type, isRepeatableFirstPage]);
+  }, [
+    sectionTree,
+    activeDrilldownSectionId,
+    activeDrilldownSectionInfo?.type,
+    isRepeatableFirstPage,
+  ]);
   const hasNavigableSections = sectionTree.length > 0;
   const showRootValidationList = submitCount > 0 && rootValidationSummary?.hasErrors;
   const rootValidationIssues = useMemo(
@@ -2524,12 +2519,7 @@ export function FormRenderer({
       showRootValidationList
         ? formatValidationIssues(rootValidationSummary, fieldLookup, fieldToSectionPath)
         : [],
-    [
-      fieldLookup,
-      fieldToSectionPath,
-      rootValidationSummary,
-      showRootValidationList,
-    ]
+    [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
   );
   const showNavigationPanel =
     forceShowNavigationPanel || hasNavigableSections || showRootValidationList;
@@ -2716,21 +2706,24 @@ export function FormRenderer({
     [scrollFieldIntoView]
   );
 
-  const focusSectionAfterNavigation = useCallback((sectionId) => {
-    if (!sectionId) return;
+  const focusSectionAfterNavigation = useCallback(
+    (sectionId) => {
+      if (!sectionId) return;
 
-    const attemptFocus = () => scrollSectionIntoView(sectionId);
+      const attemptFocus = () => scrollSectionIntoView(sectionId);
 
-    const schedule =
-      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-        ? window.requestAnimationFrame
-        : (cb) => setTimeout(cb, 16);
+      const schedule =
+        typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame
+          : (cb) => setTimeout(cb, 16);
 
-    schedule(() => {
-      if (attemptFocus()) return;
-      setTimeout(attemptFocus, 80);
-    });
-  }, [scrollSectionIntoView]);
+      schedule(() => {
+        if (attemptFocus()) return;
+        setTimeout(attemptFocus, 80);
+      });
+    },
+    [scrollSectionIntoView]
+  );
 
   const setHighlightedPath = useCallback((path = []) => {
     const normalizedPath =
@@ -2844,8 +2837,7 @@ export function FormRenderer({
       }
       const nextDrilldownPath = info.drilldownPath.slice(0, -1);
       setActiveDrilldownPath(nextDrilldownPath);
-      const nextHighlightPath =
-        info.path && info.path.length > 1 ? info.path.slice(0, -1) : [];
+      const nextHighlightPath = info.path && info.path.length > 1 ? info.path.slice(0, -1) : [];
       setHighlightedPath(nextHighlightPath);
       markNavigationInteraction();
       const parentSectionId =
@@ -2910,7 +2902,11 @@ export function FormRenderer({
     let rightAction = null;
     let secondaryRightAction = null;
 
-    if (isNestedDrilldownPage || isRepeatableFirstPage || (isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'BuildingPlanSection')) {
+    if (
+      isNestedDrilldownPage ||
+      isRepeatableFirstPage ||
+      (isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'BuildingPlanSection')
+    ) {
       leftAction = {
         id: 'back',
         label: 'Back',
@@ -2937,12 +2933,12 @@ export function FormRenderer({
       };
     }
 
-  const canShowRepeatableAdd =
-    primaryActionsAllowed &&
-    isFirstSpecialPage &&
-    Boolean(activeRepeatableListContext) &&
-    (activeRepeatableListContext.kind === 'repeatable' ||
-      activeRepeatableListContext.kind === 'building-plan-floor');
+    const canShowRepeatableAdd =
+      primaryActionsAllowed &&
+      isFirstSpecialPage &&
+      Boolean(activeRepeatableListContext) &&
+      (activeRepeatableListContext.kind === 'repeatable' ||
+        activeRepeatableListContext.kind === 'building-plan-floor');
 
     if (canShowRepeatableAdd) {
       const addLabel =
@@ -3233,11 +3229,7 @@ export function FormRenderer({
     };
 
     const renderActionButtons = (actions, position, slotRef) => {
-      const items = Array.isArray(actions)
-        ? actions.filter(Boolean)
-        : actions
-        ? [actions]
-        : [];
+      const items = Array.isArray(actions) ? actions.filter(Boolean) : actions ? [actions] : [];
       const slotClassName =
         position === 'left'
           ? `${styles.formNameActionSlot} ${styles.formNameActionSlotLeft}`
@@ -3313,8 +3305,8 @@ export function FormRenderer({
     const statusLabel = recordStatusInfo?.label
       ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
       : recordStatusInfo?.disabled
-      ? 'Status disabled'
-      : undefined;
+        ? 'Status disabled'
+        : undefined;
     const statusBadgeClass = recordStatusInfo?.disabled
       ? styles.recordSummaryStatusDisabled
       : styles.recordSummaryStatus;
@@ -3326,7 +3318,9 @@ export function FormRenderer({
         <span
           className={statusBadgeClass}
           style={statusBadgeStyle}
-          {...(statusLabel ? { role: 'img', 'aria-label': statusLabel } : { 'aria-hidden': 'true' })}
+          {...(statusLabel
+            ? { role: 'img', 'aria-label': statusLabel }
+            : { 'aria-hidden': 'true' })}
         />
         <div className={styles.recordSummaryContent}>
           <div className={styles.recordSummaryTitle}>{titleText}</div>
@@ -3354,9 +3348,7 @@ export function FormRenderer({
         const fieldRequired = resolveFieldRequired(field);
         const fieldValue = displayValues[field.data_name];
         const fieldReadOnly =
-          isReadOnlyMode ||
-          resolveFieldReadOnly(field) ||
-          field.type === 'TitleField';
+          isReadOnlyMode || resolveFieldReadOnly(field) || field.type === 'TitleField';
         const fieldError = computeFieldError(field, fieldValue, fieldRequired);
         const handleFieldChange =
           field.type === 'TitleField' ? undefined : (val) => handleFieldValueChange(field, val);
@@ -3486,9 +3478,7 @@ export function FormRenderer({
 
     const currentFieldValue = displayValues[currentField.data_name];
     const currentFieldReadOnly =
-      isReadOnlyMode ||
-      resolveFieldReadOnly(currentField) ||
-      currentField.type === 'TitleField';
+      isReadOnlyMode || resolveFieldReadOnly(currentField) || currentField.type === 'TitleField';
     const currentFieldChangeHandler =
       currentField.type === 'TitleField'
         ? undefined
@@ -3514,7 +3504,11 @@ export function FormRenderer({
           {isCurrentFieldVisible && (
             <FieldRenderer
               key={currentField.key || currentField.data_name}
-              ref={currentField.data_name ? (node) => registerFieldNode(currentField.data_name, node) : null}
+              ref={
+                currentField.data_name
+                  ? (node) => registerFieldNode(currentField.data_name, node)
+                  : null
+              }
               field={currentField}
               value={currentFieldValue}
               readOnly={currentFieldReadOnly}
@@ -3541,7 +3535,7 @@ export function FormRenderer({
             {isLastField ? (
               <button
                 type="submit"
-                className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
+                className={`${styles.simplifiedButton} ${!isCurrentFieldValid || hasCurrentFieldError ? styles.simplifiedButtonDisabled : ''}`}
                 disabled={!isCurrentFieldValid || hasCurrentFieldError}
               >
                 Submit
@@ -3551,7 +3545,7 @@ export function FormRenderer({
                 type="button"
                 onClick={handleNext}
                 disabled={!isCurrentFieldValid || hasCurrentFieldError}
-                className={`${styles.simplifiedButton} ${(!isCurrentFieldValid || hasCurrentFieldError) ? styles.simplifiedButtonDisabled : ''}`}
+                className={`${styles.simplifiedButton} ${!isCurrentFieldValid || hasCurrentFieldError ? styles.simplifiedButtonDisabled : ''}`}
               >
                 Next →
               </button>
@@ -3561,47 +3555,49 @@ export function FormRenderer({
           {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
         </form>
 
-        {activeAlert && blockingPortalTarget && createPortal(
-          <div
-            className={styles.alertOverlay}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="form0-react-alert-title"
-            aria-describedby="form0-react-alert-message"
-          >
+        {activeAlert &&
+          blockingPortalTarget &&
+          createPortal(
             <div
-              className={`${styles.alertDialog} ${themeClass}`}
-              ref={alertDialogRef}
-              tabIndex={-1}
+              className={styles.alertOverlay}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="form0-react-alert-title"
+              aria-describedby="form0-react-alert-message"
             >
-              <button
-                type="button"
-                className={styles.alertCloseButton}
-                aria-label="Close alert"
-                onClick={closeAlert}
+              <div
+                className={`${styles.alertDialog} ${themeClass}`}
+                ref={alertDialogRef}
+                tabIndex={-1}
               >
-                ×
-              </button>
-              <h3 id="form0-react-alert-title" className={styles.alertTitle}>
-                {activeAlert.title}
-              </h3>
-              <div id="form0-react-alert-message" className={styles.alertMessage}>
-                {activeAlert.message || ''}
-              </div>
-              <div className={styles.alertFooter}>
                 <button
                   type="button"
-                  ref={alertOkButtonRef}
-                  className={styles.alertOkButton}
+                  className={styles.alertCloseButton}
+                  aria-label="Close alert"
                   onClick={closeAlert}
                 >
-                  OK
+                  ×
                 </button>
+                <h3 id="form0-react-alert-title" className={styles.alertTitle}>
+                  {activeAlert.title}
+                </h3>
+                <div id="form0-react-alert-message" className={styles.alertMessage}>
+                  {activeAlert.message || ''}
+                </div>
+                <div className={styles.alertFooter}>
+                  <button
+                    type="button"
+                    ref={alertOkButtonRef}
+                    className={styles.alertOkButton}
+                    onClick={closeAlert}
+                  >
+                    OK
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>,
-          blockingPortalTarget
-        )}
+            </div>,
+            blockingPortalTarget
+          )}
         {discardDialogNode}
       </ThemeProvider>
     );
@@ -3616,10 +3612,7 @@ export function FormRenderer({
     }
     return a.every(
       (segment, index) =>
-        segment &&
-        b[index] &&
-        segment.key === b[index].key &&
-        segment.id === b[index].id
+        segment && b[index] && segment.key === b[index].key && segment.id === b[index].id
     );
   }, []);
 
@@ -3634,9 +3627,7 @@ export function FormRenderer({
       const sectionInfo = sectionMetadata[sectionId];
       const drilldownPath = sectionInfo?.drilldownPath ?? [];
       const isDescendantOfActive =
-        activeDrilldownPath.length > 0
-          ? isPathPrefix(activeDrilldownPath, drilldownPath)
-          : false;
+        activeDrilldownPath.length > 0 ? isPathPrefix(activeDrilldownPath, drilldownPath) : false;
       const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
       const isCurrentLevelActive =
         isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
@@ -3645,14 +3636,10 @@ export function FormRenderer({
         return null;
       }
 
-      const instances = formRepeatableController.getInstances(
-        repeatableKey,
-        repeatableContextPath
-      );
+      const instances = formRepeatableController.getInstances(repeatableKey, repeatableContextPath);
       const overlayActive = repeatableModals.some(
         (modal) =>
-          modal.sectionId === sectionId &&
-          pathsEqual(modal.parentPath || [], repeatableContextPath)
+          modal.sectionId === sectionId && pathsEqual(modal.parentPath || [], repeatableContextPath)
       );
 
       if (!isCurrentLevelActive) {
@@ -3728,9 +3715,7 @@ export function FormRenderer({
     const sectionInfo = sectionMetadata[sectionId];
     const drilldownPath = sectionInfo?.drilldownPath ?? [];
     const isDescendantOfActive =
-      activeDrilldownPath.length > 0
-        ? isPathPrefix(activeDrilldownPath, drilldownPath)
-        : false;
+      activeDrilldownPath.length > 0 ? isPathPrefix(activeDrilldownPath, drilldownPath) : false;
     const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
     const isCurrentLevelActive =
       isOnActivePath && drilldownPath.length === activeDrilldownPath.length;
@@ -3801,8 +3786,7 @@ export function FormRenderer({
     };
 
     const repeatableApi = {
-      addInstance: (repeatableKey, options = {}) =>
-        addRepeatableInstance(repeatableKey, options),
+      addInstance: (repeatableKey, options = {}) => addRepeatableInstance(repeatableKey, options),
       updateInstance: (repeatableKey, instanceId, updater, parentPath = []) =>
         updateRepeatableInstance(repeatableKey, instanceId, updater, parentPath),
       removeInstance: (repeatableKey, instanceId, parentPath = []) =>
@@ -3838,9 +3822,14 @@ export function FormRenderer({
 
     return elements.map((field) => {
       if (!field) return null;
+      if (!resolveFieldVisibility(field)) return null;
 
       if (activeDrilldownSectionId) {
-        if (field.type === 'Section' || field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection') {
+        if (
+          field.type === 'Section' ||
+          field.type === 'RepeatableSection' ||
+          field.type === 'BuildingPlanSection'
+        ) {
           const sectionId = field.data_name || field.key;
           if (!sectionId) {
             return null;
@@ -3855,7 +3844,8 @@ export function FormRenderer({
           }
 
           if (isAncestorOfActive) {
-            const isSpecialType = field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection';
+            const isSpecialType =
+              field.type === 'RepeatableSection' || field.type === 'BuildingPlanSection';
             return (
               <React.Fragment key={sectionId}>
                 {renderElements(
@@ -3904,9 +3894,7 @@ export function FormRenderer({
         const sectionInfo = sectionMetadata[sectionId];
         const drilldownPath = sectionInfo?.drilldownPath ?? [];
         const isDescendantOfActive =
-          activeDrilldownPath.length > 0
-            ? isPathPrefix(activeDrilldownPath, drilldownPath)
-            : false;
+          activeDrilldownPath.length > 0 ? isPathPrefix(activeDrilldownPath, drilldownPath) : false;
 
         if (display === 'drilldown') {
           const isOnActivePath = isPathPrefix(drilldownPath, activeDrilldownPath);
@@ -3958,7 +3946,25 @@ export function FormRenderer({
           return (
             <div
               key={sectionId}
-            className={styles.drilldownActive}
+              className={styles.drilldownActive}
+              ref={(node) => registerSectionNode(sectionId, node)}
+              tabIndex={-1}
+            >
+              <h3 className={styles.sectionHeader}>{field.label}</h3>
+              {renderElements(
+                field.elements || [],
+                sectionPath,
+                insideSpecialSection,
+                repeatableContextPath
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={sectionId}
+            className={styles.section}
             ref={(node) => registerSectionNode(sectionId, node)}
             tabIndex={-1}
           >
@@ -3973,24 +3979,6 @@ export function FormRenderer({
         );
       }
 
-        return (
-          <div
-            key={sectionId}
-          className={styles.section}
-          ref={(node) => registerSectionNode(sectionId, node)}
-          tabIndex={-1}
-        >
-          <h3 className={styles.sectionHeader}>{field.label}</h3>
-          {renderElements(
-            field.elements || [],
-            sectionPath,
-            insideSpecialSection,
-            repeatableContextPath
-          )}
-        </div>
-      );
-    }
-
       if (!resolveFieldVisibility(field)) {
         return null;
       }
@@ -3998,9 +3986,7 @@ export function FormRenderer({
       const fieldRequired = resolveFieldRequired(field);
       const fieldValue = displayValues[field.data_name];
       const fieldReadOnly =
-        isReadOnlyMode ||
-        resolveFieldReadOnly(field) ||
-        field.type === 'TitleField';
+        isReadOnlyMode || resolveFieldReadOnly(field) || field.type === 'TitleField';
       const fieldError = computeFieldError(field, fieldValue, fieldRequired);
       const handleFieldChange =
         field.type === 'TitleField' ? undefined : (val) => handleFieldValueChange(field, val);
@@ -4088,47 +4074,49 @@ export function FormRenderer({
           )
         : null}
 
-      {activeAlert && blockingPortalTarget && createPortal(
-        <div
-          className={styles.alertOverlay}
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="form0-react-alert-title"
-          aria-describedby="form0-react-alert-message"
-        >
+      {activeAlert &&
+        blockingPortalTarget &&
+        createPortal(
           <div
-            className={`${styles.alertDialog} ${themeClass}`}
-            ref={alertDialogRef}
-            tabIndex={-1}
+            className={styles.alertOverlay}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="form0-react-alert-title"
+            aria-describedby="form0-react-alert-message"
           >
-            <button
-              type="button"
-              className={styles.alertCloseButton}
-              aria-label="Close alert"
-              onClick={closeAlert}
+            <div
+              className={`${styles.alertDialog} ${themeClass}`}
+              ref={alertDialogRef}
+              tabIndex={-1}
             >
-              ×
-            </button>
-            <h3 id="form0-react-alert-title" className={styles.alertTitle}>
-              {activeAlert.title}
-            </h3>
-            <div id="form0-react-alert-message" className={styles.alertMessage}>
-              {activeAlert.message || ''}
-            </div>
-            <div className={styles.alertFooter}>
               <button
                 type="button"
-                ref={alertOkButtonRef}
-                className={styles.alertOkButton}
+                className={styles.alertCloseButton}
+                aria-label="Close alert"
                 onClick={closeAlert}
               >
-                OK
+                ×
               </button>
+              <h3 id="form0-react-alert-title" className={styles.alertTitle}>
+                {activeAlert.title}
+              </h3>
+              <div id="form0-react-alert-message" className={styles.alertMessage}>
+                {activeAlert.message || ''}
+              </div>
+              <div className={styles.alertFooter}>
+                <button
+                  type="button"
+                  ref={alertOkButtonRef}
+                  className={styles.alertOkButton}
+                  onClick={closeAlert}
+                >
+                  OK
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        blockingPortalTarget
-      )}
+          </div>,
+          blockingPortalTarget
+        )}
       {discardDialogNode}
     </ThemeProvider>
   );
@@ -4152,9 +4140,7 @@ function RepeatableSectionList({
     (field?.label ? `Add ${String(field.label).replace(/s\\b/i, '').trim()}` : 'Add');
   return (
     <div
-      className={`${styles.repeatableList} ${
-        overlayActive ? styles.repeatableListBlurred : ''
-      }`}
+      className={`${styles.repeatableList} ${overlayActive ? styles.repeatableListBlurred : ''}`}
     >
       <div className={styles.repeatableListHeader}>
         <div className={styles.repeatableListHeaderText}>
@@ -4484,9 +4470,7 @@ function RepeatableEntryModal({
 
     const floorInstance = {
       id: floorId,
-      values: isRoomModal
-        ? floorFromController?.values || modal.parentValues || {}
-        : entryValues,
+      values: isRoomModal ? floorFromController?.values || modal.parentValues || {} : entryValues,
       repeatable: (() => {
         const base = isRoomModal
           ? cloneDeepSafe(floorFromController?.repeatable) || {}
@@ -4539,7 +4523,10 @@ function RepeatableEntryModal({
       updateInstance: (repeatableKey, instanceId, updater, parentPath = []) => {
         const localPath = toLocalPath(parentPath);
         const isRoomRootUpdate =
-          isRoomModal && repeatableKey === roomsKey && localPath.length === 0 && instanceId === modal.instanceId;
+          isRoomModal &&
+          repeatableKey === roomsKey &&
+          localPath.length === 0 &&
+          instanceId === modal.instanceId;
 
         if (isRoomRootUpdate) {
           const currentRoom = {
@@ -4627,8 +4614,14 @@ function RepeatableEntryModal({
     sectionMetadata: modalSectionMetadata,
     fieldToSectionPath: modalFieldToSectionPath,
   } = useMemo(
-    () => buildSectionHierarchy(entryElements, resolveRepeatableKey),
-    [entryElements, resolveRepeatableKey]
+    () =>
+      buildSectionHierarchy(entryElements, resolveRepeatableKey, (field) => {
+        if (!field?.data_name) return false;
+        return Object.prototype.hasOwnProperty.call(entryVisible, field.data_name)
+          ? entryVisible[field.data_name] !== false
+          : field.visible !== false;
+      }),
+    [entryElements, entryVisible, resolveRepeatableKey]
   );
   const showModalValidationList = entrySubmitCount > 0 && entryValidationSummary?.hasErrors;
   const modalValidationIssues = useMemo(
@@ -4636,12 +4629,7 @@ function RepeatableEntryModal({
       showModalValidationList
         ? formatValidationIssues(entryValidationSummary, modalFieldLookup, modalFieldToSectionPath)
         : [],
-    [
-      entryValidationSummary,
-      modalFieldLookup,
-      modalFieldToSectionPath,
-      showModalValidationList,
-    ]
+    [entryValidationSummary, modalFieldLookup, modalFieldToSectionPath, showModalValidationList]
   );
 
   // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing
@@ -4677,7 +4665,9 @@ function RepeatableEntryModal({
       },
     ];
   }, [modalSectionTree]);
-  const [modalHighlightedSections, setModalHighlightedSections] = useState([MODAL_ROOT_NAV_NODE_ID]);
+  const [modalHighlightedSections, setModalHighlightedSections] = useState([
+    MODAL_ROOT_NAV_NODE_ID,
+  ]);
   const [modalActiveDrilldownPath, setModalActiveDrilldownPath] = useState([]);
   const modalActiveDrilldownSectionId =
     modalActiveDrilldownPath.length > 0
@@ -4696,6 +4686,16 @@ function RepeatableEntryModal({
         : [MODAL_ROOT_NAV_NODE_ID];
     setModalHighlightedSections(normalizedPath);
   }, []);
+
+  useEffect(() => {
+    if (
+      modalActiveDrilldownPath.length > 0 &&
+      modalActiveDrilldownPath.some((sectionId) => !modalSectionMetadata[sectionId])
+    ) {
+      setModalActiveDrilldownPath([]);
+      setModalHighlightedSections([MODAL_ROOT_NAV_NODE_ID]);
+    }
+  }, [modalActiveDrilldownPath, modalSectionMetadata]);
 
   useEffect(() => {
     modalSectionRefs.current = new Map();
@@ -4908,7 +4908,14 @@ function RepeatableEntryModal({
       return;
     }
     openDiscardDialog();
-  }, [activeNestedRepeatable, handleExitNestedRepeatable, hasEntryChanges, modal, onCancel, openDiscardDialog]);
+  }, [
+    activeNestedRepeatable,
+    handleExitNestedRepeatable,
+    hasEntryChanges,
+    modal,
+    onCancel,
+    openDiscardDialog,
+  ]);
 
   const repeatableMetadataFields = useMemo(
     () => createTimestampMetadataFields(`repeatable_${modal.modalId}`),
@@ -4946,7 +4953,13 @@ function RepeatableEntryModal({
         <div className={styles.recordMetadataFields}>{metadataFields}</div>
       </section>
     );
-  }, [entryTimestamps, labelPosition, labelWidthPercent, modalActiveDrilldownPath.length, repeatableMetadataFields]);
+  }, [
+    entryTimestamps,
+    labelPosition,
+    labelWidthPercent,
+    modalActiveDrilldownPath.length,
+    repeatableMetadataFields,
+  ]);
 
   const handleSave = useCallback(() => {
     setEntrySubmitCount((count) => count + 1);
@@ -4971,7 +4984,15 @@ function RepeatableEntryModal({
       created_at_server: timestampSnapshot?.created_at_server ?? null,
       updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
-  }, [entryRepeatable, entryTimestampsRef, entryValidationSummary, entryValues, modal, onSave, touchEntryUpdatedAt]);
+  }, [
+    entryRepeatable,
+    entryTimestampsRef,
+    entryValidationSummary,
+    entryValues,
+    modal,
+    onSave,
+    touchEntryUpdatedAt,
+  ]);
 
   const handleModalNavigate = useCallback(
     (sectionId) => {
@@ -5169,23 +5190,25 @@ function RepeatableEntryModal({
   const readOnly = isEntryReadOnly;
   const nestedListActive = Boolean(activeNestedRepeatable);
   const modalDrilldownActive = modalActiveDrilldownPath.length > 0;
-  const modalTitle =
-    activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
+  const modalTitle = activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
   const modalRecordTitle = 'Untitled';
   const modalStatusColor = recordStatusInfo?.color || '#d4d4d8';
   const modalStatusLabel = recordStatusInfo?.label
     ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
     : recordStatusInfo?.disabled
-    ? 'Status disabled'
-    : undefined;
+      ? 'Status disabled'
+      : undefined;
   const modalStatusBadgeClass =
     recordStatusInfo && recordStatusInfo.disabled
       ? styles.recordSummaryStatusDisabled
       : styles.recordSummaryStatus;
   const modalStatusBadgeStyle =
-    recordStatusInfo?.disabled || !modalStatusColor ? undefined : { backgroundColor: modalStatusColor };
-  const modalStatusBadgeA11yProps =
-    modalStatusLabel ? { role: 'img', 'aria-label': modalStatusLabel } : { 'aria-hidden': 'true' };
+    recordStatusInfo?.disabled || !modalStatusColor
+      ? undefined
+      : { backgroundColor: modalStatusColor };
+  const modalStatusBadgeA11yProps = modalStatusLabel
+    ? { role: 'img', 'aria-label': modalStatusLabel }
+    : { 'aria-hidden': 'true' };
   const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
   const showModalNavigationPanel = hasModalNavigation || showModalValidationList;
 
@@ -5198,20 +5221,20 @@ function RepeatableEntryModal({
         shortcutLabel: getAltShortcutLabel('b'),
       }
     : modalDrilldownActive
-    ? {
-        id: 'drilldown-back',
-        label: 'Back',
-        icon: ChevronLeft,
-        onClick: handleModalDrilldownBack,
-        shortcutLabel: getAltShortcutLabel('b'),
-      }
-    : {
-        id: 'cancel',
-        label: 'Cancel',
-        icon: XCircle,
-        onClick: handleCancelRequest,
-        shortcutLabel: getAltShortcutLabel('q'),
-      };
+      ? {
+          id: 'drilldown-back',
+          label: 'Back',
+          icon: ChevronLeft,
+          onClick: handleModalDrilldownBack,
+          shortcutLabel: getAltShortcutLabel('b'),
+        }
+      : {
+          id: 'cancel',
+          label: 'Cancel',
+          icon: XCircle,
+          onClick: handleCancelRequest,
+          shortcutLabel: getAltShortcutLabel('q'),
+        };
 
   let modalRightAction = null;
   const modalPrimaryActionsAllowed = showPrimaryActionsInViewMode || !readOnly;
@@ -5403,11 +5426,7 @@ function RepeatableEntryModal({
       position === 'right'
         ? `${styles.repeatableModalHeaderSlot} ${styles.repeatableModalHeaderSlotRight}`
         : styles.repeatableModalHeaderSlot;
-    const items = Array.isArray(actions)
-      ? actions.filter(Boolean)
-      : actions
-      ? [actions]
-      : [];
+    const items = Array.isArray(actions) ? actions.filter(Boolean) : actions ? [actions] : [];
     return (
       <div className={slotClass} aria-hidden={items.length === 0 ? 'true' : undefined}>
         {items.map((action) => {
@@ -5459,10 +5478,7 @@ function RepeatableEntryModal({
             <div className={styles.repeatableModalHeaderTopRow}>
               {renderHeaderActionButtons(modalLeftAction, 'left')}
               <div className={styles.repeatableModalTitle}>{modalTitle}</div>
-              {renderHeaderActionButtons(
-                [modalSecondaryRightAction, modalRightAction],
-                'right'
-              )}
+              {renderHeaderActionButtons([modalSecondaryRightAction, modalRightAction], 'right')}
             </div>
             {!nestedListActive && (
               <div className={styles.repeatableModalSummaryRow}>
@@ -5719,6 +5735,17 @@ function RepeatableEntryForm({
     if (!field) {
       return null;
     }
+    if (field.data_name) {
+      const resolvedVisible = Object.prototype.hasOwnProperty.call(
+        state.visible || {},
+        field.data_name
+      )
+        ? state.visible[field.data_name] !== false
+        : field.visible !== false;
+      if (!resolvedVisible) return null;
+    } else if (field.visible === false) {
+      return null;
+    }
 
     if (hasActiveDrilldown) {
       if (
@@ -5782,7 +5809,9 @@ function RepeatableEntryForm({
       const sectionId = rawSectionId || Math.random().toString(36);
       const display = field.display || 'inline';
       const nextSectionPath =
-        rawSectionId && rawSectionId !== '' ? [...parentSectionPath, rawSectionId] : parentSectionPath;
+        rawSectionId && rawSectionId !== ''
+          ? [...parentSectionPath, rawSectionId]
+          : parentSectionPath;
 
       if (!rawSectionId || display !== 'drilldown') {
         const isHighlighted = rawSectionId
@@ -5808,7 +5837,7 @@ function RepeatableEntryForm({
               state={state}
               setValue={setValue}
               engineStore={engineStore}
-          engineStoreMode={engineStoreMode}
+              engineStoreMode={engineStoreMode}
               labelPosition={labelPosition}
               labelWidthPercent={labelWidthPercent}
               controller={controller}
@@ -5972,7 +6001,7 @@ function RepeatableEntryForm({
               type="button"
               className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
               onClick={() =>
-              onEnterRepeatable?.({
+                onEnterRepeatable?.({
                   field,
                   repeatableKey,
                   contextPath,
