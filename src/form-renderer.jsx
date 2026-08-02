@@ -1010,12 +1010,31 @@ function findSectionNodeById(nodes = [], targetId) {
   return null;
 }
 
+/**
+ * Render a schema-driven form.
+ *
+ * Consumer-owned UI can be placed below the summary with `headerAccessory`. A render function
+ * receives the renderer's live interaction mode, including internal readonly-to-edit transitions.
+ * `externalDirty` joins renderer-owned changes in overlay discard confirmation, while
+ * `submitBlockedReason` disables and guards submission until the consumer clears the reason.
+ * Metadata descriptors with their own `displayValue` are always read-only display data; the value
+ * is never copied into engine values, snapshots, or submitted form values.
+ *
+ * @param {object} props
+ * @param {React.ReactNode | ((context: { mode: 'edit' | 'readonly' }) => React.ReactNode)} [props.headerAccessory]
+ * @param {boolean} [props.externalDirty=false]
+ * @param {string | null} [props.submitBlockedReason=null]
+ * @param {Array<object & { displayValue?: React.ReactNode }>} [props.recordMetadataFields]
+ */
 export function FormRenderer({
   schema,
   initialValues,
   initialSnapshot,
   overrideValues,
   recordMetadataFields = [],
+  headerAccessory = null,
+  externalDirty = false,
+  submitBlockedReason = null,
   onSubmit,
   onSnapshotChange,
   mode = 'edit',
@@ -2221,7 +2240,12 @@ export function FormRenderer({
   const placementAllowsExit = EXIT_CAPABLE_PLACEMENTS.has(formPlacement);
   const isReadOnlyMode = interactionMode === 'readonly';
   const hasSubmitHandler = typeof onSubmit === 'function';
-  const canSubmitForm = !isReadOnlyMode && hasSubmitHandler;
+  const normalizedSubmitBlockedReason =
+    typeof submitBlockedReason === 'string' && submitBlockedReason.trim().length > 0
+      ? submitBlockedReason.trim()
+      : null;
+  const canSubmitForm =
+    !isReadOnlyMode && hasSubmitHandler && normalizedSubmitBlockedReason === null;
   const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
   const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
 
@@ -2241,6 +2265,9 @@ export function FormRenderer({
     (e) => {
       if (e && typeof e.preventDefault === 'function') {
         e.preventDefault();
+      }
+      if (normalizedSubmitBlockedReason) {
+        return;
       }
       setSubmitCount((count) => count + 1);
       const validationSummary = rootValidationSummary;
@@ -2322,6 +2349,7 @@ export function FormRenderer({
       flattenedSchemaFields,
       finalSchema,
       fieldKeyMode,
+      normalizedSubmitBlockedReason,
     ]
   );
 
@@ -2873,8 +2901,10 @@ export function FormRenderer({
   }, [discardPromptEnabled]);
 
   const shouldPromptOnRootCancel = useCallback(
-    () => discardPromptEnabled && (hasRootChanges || touchedFieldsRef.current.size > 0),
-    [discardPromptEnabled, hasRootChanges]
+    () =>
+      discardPromptEnabled &&
+      (externalDirty || hasRootChanges || touchedFieldsRef.current.size > 0),
+    [discardPromptEnabled, externalDirty, hasRootChanges]
   );
 
   const requestRootCancel = useCallback(() => {
@@ -2965,6 +2995,7 @@ export function FormRenderer({
         variant: 'primary',
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
+        title: normalizedSubmitBlockedReason || undefined,
       };
     } else if (primaryActionsAllowed && isRootPage && hasSubmitHandler) {
       rightAction = {
@@ -2974,6 +3005,7 @@ export function FormRenderer({
         variant: 'primary',
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
+        title: normalizedSubmitBlockedReason || undefined,
         shortcutLabel: getAltShortcutLabel('s'),
       };
     }
@@ -3012,6 +3044,7 @@ export function FormRenderer({
     isRootPage,
     isReadOnlyMode,
     mode,
+    normalizedSubmitBlockedReason,
     allowReadOnlyEditToggle,
     readOnlyEditToggleDisabledReason,
     showPrimaryActionsInViewMode,
@@ -3254,6 +3287,7 @@ export function FormRenderer({
                   data-variant={action.variant || 'ghost'}
                   onClick={action.onClick}
                   disabled={action.disabled}
+                  title={action.title || undefined}
                 >
                   {IconComponent && (
                     <span className={styles.formNameActionIcon} aria-hidden="true">
@@ -3346,12 +3380,22 @@ export function FormRenderer({
           return null;
         }
         const fieldRequired = resolveFieldRequired(field);
-        const fieldValue = displayValues[field.data_name];
+        const hasDirectDisplayValue = Object.prototype.hasOwnProperty.call(field, 'displayValue');
+        const fieldValue = hasDirectDisplayValue
+          ? field.displayValue
+          : displayValues[field.data_name];
         const fieldReadOnly =
-          isReadOnlyMode || resolveFieldReadOnly(field) || field.type === 'TitleField';
-        const fieldError = computeFieldError(field, fieldValue, fieldRequired);
+          hasDirectDisplayValue ||
+          isReadOnlyMode ||
+          resolveFieldReadOnly(field) ||
+          field.type === 'TitleField';
+        const fieldError = hasDirectDisplayValue
+          ? null
+          : computeFieldError(field, fieldValue, fieldRequired);
         const handleFieldChange =
-          field.type === 'TitleField' ? undefined : (val) => handleFieldValueChange(field, val);
+          hasDirectDisplayValue || field.type === 'TitleField'
+            ? undefined
+            : (val) => handleFieldValueChange(field, val);
 
         return (
           <FieldRenderer
@@ -3411,6 +3455,10 @@ export function FormRenderer({
         </div>
       </div>
     ) : null;
+  const headerAccessoryNode =
+    typeof headerAccessory === 'function'
+      ? headerAccessory({ mode: interactionMode })
+      : headerAccessory;
   const recordMetadataSection = simplifiedMode ? null : renderRecordMetadata();
   const modeBannerNode = <ModeBanner mode={interactionMode} />;
 
@@ -4020,6 +4068,9 @@ export function FormRenderer({
       >
         {modeBannerNode}
         {stickyHeaderContent}
+        {headerAccessoryNode ? (
+          <div className={styles.headerAccessory}>{headerAccessoryNode}</div>
+        ) : null}
         <div className={styles.bodySection}>
           {showNavigationPanel && (
             <NavigationTree

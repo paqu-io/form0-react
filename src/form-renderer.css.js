@@ -216,6 +216,11 @@ export const stickyHeader = style({
   },
 });
 
+export const headerAccessory = style({
+  width: '100%',
+  flexShrink: 0,
+});
+
 export const bodySection = style({
   display: 'flex',
   gap: 'none',
@@ -547,9 +552,7 @@ export const repeatableEntryActions = style({
   gap: vars.spacing.xs,
 });
 
-export const repeatableActionButton = style([
-  formNameActionButton,
-]);
+export const repeatableActionButton = style([formNameActionButton]);
 
 export const repeatableDangerButton = style({
   background: 'transparent',
@@ -623,7 +626,6 @@ export const repeatableModalHeaderTopRow = style({
   background: vars.color.section,
   marginBottom: vars.spacing.md,
   minHeight: '3rem',
-  
 });
 
 export const repeatableModalHeaderSlot = style({
