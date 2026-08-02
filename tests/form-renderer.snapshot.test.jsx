@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FormRenderer } from '../dist/index.js';
 
@@ -85,6 +85,68 @@ afterEach(() => {
 });
 
 describe('FormRenderer snapshot contract', () => {
+  it('renders a mode-aware header accessory between the summary header and form body', async () => {
+    render(
+      <FormRenderer
+        schema={FLAT_SCHEMA}
+        mode="readonly"
+        headerAccessory={({ mode }) => (
+          <div data-testid="header-accessory">Accessory mode: {mode}</div>
+        )}
+      />
+    );
+
+    const accessory = screen.getByTestId('header-accessory');
+    expect(accessory.textContent).toBe('Accessory mode: readonly');
+    expect(accessory.parentElement?.previousElementSibling?.getAttribute('aria-label')).toBe(
+      'Form summary'
+    );
+    expect(accessory.parentElement?.nextElementSibling?.querySelector('form')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await waitFor(() => {
+      expect(accessory.textContent).toBe('Accessory mode: edit');
+    });
+  });
+
+  it('includes external dirty state in the root discard confirmation', async () => {
+    const onRequestClose = vi.fn();
+
+    render(
+      <FormRenderer
+        schema={FLAT_SCHEMA}
+        formPlacement="form-modal"
+        externalDirty={true}
+        onRequestClose={onRequestClose}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'This record has unsaved changes' })
+    ).toBeTruthy();
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  it('blocks header and native submission with an accessible reason', async () => {
+    const onSubmit = vi.fn();
+
+    const { container } = render(
+      <FormRenderer
+        schema={FLAT_SCHEMA}
+        onSubmit={onSubmit}
+        submitBlockedReason="A location is required."
+      />
+    );
+
+    const submitButton = screen.getByRole('button', { name: 'Submit' });
+    expect(submitButton.disabled).toBe(true);
+    expect(submitButton.getAttribute('title')).toBe('A location is required.');
+
+    fireEvent.submit(container.querySelector('form'));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
   it('does not render statically hidden inline or drilldown sections', async () => {
     const hiddenSection = (display, key) => ({
       type: 'Section',
@@ -387,6 +449,43 @@ describe('FormRenderer snapshot contract', () => {
     });
   });
 
+  it('renders direct metadata display values without adding them to snapshots', async () => {
+    const events = [];
+    const submissions = [];
+    const latitudeField = {
+      ...createTextField('__record_latitude', 'Latitude', 'metadata_latitude'),
+      read_only: true,
+      displayValue: '48.856600',
+    };
+
+    render(
+      <FormRenderer
+        schema={FLAT_SCHEMA}
+        recordMetadataFields={[latitudeField]}
+        initialSnapshot={{
+          raw_values: { flat_name: 'Alpha' },
+          repeatable: {},
+          timestamps: {
+            created_at_client: '2026-03-29T10:00:00.000Z',
+            updated_at_client: '2026-03-29T10:05:00.000Z',
+            created_at_server: null,
+            updated_at_server: null,
+          },
+        }}
+        onSnapshotChange={(snapshot) => events.push(snapshot)}
+        onSubmit={(record) => submissions.push(record)}
+      />
+    );
+
+    expect((await screen.findByLabelText('Latitude')).value).toBe('48.856600');
+    await waitFor(() => expect(events.length).toBeGreaterThan(0));
+    expect(events.at(-1)?.raw_values).not.toHaveProperty('__record_latitude');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(submissions).toHaveLength(1);
+    expect(submissions[0]?.form_values).not.toHaveProperty('__record_latitude');
+  });
+
   it('can force the sidebar visible even when the form has no sections yet', async () => {
     render(<FormRenderer schema={FLAT_SCHEMA} forceShowNavigationPanel={true} />);
 
@@ -397,7 +496,13 @@ describe('FormRenderer snapshot contract', () => {
   });
 
   it('opens a repeatable create modal from drilldown add without crashing', async () => {
-    render(<FormRenderer schema={BASE_SCHEMA} forceShowNavigationPanel={true} />);
+    render(
+      <FormRenderer
+        schema={BASE_SCHEMA}
+        forceShowNavigationPanel={true}
+        headerAccessory={<div data-testid="static-accessory">Static accessory</div>}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
@@ -413,5 +518,6 @@ describe('FormRenderer snapshot contract', () => {
 
     expect(screen.getAllByRole('navigation', { name: 'Form sidebar' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+    expect(screen.getAllByTestId('static-accessory')).toHaveLength(1);
   });
 });

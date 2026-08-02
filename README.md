@@ -26,6 +26,19 @@ form0-react is the React UI layer of the [form0 ecosystem](https://form0.dev), w
   Vite-based apps are supported. If a consumer has custom worker infrastructure, the
   internal hooks also accept `workerUrl` or `createWorker` overrides through engine options.
 
+## Consumer-owned renderer UI
+
+`FormRenderer` supports consumer-owned state without coupling the renderer to a domain:
+
+- `headerAccessory` accepts a React node or a render function receiving the live
+  `{ mode: 'edit' | 'readonly' }`. It renders at full width after the sticky summary and before the
+  form body.
+- `externalDirty` includes consumer-owned changes in modal and spotlight discard confirmation.
+- `submitBlockedReason` disables header submission and guards native form submission while the
+  reason is set.
+- A `recordMetadataFields` descriptor may include `displayValue` for read-only display data that
+  must never enter engine values, snapshots, or submitted form values.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit [issues](https://github.com/paqu-io/form0-react/issues) and [pull requests](https://github.com/paqu-io/form0-react/pulls).
