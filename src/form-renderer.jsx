@@ -1083,6 +1083,10 @@ export function FormRenderer({
     left: MIN_TITLE_PADDING_PX,
     right: MIN_TITLE_PADDING_PX,
   });
+  const actionPaddingRef = useRef({
+    left: MIN_TITLE_PADDING_PX,
+    right: MIN_TITLE_PADDING_PX,
+  });
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
   const discardDialogRef = useRef(null);
   const discardCancelButtonRef = useRef(null);
@@ -3062,16 +3066,16 @@ export function FormRenderer({
         rightActionRef.current && rightActionRef.current.offsetWidth
           ? rightActionRef.current.offsetWidth
           : 0;
-      setActionPadding((prev) => {
-        const next = {
-          left: Math.max(leftWidth, 0),
-          right: Math.max(rightWidth, 0),
-        };
-        if (prev.left === next.left && prev.right === next.right) {
-          return prev;
-        }
-        return next;
-      });
+      const next = {
+        left: Math.max(leftWidth, 0),
+        right: Math.max(rightWidth, 0),
+      };
+      const previous = actionPaddingRef.current;
+      if (previous.left === next.left && previous.right === next.right) {
+        return;
+      }
+      actionPaddingRef.current = next;
+      setActionPadding(next);
     };
 
     if (typeof window === 'undefined') {
