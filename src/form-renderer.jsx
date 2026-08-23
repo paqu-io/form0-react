@@ -32,7 +32,12 @@ import {
 } from 'lucide-react';
 import { uuidv7 } from './utils/uuid.js';
 import { useRepeatableInstanceEngine } from './use-repeatable-instance.js';
-import { createStructuredRecord, flattenFields } from 'form0-core';
+import {
+  buildDatasetDescriptors,
+  createStructuredRecord,
+  flattenFields,
+  resolveDatasetRowTitle,
+} from 'form0-core';
 
 const SECTION_LIKE_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPlanSection']);
 const SPECIAL_SECTION_TYPES = new Set(['RepeatableSection', 'BuildingPlanSection']);
@@ -766,6 +771,21 @@ function buildFieldLookup(elements) {
 
   collect(elements);
   return { byKey, byDataName };
+}
+
+function buildTitleDatasetIndex(schema) {
+  const descriptors = buildDatasetDescriptors(schema);
+  const byRepeatableKey = new Map();
+  descriptors.forEach((descriptor) => {
+    if (descriptor.kind !== 'repeatable') return;
+    [descriptor.repeatable_field_id, descriptor.repeatable_output_key].forEach((reference) => {
+      if (reference) byRepeatableKey.set(reference, descriptor);
+    });
+  });
+  return {
+    root: descriptors.find((descriptor) => descriptor.kind === 'root') || null,
+    byRepeatableKey,
+  };
 }
 
 function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
@@ -1779,6 +1799,7 @@ export function FormRenderer({
   const titleField = schemaForRender?.form?.title_field || null;
   const statusField = schemaForRender?.form?.status_field || null;
   const baseElements = schemaForRender?.form?.elements || [];
+  const titleDatasets = useMemo(() => buildTitleDatasetIndex(schemaForRender), [schemaForRender]);
 
   const headerFields = useMemo(() => {
     const fields = createTimestampMetadataFields();
@@ -1873,102 +1894,10 @@ export function FormRenderer({
 
   const fieldLookup = useMemo(() => buildFieldLookup(baseElements), [baseElements]);
 
-  const titleValue = useMemo(() => {
-    if (!titleField || !Array.isArray(titleField.elements)) {
-      return '';
-    }
-
-    const getChoiceLabel = (fieldDef, choice) => {
-      if (!choice) return '';
-      if (typeof choice.label === 'string' && choice.label.trim() !== '') {
-        return choice.label.trim();
-      }
-      if (choice.value != null) {
-        const match = (fieldDef.choices || []).find((c) => c.value === choice.value);
-        if (match && typeof match.label === 'string' && match.label.trim() !== '') {
-          return match.label.trim();
-        }
-        return String(choice.value);
-      }
-      return '';
-    };
-
-    const collectOtherEntries = (entries) => {
-      if (!Array.isArray(entries) || entries.length === 0) return [];
-      const results = [];
-      for (const entry of entries) {
-        if (!entry) continue;
-        if (typeof entry === 'string') {
-          const trimmed = entry.trim();
-          if (trimmed) results.push(trimmed);
-        } else if (typeof entry.label === 'string') {
-          const trimmed = entry.label.trim();
-          if (trimmed) results.push(trimmed);
-        } else if (entry.value != null) {
-          const valueString = String(entry.value).trim();
-          if (valueString) results.push(valueString);
-        }
-      }
-      return results;
-    };
-
-    const resolveSingleChoiceText = (fieldDef, value) => {
-      if (value == null) return '';
-      if (typeof value !== 'object') {
-        return String(value).trim();
-      }
-      const labels = [];
-      const choiceArray = Array.isArray(value.choice) ? value.choice : [];
-      if (choiceArray.length > 0) {
-        labels.push(getChoiceLabel(fieldDef, choiceArray[0]));
-      }
-      labels.push(...collectOtherEntries(value.other));
-      return labels.filter(Boolean).join(', ');
-    };
-
-    const resolveMultiChoiceText = (fieldDef, value) => {
-      if (value == null) return '';
-      if (typeof value !== 'object') {
-        return String(value).trim();
-      }
-      const labels = [];
-      const choiceArray = Array.isArray(value.choices) ? value.choices : [];
-      for (const choice of choiceArray) {
-        labels.push(getChoiceLabel(fieldDef, choice));
-      }
-      labels.push(...collectOtherEntries(value.other));
-      return labels.filter(Boolean).join(', ');
-    };
-
-    const parts = [];
-    for (const ref of titleField.elements) {
-      if (typeof ref !== 'string') continue;
-      const referencedField = fieldLookup.byKey.get(ref) || fieldLookup.byDataName.get(ref);
-      if (!referencedField || !referencedField.data_name) continue;
-      const rawValue = values[referencedField.data_name];
-      if (rawValue == null) continue;
-      let text = '';
-      if (referencedField.type === 'SingleChoiceField' || referencedField.type === 'BooleanField') {
-        text = resolveSingleChoiceText(referencedField, rawValue);
-      } else if (referencedField.type === 'MultiChoiceField') {
-        text = resolveMultiChoiceText(referencedField, rawValue);
-      } else if (
-        typeof rawValue === 'string' ||
-        typeof rawValue === 'number' ||
-        typeof rawValue === 'boolean'
-      ) {
-        text = String(rawValue);
-      } else if (rawValue instanceof Date) {
-        text = rawValue.toISOString();
-      } else if (rawValue && typeof rawValue === 'object' && 'value' in rawValue) {
-        text = String(rawValue.value);
-      }
-      if (text && typeof text === 'string' && text.trim() !== '') {
-        parts.push(text.trim());
-      }
-    }
-    return parts.join(', ');
-  }, [fieldLookup, titleField, values]);
+  const titleValue = useMemo(
+    () => resolveDatasetRowTitle(titleDatasets.root, values) || '',
+    [titleDatasets, values]
+  );
 
   const recordTitleDisplay = useMemo(() => {
     if (!titleField) {
@@ -3730,6 +3659,7 @@ export function FormRenderer({
         <RepeatableSectionList
           key={sectionId}
           field={field}
+          titleDescriptor={titleDatasets.byRepeatableKey.get(repeatableKey) || null}
           instances={instances}
           readOnly={isReadOnlyMode}
           overlayActive={overlayActive}
@@ -3757,6 +3687,7 @@ export function FormRenderer({
       resolveRepeatableKey,
       sectionMetadata,
       setActiveDrilldownForSection,
+      titleDatasets,
     ]
   );
 
@@ -4179,6 +4110,7 @@ export function FormRenderer({
 
 function RepeatableSectionList({
   field,
+  titleDescriptor,
   instances = [],
   onAdd,
   onEdit,
@@ -4236,7 +4168,7 @@ function RepeatableSectionList({
             <div key={instance.id || index} className={styles.repeatableEntryRow}>
               <div className={styles.repeatableEntryInfo}>
                 <div className={styles.repeatableEntryTitle}>
-                  {getRepeatableEntryTitle(field, instance, index)}
+                  {getRepeatableEntryTitle(field, instance, index, titleDescriptor)}
                 </div>
               </div>
               {!readOnly && (
@@ -4308,6 +4240,7 @@ function RepeatableEntryModal({
     initialInstance: modal.initialInstance,
     engineOptions: modal.engineOptions,
   });
+  const modalTitleDatasets = useMemo(() => buildTitleDatasetIndex(modal.schema), [modal.schema]);
 
   const entryInitialTimestampValues = useMemo(
     () => ({
@@ -5246,7 +5179,10 @@ function RepeatableEntryModal({
   const nestedListActive = Boolean(activeNestedRepeatable);
   const modalDrilldownActive = modalActiveDrilldownPath.length > 0;
   const modalTitle = activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
-  const modalRecordTitle = 'Untitled';
+  const modalTitleDescriptor = modalTitleDatasets.byRepeatableKey.get(modal.repeatableKey) || null;
+  const modalRecordTitle =
+    resolveDatasetRowTitle(modalTitleDescriptor, entryValues) ||
+    `${modal.label || 'Entry'} ${(modal.instanceIndex ?? 0) + 1}`;
   const modalStatusColor = recordStatusInfo?.color || '#d4d4d8';
   const modalStatusLabel = recordStatusInfo?.label
     ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
@@ -5575,6 +5511,11 @@ function RepeatableEntryModal({
                   <RepeatableSectionList
                     key={activeNestedRepeatable.repeatableKey}
                     field={activeNestedRepeatable.field}
+                    titleDescriptor={
+                      modalTitleDatasets.byRepeatableKey.get(
+                        activeNestedRepeatable.repeatableKey
+                      ) || null
+                    }
                     instances={nestedRepeatableInstances || []}
                     readOnly={readOnly}
                     variant="drilldown"
@@ -6121,16 +6062,9 @@ function RepeatableEntryForm({
   });
 }
 
-function getRepeatableEntryTitle(field, instance, index) {
-  const titleFieldDataName = field?.title_field?.data_name;
-  if (titleFieldDataName && instance?.values?.[titleFieldDataName]) {
-    return String(instance.values[titleFieldDataName]);
-  }
-  const fallbackKeys = ['title', 'name', 'label'];
-  for (const key of fallbackKeys) {
-    if (instance?.values?.[key]) {
-      return String(instance.values[key]);
-    }
-  }
-  return `${field?.label || 'Entry'} ${index + 1}`;
+function getRepeatableEntryTitle(field, instance, index, titleDescriptor) {
+  return (
+    resolveDatasetRowTitle(titleDescriptor, instance?.values || {}) ||
+    `${field?.label || 'Entry'} ${index + 1}`
+  );
 }

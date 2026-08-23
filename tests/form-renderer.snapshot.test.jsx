@@ -520,4 +520,40 @@ describe('FormRenderer snapshot contract', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
     expect(screen.getAllByTestId('static-accessory')).toHaveLength(1);
   });
+
+  it('uses configured repeatable titles live and otherwise keeps the positional fallback', async () => {
+    const titledSchema = {
+      form: {
+        ...BASE_SCHEMA.form,
+        elements: [
+          createTextField('name', 'Name', 'name'),
+          {
+            ...createRepeatableSection(),
+            title_field: {
+              type: 'TitleField',
+              key: '@title',
+              data_name: 'title',
+              label: 'Title',
+              display: 'default',
+              enabled: true,
+              visible: true,
+              visible_conditions: null,
+              read_only: true,
+              read_only_conditions: null,
+              elements: ['room_name'],
+            },
+          },
+        ],
+      },
+    };
+
+    render(<FormRenderer schema={titledSchema} forceShowNavigationPanel={true} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Rooms 1')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Room Name'), { target: { value: 'Kitchen' } });
+    await waitFor(() => expect(screen.getByText('Kitchen')).toBeTruthy());
+  });
 });
