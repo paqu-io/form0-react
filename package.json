@@ -5,7 +5,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "type": "module",
-  "description": "React bindings for form0 ecosystem.",
+  "description": "React bindings for form0, the open-source schema-driven form ecosystem by paqu.io. Hooks and components that render a JSON form schema with your own design system.",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "engines": {
@@ -33,21 +33,20 @@
     "format:check": "prettier --check \"**/*.{js,jsx,json,ts,tsx,md}\""
   },
   "keywords": [
-    "form",
-    "form-builder",
-    "form-generator",
-    "form-engine",
-    "schema",
-    "json-schema",
+    "form0",
+    "paqu-io",
     "react",
+    "react-hooks",
+    "form-engine",
+    "schema-driven-forms",
+    "json-schema",
     "dynamic-forms",
-    "ui",
-    "component-library",
-    "design-system",
-    "form-components",
-    "form-ui"
+    "conditional-logic",
+    "form-validation",
+    "headless-forms",
+    "form-components"
   ],
-  "author": "paqu.io <hello@paqu.io>",
+  "author": "paqu.io <hello@paqu.io> (https://paqu.io/)",
   "contributors": [
     {
       "name": "aragornii"
@@ -73,7 +72,7 @@
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-switch": "^1.2.5",
-    "form0-core": "^0.1.25",
+    "form0-core": "^0.1.26",
     "lucide-react": "^0.553.0"
   },
   "repository": {
