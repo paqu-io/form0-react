@@ -97,13 +97,17 @@ engine.
 
 Worker mode requires a bundler that supports ESM module workers and rewrites
 `new Worker(new URL(..., import.meta.url), { type: 'module' })`. Vite-based applications are
-supported. Applications with custom worker infrastructure can provide `workerUrl` or
-`createWorker` through engine options.
+supported. `FormRenderer` uses the packaged worker when `engineMode="worker"`; custom worker URLs
+and factories are not part of its public API.
 
 ## 📚 Documentation
 
 - [Quickstart](https://docs.form0.dev/getting-started/quickstart)
-- [Full documentation](https://docs.form0.dev)
+- [Bindings overview](https://docs.form0.dev/bindings/overview)
+- [Install and render with React](https://docs.form0.dev/bindings/react/install-render)
+- [FormRenderer](https://docs.form0.dev/bindings/react/form-renderer)
+- [Custom field renderers](https://docs.form0.dev/bindings/react/custom-renderers)
+- [React API reference](https://docs.form0.dev/bindings/react/api-reference)
 - [Web starter](https://github.com/paqu-io/form0-web-tmpl-react-vite)
 
 ## 🔒 Security
