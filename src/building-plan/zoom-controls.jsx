@@ -23,13 +23,7 @@ function formatZoomLevel(zoom) {
  * @param {Function} props.onReset - Callback to reset zoom to 100%
  * @param {boolean} props.disabled - Whether controls are disabled
  */
-export function ZoomControls({
-  zoomLevel = 1,
-  onZoomIn,
-  onZoomOut,
-  onReset,
-  disabled = false,
-}) {
+export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disabled = false }) {
   const canZoomIn = !disabled && zoomLevel < MAX_ZOOM;
   const canZoomOut = !disabled && zoomLevel > MIN_ZOOM;
   const canReset = !disabled && zoomLevel !== 1;
@@ -101,4 +95,3 @@ export function ZoomControls({
 }
 
 export default ZoomControls;
-

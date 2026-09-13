@@ -14,4 +14,3 @@ export {
   formatShortcutLabel,
   formatCompactShortcut,
 } from './toolbar-config.js';
-

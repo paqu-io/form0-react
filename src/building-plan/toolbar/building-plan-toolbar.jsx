@@ -1,13 +1,5 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
-import {
-  MousePointer2,
-  X,
-  Minus,
-  Square,
-  GripHorizontal,
-  DoorOpen,
-  Grid2x2,
-} from 'lucide-react';
+import { MousePointer2, X, Minus, Square, GripHorizontal, DoorOpen, Grid2x2 } from 'lucide-react';
 import {
   TOOL_MODES,
   TOOLBAR_BUTTONS,
@@ -57,10 +49,7 @@ export function BuildingPlanToolbar({
   const buttons = useMemo(() => getButtonsForMode(canvasMode), [canvasMode]);
 
   // Split buttons into groups
-  const primaryButtons = useMemo(
-    () => buttons.filter((btn) => btn.group === 'primary'),
-    [buttons]
-  );
+  const primaryButtons = useMemo(() => buttons.filter((btn) => btn.group === 'primary'), [buttons]);
   const structuralButtons = useMemo(
     () => buttons.filter((btn) => btn.group === 'structural'),
     [buttons]
@@ -104,9 +93,7 @@ export function BuildingPlanToolbar({
       const key = event.key.toUpperCase();
 
       // Find matching button
-      const button = buttons.find(
-        (btn) => btn.shortcutKey === key && btn.enabled && !disabled
-      );
+      const button = buttons.find((btn) => btn.shortcutKey === key && btn.enabled && !disabled);
 
       if (button) {
         event.preventDefault();
@@ -141,9 +128,7 @@ export function BuildingPlanToolbar({
         >
           {IconComponent && <IconComponent />}
         </button>
-        {shortcutLabel && (
-          <span className="building-plan-toolbar-shortcut">{shortcutLabel}</span>
-        )}
+        {shortcutLabel && <span className="building-plan-toolbar-shortcut">{shortcutLabel}</span>}
       </div>
     );
   };
@@ -152,9 +137,7 @@ export function BuildingPlanToolbar({
     <div className="building-plan-toolbar-float" role="toolbar" aria-label="Canvas tools">
       {/* Primary actions */}
       {primaryButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">
-          {primaryButtons.map(renderButton)}
-        </div>
+        <div className="building-plan-toolbar-group">{primaryButtons.map(renderButton)}</div>
       )}
 
       {/* Separator before structural */}
@@ -164,9 +147,7 @@ export function BuildingPlanToolbar({
 
       {/* Structural tools (column, beam, wall) */}
       {structuralButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">
-          {structuralButtons.map(renderButton)}
-        </div>
+        <div className="building-plan-toolbar-group">{structuralButtons.map(renderButton)}</div>
       )}
 
       {/* Separator before openings */}
@@ -176,13 +157,10 @@ export function BuildingPlanToolbar({
 
       {/* Openings (door, window) */}
       {openingsButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">
-          {openingsButtons.map(renderButton)}
-        </div>
+        <div className="building-plan-toolbar-group">{openingsButtons.map(renderButton)}</div>
       )}
     </div>
   );
 }
 
 export default BuildingPlanToolbar;
-

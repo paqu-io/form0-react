@@ -11,19 +11,12 @@ export function StatusFieldComponent({
   className,
 }) {
   const choices = Array.isArray(field.choices) ? field.choices : [];
-  const getChoice = (val) =>
-    choices.find((choice) => choice.value === val) || null;
-  const defaultChoice =
-    field?.default_value !== undefined ? getChoice(field.default_value) : null;
-  const selectedChoice =
-    value !== undefined && value !== null ? getChoice(value) : null;
+  const getChoice = (val) => choices.find((choice) => choice.value === val) || null;
+  const defaultChoice = field?.default_value !== undefined ? getChoice(field.default_value) : null;
+  const selectedChoice = value !== undefined && value !== null ? getChoice(value) : null;
   const resolvedChoice = selectedChoice || defaultChoice;
   const resolvedLabel =
-    resolvedChoice?.label ||
-    resolvedChoice?.value ||
-    value ||
-    field?.default_value ||
-    '';
+    resolvedChoice?.label || resolvedChoice?.value || value || field?.default_value || '';
 
   const handleChange = (event) => {
     if (typeof onChange !== 'function' || readOnly || field?.enabled === false) {
@@ -38,10 +31,7 @@ export function StatusFieldComponent({
   const selectClassName = className
     ? `${className} ${styles.statusSelect}`
     : `${styles.input} ${styles.statusSelect}`;
-  const selectValue =
-    readOnly || isDisabled
-      ? resolvedChoice?.value ?? ''
-      : value ?? '';
+  const selectValue = readOnly || isDisabled ? (resolvedChoice?.value ?? '') : (value ?? '');
 
   return (
     <select

@@ -16,17 +16,8 @@ export {
   useFieldRegistry,
   FieldRegistryContext,
 } from './field-registry-context.jsx';
-export {
-  ThemeProvider,
-  useThemeClass,
-  ThemeContext,
-} from './theme-context.jsx';
-export {
-  cloneDeep,
-  cloneSchema,
-  prepareSchema,
-  ensureSchemaKeys,
-} from './utils/schema.js';
+export { ThemeProvider, useThemeClass, ThemeContext } from './theme-context.jsx';
+export { cloneDeep, cloneSchema, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import './global-fonts.css.js';
 import './form-renderer.css.js';
 import './field-renderer.css.js';

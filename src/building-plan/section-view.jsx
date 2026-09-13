@@ -40,7 +40,6 @@ export function BuildingPlanSectionView({
 
   return (
     <div className={styles.section} data-type="building-plan-section">
-
       <div style={{ padding: 0 }}>
         <div
           style={{

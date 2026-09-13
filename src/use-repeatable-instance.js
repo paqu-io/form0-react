@@ -1,17 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useLayoutEffect,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createFormEngine } from 'form0-core';
 import { cloneDeep } from './utils/schema.js';
-import {
-  buildRepeatableInfo,
-  createEmptyRepeatableInstance,
-} from './utils/repeatable-manager.js';
+import { buildRepeatableInfo, createEmptyRepeatableInstance } from './utils/repeatable-manager.js';
 import { uuidv7 } from './utils/uuid.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
 import { createEngineStore } from './engine-store.js';
@@ -58,8 +48,8 @@ export function useRepeatableInstanceEngine({
   );
 
   const [state, setState] = useState(() => createEmptyState(repInfo));
-  const [repeatableState, setRepeatableState] = useState(
-    () => cloneDeep(initialInstance.repeatable || {})
+  const [repeatableState, setRepeatableState] = useState(() =>
+    cloneDeep(initialInstance.repeatable || {})
   );
   const engineRef = useRef(null);
   const engineStoreRef = useRef(createEngineStore(createEmptyState(repInfo)));
@@ -615,35 +605,38 @@ export function useRepeatableInstanceEngine({
     });
   }, []);
 
-  const resolveRepeatableContainer = useCallback((state, path = [], { createIfMissing = false } = {}) => {
-    let container = state || {};
-    if (!Array.isArray(path) || path.length === 0) {
-      return container;
-    }
-    for (const segment of path) {
-      if (!segment || typeof segment.key !== 'string') {
-        return null;
+  const resolveRepeatableContainer = useCallback(
+    (state, path = [], { createIfMissing = false } = {}) => {
+      let container = state || {};
+      if (!Array.isArray(path) || path.length === 0) {
+        return container;
       }
-      const list = container?.[segment.key];
-      if (!Array.isArray(list)) {
-        return null;
-      }
-      const targetIndex = list.findIndex((instance) => instance.id === segment.id);
-      if (targetIndex === -1) {
-        return null;
-      }
-      const target = list[targetIndex];
-      if (!target.repeatable || typeof target.repeatable !== 'object') {
-        if (createIfMissing) {
-          target.repeatable = {};
-        } else {
+      for (const segment of path) {
+        if (!segment || typeof segment.key !== 'string') {
           return null;
         }
+        const list = container?.[segment.key];
+        if (!Array.isArray(list)) {
+          return null;
+        }
+        const targetIndex = list.findIndex((instance) => instance.id === segment.id);
+        if (targetIndex === -1) {
+          return null;
+        }
+        const target = list[targetIndex];
+        if (!target.repeatable || typeof target.repeatable !== 'object') {
+          if (createIfMissing) {
+            target.repeatable = {};
+          } else {
+            return null;
+          }
+        }
+        container = target.repeatable;
       }
-      container = target.repeatable;
-    }
-    return container;
-  }, []);
+      return container;
+    },
+    []
+  );
 
   const addRepeatableInstance = useCallback(
     (repeatableKey, { parentPath = [], seedValues = {}, instanceId } = {}) => {
@@ -685,9 +678,7 @@ export function useRepeatableInstanceEngine({
         }
         const current = list[index];
         const nextInstance =
-          typeof updater === 'function'
-            ? updater(cloneDeep(current))
-            : { ...current, ...updater };
+          typeof updater === 'function' ? updater(cloneDeep(current)) : { ...current, ...updater };
         list[index] = nextInstance;
       });
     },

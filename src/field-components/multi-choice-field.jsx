@@ -35,7 +35,7 @@ export function MultiChoiceFieldComponent({
   );
   const otherEntries = Array.isArray(value?.other) ? value.other : [];
   const hasOtherSelection = field.allow_other && otherEntries.length > 0;
-  const otherValue = hasOtherSelection ? otherEntries[0]?.label ?? '' : '';
+  const otherValue = hasOtherSelection ? (otherEntries[0]?.label ?? '') : '';
   const required = inputProps.required && !readOnly;
 
   const emitChange = (nextChoices, otherLabel, forceOther = false) => {
@@ -43,9 +43,7 @@ export function MultiChoiceFieldComponent({
     const normalizedChoices = mapChoices(field, nextChoices);
     const shouldIncludeOther =
       field.allow_other && (forceOther || (otherLabel && otherLabel.length > 0));
-    const normalizedOther = shouldIncludeOther
-      ? [{ label: otherLabel ?? '' }]
-      : [];
+    const normalizedOther = shouldIncludeOther ? [{ label: otherLabel ?? '' }] : [];
     onChange({
       choices: normalizedChoices,
       other: normalizedOther,

@@ -73,9 +73,7 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
             </span>
           </button>
         )}
-        {!hasChildren && (
-          <span className={styles.navigationToggleSpacer} aria-hidden="true" />
-        )}
+        {!hasChildren && <span className={styles.navigationToggleSpacer} aria-hidden="true" />}
         <a
           className={linkClassName}
           onClick={handleClick}

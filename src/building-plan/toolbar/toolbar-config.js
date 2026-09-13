@@ -225,4 +225,3 @@ export function formatCompactShortcut(shortcutKey) {
   if (!shortcutKey) return null;
   return `alt+shift+${shortcutKey.toLowerCase()}`;
 }
-

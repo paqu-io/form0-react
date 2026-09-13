@@ -240,43 +240,45 @@ export function FormLinkFieldComponent({ field, value, readOnly, inputProps = {}
         </div>
       )}
 
-      {activeModal && typeof document !== 'undefined' && createPortal(
-        <div
-          className={styles.formLinkModalOverlay}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={modalTitleId}
-          onClick={handleOverlayClick}
-        >
-          <div className={`${styles.formLinkModal} ${themeClass}`}>
-            <div className={styles.formLinkModalHeader} id={modalTitleId}>
-              {modalTitle}
-            </div>
-            <div className={styles.formLinkModalBody}>{modalBody}</div>
-            <div className={styles.formLinkModalFooter}>
-              {modalPrimaryLabel ? (
+      {activeModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className={styles.formLinkModalOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
+            onClick={handleOverlayClick}
+          >
+            <div className={`${styles.formLinkModal} ${themeClass}`}>
+              <div className={styles.formLinkModalHeader} id={modalTitleId}>
+                {modalTitle}
+              </div>
+              <div className={styles.formLinkModalBody}>{modalBody}</div>
+              <div className={styles.formLinkModalFooter}>
+                {modalPrimaryLabel ? (
+                  <button
+                    type="button"
+                    className={styles.formLinkActionButtonPrimary}
+                    disabled
+                    aria-disabled="true"
+                  >
+                    {modalPrimaryLabel}
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  className={styles.formLinkActionButtonPrimary}
-                  disabled
-                  aria-disabled="true"
+                  className={styles.formLinkActionButton}
+                  onClick={closeModal}
+                  autoFocus
                 >
-                  {modalPrimaryLabel}
+                  Close
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.formLinkActionButton}
-                onClick={closeModal}
-                autoFocus
-              >
-                Close
-              </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
 
       {inputName && (
         <input

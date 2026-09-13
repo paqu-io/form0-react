@@ -135,7 +135,7 @@ const ACTIONS = {
     return withState(state, { updateVersion: lastUpdateVersion });
   },
   RESET(payload = {}) {
-   //log('RESET');
+    //log('RESET');
     lastUpdateVersion = Number(payload.updateVersion || 0);
     const state = resetEngine(payload.initialValues || {});
     return withState(state, { updateVersion: lastUpdateVersion });

@@ -27,7 +27,7 @@ export function SingleChoiceFieldComponent({
   const selectedChoice = value?.choice?.[0]?.value ?? '';
   const otherEntries = Array.isArray(value?.other) ? value.other : [];
   const hasOtherSelection = field.allow_other && otherEntries.length > 0;
-  const otherValue = hasOtherSelection ? otherEntries[0]?.label ?? '' : '';
+  const otherValue = hasOtherSelection ? (otherEntries[0]?.label ?? '') : '';
   const selectValue = field.allow_other && hasOtherSelection ? OTHER_OPTION_VALUE : selectedChoice;
   const required = inputProps.required && !readOnly;
 

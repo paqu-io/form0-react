@@ -11,7 +11,9 @@ export function BuildingPlanCanvasPlaceholder({ toolbarState, scope }) {
     <div className={styles.section} style={{ minHeight: 200, border: '1px dashed #ccc' }}>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>Building Plan Canvas (placeholder)</div>
       <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-        <div>Scope: floorId={scope?.floorId || '—'} · roomId={scope?.roomId || '—'}</div>
+        <div>
+          Scope: floorId={scope?.floorId || '—'} · roomId={scope?.roomId || '—'}
+        </div>
         <div>Toolbar:</div>
         <ul style={{ marginTop: 4, paddingLeft: 16 }}>
           {Object.entries(toolbarState || {}).map(([key, value]) => (
