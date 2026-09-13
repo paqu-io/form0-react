@@ -5,11 +5,7 @@ export function TextFieldComponent({ value, onChange, onKeyDown, inputProps, cla
     <input
       type="text"
       value={value ?? ''}
-      onChange={
-        onChange
-          ? (event) => onChange(event.target.value)
-          : undefined
-      }
+      onChange={onChange ? (event) => onChange(event.target.value) : undefined}
       onKeyDown={onKeyDown}
       className={className}
       {...inputProps}

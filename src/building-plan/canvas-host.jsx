@@ -91,13 +91,7 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
 
     // Fall back to section's own preferred_key/key/data_name.
     // This handles cases where the section isn't in the meta.
-    return (
-      section?.preferred_key ||
-      section?.preferredKey ||
-      section?.key ||
-      dataName ||
-      null
-    );
+    return section?.preferred_key || section?.preferredKey || section?.key || dataName || null;
   };
 
   const getRepeatableInstancesByIndexPath = (sectionOrKey, path = []) => {
@@ -111,10 +105,14 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
   };
 
   const mutateLocalRepeatable = (mutator) => {
-    const base = repeatableRef.current && typeof repeatableRef.current === 'object'
-      ? repeatableRef.current
-      : {};
-    const draft = typeof structuredClone === 'function' ? structuredClone(base) : JSON.parse(JSON.stringify(base));
+    const base =
+      repeatableRef.current && typeof repeatableRef.current === 'object'
+        ? repeatableRef.current
+        : {};
+    const draft =
+      typeof structuredClone === 'function'
+        ? structuredClone(base)
+        : JSON.parse(JSON.stringify(base));
     mutator(draft);
     repeatableRef.current = draft;
   };
@@ -203,11 +201,16 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
     if (!instance) return false;
     const parentIdPath = indexPathToIdPath(parentPath) || [];
     if (typeof repeatableApiRef.current?.updateInstance === 'function') {
-      repeatableApiRef.current.updateInstance(segment.key, instance.id, (current) => {
-        const next = { ...current, values: { ...(current?.values || {}) } };
-        next.values[fieldName] = value;
-        return next;
-      }, parentIdPath);
+      repeatableApiRef.current.updateInstance(
+        segment.key,
+        instance.id,
+        (current) => {
+          const next = { ...current, values: { ...(current?.values || {}) } };
+          next.values[fieldName] = value;
+          return next;
+        },
+        parentIdPath
+      );
     }
     mutateLocalRepeatable((draft) => {
       let container = draft;
@@ -231,9 +234,7 @@ function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
   };
 
   const formatContextPath = (path = []) =>
-    path
-      .map((segment) => `${segment?.key || 'unknown'}[${segment?.index ?? '?'}]`)
-      .join('/');
+    path.map((segment) => `${segment?.key || 'unknown'}[${segment?.index ?? '?'}]`).join('/');
 
   return {
     formRenderer: {
@@ -489,7 +490,7 @@ export function BuildingPlanCanvasHost({
         disabled={readOnly}
       />
       <div className="building-plan-canvas-panel-wrapper">
-      <div ref={containerRef} className="building-plan-canvas-panel" />
+        <div ref={containerRef} className="building-plan-canvas-panel" />
         <ZoomControls
           zoomLevel={zoomLevel}
           onZoomIn={handleZoomIn}

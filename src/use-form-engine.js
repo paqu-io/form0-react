@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useLayoutEffect,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createFormEngine, validateSchema, expandBuildingPlanSchema } from 'form0-core';
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import {
@@ -36,8 +29,7 @@ export function useFormEngine(
 ) {
   const normalizedOptions = useMemo(() => {
     const desiredMode = options?.engineMode === 'worker' ? 'worker' : 'main-thread';
-    const engineMode =
-      desiredMode === 'worker' && CAN_USE_WORKERS ? 'worker' : 'main-thread';
+    const engineMode = desiredMode === 'worker' && CAN_USE_WORKERS ? 'worker' : 'main-thread';
     const desiredStoreMode =
       options?.engineStoreMode === 'selector' || options?.storeMode === 'selector'
         ? 'selector'
@@ -204,8 +196,8 @@ export function useFormEngine(
         typeof updater === 'function'
           ? updater(prev || {})
           : updater && typeof updater === 'object'
-          ? updater
-          : {};
+            ? updater
+            : {};
       repeatableStateRef.current = next;
       return next;
     });
@@ -223,42 +215,42 @@ export function useFormEngine(
     [updateRepeatableState]
   );
 
-  const resolveRepeatableContainer = useCallback((state, path = [], { createIfMissing = false } = {}) => {
-    let container = state || {};
-    if (!Array.isArray(path) || path.length === 0) {
-      return container;
-    }
-    for (const segment of path) {
-      if (!segment || typeof segment.key !== 'string') {
-        return null;
+  const resolveRepeatableContainer = useCallback(
+    (state, path = [], { createIfMissing = false } = {}) => {
+      let container = state || {};
+      if (!Array.isArray(path) || path.length === 0) {
+        return container;
       }
-      const list = container?.[segment.key];
-      if (!Array.isArray(list)) {
-        return null;
-      }
-      const targetIndex = list.findIndex((instance) => instance.id === segment.id);
-      if (targetIndex === -1) {
-        return null;
-      }
-      const target = list[targetIndex];
-      if (!target.repeatable || typeof target.repeatable !== 'object') {
-        if (createIfMissing) {
-          target.repeatable = {};
-        } else {
+      for (const segment of path) {
+        if (!segment || typeof segment.key !== 'string') {
           return null;
         }
+        const list = container?.[segment.key];
+        if (!Array.isArray(list)) {
+          return null;
+        }
+        const targetIndex = list.findIndex((instance) => instance.id === segment.id);
+        if (targetIndex === -1) {
+          return null;
+        }
+        const target = list[targetIndex];
+        if (!target.repeatable || typeof target.repeatable !== 'object') {
+          if (createIfMissing) {
+            target.repeatable = {};
+          } else {
+            return null;
+          }
+        }
+        container = target.repeatable;
       }
-      container = target.repeatable;
-    }
-    return container;
-  }, []);
+      return container;
+    },
+    []
+  );
 
   const getRepeatableInstances = useCallback(
     (repeatableKey, parentPath = []) => {
-      const container = resolveRepeatableContainer(
-        repeatableStateRef.current || {},
-        parentPath
-      );
+      const container = resolveRepeatableContainer(repeatableStateRef.current || {}, parentPath);
       const list = container?.[repeatableKey];
       return Array.isArray(list) ? list : [];
     },
@@ -323,9 +315,7 @@ export function useFormEngine(
         }
         const current = list[index];
         const nextInstance =
-          typeof updater === 'function'
-            ? updater(cloneDeep(current))
-            : { ...current, ...updater };
+          typeof updater === 'function' ? updater(cloneDeep(current)) : { ...current, ...updater };
         list[index] = nextInstance;
       });
     },
@@ -363,83 +353,89 @@ export function useFormEngine(
     [mutateRepeatableState, resolveRepeatableContainer]
   );
 
-  const syncState = useCallback((engineStateOverride = null) => {
-    const sourceState =
-      engineStateOverride ||
-      (engineRef.current && typeof engineRef.current.getState === 'function'
-        ? engineRef.current.getState()
-        : null);
-    if (!sourceState) {
-      const empty = createEmptyState();
-      engineStore.setState(empty);
-      setState(empty);
-      return;
-    }
-    const preparedState = {
-      values: { ...(sourceState.values || {}) },
-      visible: { ...(sourceState.visible || {}) },
-      required: { ...(sourceState.required || {}) },
-      read_only: { ...(sourceState.read_only || {}) },
-      errors: { ...(sourceState.errors || {}) },
-    };
-    engineStore.setState(preparedState);
-    setState(preparedState);
-  }, [engineStore]);
-
-  const syncWorkerState = useCallback((engineStateOverride = null, meta = {}) => {
-    const sourceState = engineStateOverride || null;
-    if (!sourceState) {
-      const empty = createEmptyState();
-      engineStore.setState(empty);
-      setState(empty);
-      return;
-    }
-
-    const incomingVersion = Number(meta?.stateVersion || 0);
-    const currentVersion = Number(workerStateVersionRef.current || 0);
-    if (incomingVersion > 0 && incomingVersion < currentVersion) {
-      return;
-    }
-    if (incomingVersion > 0 && incomingVersion > currentVersion) {
-      workerStateVersionRef.current = incomingVersion;
-    }
-
-    const updateVersion = Number(meta?.updateVersion || 0);
-    const preparedState = {
-      values: { ...(sourceState.values || {}) },
-      visible: { ...(sourceState.visible || {}) },
-      required: { ...(sourceState.required || {}) },
-      read_only: { ...(sourceState.read_only || {}) },
-      errors: { ...(sourceState.errors || {}) },
-    };
-
-    if (updateVersion > 0) {
-      const fieldsToClear = [];
-      fieldUpdateVersionRef.current.forEach((version, field) => {
-        if (version > updateVersion) {
-          if (field in optimisticValuesRef.current) {
-            preparedState.values[field] = optimisticValuesRef.current[field];
-          }
-          return;
-        }
-        fieldsToClear.push(field);
-      });
-
-      if (fieldsToClear.length > 0) {
-        fieldsToClear.forEach((field) => {
-          fieldUpdateVersionRef.current.delete(field);
-        });
-        const nextOptimistic = { ...optimisticValuesRef.current };
-        fieldsToClear.forEach((field) => {
-          delete nextOptimistic[field];
-        });
-        optimisticValuesRef.current = nextOptimistic;
+  const syncState = useCallback(
+    (engineStateOverride = null) => {
+      const sourceState =
+        engineStateOverride ||
+        (engineRef.current && typeof engineRef.current.getState === 'function'
+          ? engineRef.current.getState()
+          : null);
+      if (!sourceState) {
+        const empty = createEmptyState();
+        engineStore.setState(empty);
+        setState(empty);
+        return;
       }
-    }
+      const preparedState = {
+        values: { ...(sourceState.values || {}) },
+        visible: { ...(sourceState.visible || {}) },
+        required: { ...(sourceState.required || {}) },
+        read_only: { ...(sourceState.read_only || {}) },
+        errors: { ...(sourceState.errors || {}) },
+      };
+      engineStore.setState(preparedState);
+      setState(preparedState);
+    },
+    [engineStore]
+  );
 
-    engineStore.setState(preparedState);
-    setState(preparedState);
-  }, [engineStore]);
+  const syncWorkerState = useCallback(
+    (engineStateOverride = null, meta = {}) => {
+      const sourceState = engineStateOverride || null;
+      if (!sourceState) {
+        const empty = createEmptyState();
+        engineStore.setState(empty);
+        setState(empty);
+        return;
+      }
+
+      const incomingVersion = Number(meta?.stateVersion || 0);
+      const currentVersion = Number(workerStateVersionRef.current || 0);
+      if (incomingVersion > 0 && incomingVersion < currentVersion) {
+        return;
+      }
+      if (incomingVersion > 0 && incomingVersion > currentVersion) {
+        workerStateVersionRef.current = incomingVersion;
+      }
+
+      const updateVersion = Number(meta?.updateVersion || 0);
+      const preparedState = {
+        values: { ...(sourceState.values || {}) },
+        visible: { ...(sourceState.visible || {}) },
+        required: { ...(sourceState.required || {}) },
+        read_only: { ...(sourceState.read_only || {}) },
+        errors: { ...(sourceState.errors || {}) },
+      };
+
+      if (updateVersion > 0) {
+        const fieldsToClear = [];
+        fieldUpdateVersionRef.current.forEach((version, field) => {
+          if (version > updateVersion) {
+            if (field in optimisticValuesRef.current) {
+              preparedState.values[field] = optimisticValuesRef.current[field];
+            }
+            return;
+          }
+          fieldsToClear.push(field);
+        });
+
+        if (fieldsToClear.length > 0) {
+          fieldsToClear.forEach((field) => {
+            fieldUpdateVersionRef.current.delete(field);
+          });
+          const nextOptimistic = { ...optimisticValuesRef.current };
+          fieldsToClear.forEach((field) => {
+            delete nextOptimistic[field];
+          });
+          optimisticValuesRef.current = nextOptimistic;
+        }
+      }
+
+      engineStore.setState(preparedState);
+      setState(preparedState);
+    },
+    [engineStore]
+  );
 
   const createWorkerClient = useCallback(() => {
     if (!CAN_USE_WORKERS) {
@@ -801,10 +797,10 @@ export function useFormEngine(
           if (typeof window !== 'undefined' && typeof window.alert === 'function') {
             window.alert(text);
           } else {
-            console.warn(
-              'form0-react: ALERT operation received but window.alert is unavailable.',
-              { title, message }
-            );
+            console.warn('form0-react: ALERT operation received but window.alert is unavailable.', {
+              title,
+              message,
+            });
           }
           return;
         }
@@ -904,10 +900,10 @@ export function useFormEngine(
     if (!preparedSchema) {
       engineRef.current = null;
       cleanupWorkerClient();
-        const empty = createEmptyState();
-        setState(empty);
-        return;
-      }
+      const empty = createEmptyState();
+      setState(empty);
+      return;
+    }
     rebuildEngineRef.current(initialValuesRef.current);
     initialValuesSignatureRef.current = initialValuesSignature;
     initialRepeatableSignatureRef.current = initialRepeatableSignature;
@@ -1086,9 +1082,7 @@ function buildFieldDefinitionMap(form) {
 
 function coerceChoiceValue(field, rawValue) {
   const choices = Array.isArray(field?.choices) ? field.choices : [];
-  const match = choices.find(
-    (choice) => choice && String(choice.value) === String(rawValue)
-  );
+  const match = choices.find((choice) => choice && String(choice.value) === String(rawValue));
   if (match) {
     return match.value;
   }
@@ -1097,9 +1091,7 @@ function coerceChoiceValue(field, rawValue) {
 
 function lookupChoiceLabel(field, value) {
   const choices = Array.isArray(field?.choices) ? field.choices : [];
-  const match = choices.find(
-    (choice) => choice && String(choice.value) === String(value)
-  );
+  const match = choices.find((choice) => choice && String(choice.value) === String(value));
   if (match && typeof match.label === 'string' && match.label.trim() !== '') {
     return match.label;
   }
@@ -1111,11 +1103,7 @@ function normalizeChoiceEntry(field, entry) {
     return null;
   }
 
-  if (
-    typeof entry === 'string' ||
-    typeof entry === 'number' ||
-    typeof entry === 'boolean'
-  ) {
+  if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') {
     const coercedValue = coerceChoiceValue(field, entry);
     return {
       value: coercedValue,
@@ -1129,8 +1117,8 @@ function normalizeChoiceEntry(field, entry) {
       entry.value != null
         ? entry.value
         : typeof entry.label === 'string' && entry.label.trim() !== ''
-        ? entry.label
-        : null
+          ? entry.label
+          : null
     );
     if (value == null) {
       return null;
@@ -1162,8 +1150,8 @@ function normalizeOtherEntry(entry) {
       typeof entry.label === 'string' && entry.label.trim() !== ''
         ? entry.label
         : entry.value != null
-        ? String(entry.value)
-        : '';
+          ? String(entry.value)
+          : '';
     return {
       ...entry,
       label,
@@ -1177,11 +1165,7 @@ function normalizeSingleChoiceValue(field, value) {
     return { choice: [], other: [] };
   }
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     const normalizedChoice = normalizeChoiceEntry(field, value);
     return {
       choice: normalizedChoice ? [normalizedChoice] : [],
@@ -1203,15 +1187,13 @@ function normalizeSingleChoiceValue(field, value) {
     const choiceSource = Array.isArray(value.choice)
       ? value.choice
       : Array.isArray(value.choices)
-      ? value.choices
-      : [];
+        ? value.choices
+        : [];
     const otherSource = Array.isArray(value.other) ? value.other : [];
     const normalizedChoice = choiceSource
       .map((entry) => normalizeChoiceEntry(field, entry))
       .filter(Boolean);
-    const normalizedOther = otherSource
-      .map((entry) => normalizeOtherEntry(entry))
-      .filter(Boolean);
+    const normalizedOther = otherSource.map((entry) => normalizeOtherEntry(entry)).filter(Boolean);
     return {
       choice: normalizedChoice,
       other: normalizedOther,
@@ -1236,11 +1218,7 @@ function normalizeMultiChoiceValue(field, value) {
     };
   }
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     const normalizedChoice = normalizeChoiceEntry(field, value);
     return {
       choices: normalizedChoice ? [normalizedChoice] : [],
@@ -1252,15 +1230,13 @@ function normalizeMultiChoiceValue(field, value) {
     const choiceSource = Array.isArray(value.choices)
       ? value.choices
       : Array.isArray(value.choice)
-      ? value.choice
-      : [];
+        ? value.choice
+        : [];
     const otherSource = Array.isArray(value.other) ? value.other : [];
     const normalizedChoices = choiceSource
       .map((entry) => normalizeChoiceEntry(field, entry))
       .filter(Boolean);
-    const normalizedOther = otherSource
-      .map((entry) => normalizeOtherEntry(entry))
-      .filter(Boolean);
+    const normalizedOther = otherSource.map((entry) => normalizeOtherEntry(entry)).filter(Boolean);
     return {
       choices: normalizedChoices,
       other: normalizedOther,

@@ -31,10 +31,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const selectorEnabled =
     storeMode === 'selector' && engineStore && typeof field?.data_name === 'string';
   const fieldSlice = useEngineField(engineStore, selectorEnabled ? field.data_name : '');
-  const resolvedValue =
-    selectorEnabled && value === undefined
-      ? fieldSlice?.value
-      : value;
+  const resolvedValue = selectorEnabled && value === undefined ? fieldSlice?.value : value;
   const resolvedReadOnly =
     selectorEnabled && fieldSlice && Object.prototype.hasOwnProperty.call(fieldSlice, 'read_only')
       ? Boolean(readOnly || fieldSlice.read_only)
@@ -68,13 +65,9 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     (isLabelField ? 'top' : labelPosition) === LABEL_SIDE ? styles.labelSide : styles.labelTop;
   const effectiveLabelPosition = isLabelField ? 'top' : labelPosition;
   const labelClass =
-    labelPosition === LABEL_SIDE
-      ? `${styles.label} ${styles.labelSideFixed}`
-      : styles.label;
+    labelPosition === LABEL_SIDE ? `${styles.label} ${styles.labelSideFixed}` : styles.label;
   const wrapperStyle =
-    labelPosition === LABEL_SIDE
-      ? { '--label-width': `${labelWidthPercent}%` }
-      : undefined;
+    labelPosition === LABEL_SIDE ? { '--label-width': `${labelWidthPercent}%` } : undefined;
 
   const baseId = field.key || field.data_name;
   const labelId = `${baseId}-label`;
@@ -126,10 +119,8 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const hasSubtextDescription =
     field.description && descriptionMode === 'subtext' && typeof field.description === 'string';
 
-  const hasDialogImage =
-    supportingImage && supportingImage.displayMode === 'dialog';
-  const showInlineImage =
-    supportingImage && supportingImage.displayMode !== 'dialog';
+  const hasDialogImage = supportingImage && supportingImage.displayMode === 'dialog';
+  const showInlineImage = supportingImage && supportingImage.displayMode !== 'dialog';
 
   const descriptionDialogRef = useRef(null);
   const imageDialogRef = useRef(null);
@@ -291,19 +282,11 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
 
   const labelNode = shouldRenderLabelElement ? (
     isGroupedControl ? (
-      <div
-        className={labelClassNames.join(' ')}
-        id={labelId}
-        role="presentation"
-      >
+      <div className={labelClassNames.join(' ')} id={labelId} role="presentation">
         {labelContent}
       </div>
     ) : (
-      <label
-        className={labelClassNames.join(' ')}
-        id={labelId}
-        {...labelProps}
-      >
+      <label className={labelClassNames.join(' ')} id={labelId} {...labelProps}>
         {labelContent}
       </label>
     )
@@ -325,9 +308,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         {labelNode}
         {renderLabelControls()}
       </div>
-      {hasSubtextDescription && (
-        <div className={styles.subtext}>{field.description}</div>
-      )}
+      {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
       {showInlineImage && (
         <img
           src={
@@ -347,9 +328,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           {labelNode}
           {renderLabelControls()}
         </div>
-        {hasSubtextDescription && (
-          <div className={styles.subtext}>{field.description}</div>
-        )}
+        {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
       </div>
       <div className={styles.inputWrapper}>
         {showInlineImage && (
@@ -364,9 +343,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           />
         )}
         {fieldInput}
-        {showError ? (
-          <div className={styles.error}>{currentError || '\u00A0'}</div>
-        ) : null}
+        {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
       </div>
     </div>
   ) : (
@@ -375,9 +352,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         {labelNode}
         {renderLabelControls()}
       </div>
-      {hasSubtextDescription && (
-        <div className={styles.subtext}>{field.description}</div>
-      )}
+      {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
       {showInlineImage && (
         <img
           src={
@@ -390,9 +365,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         />
       )}
       {fieldInput}
-      {showError ? (
-        <div className={styles.error}>{currentError || '\u00A0'}</div>
-      ) : null}
+      {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
     </>
   );
 
@@ -499,14 +472,14 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
               <strong>{field.label || field.data_name}</strong>
               <br />
               <img
-              src={
-                supportingImage.path.startsWith('http')
-                  ? supportingImage.path
-                  : `/supporting-images/${supportingImage.path}`
-              }
-              alt={field.label || field.data_name}
-              className={styles.supportingImage}
-              style={{ height: 'auto' }}
+                src={
+                  supportingImage.path.startsWith('http')
+                    ? supportingImage.path
+                    : `/supporting-images/${supportingImage.path}`
+                }
+                alt={field.label || field.data_name}
+                className={styles.supportingImage}
+                style={{ height: 'auto' }}
               />
             </p>
           </div>
@@ -534,51 +507,43 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   }
 
   return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      className={containerClassName}
-      style={wrapperStyle}
-    >
+    <div ref={ref} tabIndex={-1} className={containerClassName} style={wrapperStyle}>
       {content}
       {dialogs}
     </div>
   );
 });
 
-export const FieldRenderer = React.memo(
-  FieldRendererBase,
-  (prev, next) => {
-    if (prev.storeMode !== next.storeMode) return false;
-    if (prev.storeMode === 'selector') {
-      return (
-        prev.field === next.field &&
-        prev.engineStore === next.engineStore &&
-        prev.onChange === next.onChange &&
-        prev.labelPosition === next.labelPosition &&
-        prev.labelWidthPercent === next.labelWidthPercent &&
-        prev.onKeyDown === next.onKeyDown &&
-        prev.onFocus === next.onFocus &&
-        prev.value === next.value &&
-        prev.readOnly === next.readOnly &&
-        prev.required === next.required &&
-        prev.error === next.error &&
-        prev.showError === next.showError
-      );
-    }
+export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
+  if (prev.storeMode !== next.storeMode) return false;
+  if (prev.storeMode === 'selector') {
     return (
       prev.field === next.field &&
-      prev.value === next.value &&
-      prev.readOnly === next.readOnly &&
-      prev.required === next.required &&
-      prev.error === next.error &&
       prev.engineStore === next.engineStore &&
       prev.onChange === next.onChange &&
       prev.labelPosition === next.labelPosition &&
       prev.labelWidthPercent === next.labelWidthPercent &&
       prev.onKeyDown === next.onKeyDown &&
       prev.onFocus === next.onFocus &&
+      prev.value === next.value &&
+      prev.readOnly === next.readOnly &&
+      prev.required === next.required &&
+      prev.error === next.error &&
       prev.showError === next.showError
     );
   }
-);
+  return (
+    prev.field === next.field &&
+    prev.value === next.value &&
+    prev.readOnly === next.readOnly &&
+    prev.required === next.required &&
+    prev.error === next.error &&
+    prev.engineStore === next.engineStore &&
+    prev.onChange === next.onChange &&
+    prev.labelPosition === next.labelPosition &&
+    prev.labelWidthPercent === next.labelWidthPercent &&
+    prev.onKeyDown === next.onKeyDown &&
+    prev.onFocus === next.onFocus &&
+    prev.showError === next.showError
+  );
+});

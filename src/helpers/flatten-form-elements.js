@@ -10,4 +10,4 @@ export function flattenFormElements(elements, result = []) {
     }
   }
   return result;
-} 
+}

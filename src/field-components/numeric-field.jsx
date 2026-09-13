@@ -1,6 +1,13 @@
 import React from 'react';
 
-export function NumericFieldComponent({ field, value, onChange, onKeyDown, inputProps, className }) {
+export function NumericFieldComponent({
+  field,
+  value,
+  onChange,
+  onKeyDown,
+  inputProps,
+  className,
+}) {
   const handleChange =
     onChange &&
     ((event) => {

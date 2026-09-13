@@ -9,7 +9,7 @@
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "exports": {
     ".": {
@@ -22,15 +22,20 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "SECURITY.md"
   ],
   "scripts": {
     "build": "tsup",
     "prepack": "npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
-    "format": "prettier --write \"**/*.{js,jsx,json,ts,tsx,md}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,json,ts,tsx,md}\""
+    "format": "prettier --write \"src/**/*.{js,jsx}\" \"tests/**/*.{js,jsx}\" \"scripts/**/*.mjs\" package.json README.md SECURITY.md SUPPORT.md CONTRIBUTING.md .github/workflows/ci.yml .github/workflows/publish.yml",
+    "format:check": "prettier --check \"src/**/*.{js,jsx}\" \"tests/**/*.{js,jsx}\" \"scripts/**/*.mjs\" package.json README.md SECURITY.md SUPPORT.md CONTRIBUTING.md .github/workflows/ci.yml .github/workflows/publish.yml",
+    "package:check": "node scripts/check-package-contents.mjs",
+    "security:audit:prod": "npm audit --omit=dev --omit=peer --audit-level=high",
+    "check": "npm run format:check && npm test",
+    "release:check": "npm run check && npm run security:audit:prod && npm run package:check"
   },
   "keywords": [
     "form0",
@@ -72,7 +77,7 @@
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-switch": "^1.2.5",
-    "form0-core": "^0.1.26",
+    "form0-core": "^0.2.1",
     "lucide-react": "^0.553.0"
   },
   "repository": {

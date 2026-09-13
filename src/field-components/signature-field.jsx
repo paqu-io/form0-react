@@ -157,18 +157,8 @@ function buildSignatureExportCanvas(sourceCanvas, bounds) {
   const right = clamp(bounds.maxX + SIGNATURE_EXPORT_PADDING, 0, safeWidth);
   const top = clamp(bounds.minY - SIGNATURE_EXPORT_PADDING, 0, safeHeight);
   const bottom = clamp(bounds.maxY + SIGNATURE_EXPORT_PADDING, 0, safeHeight);
-  const horizontalRange = expandRangeToMinimum(
-    left,
-    right,
-    SIGNATURE_MIN_EXPORT_WIDTH,
-    safeWidth
-  );
-  const verticalRange = expandRangeToMinimum(
-    top,
-    bottom,
-    SIGNATURE_MIN_EXPORT_HEIGHT,
-    safeHeight
-  );
+  const horizontalRange = expandRangeToMinimum(left, right, SIGNATURE_MIN_EXPORT_WIDTH, safeWidth);
+  const verticalRange = expandRangeToMinimum(top, bottom, SIGNATURE_MIN_EXPORT_HEIGHT, safeHeight);
   const exportWidth = Math.max(Math.ceil(horizontalRange.end - horizontalRange.start), 1);
   const exportHeight = Math.max(Math.ceil(verticalRange.end - verticalRange.start), 1);
   const exportCanvas = document.createElement('canvas');
@@ -258,8 +248,7 @@ export function SignatureFieldComponent({
     }
 
     const signatureId = signatureIdRef.current ?? createClientMediaId('signature');
-    const signedAtClient =
-      signatureMetaRef.current?.signed_at_client ?? new Date().toISOString();
+    const signedAtClient = signatureMetaRef.current?.signed_at_client ?? new Date().toISOString();
     signatureIdRef.current = signatureId;
     const payload = {
       ...(signatureMetaRef.current && typeof signatureMetaRef.current === 'object'
@@ -390,34 +379,31 @@ export function SignatureFieldComponent({
     [getRelativePoint, isReadOnly]
   );
 
-  const finishDrawing = useCallback(
-    (event) => {
-      if (!isDrawingRef.current) return;
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      const canvas = canvasRef.current;
-      const ctx = contextRef.current;
-      if (!canvas || !ctx) return;
+  const finishDrawing = useCallback((event) => {
+    if (!isDrawingRef.current) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const canvas = canvasRef.current;
+    const ctx = contextRef.current;
+    if (!canvas || !ctx) return;
 
-      if (!pointerMovedRef.current) {
-        const lastPoint = lastPointRef.current;
-        ctx.beginPath();
-        ctx.arc(lastPoint.x, lastPoint.y, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        strokeBoundsRef.current = extendBounds(
-          strokeBoundsRef.current,
-          lastPoint.x,
-          lastPoint.y,
-          1.5 + SIGNATURE_STROKE_WIDTH
-        );
-      }
+    if (!pointerMovedRef.current) {
+      const lastPoint = lastPointRef.current;
+      ctx.beginPath();
+      ctx.arc(lastPoint.x, lastPoint.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      strokeBoundsRef.current = extendBounds(
+        strokeBoundsRef.current,
+        lastPoint.x,
+        lastPoint.y,
+        1.5 + SIGNATURE_STROKE_WIDTH
+      );
+    }
 
-      canvas.releasePointerCapture?.(event?.pointerId);
-      isDrawingRef.current = false;
-      pointerMovedRef.current = false;
-    },
-    []
-  );
+    canvas.releasePointerCapture?.(event?.pointerId);
+    isDrawingRef.current = false;
+    pointerMovedRef.current = false;
+  }, []);
 
   const handlePointerUp = useCallback(
     (event) => {
@@ -460,7 +446,10 @@ export function SignatureFieldComponent({
   if (isReadOnly) {
     const dataUrl = normalizedValue?.data
       ? `data:image/png;base64,${normalizedValue.data}`
-      : normalizedValue?.preview_url || normalizedValue?.thumbnail_url || normalizedValue?.url || null;
+      : normalizedValue?.preview_url ||
+        normalizedValue?.thumbnail_url ||
+        normalizedValue?.url ||
+        null;
     return (
       <div className={`${styles.signatureReadOnly} ${className || ''}`}>
         {field.agreement_text && (
@@ -505,7 +494,10 @@ export function SignatureFieldComponent({
       : '';
   const dataUrl = normalizedValue?.data
     ? `data:image/png;base64,${normalizedValue.data}`
-    : normalizedValue?.preview_url || normalizedValue?.thumbnail_url || normalizedValue?.url || null;
+    : normalizedValue?.preview_url ||
+      normalizedValue?.thumbnail_url ||
+      normalizedValue?.url ||
+      null;
   const primaryButtonLabel = normalizedValue ? 'Replace signature' : 'Add signature';
 
   return (
@@ -572,9 +564,7 @@ export function SignatureFieldComponent({
               >
                 Cancel
               </button>
-              <p className={styles.signatureModalTitle}>
-                {field.label || 'Capture signature'}
-              </p>
+              <p className={styles.signatureModalTitle}>{field.label || 'Capture signature'}</p>
               <button
                 type="button"
                 className={styles.signaturePrimaryButton}
@@ -606,11 +596,7 @@ export function SignatureFieldComponent({
               {...restInputProps}
             />
             <div className={styles.signatureControls}>
-              <button
-                type="button"
-                className={styles.signatureClearButton}
-                onClick={clearCanvas}
-              >
+              <button type="button" className={styles.signatureClearButton} onClick={clearCanvas}>
                 Clear pad
               </button>
             </div>

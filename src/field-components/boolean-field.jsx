@@ -59,9 +59,7 @@ export function BooleanFieldComponent({
             aria-checked={isSelected}
             role="radio"
             tabIndex={isSelected || index === 0 ? 0 : -1}
-            className={`${styles.booleanOption} ${
-              isSelected ? styles.booleanOptionSelected : ''
-            }`}
+            className={`${styles.booleanOption} ${isSelected ? styles.booleanOptionSelected : ''}`}
             {...(required && index === 0 ? { 'aria-required': true } : {})}
             onFocus={inputOnFocus}
           >

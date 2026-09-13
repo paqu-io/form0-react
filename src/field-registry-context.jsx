@@ -82,9 +82,7 @@ export function FieldRegistryProvider({
   }, [registry, stableRendererMap, includeDefaults, trackMissingTypes, warnOnUnregisteredTypes]);
 
   return (
-    <FieldRegistryContext.Provider value={contextValue}>
-      {children}
-    </FieldRegistryContext.Provider>
+    <FieldRegistryContext.Provider value={contextValue}>{children}</FieldRegistryContext.Provider>
   );
 }
 
