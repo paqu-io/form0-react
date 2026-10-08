@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCalendarDate } from '../helpers/format-calendar-date.js';
 
 function formatDisplayValue(value, style) {
   if (value == null) return '';
@@ -6,7 +7,7 @@ function formatDisplayValue(value, style) {
     case 'currency':
       return `$${parseFloat(value).toFixed(2)}`;
     case 'date':
-      return new Date(value).toLocaleDateString();
+      return formatCalendarDate(value);
     case 'numeric':
       return Number(value);
     default:
