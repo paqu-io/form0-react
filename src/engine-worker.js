@@ -1,10 +1,11 @@
-import { createFormEngine } from 'form0-core';
+import { createDiagnosticEngine } from './utils/engine-diagnostics.js';
 
 let engine = null;
 let cachedSchema = null;
 let cachedHelpers = undefined;
 let cachedSecurity = undefined;
-let warningCleanup = null;
+let cachedScopeId = null;
+let diagnosticSequence = 0;
 let stateVersion = 0;
 let lastUpdateVersion = 0;
 // const log = (...args) => {
@@ -17,32 +18,7 @@ const serializeError = (error) => ({
   message: error?.message || String(error || 'Unknown error'),
 });
 
-const attachWarningForwarder = () => {
-  if (warningCleanup) {
-    warningCleanup();
-    warningCleanup = null;
-  }
-
-  if (!engine || typeof engine.getWarningSystem !== 'function') {
-    return;
-  }
-
-  const warningSystem = engine.getWarningSystem();
-  if (!warningSystem || typeof warningSystem.addWarningHandler !== 'function') {
-    return;
-  }
-
-  const handler = (warning) => {
-    self.postMessage({
-      kind: 'warning',
-      payload: warning,
-    });
-  };
-  warningSystem.addWarningHandler(handler);
-  warningCleanup = () => warningSystem.removeWarningHandler(handler);
-};
-
-const buildEngine = ({ schema, initialValues = {}, helpers, security }) => {
+const buildEngine = ({ schema, initialValues = {}, helpers, security, scopeId }) => {
   if (!schema || !schema.form) {
     throw new Error('form0-react: engine worker requires a valid schema');
   }
@@ -52,19 +28,26 @@ const buildEngine = ({ schema, initialValues = {}, helpers, security }) => {
   cachedSchema = schema;
   cachedHelpers = helpers;
   cachedSecurity = security;
-  engine = createFormEngine({
+  if (scopeId !== cachedScopeId) diagnosticSequence = 0;
+  cachedScopeId = scopeId;
+  engine = createDiagnosticEngine({
     schema,
     initialValues,
     helpers,
     security,
+    onWarning: (warning) => self.postMessage({ kind: 'warning', scopeId, payload: warning }),
+    onDiagnostics: (diagnostics) =>
+      self.postMessage({
+        kind: 'diagnostics',
+        payload: { scopeId, evaluationId: ++diagnosticSequence, diagnostics },
+      }),
   });
   engine.eval();
-  attachWarningForwarder();
   //log('engine initialized');
   return engine.getState();
 };
 
-const resetEngine = (initialValues = {}) => {
+const resetEngine = (initialValues = {}, scopeId = cachedScopeId) => {
   if (!cachedSchema) {
     throw new Error('form0-react: engine worker cannot reset before initialization');
   }
@@ -73,6 +56,7 @@ const resetEngine = (initialValues = {}) => {
     initialValues,
     helpers: cachedHelpers,
     security: cachedSecurity,
+    scopeId,
   });
 };
 
@@ -116,6 +100,7 @@ const serializeState = (state) => {
 
 const withState = (state, extra = {}) => ({
   state: serializeState(state),
+  scopeId: cachedScopeId,
   stateVersion: ++stateVersion,
   ...extra,
 });
@@ -137,7 +122,7 @@ const ACTIONS = {
   RESET(payload = {}) {
     //log('RESET');
     lastUpdateVersion = Number(payload.updateVersion || 0);
-    const state = resetEngine(payload.initialValues || {});
+    const state = resetEngine(payload.initialValues || {}, payload.scopeId);
     return withState(state, { updateVersion: lastUpdateVersion });
   },
   SET_VALUES(payload = {}) {

@@ -1,3 +1,34 @@
+const cloneDiagnostics = (value) => JSON.parse(JSON.stringify(value));
+let nextClientScope = 0;
+function assertWorkerConfiguration(params) {
+  try {
+    if (typeof structuredClone === 'function') structuredClone(params);
+    else {
+      const seen = new Set();
+      const visit = (value) => {
+        if (typeof value === 'function' || typeof value === 'symbol')
+          throw new Error('non-cloneable value');
+        if (!value || typeof value !== 'object' || seen.has(value)) return;
+        seen.add(value);
+        if (value instanceof WeakMap || value instanceof WeakSet)
+          throw new Error('non-cloneable value');
+        if (value instanceof Map)
+          for (const [key, entry] of value) {
+            visit(key);
+            visit(entry);
+          }
+        else if (value instanceof Set) for (const entry of value) visit(entry);
+        else for (const entry of Object.values(value)) visit(entry);
+      };
+      visit(params);
+    }
+  } catch {
+    throw new Error(
+      'form0-react: Worker configuration must be structured-cloneable. Function-valued helpers require engineMode="main-thread".'
+    );
+  }
+}
+
 const resolveLegacyWorkerUrl = () => {
   if (typeof window !== 'undefined') {
     const base = document?.currentScript?.src || window.location.href;
@@ -17,7 +48,7 @@ const createDefaultWorker = () =>
 const createWorkerFromUrl = (workerUrl) => new Worker(workerUrl, { type: 'module' });
 
 export class EngineWorkerClient {
-  constructor({ onState, onWarning, createWorker, workerUrl } = {}) {
+  constructor({ onState, onWarning, onDiagnostics, createWorker, workerUrl } = {}) {
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
       throw new Error('form0-react: Web Workers are not available in this environment');
     }
@@ -40,6 +71,10 @@ export class EngineWorkerClient {
     this.pending = new Map();
     this.nextId = 1;
     this.onState = onState || null;
+    this.onDiagnostics = onDiagnostics || null;
+    this.diagnostics = [];
+    this.diagnosticSequence = 0;
+    this.scopeId = null;
     this.warningHandlers = new Set();
     if (typeof onWarning === 'function') {
       this.warningHandlers.add(onWarning);
@@ -54,11 +89,34 @@ export class EngineWorkerClient {
     const data = event?.data || {};
     const { id, payload, error, kind } = data;
 
+    if (kind === 'diagnostics') {
+      if (
+        payload?.scopeId !== this.scopeId ||
+        !Number.isInteger(payload.evaluationId) ||
+        payload.evaluationId <= this.diagnosticSequence
+      )
+        return;
+      this.diagnosticSequence = payload.evaluationId;
+      this.diagnostics = cloneDiagnostics(payload.diagnostics || []);
+      try {
+        const result = this.onDiagnostics?.({ ...payload, diagnostics: this.getDiagnostics() });
+        if (result && typeof result.then === 'function') Promise.resolve(result).catch(() => {});
+      } catch {
+        /* Diagnostics cannot interrupt worker state/operations. */
+      }
+      return;
+    }
+
     if (kind === 'warning') {
+      if (data.scopeId && data.scopeId !== this.scopeId) return;
       //console.log('[form0-worker-client] warning', data.payload);
       this.warningHandlers.forEach((handler) => {
         try {
-          handler(data.payload);
+          const result = handler(data.payload);
+          if (result && typeof result.then === 'function')
+            Promise.resolve(result).catch(() =>
+              console.warn('form0-react: warning handler rejected.')
+            );
         } catch (err) {
           console.warn('form0-react: warning handler threw an error', err);
         }
@@ -78,7 +136,7 @@ export class EngineWorkerClient {
       return;
     }
 
-    if (payload?.state) {
+    if (payload?.state && (!payload.scopeId || payload.scopeId === this.scopeId)) {
       //console.log('[form0-worker-client] state received');
       const incomingVersion = Number(payload.stateVersion || 0);
       const isStale =
@@ -109,21 +167,43 @@ export class EngineWorkerClient {
     //console.log('[form0-worker-client] call', action, data);
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.worker.postMessage({
-        id,
-        action,
-        payload: data,
-      });
+      try {
+        this.worker.postMessage({ id, action, payload: data });
+      } catch (error) {
+        this.pending.delete(id);
+        reject(error);
+      }
     });
   }
 
   init(params) {
-    return this.call('INIT', params);
+    try {
+      assertWorkerConfiguration(params);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    const scopeId = params.scopeId || `form0-worker-${++nextClientScope}`;
+    this.scopeId = scopeId;
+    this.stateVersion = 0;
+    this.diagnostics = [];
+    this.diagnosticSequence = 0;
+    return this.call('INIT', { ...params, scopeId });
+  }
+
+  getDiagnostics() {
+    return cloneDiagnostics(this.diagnostics);
   }
 
   reset(initialValues = {}, meta = {}) {
     const updateVersion = meta?.updateVersion;
-    return this.call('RESET', { initialValues, updateVersion });
+    const scopeId = meta.scopeId || this.scopeId;
+    if (scopeId !== this.scopeId) {
+      this.scopeId = scopeId;
+      this.stateVersion = 0;
+      this.diagnostics = [];
+      this.diagnosticSequence = 0;
+    }
+    return this.call('RESET', { initialValues, updateVersion, scopeId });
   }
 
   setValues(updates = {}, meta = {}) {
@@ -157,6 +237,9 @@ export class EngineWorkerClient {
     });
     this.pending.clear();
     this.warningHandlers.clear();
+    this.scopeId = null;
+    this.diagnostics = [];
+    this.onDiagnostics = null;
     this.state = null;
     this.stateVersion = 0;
   }
