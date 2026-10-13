@@ -1,5 +1,5 @@
+import { useEngineDiagnostics } from './use-engine-diagnostics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { createFormEngine } from 'form0-core';
 import { cloneDeep } from './utils/schema.js';
 import { buildRepeatableInfo, createEmptyRepeatableInstance } from './utils/repeatable-manager.js';
 import { uuidv7 } from './utils/uuid.js';
@@ -30,6 +30,8 @@ export function useRepeatableInstanceEngine({
   repInfo,
   baseValues = {},
   initialInstance = {},
+  diagnosticInstancePath = [],
+  diagnosticsActive = true,
   engineOptions = {},
 }) {
   const engineMode = useMemo(() => {
@@ -111,6 +113,32 @@ export function useRepeatableInstanceEngine({
     return Array.from(repInfo.fields.keys());
   }, [repInfo]);
   const fieldNameSet = useMemo(() => new Set(fieldNames), [fieldNames]);
+  const diagnosticGeneration = useMemo(
+    () => ({}),
+    [
+      schema,
+      JSON.stringify(baseValues || {}),
+      JSON.stringify({
+        values: initialInstance?.values || {},
+        repeatable: initialInstance?.repeatable || {},
+        id: initialInstance?.id ?? initialInstance?.record_id ?? null,
+      }),
+      JSON.stringify(diagnosticInstancePath),
+    ]
+  );
+  const {
+    createEngine: createObservedEngine,
+    startScope,
+    endScope,
+    acceptWorkerDiagnostics,
+    forwardWarning,
+  } = useEngineDiagnostics(
+    engineOptions,
+    fieldNames,
+    diagnosticInstancePath,
+    diagnosticsActive,
+    diagnosticGeneration
+  );
 
   const repeatableMetadata = useMemo(() => {
     if (!repInfo?.field?.elements) {
@@ -204,7 +232,7 @@ export function useRepeatableInstanceEngine({
         ...(baseValuesRef.current || {}),
         ...(instanceValues || {}),
       };
-      const engine = createFormEngine({
+      const engine = createObservedEngine({
         schema,
         initialValues: mergedValues,
         helpers: engineOptions.helpers,
@@ -213,7 +241,7 @@ export function useRepeatableInstanceEngine({
       engine.eval();
       return engine;
     },
-    [schema, engineOptions.helpers, engineOptions.security]
+    [schema, createObservedEngine]
   );
 
   const syncState = useCallback(
@@ -293,6 +321,8 @@ export function useRepeatableInstanceEngine({
       const workerOptions = engineOptionsRef.current || {};
       const client = new EngineWorkerClient({
         onState: (nextState, meta) => syncWorkerState(nextState, meta),
+        onDiagnostics: acceptWorkerDiagnostics,
+        onWarning: forwardWarning,
         createWorker: workerOptions.createWorker,
         workerUrl: workerOptions.workerUrl,
       });
@@ -303,7 +333,7 @@ export function useRepeatableInstanceEngine({
       workerClientRef.current = null;
       return null;
     }
-  }, [syncWorkerState]);
+  }, [syncWorkerState, acceptWorkerDiagnostics, forwardWarning]);
 
   const sendWorkerValueUpdates = useCallback(
     (updates = {}, updateVersion = 0) => {
@@ -353,6 +383,7 @@ export function useRepeatableInstanceEngine({
   const rebuildEngine = useCallback(
     (instanceValues = valuesRef.current) => {
       if (!schema || !repInfo) {
+        endScope();
         engineRef.current = null;
         cleanupWorkerClient();
         const empty = createEmptyState(repInfo);
@@ -385,6 +416,7 @@ export function useRepeatableInstanceEngine({
           engineRef.current = client;
           client
             .init({
+              scopeId: startScope().scopeId,
               schema,
               initialValues: mergedValues,
               helpers: engineOptionsRef.current.helpers,
@@ -407,6 +439,7 @@ export function useRepeatableInstanceEngine({
               if (workerInitTokenRef.current !== initToken) {
                 return;
               }
+              endScope();
               console.warn('form0-react: repeatable engine worker initialization failed.', error);
             });
           return;
@@ -422,6 +455,8 @@ export function useRepeatableInstanceEngine({
     [
       baseValues,
       buildEngine,
+      startScope,
+      endScope,
       cleanupWorkerClient,
       createWorkerClient,
       engineStore,
@@ -564,7 +599,7 @@ export function useRepeatableInstanceEngine({
         };
         if (client && workerReadyRef.current) {
           client
-            .reset(payload.initialValues, { updateVersion })
+            .reset(payload.initialValues, { updateVersion, scopeId: startScope().scopeId })
             .then((result) => {
               if (result?.state) {
                 syncWorkerState(result.state, result);
@@ -589,6 +624,7 @@ export function useRepeatableInstanceEngine({
       initialInstance.repeatable,
       initialInstance.values,
       rebuildEngine,
+      startScope,
       syncState,
       syncWorkerState,
     ]
@@ -733,6 +769,12 @@ export function useRepeatableInstanceEngine({
     },
     [getRepeatableInstances]
   );
+
+  useEffect(() => {
+    const handler = engineOptionsRef.current.onUpdate;
+    if (typeof handler === 'function' && engineRef.current)
+      handler({ ...state }, engineRef.current);
+  }, [state]);
 
   return {
     ...state,

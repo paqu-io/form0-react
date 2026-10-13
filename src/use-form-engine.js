@@ -1,5 +1,6 @@
+import { useEngineDiagnostics } from './use-engine-diagnostics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { createFormEngine, validateSchema, expandBuildingPlanSchema } from 'form0-core';
+import { validateSchema, expandBuildingPlanSchema } from 'form0-core';
 import { cloneDeep, prepareSchema, ensureSchemaKeys } from './utils/schema.js';
 import {
   buildRepeatableInfo,
@@ -52,7 +53,6 @@ export function useFormEngine(
   const initialRepeatableRef = useRef(cloneRepeatableState(initialRepeatable || {}));
   const initialRepeatableSignatureRef = useRef(null);
   const optionsRef = useRef(normalizedOptions || {});
-  const warningCleanupRef = useRef(null);
   const fieldDefinitionsRef = useRef(new Map());
   const repeatableStateRef = useRef({});
   const [repeatableState, setRepeatableStateInternal] = useState({});
@@ -169,6 +169,36 @@ export function useFormEngine(
       byPreferredKey,
     };
   }, [preparedSchema]);
+
+  const initialValuesSignature = useMemo(
+    () => JSON.stringify(initialValues || {}),
+    [initialValues]
+  );
+
+  const initialRepeatableSignature = useMemo(
+    () => JSON.stringify(initialRepeatable || {}),
+    [initialRepeatable]
+  );
+
+  const diagnosticGeneration = useMemo(
+    () => ({}),
+    [preparedSchema, initialValuesSignature, initialRepeatableSignature]
+  );
+
+  const diagnosticFieldNames = useMemo(
+    () =>
+      [...buildRepeatableInfo(preparedSchema?.form?.elements || []).fieldOwnership]
+        .filter(([, info]) => info.parentPath.length === 0)
+        .map(([name]) => name),
+    [preparedSchema]
+  );
+  const {
+    createEngine: createObservedEngine,
+    startScope,
+    endScope,
+    acceptWorkerDiagnostics,
+    forwardWarning,
+  } = useEngineDiagnostics(normalizedOptions, diagnosticFieldNames, [], true, diagnosticGeneration);
 
   useEffect(() => {
     if (preparedSchema?.form) {
@@ -445,6 +475,8 @@ export function useFormEngine(
       const workerOptions = optionsRef.current || {};
       const client = new EngineWorkerClient({
         onState: (nextState, meta) => syncWorkerState(nextState, meta),
+        onDiagnostics: acceptWorkerDiagnostics,
+        onWarning: forwardWarning,
         createWorker: workerOptions.createWorker,
         workerUrl: workerOptions.workerUrl,
       });
@@ -455,7 +487,7 @@ export function useFormEngine(
       workerClientRef.current = null;
       return null;
     }
-  }, [syncWorkerState]);
+  }, [syncWorkerState, acceptWorkerDiagnostics, forwardWarning]);
 
   const sendWorkerValueUpdates = useCallback(
     (updates = {}, updateVersion = 0) => {
@@ -536,6 +568,7 @@ export function useFormEngine(
     (seedValues = initialValuesRef.current) => {
       //console.log('[form0-react] rebuildEngine start', { mode: engineModeRef.current });
       if (!preparedSchema) {
+        endScope();
         engineRef.current = null;
         cleanupWorkerClient();
         const empty = createEmptyState();
@@ -567,6 +600,7 @@ export function useFormEngine(
           engineRef.current = client;
           client
             .init({
+              scopeId: startScope().scopeId,
               schema: preparedSchema,
               initialValues: normalizedSeedValues,
               helpers: optionsRef.current.helpers,
@@ -604,6 +638,7 @@ export function useFormEngine(
               if (workerInitTokenRef.current !== initToken) {
                 return;
               }
+              endScope();
               console.warn('form0-react: engine worker initialization failed.', error);
             });
           return;
@@ -612,7 +647,7 @@ export function useFormEngine(
       }
 
       cleanupWorkerClient({ bumpToken: !isWorkerMode });
-      const engine = createFormEngine({
+      const engine = createObservedEngine({
         schema: preparedSchema,
         initialValues: normalizedSeedValues,
         helpers: optionsRef.current.helpers,
@@ -626,6 +661,9 @@ export function useFormEngine(
     },
     [
       engineStore,
+      createObservedEngine,
+      startScope,
+      endScope,
       cleanupWorkerClient,
       createWorkerClient,
       flushPendingWorkerUpdates,
@@ -881,16 +919,6 @@ export function useFormEngine(
     [overrideValues]
   );
 
-  const initialValuesSignature = useMemo(
-    () => JSON.stringify(initialValues || {}),
-    [initialValues]
-  );
-
-  const initialRepeatableSignature = useMemo(
-    () => JSON.stringify(initialRepeatable || {}),
-    [initialRepeatable]
-  );
-
   const rebuildEngineRef = useRef(rebuildEngine);
   useEffect(() => {
     rebuildEngineRef.current = rebuildEngine;
@@ -957,66 +985,6 @@ export function useFormEngine(
       handler({ ...state }, engineRef.current);
     }
   }, [state]);
-
-  useEffect(() => {
-    if (warningCleanupRef.current) {
-      warningCleanupRef.current();
-      warningCleanupRef.current = null;
-    }
-
-    const warningHandler = optionsRef.current.onWarning;
-    if (typeof warningHandler !== 'function') {
-      return;
-    }
-
-    const proxy = (warning) => {
-      const latest = optionsRef.current.onWarning;
-      if (typeof latest === 'function') {
-        latest(warning);
-      }
-    };
-
-    if (engineMode === 'worker') {
-      const client = workerClientRef.current;
-      if (!client) {
-        return undefined;
-      }
-      client.addWarningHandler(proxy);
-      warningCleanupRef.current = () => client.removeWarningHandler(proxy);
-      return () => {
-        if (warningCleanupRef.current) {
-          warningCleanupRef.current();
-          warningCleanupRef.current = null;
-        }
-      };
-    }
-
-    const warningSystem = engineRef.current?.getWarningSystem?.();
-    if (!warningSystem || typeof warningSystem.addWarningHandler !== 'function') {
-      return undefined;
-    }
-
-    warningSystem.addWarningHandler(proxy);
-    warningCleanupRef.current = () => warningSystem.removeWarningHandler(proxy);
-
-    return () => {
-      if (warningCleanupRef.current) {
-        warningCleanupRef.current();
-        warningCleanupRef.current = null;
-      } else {
-        warningSystem.removeWarningHandler(proxy);
-      }
-    };
-  }, [engineMode, engineVersion, normalizedOptions.onWarning]);
-
-  useEffect(() => {
-    return () => {
-      if (warningCleanupRef.current) {
-        warningCleanupRef.current();
-        warningCleanupRef.current = null;
-      }
-    };
-  }, []);
 
   return {
     ...state,

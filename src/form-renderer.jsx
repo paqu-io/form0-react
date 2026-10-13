@@ -1,3 +1,4 @@
+import { buildDiagnosticInstancePath } from './utils/engine-diagnostics.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFormEngine } from './use-form-engine';
@@ -1046,8 +1047,23 @@ function findSectionNodeById(nodes = [], targetId) {
  * @param {string | null} [props.submitBlockedReason=null]
  * @param {Array<object & { displayValue?: React.ReactNode }>} [props.recordMetadataFields]
  */
+/**
+ * @typedef {Object} FormRendererEngineOptions
+ * @property {Object<string, Function>} [helpers] Construction-time helpers (main thread only for functions).
+ * @property {Object} [security] Construction-time core security configuration.
+ * @property {(warning: Object) => void} [onWarning] Legacy warning observer.
+ * @property {(state: Object, engine: Object) => void} [onUpdate] Execution-specific state observer.
+ * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void} [onOperations] Non-alert operation delegation.
+ * @property {{console?: boolean}} [diagnostics] Calculation console reporting (default true).
+ * @property {(snapshot: Array<Object>, meta: {scopeId: string, instancePath: Array<Object>, evaluationId: number, kind: 'evaluation' | 'scope-ended'}) => void | Promise<void>} [onDiagnostics] Defensive snapshots from active evaluated scopes.
+ */
+/**
+ * @param {Object} props
+ * @param {FormRendererEngineOptions} [props.engineOptions] Construction settings, host observers and operation delegation.
+ */
 export function FormRenderer({
   schema,
+  engineOptions: consumerEngineOptions,
   initialValues,
   initialSnapshot,
   overrideValues,
@@ -1375,7 +1391,9 @@ export function FormRenderer({
       });
 
       if (deferredOperations.length > 0) {
-        if (typeof fallback === 'function') {
+        if (typeof consumerEngineOptions?.onOperations === 'function') {
+          consumerEngineOptions.onOperations(deferredOperations, meta, fallback);
+        } else if (typeof fallback === 'function') {
           fallback(deferredOperations, meta);
         } else {
           console.warn(
@@ -1385,16 +1403,17 @@ export function FormRenderer({
         }
       }
     },
-    [setAlertQueue]
+    [setAlertQueue, consumerEngineOptions?.onOperations]
   );
 
   const engineOptions = useMemo(
     () => ({
+      ...(consumerEngineOptions || {}),
       onOperations: handleOperations,
       engineMode,
       engineStoreMode,
     }),
-    [engineMode, engineStoreMode, handleOperations]
+    [consumerEngineOptions, engineMode, engineStoreMode, handleOperations]
   );
 
   const closeAlert = useCallback(() => {
@@ -1489,6 +1508,12 @@ export function FormRenderer({
     [buildingPlanMeta, buildingPlanModalWidthOverride]
   );
 
+  const diagnosticSeedSignature = JSON.stringify([
+    appliedRendererInitialValues || {},
+    appliedInitialRepeatableSeed || {},
+  ]);
+  const diagnosticGeneration = useMemo(() => ({}), [finalSchema, diagnosticSeedSignature]);
+
   const openRepeatableModal = useCallback(
     (config, controller = formRepeatableController) => {
       if (!controller) {
@@ -1559,6 +1584,15 @@ export function FormRenderer({
           parentPath,
           instanceIndex,
           parentIndices,
+          diagnosticGeneration,
+          diagnosticInstancePath: buildDiagnosticInstancePath({
+            parentInstancePath: controller.diagnosticInstancePath || [],
+            parentPath,
+            parentIndices,
+            repeatableKey,
+            instance: initialInstance,
+            index: instanceIndex,
+          }),
           repInfo,
           controller,
           initialInstance,
@@ -1567,7 +1601,13 @@ export function FormRenderer({
         },
       ]);
     },
-    [buildModalLayoutOverrides, buildingPlanMeta, formRepeatableController, repeatableMetadata]
+    [
+      buildModalLayoutOverrides,
+      buildingPlanMeta,
+      formRepeatableController,
+      repeatableMetadata,
+      diagnosticGeneration,
+    ]
   );
 
   const handleRepeatableAdd = useCallback(
@@ -4038,7 +4078,12 @@ export function FormRenderer({
             repeatableModals.map((modal, index) => (
               <RepeatableEntryModal
                 key={modal.modalId}
-                modal={{ ...modal, stackIndex: index }}
+                modal={{
+                  ...modal,
+                  stackIndex: index,
+                  engineOptions,
+                  diagnosticsActive: modal.diagnosticGeneration === diagnosticGeneration,
+                }}
                 isTopModal={index === repeatableModals.length - 1}
                 themeClass={themeClass}
                 labelPosition={labelPosition}
@@ -4239,6 +4284,8 @@ function RepeatableEntryModal({
     baseValues: modal.parentValues,
     initialInstance: modal.initialInstance,
     engineOptions: modal.engineOptions,
+    diagnosticInstancePath: modal.diagnosticInstancePath,
+    diagnosticsActive: modal.diagnosticsActive,
   });
   const modalTitleDatasets = useMemo(() => buildTitleDatasetIndex(modal.schema), [modal.schema]);
 
@@ -4350,6 +4397,7 @@ function RepeatableEntryModal({
 
   const entryController = useMemo(
     () => ({
+      diagnosticInstancePath: modal.diagnosticInstancePath,
       metadata: entryRepeatableMetadata,
       getInstances: (repeatableKey, parentPath = []) =>
         getEntryRepeatableInstances(repeatableKey, parentPath),
@@ -4363,6 +4411,7 @@ function RepeatableEntryModal({
       buildParentValues: buildEntryParentValues,
     }),
     [
+      modal.diagnosticInstancePath,
       buildEntryParentValues,
       entryRepeatableMetadata,
       getEntryRepeatableInstance,
