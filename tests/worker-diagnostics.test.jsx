@@ -16,8 +16,8 @@ class ThreadWorker {
     this.held = [];
     this.hold = false;
     this.worker = new NodeWorker(
-      `const { parentPort } = require('node:worker_threads'); global.self = {postMessage: data => parentPort.postMessage(data), addEventListener: () => {}}; import(${JSON.stringify(url.href)}).then(() => parentPort.on('message', data => self.onmessage({data})));`,
-      { eval: true }
+      pathToFileURL(resolve(process.cwd(), 'tests/fixtures/worker-thread-adapter.js')),
+      { workerData: { moduleUrl: url.href } }
     );
     this.worker.on('message', (data) => {
       if (this.hold) this.held.push(data);
