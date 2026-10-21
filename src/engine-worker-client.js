@@ -136,6 +136,12 @@ export class EngineWorkerClient {
       return;
     }
 
+    if (!pending) return;
+    if (payload?.scopeId && payload.scopeId !== this.scopeId) {
+      pending.reject(new Error('Event worker reply belongs to an obsolete scope.'));
+      return;
+    }
+
     if (payload?.state && (!payload.scopeId || payload.scopeId === this.scopeId)) {
       //console.log('[form0-worker-client] state received');
       const incomingVersion = Number(payload.stateVersion || 0);
@@ -220,6 +226,24 @@ export class EngineWorkerClient {
 
   triggerEvent(eventType, fieldKey, metadata = {}) {
     return this.call('TRIGGER_EVENT', { eventType, fieldKey, metadata });
+  }
+
+  syncEventReads(values) {
+    return this.call('SYNC_EVENT_READS', { values, scopeId: this.scopeId });
+  }
+
+  async readState() {
+    const result = await this.call('READ_STATE');
+    return result.state;
+  }
+
+  triggerDetailed(eventType, fieldKey, metadata = {}) {
+    try {
+      assertWorkerConfiguration(metadata);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    return this.call('TRIGGER_DETAILED', { eventType, fieldKey, metadata, scopeId: this.scopeId });
   }
 
   submit() {

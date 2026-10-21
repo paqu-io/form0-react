@@ -5,6 +5,7 @@ let cachedSchema = null;
 let cachedHelpers = undefined;
 let cachedSecurity = undefined;
 let cachedScopeId = null;
+let cachedEventScope = { instancePath: [] };
 let diagnosticSequence = 0;
 let stateVersion = 0;
 let lastUpdateVersion = 0;
@@ -18,7 +19,7 @@ const serializeError = (error) => ({
   message: error?.message || String(error || 'Unknown error'),
 });
 
-const buildEngine = ({ schema, initialValues = {}, helpers, security, scopeId }) => {
+const buildEngine = ({ schema, initialValues = {}, helpers, security, scopeId, eventScope }) => {
   if (!schema || !schema.form) {
     throw new Error('form0-react: engine worker requires a valid schema');
   }
@@ -30,11 +31,13 @@ const buildEngine = ({ schema, initialValues = {}, helpers, security, scopeId })
   cachedSecurity = security;
   if (scopeId !== cachedScopeId) diagnosticSequence = 0;
   cachedScopeId = scopeId;
+  cachedEventScope = eventScope || { scopeId, instancePath: [] };
   engine = createDiagnosticEngine({
     schema,
     initialValues,
     helpers,
     security,
+    eventScope: cachedEventScope,
     onWarning: (warning) => self.postMessage({ kind: 'warning', scopeId, payload: warning }),
     onDiagnostics: (diagnostics) =>
       self.postMessage({
@@ -57,6 +60,7 @@ const resetEngine = (initialValues = {}, scopeId = cachedScopeId) => {
     helpers: cachedHelpers,
     security: cachedSecurity,
     scopeId,
+    eventScope: { ...cachedEventScope, scopeId },
   });
 };
 
@@ -152,6 +156,24 @@ const ACTIONS = {
     }
     const operations = engine.trigger(eventType, fieldKey, metadata) || [];
     return { operations };
+  },
+  SYNC_EVENT_READS(payload = {}) {
+    if (!engine || payload.scopeId !== cachedScopeId)
+      throw new Error('Event worker scope has ended.');
+    Object.assign(engine.getState().values, deepClone(payload.values));
+    return { scopeId: cachedScopeId };
+  },
+  READ_STATE() {
+    if (!engine) throw new Error('form0-react: engine worker not initialized');
+    return withState(engine.getState(), { updateVersion: lastUpdateVersion });
+  },
+  TRIGGER_DETAILED(payload = {}) {
+    if (!engine || payload.scopeId !== cachedScopeId)
+      throw new Error('Event worker scope has ended.');
+    return {
+      ...engine.triggerDetailed(payload.eventType, payload.fieldKey, payload.metadata),
+      scopeId: cachedScopeId,
+    };
   },
   SUBMIT() {
     if (!engine) {
