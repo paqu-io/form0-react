@@ -18,6 +18,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     labelWidthPercent = 30,
     onKeyDown,
     onFocus,
+    eventInteractions,
     engineStore = null,
     storeMode = 'snapshot',
     showError = true,
@@ -92,7 +93,21 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         id: baseId,
         autoComplete: field?.autocomplete ?? 'off',
         'aria-labelledby': labelledById,
-        ...(onFocus ? { onFocus } : {}),
+        ...(onFocus || eventInteractions
+          ? {
+              onFocus: (event) => {
+                onFocus?.(event);
+                if (['TextField', 'NumericField'].includes(field.type))
+                  eventInteractions?.('focus', field.data_name);
+              },
+            }
+          : {}),
+        ...(eventInteractions && ['TextField', 'NumericField'].includes(field.type)
+          ? {
+              onBlur: () => eventInteractions('blur', field.data_name),
+              onClick: () => eventInteractions('click', field.data_name),
+            }
+          : {}),
       }
     : {};
 
@@ -525,6 +540,7 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
       prev.labelWidthPercent === next.labelWidthPercent &&
       prev.onKeyDown === next.onKeyDown &&
       prev.onFocus === next.onFocus &&
+      prev.eventInteractions === next.eventInteractions &&
       prev.value === next.value &&
       prev.readOnly === next.readOnly &&
       prev.required === next.required &&
@@ -544,6 +560,7 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
     prev.labelWidthPercent === next.labelWidthPercent &&
     prev.onKeyDown === next.onKeyDown &&
     prev.onFocus === next.onFocus &&
+    prev.eventInteractions === next.eventInteractions &&
     prev.showError === next.showError
   );
 });

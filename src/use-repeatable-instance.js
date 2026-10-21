@@ -1,3 +1,4 @@
+import { createEventEngineBinding } from './utils/event-engine.js';
 import { useEngineDiagnostics } from './use-engine-diagnostics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { cloneDeep } from './utils/schema.js';
@@ -132,6 +133,7 @@ export function useRepeatableInstanceEngine({
     endScope,
     acceptWorkerDiagnostics,
     forwardWarning,
+    getScope,
   } = useEngineDiagnostics(
     engineOptions,
     fieldNames,
@@ -417,6 +419,7 @@ export function useRepeatableInstanceEngine({
           client
             .init({
               scopeId: startScope().scopeId,
+              eventScope: getScope(),
               schema,
               initialValues: mergedValues,
               helpers: engineOptionsRef.current.helpers,
@@ -456,6 +459,7 @@ export function useRepeatableInstanceEngine({
       baseValues,
       buildEngine,
       startScope,
+      getScope,
       endScope,
       cleanupWorkerClient,
       createWorkerClient,
@@ -773,11 +777,42 @@ export function useRepeatableInstanceEngine({
   useEffect(() => {
     const handler = engineOptionsRef.current.onUpdate;
     if (typeof handler === 'function' && engineRef.current)
-      handler({ ...state }, engineRef.current);
+      try {
+        const result = handler({ ...state }, engineRef.current);
+        if (result && typeof result.then === 'function') Promise.resolve(result).catch(() => {});
+      } catch {
+        /* State observers cannot interrupt editor operations. */
+      }
   }, [state]);
+
+  const defaultProcessOperations = useCallback(
+    (operations = []) => {
+      const updates = {};
+      for (const operation of operations) {
+        if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE')
+          updates[operation.params.fieldDataName] = cloneDeep(operation.params.valueToSet);
+      }
+      if (Object.keys(updates).length) setValues(updates);
+    },
+    [setValues]
+  );
+
+  const getEventBinding = useCallback(
+    () =>
+      createEventEngineBinding({
+        getEngine: () => engineRef.current,
+        getScope,
+        endScope,
+        getOptions: () => engineOptionsRef.current,
+        applyDefault: defaultProcessOperations,
+        reduceState: reduceEngineState,
+      }),
+    [getScope, endScope, defaultProcessOperations, reduceEngineState]
+  );
 
   return {
     ...state,
+    getEventBinding,
     setValue,
     setValues,
     reset,

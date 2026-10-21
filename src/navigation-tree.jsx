@@ -178,7 +178,7 @@ export function NavigationTree({
             >
               <div className={styles.validationHeader}>
                 <span>{issue.label}</span>
-                <span className={styles.validationField}>{issue.fieldName}</span>
+                <span className={styles.validationField}>{issue.fieldName || 'Form'}</span>
               </div>
               <div className={styles.validationMessage}>
                 {(issue.messages && issue.messages.length > 0

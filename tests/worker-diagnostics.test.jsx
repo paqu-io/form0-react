@@ -3,6 +3,7 @@ import React from 'react';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { Worker as NodeWorker } from 'node:worker_threads';
+import { Blob as NodeBlob } from 'node:buffer';
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { field, schema, nestedSchema } from './fixtures/diagnostic-conformance.js';
@@ -287,4 +288,131 @@ it('retires pending schema generations without replaying old diagnostics or sche
   await waitFor(() =>
     expect(onDiagnostics.mock.calls.at(-1)[0][0]?.fieldName).toBe('active_result')
   );
+});
+
+it('managed detailed worker execution validates without evaluating and rejects duplicate/stale replies', async () => {
+  const { eventSchema } = await import('./fixtures/event-conformance.js');
+  const client = new EngineWorkerClient({ createWorker });
+  const fixture = eventSchema(
+    "ON('validate-record', function(e) { if ($input < 6) INVALID('Reach six.'); });"
+  );
+  await client.init({
+    schema: fixture,
+    initialValues: { input: 4 },
+    scopeId: 'managed-worker',
+    eventScope: { scopeId: 'managed-worker', instancePath: [] },
+  });
+  const before = client.diagnosticSequence;
+  const detail = await client.triggerDetailed('validate-record', undefined, {
+    isDraft: false,
+    isValid: true,
+  });
+  expect(detail.validationIssues[0].message).toBe('Reach six.');
+  expect(client.diagnosticSequence).toBe(before);
+  const current = client.getState();
+  client.handleMessage({
+    data: {
+      id: 1,
+      payload: { scopeId: 'managed-worker', stateVersion: 999, state: { values: { input: 99 } } },
+    },
+  });
+  expect(client.getState()).toBe(current);
+  await expect(client.triggerDetailed('change', 'input', { callback: () => {} })).rejects.toThrow(
+    'structured-cloneable'
+  );
+  client.terminate();
+});
+
+it('public worker controller settles rapid updates and awaited defaults before save serialization', async () => {
+  const { FormRenderer } = await import('../dist/index.js');
+  const { eventSchema } = await import('./fixtures/event-conformance.js');
+  const { render, fireEvent, screen } = await import('@testing-library/react');
+  const fixture = eventSchema(
+    "ON('load-record', function() { SETVALUE('trace', 'loaded'); });\nON('new-record', function() { SETVALUE('trace', $trace + ':new'); });\nON('validate-record', function() { if ($input < 4) INVALID('Four.'); });\nON('save-record', function() { SETVALUE('input', $input + 1); });"
+  );
+  let controller;
+  const onSubmit = vi.fn();
+  const delegated = vi.fn(async (ops, meta, fallback) => {
+    await Promise.resolve();
+    fallback(ops);
+  });
+  const onUpdate = vi.fn();
+  render(
+    React.createElement(FormRenderer, {
+      schema: fixture,
+      engineMode: 'worker',
+      onSubmit,
+      engineOptions: {
+        createWorker,
+        diagnostics: { console: false },
+        onUpdate,
+        onOperations: delegated,
+        events: { lifecycle: true, recordKind: 'new' },
+        onEventController: (value) => (controller = value),
+      },
+    })
+  );
+  await waitFor(() => expect(controller).toBeTruthy());
+  expect(onUpdate.mock.calls.at(-1)[0].values.trace).toBe('loaded:new');
+  fireEvent.change(screen.getByLabelText('input'), { target: { value: '0' } });
+  fireEvent.change(screen.getByLabelText('input'), { target: { value: '8' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  expect(onSubmit.mock.calls[0][0].form_values.input).toBe(9);
+  expect(onSubmit.mock.calls[0][0].form_values.result).toBe(18);
+  expect(onSubmit.mock.calls[0][1].validationSummary.hasErrors).toBe(false);
+});
+
+it('worker media survives unchanged validation/preparation reads without extra evaluations', async () => {
+  const previousBlob = globalThis.Blob;
+  globalThis.Blob = NodeBlob;
+  try {
+    const { FormRenderer } = await import('../dist/index.js');
+    const { eventSchema } = await import('./fixtures/event-conformance.js');
+    const { render } = await import('@testing-library/react');
+    const photo = field('PhotoField', 'photo', { min_length: null, max_length: null });
+    for (const key of ['supporting_image', 'supporting_image_path', 'supporting_image_display'])
+      delete photo[key];
+    const fixture = eventSchema(
+      "ON('validate-record', function() { if ($photo[0].file.size !== 5) INVALID('Wrong size.'); });"
+    );
+    fixture.form.elements.push(photo);
+    let controller;
+    const diagnostics = vi.fn();
+    const blob = new Blob(['image'], { type: 'image/jpeg' });
+    const initialValues = {
+      input: 4,
+      photo: [{ photo_id: 'media-A', media_id: 'media-A', url: 'blob:image', file: blob }],
+    };
+    render(
+      React.createElement(FormRenderer, {
+        schema: fixture,
+        initialValues,
+        engineMode: 'worker',
+        engineOptions: {
+          createWorker,
+          diagnostics: { console: false },
+          onDiagnostics: diagnostics,
+          events: { lifecycle: true, recordKind: 'existing' },
+          onEventController: (value) => (controller = value),
+        },
+      })
+    );
+    await waitFor(() => expect(controller).toBeTruthy());
+    const count = diagnostics.mock.calls.length;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let prepared;
+      await act(async () => {
+        prepared = await controller.prepareSave({ intent: 'submit' });
+      });
+      expect(prepared.eligible).toBe(true);
+      expect(prepared.meta.rawValues.photo[0].media_id).toBe('media-A');
+      expect(prepared.meta.rawValues.photo[0].file.size).toBe(5);
+      expect(await prepared.meta.rawValues.photo[0].file.text()).toBe('image');
+    }
+    expect(diagnostics).toHaveBeenCalledTimes(count);
+  } finally {
+    cleanup();
+    globalThis.Blob = previousBlob;
+  }
 });

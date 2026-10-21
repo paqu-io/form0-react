@@ -1,3 +1,6 @@
+import { buildStructuredSubmission } from './utils/submission.js';
+import { useEventSession, useManagedEventScope } from './use-managed-events.js';
+import { mergeCustomValidation, repeatableChangeMetadata } from './utils/managed-events.js';
 import { buildDiagnosticInstancePath } from './utils/engine-diagnostics.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -800,7 +803,7 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
 
   const grouped = new Map();
 
-  combined.forEach((issue) => {
+  combined.forEach((issue, issueIndex) => {
     if (!issue) {
       return;
     }
@@ -811,6 +814,14 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
           ? issue.fieldName
           : null;
     if (!dataName) {
+      if (issue.kind === 'custom')
+        grouped.set(`custom-${issueIndex}`, {
+          id: `custom-${issueIndex}`,
+          fieldName: null,
+          label: 'Form',
+          messages: new Set([issue.message]),
+          sectionPath: [],
+        });
       return;
     }
     const key = dataName;
@@ -1053,7 +1064,9 @@ function findSectionNodeById(nodes = [], targetId) {
  * @property {Object} [security] Construction-time core security configuration.
  * @property {(warning: Object) => void} [onWarning] Legacy warning observer.
  * @property {(state: Object, engine: Object) => void} [onUpdate] Execution-specific state observer.
- * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void} [onOperations] Non-alert operation delegation.
+ * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void | Promise<void>} [onOperations] Non-alert operation delegation.
+ * @property {{lifecycle?: boolean, recordKind?: 'new' | 'existing', fieldInteractions?: Array<'focus' | 'blur' | 'click'>}} [events] Session-fixed event integration; lifecycle defaults to false.
+ * @property {(controller: {dispatch: (request: Object) => Promise<Object>, prepareSave: (request: Object) => Promise<Object>} | null) => void | Promise<void>} [onEventController] Current generation after initialization; null on retirement.
  * @property {{console?: boolean}} [diagnostics] Calculation console reporting (default true).
  * @property {(snapshot: Array<Object>, meta: {scopeId: string, instancePath: Array<Object>, evaluationId: number, kind: 'evaluation' | 'scope-ended'}) => void | Promise<void>} [onDiagnostics] Defensive snapshots from active evaluated scopes.
  */
@@ -1392,9 +1405,9 @@ export function FormRenderer({
 
       if (deferredOperations.length > 0) {
         if (typeof consumerEngineOptions?.onOperations === 'function') {
-          consumerEngineOptions.onOperations(deferredOperations, meta, fallback);
+          return consumerEngineOptions.onOperations(deferredOperations, meta, fallback);
         } else if (typeof fallback === 'function') {
-          fallback(deferredOperations, meta);
+          return fallback(deferredOperations, meta);
         } else {
           console.warn(
             'form0-react: onOperations handler received operations but fallback handler was not provided.',
@@ -1406,6 +1419,12 @@ export function FormRenderer({
     [setAlertQueue, consumerEngineOptions?.onOperations]
   );
 
+  const { session: eventSession, announce: announceEventController } = useEventSession(
+    consumerEngineOptions,
+    schema
+  );
+  const eventDispatchRef = useRef(null);
+  const managedSaveBusyRef = useRef(false);
   const engineOptions = useMemo(
     () => ({
       ...(consumerEngineOptions || {}),
@@ -1434,6 +1453,7 @@ export function FormRenderer({
     engineStore,
     engineStoreMode: currentEngineStoreMode,
     engineReadyVersion,
+    getEventBinding,
     repeatable,
     repeatableMetadata,
     addRepeatableInstance,
@@ -1477,6 +1497,7 @@ export function FormRenderer({
 
   const formRepeatableController = useMemo(
     () => ({
+      eventDispatch: (...args) => eventDispatchRef.current?.dispatch(...args),
       metadata: repeatableMetadata,
       getInstances: (repeatableKey, parentPath = []) =>
         getRepeatableInstances(repeatableKey, parentPath),
@@ -1534,7 +1555,7 @@ export function FormRenderer({
         return;
       }
       const modalId = config.modalId || uuidv7();
-      const instanceId = config.instanceId || uuidv7();
+      const instanceId = config.instanceId ?? config.initialInstance?.id ?? uuidv7();
       const parentPath = Array.isArray(config.parentPath) ? config.parentPath : [];
 
       const computeInstanceIndex = () => {
@@ -1553,7 +1574,7 @@ export function FormRenderer({
         const indices = [];
         let cursorPath = [];
         parentPath.forEach((segment) => {
-          if (!segment?.key || !segment?.id) {
+          if (!segment?.key || segment?.id == null) {
             indices.push(-1);
             return;
           }
@@ -1682,11 +1703,26 @@ export function FormRenderer({
       const instances = controller.getInstances(repeatableKey, parentPath);
       const next = instances.filter((instance) => instance.id !== instanceId);
       controller.setInstances(repeatableKey, next, parentPath);
+      if (eventSession.config.lifecycle) {
+        const fieldName = controller.metadata?.byPreferredKey?.get(repeatableKey)?.field?.data_name;
+        controller.eventDispatch?.(
+          'change',
+          repeatableChangeMetadata(
+            controller,
+            repeatableKey,
+            instanceId,
+            parentPath,
+            'remove',
+            instances.findIndex((row) => row.id === instanceId)
+          ),
+          fieldName
+        );
+      }
       if (controller === formRepeatableController) {
         markRootDirty();
       }
     },
-    [formRepeatableController, markRootDirty]
+    [formRepeatableController, markRootDirty, eventSession]
   );
 
   const persistRepeatableEntry = useCallback(
@@ -1703,16 +1739,30 @@ export function FormRenderer({
         next = [...existing, payload];
       }
       controller.setInstances(repeatableKey, next, parentPath);
+      if (eventSession.config.lifecycle)
+        controller.eventDispatch?.(
+          'change',
+          repeatableChangeMetadata(
+            controller,
+            repeatableKey,
+            payload.id,
+            parentPath,
+            mode === 'edit' ? 'edit' : 'add',
+            next.findIndex((row) => row.id === payload.id)
+          ),
+          modalConfig.repInfo?.field?.data_name
+        );
       if (controller === formRepeatableController) {
         markRootDirty();
       }
     },
-    [formRepeatableController, markRootDirty]
+    [formRepeatableController, markRootDirty, eventSession]
   );
 
   const handleRepeatableModalSave = useCallback(
-    (modalConfig, entryPayload) => {
+    async (modalConfig, entryPayload, beforeClose) => {
       persistRepeatableEntry(modalConfig, entryPayload);
+      if (beforeClose && (await beforeClose()).status !== 'completed') return;
       closeRepeatableModal(modalConfig.modalId);
     },
     [closeRepeatableModal, persistRepeatableEntry]
@@ -1735,7 +1785,7 @@ export function FormRenderer({
   }, [engineReadyVersion]);
 
   useEffect(() => {
-    if (loadEventTriggeredRef.current || !engineReadyVersion) {
+    if (eventSession.config.lifecycle || loadEventTriggeredRef.current || !engineReadyVersion) {
       return;
     }
     triggerEvent('load-record');
@@ -1746,6 +1796,7 @@ export function FormRenderer({
     if (!engineReadyVersion) {
       return;
     }
+    if (eventSession.config.lifecycle) return;
     const previousMode = previousInteractionModeRef.current;
     const enteringEdit = interactionMode === 'edit' && previousMode !== 'edit';
     if (enteringEdit) {
@@ -1921,15 +1972,26 @@ export function FormRenderer({
       if (!fieldDef?.data_name) return;
       const dataName = fieldDef.data_name;
       markFieldTouched(dataName);
-      if (fieldDef.type === 'StatusField') {
-        setStatusValue(nextValue ?? null);
-      } else {
-        setValue(dataName, nextValue);
-      }
       markRootDirty();
-      triggerEvent('change', dataName, { value: nextValue, field: fieldDef });
+      const update = () => {
+        if (fieldDef.type === 'StatusField') {
+          setStatusValue(nextValue ?? null);
+          if (eventSession.config.lifecycle) setValue(dataName, nextValue);
+        } else setValue(dataName, nextValue);
+      };
+      if (eventSession.config.lifecycle)
+        eventDispatchRef.current.change(
+          fieldDef.type === 'StatusField' ? 'change-status' : 'change',
+          dataName,
+          { value: nextValue, field: fieldDef },
+          update
+        );
+      else {
+        update();
+        triggerEvent('change', dataName, { value: nextValue, field: fieldDef });
+      }
     },
-    [markFieldTouched, markRootDirty, setStatusValue, setValue, triggerEvent]
+    [markFieldTouched, markRootDirty, setStatusValue, setValue, triggerEvent, eventSession]
   );
 
   const fieldLookup = useMemo(() => buildFieldLookup(baseElements), [baseElements]);
@@ -2139,9 +2201,78 @@ export function FormRenderer({
     ]
   );
 
+  const rootEvents = useManagedEventScope({
+    session: eventSession,
+    announce: announceEventController,
+    getBinding: getEventBinding,
+    mode: interactionMode,
+    recordKind: eventSession.config.recordKind,
+    data: repeatable,
+    initialEventValues: statusFieldName ? { [statusFieldName]: statusValue } : undefined,
+    validate: (state) =>
+      buildValidationSummary(validatableRootFields, {
+        getValue: (field) =>
+          field.data_name === statusFieldName
+            ? (state.values[statusFieldName] ?? statusValue)
+            : state.values[field.data_name],
+        isVisible: (field) => state.visible[field.data_name] !== false,
+        isRequired: (field) => Boolean(state.required[field.data_name]),
+        getError: (field) => state.errors[field.data_name],
+      }),
+    serialize: (state, intent, validationSummary) => {
+      const now = new Date().toISOString();
+      touchUpdatedAt(now);
+      const timestampSnapshot = buildSubmissionTimestampSnapshot(timestampsRef.current, now);
+      const rawValues = buildSubmissionRawValues({
+        values: state.values,
+        timestampSnapshot,
+        statusFieldName,
+        statusValue:
+          statusFieldName && Object.prototype.hasOwnProperty.call(state.values, statusFieldName)
+            ? state.values[statusFieldName]
+            : statusValue,
+      });
+      const currentRepeatable = cloneDeepSafe(repeatable);
+      if (intent === 'draft')
+        return {
+          payload: {
+            raw_values: rawValues,
+            repeatable: currentRepeatable,
+            timestamps: timestampSnapshot,
+          },
+          meta: { validationSummary, dirty: hasRootChanges },
+        };
+      const submission = buildStructuredSubmission({
+        schema: finalSchema,
+        values: rawValues,
+        repeatable: currentRepeatable,
+        fieldKeyMode,
+        timestamps: timestampSnapshot,
+      });
+      return {
+        payload: submission.structuredRecord,
+        meta: {
+          repeatable: submission.repeatable,
+          rawValues: submission.rawValues,
+          validationSummary,
+          timestamps: submission.timestamps,
+        },
+      };
+    },
+  });
+  eventDispatchRef.current = rootEvents;
+  useEffect(() => {
+    if (
+      eventSession.config.lifecycle &&
+      statusFieldName &&
+      Object.prototype.hasOwnProperty.call(values, statusFieldName)
+    )
+      setStatusValue(values[statusFieldName]);
+  }, [eventSession, statusFieldName, values[statusFieldName]]);
+
   const rootValidationSummary = useMemo(
-    () => buildRootValidationSummary(),
-    [buildRootValidationSummary]
+    () => mergeCustomValidation(buildRootValidationSummary(), rootEvents.findings),
+    [buildRootValidationSummary, rootEvents.findings]
   );
 
   // Get current field in simplified mode
@@ -2222,20 +2353,31 @@ export function FormRenderer({
   const discardPromptEnabled = placementAllowsExit && typeof onRequestClose === 'function';
   const isOverlayNonRoot = placementAllowsExit && activeDrilldownPath.length > 0;
 
-  const closeOverlayAfterSubmit = useCallback(() => {
-    if (
-      !autoCloseOverlayOnSubmit ||
-      interactionMode === 'readonly' ||
-      !placementAllowsExit ||
-      typeof onRequestClose !== 'function'
-    ) {
-      return;
-    }
-    onRequestClose({ reason: 'submit-success' });
-  }, [autoCloseOverlayOnSubmit, interactionMode, onRequestClose, placementAllowsExit]);
+  const closeOverlayAfterSubmit = useCallback(
+    async (closeTarget = rootEvents.captureClose()) => {
+      if (
+        !autoCloseOverlayOnSubmit ||
+        interactionMode === 'readonly' ||
+        !placementAllowsExit ||
+        typeof onRequestClose !== 'function'
+      ) {
+        return;
+      }
+      const result = await closeTarget();
+      if (result.status === 'completed') onRequestClose({ reason: 'submit-success' });
+    },
+    [
+      autoCloseOverlayOnSubmit,
+      interactionMode,
+      onRequestClose,
+      placementAllowsExit,
+      rootEvents.close,
+      rootEvents.captureClose,
+    ]
+  );
 
   const handleSubmit = useCallback(
-    (e) => {
+    async (e) => {
       if (e && typeof e.preventDefault === 'function') {
         e.preventDefault();
       }
@@ -2243,6 +2385,22 @@ export function FormRenderer({
         return;
       }
       setSubmitCount((count) => count + 1);
+      if (rootEvents.lifecycle) {
+        if (managedSaveBusyRef.current) return;
+        managedSaveBusyRef.current = true;
+        const closeTarget = rootEvents.captureClose();
+        try {
+          const prepared = await rootEvents.prepare('submit');
+          if (!prepared.eligible || typeof onSubmit !== 'function') return;
+          await onSubmit(prepared.payload, prepared.meta);
+          await closeOverlayAfterSubmit(closeTarget);
+        } catch {
+          /* Persistence is application-owned; retain the editor for retry. */
+        } finally {
+          managedSaveBusyRef.current = false;
+        }
+        return;
+      }
       const validationSummary = rootValidationSummary;
       if (validationSummary?.hasErrors) {
         console.info('🚀 [RECORD SUBMIT] Starting record submission...');
@@ -2323,6 +2481,9 @@ export function FormRenderer({
       finalSchema,
       fieldKeyMode,
       normalizedSubmitBlockedReason,
+      rootEvents.lifecycle,
+      rootEvents.prepare,
+      rootEvents.captureClose,
     ]
   );
 
@@ -2860,11 +3021,12 @@ export function FormRenderer({
     }
   }, [activeDrilldownSectionId, handleDrilldownBack]);
 
-  const handleRootCancel = useCallback(() => {
+  const handleRootCancel = useCallback(async () => {
     if (placementAllowsExit && typeof onRequestClose === 'function') {
-      onRequestClose({ reason: 'root-cancel' });
+      const result = await rootEvents.close(true);
+      if (result.status === 'completed') onRequestClose({ reason: 'root-cancel' });
     }
-  }, [onRequestClose, placementAllowsExit]);
+  }, [onRequestClose, placementAllowsExit, rootEvents.close]);
 
   const openDiscardDialog = useCallback(() => {
     if (!discardPromptEnabled) {
@@ -3381,6 +3543,7 @@ export function FormRenderer({
             error={fieldError}
             showError={false}
             onChange={handleFieldChange}
+            eventInteractions={rootEvents.interaction}
             onFocus={() => handleFieldFocus(field.data_name)}
             labelPosition={labelPosition}
             labelWidthPercent={labelWidthPercent}
@@ -3537,6 +3700,7 @@ export function FormRenderer({
               error={currentFieldError}
               onChange={currentFieldChangeHandler}
               onKeyDown={handleKeyDown}
+              eventInteractions={rootEvents.interaction}
               labelPosition="top"
               labelWidthPercent={100}
             />
@@ -4024,6 +4188,7 @@ export function FormRenderer({
           required={fieldRequired}
           error={fieldError}
           onChange={handleFieldChange}
+          eventInteractions={rootEvents.interaction}
           onFocus={() => handleFieldFocus(field.data_name)}
           labelPosition={labelPosition}
           labelWidthPercent={labelWidthPercent}
@@ -4081,6 +4246,7 @@ export function FormRenderer({
                 modal={{
                   ...modal,
                   stackIndex: index,
+                  eventSession,
                   engineOptions,
                   diagnosticsActive: modal.diagnosticGeneration === diagnosticGeneration,
                 }}
@@ -4268,7 +4434,8 @@ function RepeatableEntryModal({
     required: entryRequired,
     read_only: entryReadOnlyState,
     errors: entryErrors,
-    setValue: setEntryValue,
+    setValue: setRawEntryValue,
+    getEventBinding,
     setValues: setEntryValues,
     repeatable: entryRepeatable,
     setRepeatableInstances: setEntryRepeatableInstances,
@@ -4355,9 +4522,54 @@ function RepeatableEntryModal({
     [entryErrors, entryRequired, entryValidationFields, entryValues, entryVisible]
   );
 
+  const rowEvents = useManagedEventScope({
+    session: modal.eventSession,
+    getBinding: getEventBinding,
+    mode: entryMode,
+    recordKind: modal.mode === 'create' ? 'new' : 'existing',
+    fieldKey: modal.repInfo?.field?.data_name,
+    active: modal.diagnosticsActive,
+    data: entryRepeatable,
+    validate: (state) =>
+      buildValidationSummary(entryValidationFields, {
+        getValue: (field) => state.values[field.data_name],
+        isVisible: (field) => state.visible[field.data_name] !== false,
+        isRequired: (field) => Boolean(state.required[field.data_name]),
+        getError: (field) => state.errors[field.data_name],
+      }),
+    serialize: (state) => {
+      const now = new Date().toISOString();
+      touchEntryUpdatedAt(now);
+      const timestampSnapshot = { ...entryTimestampsRef.current, updated_at_client: now };
+      return {
+        payload: {
+          id: modal.instanceId,
+          values: cloneDeepSafe(state.values),
+          repeatable: cloneDeepSafe(entryRepeatable),
+          created_at_client: timestampSnapshot.created_at_client ?? null,
+          updated_at_client: timestampSnapshot.updated_at_client ?? null,
+          created_at_server: timestampSnapshot.created_at_server ?? null,
+          updated_at_server: timestampSnapshot.updated_at_server ?? null,
+        },
+      };
+    },
+  });
+  const setEntryValue = useCallback(
+    (name, value) => {
+      if (rowEvents.lifecycle)
+        rowEvents.change('change', name, { value }, () => setRawEntryValue(name, value));
+      else setRawEntryValue(name, value);
+    },
+    [setRawEntryValue, rowEvents.lifecycle, rowEvents.change]
+  );
+  const cancelEntry = useCallback(async () => {
+    const result = await rowEvents.close(true);
+    if (result.status === 'completed') onCancel(modal);
+  }, [rowEvents.close, onCancel, modal]);
+
   const entryValidationSummary = useMemo(
-    () => buildEntryValidationSummary(),
-    [buildEntryValidationSummary]
+    () => mergeCustomValidation(buildEntryValidationSummary(), rowEvents.findings),
+    [buildEntryValidationSummary, rowEvents.findings]
   );
 
   const initialEntrySnapshot = useRef({
@@ -4398,6 +4610,8 @@ function RepeatableEntryModal({
   const entryController = useMemo(
     () => ({
       diagnosticInstancePath: modal.diagnosticInstancePath,
+      eventDispatch: rowEvents.dispatch,
+      eventInteraction: rowEvents.interaction,
       metadata: entryRepeatableMetadata,
       getInstances: (repeatableKey, parentPath = []) =>
         getEntryRepeatableInstances(repeatableKey, parentPath),
@@ -4932,8 +5146,8 @@ function RepeatableEntryModal({
 
   const confirmDiscard = useCallback(() => {
     setDiscardDialogVisible(false);
-    onCancel(modal);
-  }, [modal, onCancel]);
+    cancelEntry();
+  }, [cancelEntry]);
 
   const handleCancelRequest = useCallback(() => {
     if (activeNestedRepeatable) {
@@ -4941,7 +5155,7 @@ function RepeatableEntryModal({
       return;
     }
     if (!hasEntryChanges) {
-      onCancel(modal);
+      cancelEntry();
       return;
     }
     openDiscardDialog();
@@ -4952,6 +5166,7 @@ function RepeatableEntryModal({
     modal,
     onCancel,
     openDiscardDialog,
+    cancelEntry,
   ]);
 
   const repeatableMetadataFields = useMemo(
@@ -4998,8 +5213,14 @@ function RepeatableEntryModal({
     repeatableMetadataFields,
   ]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     setEntrySubmitCount((count) => count + 1);
+    if (rowEvents.lifecycle) {
+      const closeTarget = rowEvents.captureClose();
+      const prepared = await rowEvents.prepare('submit');
+      if (prepared.eligible) await onSave(modal, prepared.payload, closeTarget);
+      return;
+    }
     const validationSummary = entryValidationSummary;
     if (validationSummary?.hasErrors) {
       console.info('📝 [ENTRY SAVE] Attempting to save repeatable entry...');
@@ -5029,6 +5250,9 @@ function RepeatableEntryModal({
     modal,
     onSave,
     touchEntryUpdatedAt,
+    rowEvents.lifecycle,
+    rowEvents.prepare,
+    rowEvents.captureClose,
   ]);
 
   const handleModalNavigate = useCallback(
@@ -5190,8 +5414,21 @@ function RepeatableEntryModal({
       const instances = entryController.getInstances(repeatableKey, parentPath);
       const next = instances.filter((instance) => instance.id !== instanceId);
       entryController.setInstances(repeatableKey, next, parentPath);
+      if (rowEvents.lifecycle)
+        entryController.eventDispatch?.(
+          'change',
+          repeatableChangeMetadata(
+            entryController,
+            repeatableKey,
+            instanceId,
+            parentPath,
+            'remove',
+            instances.findIndex((row) => row.id === instanceId)
+          ),
+          entryRepeatableMetadata.byPreferredKey?.get(repeatableKey)?.field?.data_name
+        );
     },
-    [entryController]
+    [entryController, rowEvents.lifecycle, entryRepeatableMetadata]
   );
 
   const triggerNestedAdd = useCallback(() => {
@@ -6103,6 +6340,7 @@ function RepeatableEntryForm({
         onChange={handleChange}
         labelPosition={labelPosition}
         labelWidthPercent={labelWidthPercent}
+        eventInteractions={controller?.eventInteraction}
         onFocus={dataName ? () => onFieldFocus?.(dataName) : undefined}
         engineStore={engineStore}
         storeMode={engineStoreMode}
