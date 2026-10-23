@@ -59,7 +59,7 @@ it('readonly opens with load only and entering edit uses explicit classification
     { mode: 'readonly' },
     { events: { lifecycle: true, recordKind: 'existing' } }
   );
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load');
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load'));
   expect((await managed.controller.prepareSave({ intent: 'submit' })).issues[0].code).toBe(
     'readonly_scope'
   );
@@ -268,10 +268,13 @@ it('root preparation preserves closed row and media metadata while open row prep
   );
   let prepared;
   await act(async () => {
-    prepared = await managed.controller.prepareSave({ intent: 'submit' });
+    const blocked = await managed.controller.prepareSave({ intent: 'submit' });
+    expect(blocked.eligible).toBe(false);
+    expect(blocked.validationSummary.scopeIssues[0].message).toBe('Row needs three.');
+    prepared = await managed.controller.prepareSave({ intent: 'draft' });
   });
-  expect(prepared.meta.repeatable.rows[0].attachment.media_id).toBe('media-A');
-  expect(prepared.meta.repeatable.rows[0].repeatable.children[0].id).toBe(0);
+  expect(prepared.payload.repeatable.rows[0].attachment.media_id).toBe('media-A');
+  expect(prepared.payload.repeatable.rows[0].repeatable.children[0].id).toBe(0);
   fireEvent.click(screen.getByRole('button', { name: 'View' }));
   fireEvent.click(screen.getByRole('button', { name: 'View' }));
   await waitFor(() => expect(reports.some((meta) => meta.instancePath.length)).toBe(true));

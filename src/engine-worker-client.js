@@ -232,6 +232,37 @@ export class EngineWorkerClient {
     return this.call('SYNC_EVENT_READS', { values, scopeId: this.scopeId });
   }
 
+  syncRecordContext(snapshot, instancePath = []) {
+    return this.call('SYNC_RECORD_CONTEXT', { snapshot, instancePath });
+  }
+  applyRecordState(state) {
+    return this.call('APPLY_RECORD_STATE', { state });
+  }
+  evaluateRecordScope(snapshot, options) {
+    return this.call('RECORD_EVALUATE_SCOPE', { snapshot, options });
+  }
+  async prepareRecord(snapshot, options = {}) {
+    const { signal, ...portable } = options;
+    const token = `record-${this.nextId}`;
+    if (signal?.aborted)
+      return { status: 'cancelled', eligible: false, snapshot: null, issues: [], diagnostics: [] };
+    const cancel = () => {
+      this.call('CANCEL_RECORD', { token }).catch(() => {});
+    };
+    signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      return await this.call('RECORD_PREPARE', { snapshot, options: portable, token });
+    } finally {
+      signal?.removeEventListener('abort', cancel);
+    }
+  }
+  recordChanges(page) {
+    return this.call('RECORD_CHANGES', page);
+  }
+  releaseRecord() {
+    return this.call('RECORD_RELEASE').catch(() => {});
+  }
+
   async readState() {
     const result = await this.call('READ_STATE');
     return result.state;

@@ -114,6 +114,8 @@ export function NavigationTree({
   onSelectValidationIssue,
   forceRender = false,
 }) {
+  const [issueOffset, setIssueOffset] = useState(0);
+  useEffect(() => setIssueOffset(0), [validationIssues]);
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -169,7 +171,7 @@ export function NavigationTree({
     }
     return (
       <ul className={styles.validationList}>
-        {validationIssues.map((issue) => (
+        {validationIssues.slice(issueOffset, issueOffset + 50).map((issue) => (
           <li key={issue.id} className={styles.validationItem}>
             <button
               type="button"
@@ -178,7 +180,9 @@ export function NavigationTree({
             >
               <div className={styles.validationHeader}>
                 <span>{issue.label}</span>
-                <span className={styles.validationField}>{issue.fieldName || 'Form'}</span>
+                <span className={styles.validationField}>
+                  {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
+                </span>
               </div>
               <div className={styles.validationMessage}>
                 {(issue.messages && issue.messages.length > 0
@@ -191,6 +195,26 @@ export function NavigationTree({
             </button>
           </li>
         ))}
+        <li>
+          <button
+            type="button"
+            disabled={!issueOffset}
+            onClick={() => setIssueOffset(Math.max(0, issueOffset - 50))}
+          >
+            Previous
+          </button>
+          <span>
+            {issueOffset + 1}–{Math.min(validationIssues.length, issueOffset + 50)} /{' '}
+            {validationIssues.length}
+          </span>
+          <button
+            type="button"
+            disabled={issueOffset + 50 >= validationIssues.length}
+            onClick={() => setIssueOffset(issueOffset + 50)}
+          >
+            Next
+          </button>
+        </li>
       </ul>
     );
   };

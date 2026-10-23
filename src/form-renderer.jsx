@@ -1,3 +1,9 @@
+import { createInstancePathLabeler } from './utils/submission-presentation.js';
+import { useSubmissionReview } from './use-submission-review.js';
+import { SubmissionReview, submissionMessages } from './submission-review.jsx';
+import { useContext } from 'react';
+import { RecordCoordinatorContext } from './record-context.jsx';
+import { RecordCoordinatorProvider } from './record-context.jsx';
 import { buildStructuredSubmission } from './utils/submission.js';
 import { useEventSession, useManagedEventScope } from './use-managed-events.js';
 import { mergeCustomValidation, repeatableChangeMetadata } from './utils/managed-events.js';
@@ -792,13 +798,14 @@ function buildTitleDatasetIndex(schema) {
   };
 }
 
-function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
+function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLabeler) {
   if (!summary || !summary.hasErrors) {
     return [];
   }
-  const combined = [
+  const combined = summary.orderedIssues || [
     ...(Array.isArray(summary.requiredFieldErrors) ? summary.requiredFieldErrors : []),
     ...(Array.isArray(summary.generalErrors) ? summary.generalErrors : []),
+    ...(Array.isArray(summary.scopeIssues) ? summary.scopeIssues : []),
   ];
 
   const grouped = new Map();
@@ -818,13 +825,15 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
         grouped.set(`custom-${issueIndex}`, {
           id: `custom-${issueIndex}`,
           fieldName: null,
-          label: 'Form',
+          instancePath: issue.instancePath || [],
+          label: 'Record',
+          recordPathLabel: pathLabeler?.(issue.instancePath || []),
           messages: new Set([issue.message]),
           sectionPath: [],
         });
       return;
     }
-    const key = dataName;
+    const key = `${JSON.stringify(issue.instancePath || [])}:${dataName}`;
     let entry = grouped.get(key);
     if (!entry) {
       const fieldDef = fieldLookup?.byDataName?.get(dataName) || issue.field;
@@ -832,7 +841,9 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
       entry = {
         id: key,
         fieldName: dataName,
+        instancePath: issue.instancePath || [],
         label: truncateLabel(label),
+        recordPathLabel: pathLabeler?.(issue.instancePath || []),
         messages: new Set(),
         sectionPath: fieldToSectionPath?.[dataName] || [],
       };
@@ -846,6 +857,7 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath) {
   return Array.from(grouped.values()).map((entry, index) => ({
     id: `${entry.id}-${index}`,
     fieldName: entry.fieldName,
+    instancePath: entry.instancePath || [],
     label: entry.label,
     sectionPath: entry.sectionPath,
     messages: Array.from(entry.messages),
@@ -1074,7 +1086,7 @@ function findSectionNodeById(nodes = [], targetId) {
  * @param {Object} props
  * @param {FormRendererEngineOptions} [props.engineOptions] Construction settings, host observers and operation delegation.
  */
-export function FormRenderer({
+function FormRendererContent({
   schema,
   engineOptions: consumerEngineOptions,
   initialValues,
@@ -1085,6 +1097,8 @@ export function FormRenderer({
   externalDirty = false,
   submitBlockedReason = null,
   onSubmit,
+  submissionOptions,
+  initialFreshness,
   onSnapshotChange,
   mode = 'edit',
   debug = false,
@@ -2038,6 +2052,7 @@ export function FormRenderer({
     return next;
   }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values, timestamps]);
 
+  const snapshotRepeatable = useMemo(() => cloneDeepSafe(repeatable), [repeatable]);
   const submissionSnapshot = useMemo(() => {
     const timestampSnapshot = buildSubmissionTimestampSnapshot(timestamps);
     return {
@@ -2047,10 +2062,10 @@ export function FormRenderer({
         statusFieldName,
         statusValue,
       }),
-      repeatable: cloneDeepSafe(repeatable),
+      repeatable: snapshotRepeatable,
       timestamps: timestampSnapshot,
     };
-  }, [repeatable, statusFieldName, statusValue, timestamps, values]);
+  }, [snapshotRepeatable, statusFieldName, statusValue, timestamps, values]);
 
   useEffect(() => {
     submissionSnapshotRef.current = submissionSnapshot;
@@ -2232,12 +2247,12 @@ export function FormRenderer({
             ? state.values[statusFieldName]
             : statusValue,
       });
-      const currentRepeatable = cloneDeepSafe(repeatable);
+      const currentRepeatable = state.repeatable || repeatable;
       if (intent === 'draft')
         return {
           payload: {
             raw_values: rawValues,
-            repeatable: currentRepeatable,
+            repeatable: cloneDeepSafe(currentRepeatable),
             timestamps: timestampSnapshot,
           },
           meta: { validationSummary, dirty: hasRootChanges },
@@ -2270,9 +2285,32 @@ export function FormRenderer({
       setStatusValue(values[statusFieldName]);
   }, [eventSession, statusFieldName, values[statusFieldName]]);
 
+  const submissionReview = useSubmissionReview(rootEvents);
+  const recordCoordinator = useContext(RecordCoordinatorContext);
+  const [persistedFreshness, setPersistedFreshness] = useState(initialFreshness || null);
+  useEffect(() => {
+    setPersistedFreshness(recordCoordinator?.freshness() || null);
+    return recordCoordinator?.subscribe((event) => {
+      if (event?.type === 'selection') markRootDirty();
+      if (event?.type === 'acknowledged') {
+        resetRootChanges();
+        touchedFieldsRef.current.clear();
+        if (submissionSnapshotRef.current) {
+          snapshotBaselineRef.current = cloneDeepSafe(submissionSnapshotRef.current);
+          onSnapshotChangeRef.current?.(cloneDeepSafe(submissionSnapshotRef.current), {
+            kind: 'seed',
+            dirty: false,
+          });
+        }
+      }
+      setPersistedFreshness(recordCoordinator.freshness());
+    });
+  }, [recordCoordinator, markRootDirty, resetRootChanges]);
   const rootValidationSummary = useMemo(
-    () => mergeCustomValidation(buildRootValidationSummary(), rootEvents.findings),
-    [buildRootValidationSummary, rootEvents.findings]
+    () =>
+      rootEvents.summary ||
+      mergeCustomValidation(buildRootValidationSummary(), rootEvents.findings),
+    [buildRootValidationSummary, rootEvents.findings, rootEvents.summary]
   );
 
   // Get current field in simplified mode
@@ -2385,16 +2423,21 @@ export function FormRenderer({
         return;
       }
       setSubmitCount((count) => count + 1);
-      if (rootEvents.lifecycle) {
+      if (rootEvents.record || rootEvents.lifecycle) {
         if (managedSaveBusyRef.current) return;
         managedSaveBusyRef.current = true;
         const closeTarget = rootEvents.captureClose();
         try {
-          const prepared = await rootEvents.prepare('submit');
+          const prepared = await submissionReview.prepare('submit');
           if (!prepared.eligible || typeof onSubmit !== 'function') return;
           await onSubmit(prepared.payload, prepared.meta);
-          await closeOverlayAfterSubmit(closeTarget);
+          const acknowledged = rootEvents.controller?.acknowledgeSave({
+            preparationId: prepared.preparationId,
+          });
+          if (!acknowledged || acknowledged.status === 'completed')
+            await closeOverlayAfterSubmit(closeTarget);
         } catch {
+          recordCoordinator?.cancelPreparation();
           /* Persistence is application-owned; retain the editor for retry. */
         } finally {
           managedSaveBusyRef.current = false;
@@ -2679,7 +2722,12 @@ export function FormRenderer({
   const rootValidationIssues = useMemo(
     () =>
       showRootValidationList
-        ? formatValidationIssues(rootValidationSummary, fieldLookup, fieldToSectionPath)
+        ? formatValidationIssues(
+            rootValidationSummary,
+            fieldLookup,
+            fieldToSectionPath,
+            createInstancePathLabeler(finalSchema, recordCoordinator?.capture())
+          )
         : [],
     [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
   );
@@ -2978,7 +3026,47 @@ export function FormRenderer({
 
   const handleValidationIssueSelect = useCallback(
     (issue) => {
+      if (issue?.instancePath?.length) {
+        let row = recordCoordinator.capture();
+        const parentPath = [];
+        for (const [index, part] of issue.instancePath.entries()) {
+          const rows = row.repeatable?.[part.repeatableKey] || [];
+          row =
+            part.identity === 'id'
+              ? rows.find((item) => (item.id ?? item.record_id) === part.instanceId)
+              : rows[part.index];
+          if (!row) return;
+          if (index < issue.instancePath.length - 1)
+            parentPath.push({ key: part.repeatableKey, id: row.id ?? row.record_id });
+        }
+        const part = issue.instancePath.at(-1);
+        const repInfo = repeatableMetadata.byPreferredKey?.get(part.repeatableKey);
+        if (!repInfo) return;
+        openRepeatableModal(
+          {
+            repeatableKey: part.repeatableKey,
+            field: repInfo.field,
+            repInfo,
+            label: repInfo.field.label,
+            parentPath,
+            mode: 'edit',
+            schema: finalSchema,
+            engineOptions,
+            parentValues: formRepeatableController.buildParentValues(parentPath),
+            instanceId: row.id ?? row.record_id,
+            instanceIndex: part.index,
+            initialInstance: cloneDeepSafe(row),
+            validationFocus: issue,
+          },
+          formRepeatableController
+        );
+        return;
+      }
       if (!issue || !issue.fieldName) {
+        if (formRendererRootRef.current) {
+          formRendererRootRef.current.tabIndex = -1;
+          formRendererRootRef.current.focus();
+        }
         return;
       }
       if (Array.isArray(issue.sectionPath) && issue.sectionPath.length > 0) {
@@ -2986,7 +3074,16 @@ export function FormRenderer({
       }
       focusFieldByDataName(issue.fieldName);
     },
-    [focusFieldByDataName, navigateToSectionForField]
+    [
+      focusFieldByDataName,
+      navigateToSectionForField,
+      recordCoordinator,
+      repeatableMetadata,
+      openRepeatableModal,
+      finalSchema,
+      engineOptions,
+      formRepeatableController,
+    ]
   );
 
   const handleDrilldownBack = useCallback(
@@ -3677,6 +3774,20 @@ export function FormRenderer({
           style={{ maxWidth: formWidth, width: '100%' }}
           {...rest}
         >
+          {rootEvents.issues?.length ? (
+            <p role="alert">{rootEvents.issues.map((issue) => issue.message).join('\n')}</p>
+          ) : null}
+          <SubmissionReview
+            state={submissionReview}
+            schema={finalSchema}
+            snapshot={recordCoordinator?.capture()}
+            messages={submissionOptions?.messages}
+          />
+          {persistedFreshness?.status === 'pending' ? (
+            <p role="status">
+              {submissionOptions?.messages?.pending || submissionMessages.pending}
+            </p>
+          ) : null}
           {modeBannerNode}
           {stickyHeaderContent}
           {/* Progress indicator */}
@@ -4206,6 +4317,18 @@ export function FormRenderer({
         className={`${styles.formRendererRoot} ${themeClass}`}
         style={{ maxWidth: formWidth, width: '100%' }}
       >
+        {rootEvents.issues?.length ? (
+          <p role="alert">{rootEvents.issues.map((issue) => issue.message).join('\n')}</p>
+        ) : null}
+        <SubmissionReview
+          state={submissionReview}
+          schema={finalSchema}
+          snapshot={recordCoordinator?.capture()}
+          messages={submissionOptions?.messages}
+        />
+        {persistedFreshness?.status === 'pending' ? (
+          <p role="status">{submissionOptions?.messages?.pending || submissionMessages.pending}</p>
+        ) : null}
         {modeBannerNode}
         {stickyHeaderContent}
         {headerAccessoryNode ? (
@@ -5215,7 +5338,7 @@ function RepeatableEntryModal({
 
   const handleSave = useCallback(async () => {
     setEntrySubmitCount((count) => count + 1);
-    if (rowEvents.lifecycle) {
+    if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
       const prepared = await rowEvents.prepare('submit');
       if (prepared.eligible) await onSave(modal, prepared.payload, closeTarget);
@@ -5358,6 +5481,10 @@ function RepeatableEntryModal({
     },
     [focusModalFieldByDataName, navigateModalToSection]
   );
+  useEffect(() => {
+    if (modal.validationFocus?.fieldName)
+      focusModalFieldByDataName(modal.validationFocus.fieldName);
+  }, [modal.validationFocus, focusModalFieldByDataName]);
 
   const handleNestedAdd = useCallback(
     (field, repeatableKey, parentPath = []) => {
@@ -6353,5 +6480,13 @@ function getRepeatableEntryTitle(field, instance, index, titleDescriptor) {
   return (
     resolveDatasetRowTitle(titleDescriptor, instance?.values || {}) ||
     `${field?.label || 'Entry'} ${index + 1}`
+  );
+}
+
+export function FormRenderer(props) {
+  return (
+    <RecordCoordinatorProvider {...props}>
+      <FormRendererContent {...props} />
+    </RecordCoordinatorProvider>
   );
 }

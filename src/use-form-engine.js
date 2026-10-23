@@ -1,3 +1,5 @@
+import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
+import { useContext } from 'react';
 import { createEventEngineBinding } from './utils/event-engine.js';
 import { useEngineDiagnostics } from './use-engine-diagnostics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
@@ -29,6 +31,7 @@ export function useFormEngine(
   options = {},
   initialRepeatable = {}
 ) {
+  const recordCoordinator = useContext(RecordCoordinatorContext);
   const normalizedOptions = useMemo(() => {
     const desiredMode = options?.engineMode === 'worker' ? 'worker' : 'main-thread';
     const engineMode = desiredMode === 'worker' && CAN_USE_WORKERS ? 'worker' : 'main-thread';
@@ -51,12 +54,16 @@ export function useFormEngine(
   const engineStore = engineStoreRef.current;
   const initialValuesRef = useRef(initialValues || {});
   const initialValuesSignatureRef = useRef(null);
-  const initialRepeatableRef = useRef(cloneRepeatableState(initialRepeatable || {}));
+  const initialRepeatableRef = useRef();
+  if (initialRepeatableRef.current === undefined)
+    initialRepeatableRef.current = cloneRepeatableState(initialRepeatable || {});
   const initialRepeatableSignatureRef = useRef(null);
   const optionsRef = useRef(normalizedOptions || {});
   const fieldDefinitionsRef = useRef(new Map());
-  const repeatableStateRef = useRef({});
-  const [repeatableState, setRepeatableStateInternal] = useState({});
+  const repeatableStateRef = useRef(initialRepeatableRef.current);
+  const [repeatableState, setRepeatableStateInternal] = useState(
+    () => initialRepeatableRef.current
+  );
   const workerClientRef = useRef(null);
   const engineModeRef = useRef(engineMode);
   const workerReadyRef = useRef(false);
@@ -223,17 +230,25 @@ export function useFormEngine(
   }, [repeatableState]);
 
   const updateRepeatableState = useCallback((updater) => {
-    setRepeatableStateInternal((prev) => {
-      const next =
-        typeof updater === 'function'
-          ? updater(prev || {})
-          : updater && typeof updater === 'object'
-            ? updater
-            : {};
-      repeatableStateRef.current = next;
-      return next;
-    });
+    // Accepted rows must be capturable before React schedules the corresponding paint.
+    const next =
+      typeof updater === 'function'
+        ? updater(repeatableStateRef.current || {})
+        : updater && typeof updater === 'object'
+          ? updater
+          : {};
+    repeatableStateRef.current = next;
+    setRepeatableStateInternal(next);
   }, []);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (engine?.recordCoordinator?.hasCollections())
+      Promise.resolve(engine.eval()).catch((error) => {
+        if (engineRef.current === engine)
+          console.warn('form0: accepted collection evaluation failed.', error);
+      });
+  }, [repeatableState]);
 
   const mutateRepeatableState = useCallback(
     (mutator) => {
@@ -600,8 +615,17 @@ export function useFormEngine(
         const client = createWorkerClient();
         if (client) {
           engineRef.current = client;
+          if (recordCoordinator) {
+            recordCoordinator.setSchema(preparedSchema);
+            attachRecordWorker(client, recordCoordinator, [], {
+              repeatable: () => repeatableStateRef.current,
+              setRepeatable: updateRepeatableState,
+            });
+          }
           client
             .init({
+              recordSnapshot: recordCoordinator?.capture(),
+              recordPath: [],
               scopeId: startScope().scopeId,
               eventScope: getScope(),
               schema: preparedSchema,
@@ -655,6 +679,11 @@ export function useFormEngine(
         initialValues: normalizedSeedValues,
         helpers: optionsRef.current.helpers,
         security: optionsRef.current.security,
+        recordSource: {
+          repeatable: () => repeatableStateRef.current,
+          setRepeatable: updateRepeatableState,
+          notify: () => syncState(),
+        },
       });
       engineRef.current = engine;
       engine.eval();

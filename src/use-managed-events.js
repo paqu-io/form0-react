@@ -56,6 +56,9 @@ export function useManagedEventScope({
   initialEventValues,
 }) {
   const [findings, setFindings] = useState([]);
+  const [preparationSummary, setPreparationSummary] = useState(null);
+  const [preparationIssues, setPreparationIssues] = useState([]);
+  const preparationSignature = useRef(null);
   const propsRef = useRef({ mode, validate, serialize, data });
   propsRef.current = { mode, validate, serialize, data };
   const handleRef = useRef(null);
@@ -78,6 +81,11 @@ export function useManagedEventScope({
         validate: (state) => propsRef.current.validate(state),
         serialize: (state, intent, summary) => propsRef.current.serialize(state, intent, summary),
         onValidation: (next) => setFindings(next),
+        onPreparation: (result) => {
+          preparationSignature.current = captured.recordCoordinator?.signature();
+          setPreparationSummary(result.validationSummary || null);
+          setPreparationIssues(result.issues || []);
+        },
       },
     });
     handleRef.current = handle;
@@ -125,6 +133,10 @@ export function useManagedEventScope({
   }, [mode, session, fieldKey, recordKind]);
   useEffect(() => {
     handleRef.current?.dataChanged();
+    const coordinator = getBinding()?.recordCoordinator;
+    coordinator?.changed();
+    if (preparationSignature.current && preparationSignature.current !== coordinator?.signature())
+      setPreparationSummary(null);
   }, [eventDataSignature(data), eventDataSignature(binding?.snapshot()?.values)]);
   const dispatch = useCallback(
     (type, metadata = {}, targetField = fieldKey) =>
@@ -176,6 +188,10 @@ export function useManagedEventScope({
     [dispatch, session]
   );
   return {
+    record: Boolean(binding?.recordCoordinator),
+    summary: preparationSummary,
+    issues: preparationIssues,
+    controller: session?.getController(),
     findings,
     dispatch,
     change,

@@ -482,7 +482,7 @@ describe('FormRenderer snapshot contract', () => {
     expect(events.at(-1)?.raw_values).not.toHaveProperty('__record_latitude');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(submissions).toHaveLength(1);
+    await waitFor(() => expect(submissions).toHaveLength(1));
     expect(submissions[0]?.form_values).not.toHaveProperty('__record_latitude');
   });
 
