@@ -162,3 +162,38 @@ it('refresh selection stays dirty after persistence failure and only success ack
   await waitFor(() => expect(onSnapshotChange.mock.calls.at(-1)[1].dirty).toBe(false));
   expect(onSubmit.mock.calls[1][0].form_values.grand).toBe(360);
 });
+
+it('switching records with the same schema submits and acknowledges the current session', async () => {
+  const form = schema();
+  const onSubmit = vi.fn(),
+    onSnapshotChange = vi.fn();
+  let controller;
+  const engineOptions = {
+    diagnostics: { console: false },
+    onEventController: (value) => {
+      controller = value;
+    },
+  };
+  const props = { schema: form, onSubmit, onSnapshotChange, engineOptions };
+  const view = render(<FormRenderer {...props} initialSnapshot={initial()} />);
+  await waitFor(() => expect(controller).toBeTruthy());
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  const prior = controller;
+  const reopened = initial();
+  reopened.raw_values.tax = 0.3;
+  view.rerender(<FormRenderer {...props} initialSnapshot={reopened} />);
+  await waitFor(() => {
+    expect(controller).toBeTruthy();
+    expect(controller).not.toBe(prior);
+  });
+  await waitFor(() => expect(screen.getByLabelText('tax').value).toBe('0.3'));
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+  expect(onSubmit.mock.calls[1][0].form_values.grand).toBe(390);
+  await waitFor(() => expect(onSnapshotChange.mock.calls.at(-1)[1].dirty).toBe(false));
+  const ended = await controller.getSaveChanges({
+    preparationId: onSubmit.mock.calls[1][1].preparationId,
+  });
+  expect(ended.status).toBe('failed');
+});

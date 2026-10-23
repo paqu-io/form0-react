@@ -2411,6 +2411,10 @@ function FormRendererContent({
       placementAllowsExit,
       rootEvents.close,
       rootEvents.captureClose,
+      rootEvents.controller,
+      rootEvents.record,
+      recordCoordinator,
+      submissionReview.prepare,
     ]
   );
 
