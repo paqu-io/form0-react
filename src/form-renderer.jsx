@@ -1101,6 +1101,7 @@ function FormRendererContent({
   initialFreshness,
   onSnapshotChange,
   mode = 'edit',
+  repeatableEntryMode = 'readonly',
   debug = false,
   onSchemaReady,
   theme = 'standard',
@@ -4381,7 +4382,10 @@ function FormRendererContent({
                 themeClass={themeClass}
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
-                initialMode={modal.mode === 'create' ? 'edit' : 'readonly'}
+                initialMode={
+                  modal.mode === 'create' || repeatableEntryMode === 'edit' ? 'edit' : 'readonly'
+                }
+                parentReadOnly={isReadOnlyMode || modal.parentReadOnly === true}
                 allowEditToggle={allowReadOnlyEditToggle && modal.mode !== 'create'}
                 readOnlyEditToggleDisabledReason={readOnlyEditToggleDisabledReason}
                 forceShowNavigationPanel={forceShowNavigationPanel}
@@ -4509,16 +4513,16 @@ function RepeatableSectionList({
                   {getRepeatableEntryTitle(field, instance, index, titleDescriptor)}
                 </div>
               </div>
-              {!readOnly && (
-                <div className={styles.repeatableEntryActions}>
-                  <button
-                    type="button"
-                    className={styles.repeatableActionButton}
-                    onClick={() => onEdit(instance.id)}
-                  >
-                    View
-                    <ChevronRight size={14} strokeWidth={1.8} />
-                  </button>
+              <div className={styles.repeatableEntryActions}>
+                <button
+                  type="button"
+                  className={styles.repeatableActionButton}
+                  onClick={() => onEdit(instance.id)}
+                >
+                  View
+                  <ChevronRight size={14} strokeWidth={1.8} />
+                </button>
+                {!readOnly && (
                   <button
                     type="button"
                     className={`${styles.repeatableActionButton} ${styles.repeatableDangerButton}`}
@@ -4527,8 +4531,8 @@ function RepeatableSectionList({
                     <Trash2 size={14} strokeWidth={1.8} />
                     Remove
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))
         )}
@@ -4544,6 +4548,7 @@ function RepeatableEntryModal({
   labelPosition,
   labelWidthPercent,
   initialMode = 'edit',
+  parentReadOnly = false,
   allowEditToggle = false,
   readOnlyEditToggleDisabledReason = null,
   forceShowNavigationPanel = false,
@@ -4621,10 +4626,10 @@ function RepeatableEntryModal({
     setEntryMode(normalizedEntryMode);
   }, [normalizedEntryMode, modal.modalId]);
 
-  const isEntryReadOnly = entryMode === 'readonly';
+  const isEntryReadOnly = parentReadOnly || entryMode === 'readonly';
   const enterEntryEditMode = useCallback(() => {
-    setEntryMode('edit');
-  }, []);
+    if (!parentReadOnly) setEntryMode('edit');
+  }, [parentReadOnly]);
 
   const repeatableModalStyle = modal?.layoutOverrides?.formWidth
     ? { width: modal.layoutOverrides.formWidth, maxWidth: '100%' }
@@ -4652,7 +4657,7 @@ function RepeatableEntryModal({
   const rowEvents = useManagedEventScope({
     session: modal.eventSession,
     getBinding: getEventBinding,
-    mode: entryMode,
+    mode: isEntryReadOnly ? 'readonly' : 'edit',
     recordKind: modal.mode === 'create' ? 'new' : 'existing',
     fieldKey: modal.repInfo?.field?.data_name,
     active: modal.diagnosticsActive,
@@ -5341,6 +5346,7 @@ function RepeatableEntryModal({
   ]);
 
   const handleSave = useCallback(async () => {
+    if (isEntryReadOnly) return;
     setEntrySubmitCount((count) => count + 1);
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
@@ -5380,6 +5386,7 @@ function RepeatableEntryModal({
     rowEvents.lifecycle,
     rowEvents.prepare,
     rowEvents.captureClose,
+    isEntryReadOnly,
   ]);
 
   const handleModalNavigate = useCallback(
@@ -5529,6 +5536,7 @@ function RepeatableEntryModal({
           parentPath,
           mode: 'edit',
           schema: modal.schema,
+          parentReadOnly: isEntryReadOnly,
           engineOptions: modal.engineOptions,
           parentValues: entryController.buildParentValues(parentPath),
           instanceId,
@@ -5537,7 +5545,7 @@ function RepeatableEntryModal({
         entryController
       );
     },
-    [entryController, modal.engineOptions, modal.schema, openNestedModal]
+    [entryController, modal.engineOptions, modal.schema, openNestedModal, isEntryReadOnly]
   );
 
   const handleNestedRemove = useCallback(
@@ -5670,7 +5678,7 @@ function RepeatableEntryModal({
   }
 
   const modalSecondaryRightAction =
-    (allowEditToggle || readOnlyEditToggleDisabledReason) && isEntryReadOnly
+    !parentReadOnly && (allowEditToggle || readOnlyEditToggleDisabledReason) && isEntryReadOnly
       ? {
           id: 'modal-enter-edit-mode',
           label: 'Edit',
@@ -5880,8 +5888,14 @@ function RepeatableEntryModal({
         className={styles.repeatableModalOverlay}
         style={{ zIndex: 60 + (modal.stackIndex || 0) * 2 }}
       >
-        <div className={`${styles.repeatableModal} ${themeClass}`} style={repeatableModalStyle}>
-          <ModeBanner mode={entryMode} />
+        <div
+          className={`${styles.repeatableModal} ${themeClass}`}
+          style={repeatableModalStyle}
+          role="dialog"
+          aria-modal={isTopModal ? 'true' : undefined}
+          aria-label={modalTitle}
+        >
+          <ModeBanner mode={isEntryReadOnly ? 'readonly' : 'edit'} />
           <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
             <div className={styles.repeatableModalHeaderTopRow}>
               {renderHeaderActionButtons(modalLeftAction, 'left')}
