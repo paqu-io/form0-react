@@ -518,8 +518,8 @@ const getTimestampSourceValue = (source, key) => {
   return source[key];
 };
 
-function deriveInitialTimestamps(initialValues, overrideValues) {
-  const now = new Date().toISOString();
+function deriveInitialTimestamps(initialValues, overrideValues, mode = 'edit') {
+  const now = mode === 'readonly' ? null : new Date().toISOString();
   const resolveValue = (key, fallback) => {
     const overrideValue = getTimestampSourceValue(overrideValues, key);
     if (overrideValue !== undefined) {
@@ -864,9 +864,9 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLa
   }));
 }
 
-function useRecordTimestamps({ initialValues, overrideValues, values }) {
+function useRecordTimestamps({ initialValues, overrideValues, values, mode = 'edit' }) {
   const [timestamps, setTimestamps] = useState(() =>
-    deriveInitialTimestamps(initialValues, overrideValues)
+    deriveInitialTimestamps(initialValues, overrideValues, mode)
   );
   const timestampsRef = useRef(timestamps);
   const sourcesRef = useRef({ initialValues, overrideValues });
@@ -892,7 +892,7 @@ function useRecordTimestamps({ initialValues, overrideValues, values }) {
     }
     sourcesRef.current = { initialValues, overrideValues };
     cancelScheduledUpdate();
-    const next = deriveInitialTimestamps(initialValues, overrideValues);
+    const next = deriveInitialTimestamps(initialValues, overrideValues, mode);
     setTimestamps((prev) => (areTimestampValuesEqual(prev, next) ? prev : next));
   }, [initialValues, overrideValues, cancelScheduledUpdate]);
 
@@ -906,6 +906,7 @@ function useRecordTimestamps({ initialValues, overrideValues, values }) {
     }
     valuesRef.current = values;
     cancelScheduledUpdate();
+    if (mode === 'readonly') return undefined;
     updateTimerRef.current = setTimeout(() => {
       updateTimerRef.current = null;
       setTimestamps((prev) => {
@@ -917,7 +918,7 @@ function useRecordTimestamps({ initialValues, overrideValues, values }) {
       });
     }, 500);
     return cancelScheduledUpdate;
-  }, [values, cancelScheduledUpdate]);
+  }, [values, mode, cancelScheduledUpdate]);
 
   const touchUpdatedAt = useCallback((nextTimestamp = new Date().toISOString()) => {
     const update = (prev) => {
@@ -1483,7 +1484,8 @@ function FormRendererContent({
     appliedRendererInitialValues,
     overrideValues,
     engineOptions,
-    appliedInitialRepeatableSeed
+    appliedInitialRepeatableSeed,
+    interactionMode
   );
 
   const flattenedSchemaFields = useMemo(
@@ -1966,6 +1968,7 @@ function FormRendererContent({
   const [statusValue, setStatusValue] = useState(() => computeStatusSourceValue());
 
   const { timestamps, timestampsRef, touchUpdatedAt } = useRecordTimestamps({
+    mode: interactionMode,
     initialValues: appliedInitialTimestampSeedValues,
     overrideValues,
     values,
@@ -4560,6 +4563,9 @@ function RepeatableEntryModal({
   getAltShortcutLabel = () => null,
   showPrimaryActionsInViewMode = true,
 }) {
+  const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
+  const [entryMode, setEntryMode] = useState(normalizedEntryMode);
+  const effectiveEntryMode = parentReadOnly ? 'readonly' : entryMode;
   const {
     values: entryValues,
     visible: entryVisible,
@@ -4578,6 +4584,7 @@ function RepeatableEntryModal({
     engineStore: entryEngineStore,
     engineStoreMode: entryEngineStoreMode,
   } = useRepeatableInstanceEngine({
+    mode: effectiveEntryMode,
     schema: modal.schema,
     repInfo: modal.repInfo,
     baseValues: modal.parentValues,
@@ -4608,6 +4615,7 @@ function RepeatableEntryModal({
     timestampsRef: entryTimestampsRef,
     touchUpdatedAt: touchEntryUpdatedAt,
   } = useRecordTimestamps({
+    mode: effectiveEntryMode,
     initialValues: entryInitialTimestampValues,
     overrideValues: undefined,
     values: entryValues,
@@ -4618,9 +4626,6 @@ function RepeatableEntryModal({
   useEffect(() => {
     setEntrySubmitCount(0);
   }, [modal.modalId]);
-
-  const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
-  const [entryMode, setEntryMode] = useState(normalizedEntryMode);
 
   useEffect(() => {
     setEntryMode(normalizedEntryMode);

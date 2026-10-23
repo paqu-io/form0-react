@@ -20,7 +20,7 @@ const fixture = () => ({
       ],
       events: {
         code: [
-          "ON('load-repeatable', 'rows', function () { SETVALUE('row_trace', 'load'); });",
+          "ON('load-repeatable', 'rows', function (event) { if (event.mode === 'edit') SETVALUE('row_trace', 'load'); });",
           "ON('edit-repeatable', 'rows', function () { SETVALUE('row_trace', $row_trace + ':edit'); });",
           "ON('new-repeatable', 'rows', function () { SETVALUE('row_trace', $row_trace + ':new'); });",
         ].join('\n'),
@@ -33,7 +33,7 @@ const fixture = () => ({
       rows: [
         {
           id: 0,
-          values: { name: 'Existing' },
+          values: { name: 'Existing', row_trace: 'accepted' },
           repeatable: {
             children: [{ id: 0, values: { detail: 'Nested' } }],
           },
@@ -62,9 +62,9 @@ for (const security of [undefined, { mode: 'safe' }]) {
     );
     const row = await openRow();
     expect(locked(row.getByLabelText('name'))).toBe(true);
-    await waitFor(() => expect(row.getByLabelText('row_trace').value).toBe('load'));
+    await waitFor(() => expect(row.getByLabelText('row_trace').value).toBe('accepted'));
     fireEvent.click(row.getByRole('button', { name: 'Edit', exact: true }));
-    await waitFor(() => expect(row.getByLabelText('row_trace').value).toBe('load:edit'));
+    await waitFor(() => expect(row.getByLabelText('row_trace').value).toBe('accepted:edit'));
     expect(locked(row.getByLabelText('name'))).toBe(false);
   });
   it(`web direct editing is explicit and new rows always start editing (${security?.mode || 'trusted'})`, async () => {

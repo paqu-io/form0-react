@@ -1,3 +1,4 @@
+import { useEngineMode } from './use-engine-mode.js';
 import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
 import { useContext } from 'react';
 import { createEventEngineBinding } from './utils/event-engine.js';
@@ -35,6 +36,7 @@ export function useRepeatableInstanceEngine({
   initialInstance = {},
   diagnosticInstancePath = [],
   diagnosticsActive = true,
+  mode = 'edit',
   engineOptions = {},
 }) {
   const recordCoordinator = useContext(RecordCoordinatorContext);
@@ -60,6 +62,7 @@ export function useRepeatableInstanceEngine({
   const repeatableStateRef = useRef(repeatableState);
   repeatableStateRef.current = repeatableState;
   const engineRef = useRef(null);
+  const modeRef = useEngineMode(engineRef, mode, (engine) => syncState(engine));
   const engineStoreRef = useRef(createEngineStore(createEmptyState(repInfo)));
   const engineStore = engineStoreRef.current;
   const engineModeRef = useRef(engineMode);
@@ -240,6 +243,7 @@ export function useRepeatableInstanceEngine({
         ...(instanceValues || {}),
       };
       const engine = createObservedEngine({
+        mode: modeRef.current,
         schema,
         initialValues: mergedValues,
         helpers: engineOptions.helpers,
@@ -448,6 +452,7 @@ export function useRepeatableInstanceEngine({
             });
           client
             .init({
+              mode: modeRef.current,
               recordSnapshot: recordCoordinator?.capture(diagnosticInstancePath),
               recordPath: diagnosticInstancePath,
               scopeId: startScope().scopeId,

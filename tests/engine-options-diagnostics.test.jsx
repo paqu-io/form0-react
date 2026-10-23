@@ -208,6 +208,7 @@ describe('engine options and diagnostics', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(2));
     fireEvent.click(screen.getAllByRole('button', { name: 'View' })[1]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit', exact: true }));
     await waitFor(() =>
       expect(first.mock.calls.some((c) => c[0].some((d) => d.fieldName === 'row_total'))).toBe(true)
     );

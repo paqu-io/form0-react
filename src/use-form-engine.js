@@ -1,3 +1,4 @@
+import { useEngineMode } from './use-engine-mode.js';
 import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
 import { useContext } from 'react';
 import { createEventEngineBinding } from './utils/event-engine.js';
@@ -29,7 +30,8 @@ export function useFormEngine(
   initialValues = {},
   overrideValues,
   options = {},
-  initialRepeatable = {}
+  initialRepeatable = {},
+  mode = 'edit'
 ) {
   const recordCoordinator = useContext(RecordCoordinatorContext);
   const normalizedOptions = useMemo(() => {
@@ -50,6 +52,7 @@ export function useFormEngine(
   const [state, setState] = useState(createEmptyState);
   const [engineVersion, setEngineVersion] = useState(0);
   const engineRef = useRef(null);
+  const modeRef = useEngineMode(engineRef, mode, () => syncState());
   const engineStoreRef = useRef(createEngineStore(createEmptyState()));
   const engineStore = engineStoreRef.current;
   const initialValuesRef = useRef(initialValues || {});
@@ -624,6 +627,7 @@ export function useFormEngine(
           }
           client
             .init({
+              mode: modeRef.current,
               recordSnapshot: recordCoordinator?.capture(),
               recordPath: [],
               scopeId: startScope().scopeId,
@@ -675,6 +679,7 @@ export function useFormEngine(
 
       cleanupWorkerClient({ bumpToken: !isWorkerMode });
       const engine = createObservedEngine({
+        mode: modeRef.current,
         schema: preparedSchema,
         initialValues: normalizedSeedValues,
         helpers: optionsRef.current.helpers,

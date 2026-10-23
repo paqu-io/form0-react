@@ -19,6 +19,7 @@ let recordBackend = null;
 let recordSnapshot = null;
 let recordNames = null;
 let recordPath = [];
+let recordEvaluationSequence = 0;
 const recordAborts = new Map();
 const getRecordBackend = () =>
   (recordBackend ||= createRecordBackend({
@@ -27,6 +28,8 @@ const getRecordBackend = () =>
     security: cachedSecurity,
   }));
 async function evaluateEngine() {
+  const evaluation = ++recordEvaluationSequence;
+  const capturedEngine = engine;
   if (!hasRecordCollections(cachedSchema)) {
     engine.eval();
     return;
@@ -47,7 +50,11 @@ async function evaluateEngine() {
       Object.entries(engine.getState().values).filter(([name]) => recordNames.has(name))
     ),
   };
-  const result = await getRecordBackend().evaluateScope(snapshot, { instancePath: recordPath });
+  const result = await getRecordBackend().evaluateScope(snapshot, {
+    instancePath: recordPath,
+    interactionMode: engine.getMode(),
+  });
+  if (capturedEngine !== engine || evaluation !== recordEvaluationSequence) return;
   if (result.status !== 'evaluated')
     throw new Error(result.issues?.[0]?.message || 'Record scope evaluation failed.');
   applyRecordState(engine, result.state);
@@ -79,6 +86,7 @@ const buildEngine = async ({
   eventScope,
   recordSnapshot: snapshot,
   recordPath: path = [],
+  mode = 'edit',
 }) => {
   if (!schema || !schema.form) {
     throw new Error('form0-react: engine worker requires a valid schema');
@@ -109,6 +117,7 @@ const buildEngine = async ({
   if (!path.length && schema.form?.status_field?.data_name)
     recordNames.add(schema.form.status_field.data_name);
   engine = createDiagnosticEngine({
+    mode,
     schema,
     initialValues,
     helpers,
@@ -139,6 +148,7 @@ const resetEngine = (initialValues = {}, scopeId = cachedScopeId) => {
     eventScope: { ...cachedEventScope, scopeId },
     recordSnapshot,
     recordPath,
+    mode: engine?.getMode() || 'edit',
   });
 };
 
@@ -221,6 +231,12 @@ const ACTIONS = {
     if (!engine) {
       throw new Error('form0-react: engine worker not initialized');
     }
+    await evaluateEngine();
+    return withState(engine.getState(), { updateVersion: lastUpdateVersion });
+  },
+  async SET_MODE(payload) {
+    if (!engine) throw new Error('form0-react: engine worker not initialized');
+    engine.setMode(payload.mode);
     await evaluateEngine();
     return withState(engine.getState(), { updateVersion: lastUpdateVersion });
   },

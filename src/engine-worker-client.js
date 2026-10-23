@@ -190,6 +190,7 @@ export class EngineWorkerClient {
     }
     const scopeId = params.scopeId || `form0-worker-${++nextClientScope}`;
     this.scopeId = scopeId;
+    this.mode = params.mode || 'edit';
     this.stateVersion = 0;
     this.diagnostics = [];
     this.diagnosticSequence = 0;
@@ -222,6 +223,17 @@ export class EngineWorkerClient {
 
   eval() {
     return this.call('EVAL');
+  }
+
+  getMode() {
+    return this.mode || 'edit';
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    this.modeUpdate = this.call('SET_MODE', { mode });
+    this.modeUpdate.catch(() => {});
+    return this.modeUpdate;
   }
 
   triggerEvent(eventType, fieldKey, metadata = {}) {
@@ -264,6 +276,7 @@ export class EngineWorkerClient {
   }
 
   async readState() {
+    await this.modeUpdate;
     const result = await this.call('READ_STATE');
     return result.state;
   }

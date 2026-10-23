@@ -52,19 +52,21 @@ it('opt-in initializes load/new once, while opt-out preserves load/edit', async 
 
 it('readonly opens with load only and entering edit uses explicit classification', async () => {
   const fixture = eventSchema(
-    "ON('load-record', function() { SETVALUE('trace', 'load'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
+    "ON('load-record', function(event) { if (event.mode === 'edit') SETVALUE('trace', 'load'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
   );
   const managed = await mount(
     fixture,
-    { mode: 'readonly' },
+    { mode: 'readonly', initialValues: { input: 4, trace: 'accepted' } },
     { events: { lifecycle: true, recordKind: 'existing' } }
   );
-  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load'));
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('accepted'));
   expect((await managed.controller.prepareSave({ intent: 'submit' })).issues[0].code).toBe(
     'readonly_scope'
   );
   fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:edit'));
+  await waitFor(() =>
+    expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('accepted:edit')
+  );
 });
 
 it('custom validation uses the existing summary UI, clears on edits and remains separate from intrinsic errors', async () => {
