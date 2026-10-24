@@ -30,6 +30,61 @@ const initial = () => ({
   },
 });
 
+for (const security of [undefined, { mode: 'safe' }]) {
+  it(`cached calculations follow repeated and rapid live input edits (${security?.mode || 'trusted'})`, async () => {
+    const form = schema();
+    form.form.elements.splice(
+      2,
+      0,
+      field('CalculatedField', 'tax_percent', { calculate: '$tax * 100' })
+    );
+    const seed = initial(),
+      original = structuredClone(seed),
+      snapshots = vi.fn();
+    render(
+      <FormRenderer
+        schema={form}
+        initialSnapshot={seed}
+        onSnapshotChange={snapshots}
+        engineOptions={{ security, diagnostics: { console: false } }}
+      />
+    );
+    await screen.findByDisplayValue('20');
+    const tax = screen.getByLabelText('tax');
+    fireEvent.change(tax, { target: { value: '0.3' } });
+    await screen.findByDisplayValue('30');
+    fireEvent.change(tax, { target: { value: '0.4' } });
+    await screen.findByDisplayValue('40');
+    fireEvent.change(tax, { target: { value: '0.5' } });
+    fireEvent.change(tax, { target: { value: '0.6' } });
+    await screen.findByDisplayValue('60');
+    expect(snapshots.mock.calls.at(-1)[0].raw_values.grand).toBe(330);
+    fireEvent.click(screen.getByRole('button', { name: 'View', exact: true }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true })[0]);
+    const row = within(await screen.findByRole('dialog'));
+    await row.findByDisplayValue('110');
+    fireEvent.click(row.getByRole('button', { name: 'Edit', exact: true }));
+    await row.findByDisplayValue('160');
+    const amount = row.getByLabelText('amount');
+    fireEvent.change(amount, { target: { value: '150' } });
+    await row.findByDisplayValue('240');
+    fireEvent.change(amount, { target: { value: '200' } });
+    fireEvent.change(amount, { target: { value: '300' } });
+    await row.findByDisplayValue('480');
+    expect(snapshots.mock.calls.at(-1)[0].repeatable.lines.map((row) => row.values.total)).toEqual([
+      110, 220,
+    ]);
+    fireEvent.click(row.getByRole('button', { name: 'Save', exact: true }));
+    await waitFor(() => {
+      expect(snapshots.mock.calls.at(-1)[0].raw_values.grand).toBe(700);
+      expect(
+        snapshots.mock.calls.at(-1)[0].repeatable.lines.map((row) => row.values.total)
+      ).toEqual([480, 220]);
+    });
+    expect(seed).toEqual(original);
+  });
+}
+
 it('automatic legacy-opt-out submission refreshes closed children and serializes selected metadata', async () => {
   const onSubmit = vi.fn();
   let controller;
