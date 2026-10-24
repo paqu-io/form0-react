@@ -1,4 +1,4 @@
-import { createStructuredRecord, flattenFields } from 'form0-core';
+import { createStructuredRecord, createStructuredRecordAsync, flattenFields } from 'form0-core';
 import { cloneDeep } from './schema.js';
 
 export const DEFAULT_FIELD_KEY_MODE = 'prefer-key';
@@ -70,7 +70,7 @@ export function buildSubmissionRawValues({
   };
 }
 
-export function buildStructuredSubmission({
+function* structuredSubmissionSteps({
   schema,
   values,
   repeatable,
@@ -99,7 +99,7 @@ export function buildStructuredSubmission({
 
   let structuredRecord = rawValues;
   try {
-    structuredRecord = createStructuredRecord(
+    structuredRecord = yield [
       {
         values: rawValues,
         repeatable: repeatableState,
@@ -111,8 +111,8 @@ export function buildStructuredSubmission({
         title_field: schema?.form?.title_field || null,
         status_field: statusField,
         '@status': statusFieldName ? (statusValue ?? null) : undefined,
-      }
-    );
+      },
+    ];
   } catch (error) {
     console.error(
       'form0-react: failed to build structured record, falling back to raw values',
@@ -127,4 +127,29 @@ export function buildStructuredSubmission({
     repeatable: repeatableState,
     timestamps,
   };
+}
+
+export function buildStructuredSubmission(input) {
+  const work = structuredSubmissionSteps(input);
+  const args = work.next().value;
+  try {
+    return work.next(createStructuredRecord(...args)).value;
+  } catch (error) {
+    return work.throw(error).value;
+  }
+}
+
+export async function buildStructuredSubmissionAsync(input, scheduling) {
+  const work = structuredSubmissionSteps(input);
+  const args = work.next().value;
+  try {
+    return work.next(await createStructuredRecordAsync(...args, scheduling)).value;
+  } catch (error) {
+    if (
+      error?.name === 'AbortError' ||
+      ['cancelled', 'record_scheduling_failed'].includes(error?.code)
+    )
+      throw error;
+    return work.throw(error).value;
+  }
 }

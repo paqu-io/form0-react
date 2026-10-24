@@ -4,7 +4,7 @@ import { SubmissionReview, submissionMessages } from './submission-review.jsx';
 import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
 import { RecordCoordinatorProvider } from './record-context.jsx';
-import { buildStructuredSubmission } from './utils/submission.js';
+import { buildStructuredSubmission, buildStructuredSubmissionAsync } from './utils/submission.js';
 import { useEventSession, useManagedEventScope } from './use-managed-events.js';
 import { mergeCustomValidation, repeatableChangeMetadata } from './utils/managed-events.js';
 import { buildDiagnosticInstancePath } from './utils/engine-diagnostics.js';
@@ -2056,7 +2056,9 @@ function FormRendererContent({
     return next;
   }, [statusFieldName, statusValue, titleField, recordTitleDisplay, values, timestamps]);
 
-  const snapshotRepeatable = useMemo(() => cloneDeepSafe(repeatable), [repeatable]);
+  // Accepted collection updates replace this owned tree. Public snapshots are cloned below;
+  // avoid another complete copy during the render that installs a prepared selection.
+  const snapshotRepeatable = repeatable;
   const submissionSnapshot = useMemo(() => {
     const timestampSnapshot = buildSubmissionTimestampSnapshot(timestamps);
     return {
@@ -2238,7 +2240,7 @@ function FormRendererContent({
         isRequired: (field) => Boolean(state.required[field.data_name]),
         getError: (field) => state.errors[field.data_name],
       }),
-    serialize: (state, intent, validationSummary) => {
+    serialize: async (state, intent, validationSummary, scheduling) => {
       const now = new Date().toISOString();
       touchUpdatedAt(now);
       const timestampSnapshot = buildSubmissionTimestampSnapshot(timestampsRef.current, now);
@@ -2261,13 +2263,16 @@ function FormRendererContent({
           },
           meta: { validationSummary, dirty: hasRootChanges },
         };
-      const submission = buildStructuredSubmission({
-        schema: finalSchema,
-        values: rawValues,
-        repeatable: currentRepeatable,
-        fieldKeyMode,
-        timestamps: timestampSnapshot,
-      });
+      const submission = await buildStructuredSubmissionAsync(
+        {
+          schema: finalSchema,
+          values: rawValues,
+          repeatable: currentRepeatable,
+          fieldKeyMode,
+          timestamps: timestampSnapshot,
+        },
+        scheduling
+      );
       return {
         payload: submission.structuredRecord,
         meta: {

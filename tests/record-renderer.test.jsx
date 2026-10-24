@@ -31,6 +31,37 @@ const initial = () => ({
 });
 
 for (const security of [undefined, { mode: 'safe' }]) {
+  it(`applying an evaluated submission does not replay root calculations (${security?.mode || 'trusted'})`, async () => {
+    const form = schema();
+    form.form.elements.find((field) => field.data_name === 'grand').calculate =
+      "countRoot(REPEATABLESUM($lines, 'total'))";
+    let controller;
+    const countRoot = vi.fn((value) => value);
+    render(
+      <FormRenderer
+        schema={form}
+        initialSnapshot={initial()}
+        engineOptions={{
+          security,
+          helpers: { countRoot },
+          diagnostics: { console: false },
+          onEventController: (next) => (controller = next),
+        }}
+      />
+    );
+    await screen.findByDisplayValue('330');
+    await waitFor(() => expect(controller).toBeTruthy());
+    const previous = countRoot.mock.calls.length;
+    let result;
+    await act(async () => {
+      result = await controller.prepareSave({ intent: 'submit' });
+    });
+    expect(result.eligible).toBe(true);
+    await screen.findByDisplayValue('360');
+    expect(countRoot.mock.calls.length - previous).toBe(1);
+    expect(result.payload.form_values.grand).toBe(360);
+  });
+
   it(`schema replacement refreshes calculations, collections and event registrations (${security?.mode || 'trusted'})`, async () => {
     const form = schema();
     form.form.elements.splice(

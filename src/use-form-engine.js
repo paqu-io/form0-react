@@ -1,5 +1,9 @@
 import { useEngineMode } from './use-engine-mode.js';
-import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
+import {
+  RecordCoordinatorContext,
+  attachRecordWorker,
+  consumeAppliedRecordTree,
+} from './record-context.jsx';
 import { useContext } from 'react';
 import { createEventEngineBinding } from './utils/event-engine.js';
 import { useEngineDiagnostics } from './use-engine-diagnostics.js';
@@ -246,7 +250,8 @@ export function useFormEngine(
 
   useEffect(() => {
     const engine = engineRef.current;
-    if (engine?.recordCoordinator?.hasCollections())
+    const applied = consumeAppliedRecordTree(engine, repeatableState);
+    if (engine?.recordCoordinator?.hasCollections() && !applied)
       Promise.resolve(engine.eval()).catch((error) => {
         if (engineRef.current === engine)
           console.warn('form0: accepted collection evaluation failed.', error);

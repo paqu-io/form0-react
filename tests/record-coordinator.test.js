@@ -1,5 +1,9 @@
 import { expect, it, vi } from 'vitest';
-import { createRecordCoordinator, createRecordBackend } from '../src/utils/record-coordinator.js';
+import {
+  createRecordCoordinator,
+  createRecordBackend,
+  createEditorSignature,
+} from '../src/utils/record-coordinator.js';
 import { field, repeatable } from './fixtures/diagnostic-conformance.js';
 
 const schema = (extra = {}) => ({
@@ -293,4 +297,32 @@ it('host yielding stays cooperative, preserves custom scheduling and supports ca
     instance.coordinator.dispose();
     vi.unstubAllGlobals();
   }
+});
+
+it('editor signature reuse preserves live value, metadata, row and policy invalidation', () => {
+  const observed = vi.fn(() => 10);
+  const values = { amount: 10 };
+  Object.defineProperty(values, 'observed', { enumerable: true, get: observed });
+  let snapshot = { id: 0, values: { total: 10 }, repeatable: { rows: [{ values }] } };
+  const policy = { mode: 'automatic' };
+  const coordinator = createRecordCoordinator({
+    schema: schema(),
+    getOptions: () => ({ submissionOptions: policy }),
+  });
+  coordinator.bind([], { read: () => snapshot, signature: createEditorSignature(() => snapshot) });
+  const initial = coordinator.signature();
+  expect(coordinator.signature()).toBe(initial);
+  expect(observed).toHaveBeenCalledTimes(1);
+  snapshot.values.total = 20;
+  const edited = coordinator.signature();
+  expect(edited).not.toBe(initial);
+  snapshot.id = 'changed';
+  const metadata = coordinator.signature();
+  expect(metadata).not.toBe(edited);
+  policy.mode = 'confirm';
+  expect(coordinator.signature()).not.toBe(metadata);
+  expect(observed).toHaveBeenCalledTimes(1);
+  snapshot = { ...snapshot, repeatable: { rows: [] } };
+  expect(coordinator.signature()).not.toBe(edited);
+  coordinator.dispose();
 });

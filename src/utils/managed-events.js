@@ -42,6 +42,15 @@ export function eventDataSignature(value) {
   });
 }
 
+const collectionSignatures = new WeakMap();
+
+/** Private renderer contract: accepted collection trees are replaced on every row mutation. */
+export function ownedCollectionSignature(tree) {
+  if (!tree || typeof tree !== 'object') return eventDataSignature(tree) ?? '';
+  if (!collectionSignatures.has(tree)) collectionSignatures.set(tree, eventDataSignature(tree));
+  return collectionSignatures.get(tree);
+}
+
 export function normalizeEventOptions(events = {}) {
   const lifecycle = events.lifecycle === true;
   if (lifecycle && !['new', 'existing'].includes(events.recordKind))
@@ -330,8 +339,8 @@ export function createEventSession(configuration = {}) {
                 isDraft: draft,
                 isValid: !summary.hasErrors,
               }),
-            serialize: (snapshot, selectedIntent, summary) =>
-              scope.adapter.serialize(snapshot, selectedIntent, summary),
+            serialize: (snapshot, selectedIntent, summary, scheduling) =>
+              scope.adapter.serialize(snapshot, selectedIntent, summary, scheduling),
           }
         );
         if (!current(scope)) return failure('scope_closed', 'The target editor has ended.', scope);
