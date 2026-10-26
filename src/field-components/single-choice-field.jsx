@@ -66,7 +66,7 @@ export function SingleChoiceFieldComponent({
     if (typeof onChange !== 'function' || readOnly) return;
     onChange({
       choice: [],
-      other: nextText ? [{ label: nextText }] : [],
+      other: [{ label: nextText }],
     });
   };
 
