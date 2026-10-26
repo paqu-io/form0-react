@@ -208,7 +208,8 @@ it('serializes user edits with change handlers, without programmatic change casc
       [8, 8],
     ])
   );
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed');
+  // The handler runs before its queued SETVALUE batch has finished publishing state.
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed'));
 });
 
 it('additional focus/blur/click interactions are opt-in and do not evaluate pure notifications', async () => {
