@@ -9,6 +9,7 @@ import { buildRepeatableInfo, createEmptyRepeatableInstance } from './utils/repe
 import { uuidv7 } from './utils/uuid.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
 import { createEngineStore } from './engine-store.js';
+import { normalizeChoiceOperationValue } from './utils/choice-operation-values.js';
 
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
 const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -835,12 +836,16 @@ export function useRepeatableInstanceEngine({
     (operations = []) => {
       const updates = {};
       for (const operation of operations) {
-        if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE')
-          updates[operation.params.fieldDataName] = cloneDeep(operation.params.valueToSet);
+        if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE') {
+          const { fieldDataName, valueToSet } = operation.params;
+          updates[fieldDataName] = cloneDeep(
+            normalizeChoiceOperationValue(repInfo?.fields?.get(fieldDataName)?.field, valueToSet)
+          );
+        }
       }
       if (Object.keys(updates).length) setValues(updates);
     },
-    [setValues]
+    [setValues, repInfo]
   );
 
   const getEventBinding = useCallback(
