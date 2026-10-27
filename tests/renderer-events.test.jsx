@@ -14,10 +14,19 @@ afterEach(() => {
 const quiet = { diagnostics: { console: false } };
 const options = (onEventController, extras = {}) => ({
   ...quiet,
-  events: { lifecycle: true, recordKind: 'new' },
+  events: { recordKind: 'new' },
   onEventController,
   ...extras,
 });
+
+it('requires explicit classification when lifecycle is omitted', () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  expect(() => render(<FormRenderer schema={eventSchema()} />)).toThrow(/recordKind/);
+  expect(() =>
+    render(<FormRenderer schema={eventSchema()} engineOptions={{ events: {} }} />)
+  ).toThrow(/recordKind/);
+});
+
 async function mount(fixture, extraProps = {}, extraOptions = {}) {
   let controller;
   const onUpdate = vi.fn();
@@ -38,15 +47,20 @@ async function mount(fixture, extraProps = {}, extraOptions = {}) {
   };
 }
 
-it('opt-in initializes load/new once, while opt-out preserves load/edit', async () => {
+it('default lifecycle initializes load/new once, while explicit opt-out preserves load/edit', async () => {
   const fixture = eventSchema(
     "ON('load-record', function() { SETVALUE('trace', 'load'); });\nON('new-record', function() { SETVALUE('trace', $trace + ':new'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
   );
   const managed = await mount(fixture);
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:new');
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:new'));
   managed.view.unmount();
   const legacyUpdate = vi.fn();
-  render(<FormRenderer schema={fixture} engineOptions={{ ...quiet, onUpdate: legacyUpdate }} />);
+  render(
+    <FormRenderer
+      schema={fixture}
+      engineOptions={{ ...quiet, events: { lifecycle: false }, onUpdate: legacyUpdate }}
+    />
+  );
   await waitFor(() => expect(legacyUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:edit'));
 });
 
@@ -57,7 +71,7 @@ it('readonly opens with load only and entering edit uses explicit classification
   const managed = await mount(
     fixture,
     { mode: 'readonly', initialValues: { input: 4, trace: 'accepted' } },
-    { events: { lifecycle: true, recordKind: 'existing' } }
+    { events: { recordKind: 'existing' } }
   );
   await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('accepted'));
   expect((await managed.controller.prepareSave({ intent: 'submit' })).issues[0].code).toBe(
@@ -212,7 +226,7 @@ it('serializes user edits with change handlers, without programmatic change casc
   await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed'));
 });
 
-it('additional focus/blur/click interactions are opt-in and do not evaluate pure notifications', async () => {
+it('focus/blur/click default on, permit explicit opt-out and do not evaluate pure notifications', async () => {
   const seen = vi.fn();
   const fixture = eventSchema(
     "ON('focus', 'input', function() { seen('focus'); });\nON('blur', 'input', function() { seen('blur'); });\nON('click', 'input', function() { seen('click'); });"
@@ -224,11 +238,7 @@ it('additional focus/blur/click interactions are opt-in and do not evaluate pure
     {
       helpers: { seen },
       onDiagnostics: diagnostic,
-      events: {
-        lifecycle: true,
-        recordKind: 'existing',
-        fieldInteractions: ['focus', 'blur', 'click'],
-      },
+      events: { recordKind: 'existing' },
     }
   );
   const count = diagnostic.mock.calls.length;
@@ -238,7 +248,11 @@ it('additional focus/blur/click interactions are opt-in and do not evaluate pure
   await waitFor(() => expect(seen.mock.calls.map(([v]) => v)).toEqual(['focus', 'blur', 'click']));
   expect(diagnostic).toHaveBeenCalledTimes(count);
   managed.view.unmount();
-  await mount(fixture, {}, { helpers: { seen } });
+  await mount(
+    fixture,
+    {},
+    { helpers: { seen }, events: { recordKind: 'new', fieldInteractions: [] } }
+  );
   const before = seen.mock.calls.length;
   fireEvent.focus(screen.getByLabelText('input'));
   fireEvent.blur(screen.getByLabelText('input'));

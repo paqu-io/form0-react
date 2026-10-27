@@ -42,7 +42,11 @@ for (const security of [undefined, { mode: 'safe' }]) {
       initialSnapshot: source,
       onSubmit: save,
       onSnapshotChange: snapshots,
-      engineOptions: { security, diagnostics: { console: false } },
+      engineOptions: {
+        events: { recordKind: 'existing' },
+        security,
+        diagnostics: { console: false },
+      },
     };
     const mounted = render(<FormRenderer {...props} mode="edit" />);
     await screen.findByDisplayValue('330');

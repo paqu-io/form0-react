@@ -1078,7 +1078,7 @@ function findSectionNodeById(nodes = [], targetId) {
  * @property {(warning: Object) => void} [onWarning] Legacy warning observer.
  * @property {(state: Object, engine: Object) => void} [onUpdate] Execution-specific state observer.
  * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void | Promise<void>} [onOperations] Non-alert operation delegation.
- * @property {{lifecycle?: boolean, recordKind?: 'new' | 'existing', fieldInteractions?: Array<'focus' | 'blur' | 'click'>}} [events] Session-fixed event integration; lifecycle defaults to false.
+ * @property {{lifecycle?: boolean, recordKind?: 'new' | 'existing', fieldInteractions?: Array<'focus' | 'blur' | 'click'>}} [events] Session-fixed integration; lifecycle and field interactions default on. Lifecycle requires explicit recordKind.
  * @property {(controller: {dispatch: (request: Object) => Promise<Object>, prepareSave: (request: Object) => Promise<Object>} | null) => void | Promise<void>} [onEventController] Current generation after initialization; null on retirement.
  * @property {{console?: boolean}} [diagnostics] Calculation console reporting (default true).
  * @property {(snapshot: Array<Object>, meta: {scopeId: string, instancePath: Array<Object>, evaluationId: number, kind: 'evaluation' | 'scope-ended'}) => void | Promise<void>} [onDiagnostics] Defensive snapshots from active evaluated scopes.

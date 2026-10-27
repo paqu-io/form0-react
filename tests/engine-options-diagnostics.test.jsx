@@ -108,7 +108,10 @@ describe('engine options and diagnostics', () => {
       },
     };
     render(
-      <FormRenderer schema={warningSchema} engineOptions={{ ...quiet, onWarning, onUpdate }} />
+      <FormRenderer
+        schema={warningSchema}
+        engineOptions={{ events: { recordKind: 'existing' }, ...quiet, onWarning, onUpdate }}
+      />
     );
     await waitFor(() => expect(onWarning).toHaveBeenCalled());
     expect(onWarning.mock.calls[0][0].reason).toBe('not_found');
@@ -133,7 +136,12 @@ describe('engine options and diagnostics', () => {
         ],
       },
     };
-    render(<FormRenderer schema={fixture} engineOptions={options} />);
+    render(
+      <FormRenderer
+        schema={fixture}
+        engineOptions={{ ...options, events: { recordKind: 'existing', ...options?.events } }}
+      />
+    );
     await waitFor(() => expect(options.onOperations).toHaveBeenCalled());
     expect(
       options.onOperations.mock.calls.flatMap((c) => c[0]).every((o) => o.operation !== 'ALERT')
@@ -162,7 +170,10 @@ describe('engine options and diagnostics', () => {
       )
     );
     const mounted = render(
-      <FormRenderer schema={fixture} engineOptions={{ ...quiet, onOperations, onUpdate }} />
+      <FormRenderer
+        schema={fixture}
+        engineOptions={{ events: { recordKind: 'existing' }, ...quiet, onOperations, onUpdate }}
+      />
     );
     await waitFor(() => expect(onUpdate.mock.calls.at(-1)[0].values.result).toBe(3));
     expect(onUpdate.mock.calls.at(-1)[0].values.auxiliary).toBe(5);
@@ -177,7 +188,12 @@ describe('engine options and diagnostics', () => {
     render(
       <FormRenderer
         schema={restricted}
-        engineOptions={{ ...quiet, security: SAFE_SECURITY_CONFIG, onDiagnostics }}
+        engineOptions={{
+          events: { recordKind: 'existing' },
+          ...quiet,
+          security: SAFE_SECURITY_CONFIG,
+          onDiagnostics,
+        }}
       />
     );
     await waitFor(() => expect(onDiagnostics).toHaveBeenCalled());
@@ -203,7 +219,11 @@ describe('engine options and diagnostics', () => {
     };
     const options = { ...quiet, onDiagnostics: first, onUpdate };
     const mounted = render(
-      <FormRenderer schema={nestedSchema} initialSnapshot={snapshot} engineOptions={options} />
+      <FormRenderer
+        schema={nestedSchema}
+        initialSnapshot={snapshot}
+        engineOptions={{ ...options, events: { recordKind: 'existing', ...options?.events } }}
+      />
     );
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'View' })).toHaveLength(2));
@@ -222,7 +242,10 @@ describe('engine options and diagnostics', () => {
       <FormRenderer
         schema={nestedSchema}
         initialSnapshot={snapshot}
-        engineOptions={currentOptions}
+        engineOptions={{
+          ...currentOptions,
+          events: { recordKind: 'existing', ...currentOptions?.events },
+        }}
       />
     );
     expect(second).not.toHaveBeenCalled();
@@ -237,7 +260,10 @@ describe('engine options and diagnostics', () => {
       <FormRenderer
         schema={nestedSchema}
         initialSnapshot={removedRowSnapshot}
-        engineOptions={currentOptions}
+        engineOptions={{
+          ...currentOptions,
+          events: { recordKind: 'existing', ...currentOptions?.events },
+        }}
       />
     );
     await waitFor(() =>
@@ -252,7 +278,10 @@ describe('engine options and diagnostics', () => {
       <FormRenderer
         schema={replacement}
         initialSnapshot={snapshot}
-        engineOptions={currentOptions}
+        engineOptions={{
+          ...currentOptions,
+          events: { recordKind: 'existing', ...currentOptions?.events },
+        }}
       />
     );
     await waitFor(() =>
@@ -290,7 +319,7 @@ describe('engine options and diagnostics', () => {
       <FormRenderer
         schema={nestedSchema}
         initialSnapshot={snapshot}
-        engineOptions={quiet}
+        engineOptions={{ ...quiet, events: { recordKind: 'existing', ...quiet?.events } }}
         onSubmit={onSubmit}
       />
     );
@@ -310,7 +339,12 @@ describe('engine options and diagnostics', () => {
         events: { code: "ON('load-record', () => { SETVALUE('input', 4); });" },
       },
     };
-    render(<FormRenderer schema={fixture} engineOptions={{ ...quiet, onUpdate }} />);
+    render(
+      <FormRenderer
+        schema={fixture}
+        engineOptions={{ events: { recordKind: 'existing' }, ...quiet, onUpdate }}
+      />
+    );
     await waitFor(() => expect(onUpdate.mock.calls.at(-1)[0].values.result).toBe(3));
   });
 });

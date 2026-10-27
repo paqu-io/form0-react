@@ -42,6 +42,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
         schema={form}
         initialSnapshot={initial()}
         engineOptions={{
+          events: { recordKind: 'existing' },
           security,
           helpers: { countRoot },
           diagnostics: { console: false },
@@ -126,7 +127,11 @@ for (const security of [undefined, { mode: 'safe' }]) {
         schema={form}
         initialSnapshot={seed}
         onSnapshotChange={snapshots}
-        engineOptions={{ security, diagnostics: { console: false } }}
+        engineOptions={{
+          events: { recordKind: 'existing' },
+          security,
+          diagnostics: { console: false },
+        }}
       />
     );
     await screen.findByDisplayValue('20');
@@ -176,6 +181,7 @@ it('automatic legacy-opt-out submission refreshes closed children and serializes
       initialSnapshot={source}
       onSubmit={onSubmit}
       engineOptions={{
+        events: { lifecycle: false },
         diagnostics: { console: false },
         onEventController: (value) => (controller = value),
       }}
@@ -201,7 +207,7 @@ it('built-in confirmation can retain all children and restores the saved pending
       initialSnapshot={initial()}
       submissionOptions={{ allowRetain: true }}
       onSubmit={onSubmit}
-      engineOptions={{ diagnostics: { console: false } }}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
     />
   );
   await screen.findByLabelText('tax');
@@ -222,7 +228,7 @@ it('built-in confirmation can retain all children and restores the saved pending
       schema={schema()}
       initialSnapshot={initial()}
       initialFreshness={freshness}
-      engineOptions={{ diagnostics: { console: false } }}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
     />
   );
   expect(
@@ -239,6 +245,7 @@ it('cancelled review does not submit and a custom preparation never opens a dial
       initialSnapshot={initial()}
       onSubmit={onSubmit}
       engineOptions={{
+        events: { recordKind: 'existing' },
         diagnostics: { console: false },
         onEventController: (value) => (controller = value),
       }}
@@ -277,6 +284,7 @@ it('refresh selection stays dirty after persistence failure and only success ack
       onSubmit={onSubmit}
       onSnapshotChange={onSnapshotChange}
       engineOptions={{
+        events: { recordKind: 'existing' },
         diagnostics: { console: false },
         onEventController: (value) => (controller = value),
       }}
@@ -304,6 +312,7 @@ it('switching records with the same schema submits and acknowledges the current 
     onSnapshotChange = vi.fn();
   let controller;
   const engineOptions = {
+    events: { recordKind: 'existing' },
     diagnostics: { console: false },
     onEventController: (value) => {
       controller = value;

@@ -88,6 +88,7 @@ describe('FormRenderer snapshot contract', () => {
   it('renders a mode-aware header accessory between the summary header and form body', async () => {
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={FLAT_SCHEMA}
         mode="readonly"
         headerAccessory={({ mode }) => (
@@ -114,6 +115,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={FLAT_SCHEMA}
         formPlacement="form-modal"
         externalDirty={true}
@@ -134,6 +136,7 @@ describe('FormRenderer snapshot contract', () => {
 
     const { container } = render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={FLAT_SCHEMA}
         onSubmit={onSubmit}
         submitBlockedReason="A location is required."
@@ -163,6 +166,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={{
           form: {
             ...FLAT_SCHEMA.form,
@@ -210,6 +214,7 @@ describe('FormRenderer snapshot contract', () => {
 
     const { rerender } = render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={{
           form: {
             ...FLAT_SCHEMA.form,
@@ -224,6 +229,7 @@ describe('FormRenderer snapshot contract', () => {
     expect(await screen.findByLabelText('Conditional value')).toBeTruthy();
     rerender(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={{
           form: {
             ...FLAT_SCHEMA.form,
@@ -247,6 +253,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={BASE_SCHEMA}
         initialValues={{
           name: 'Initial Values',
@@ -314,6 +321,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={BASE_SCHEMA}
         initialSnapshot={{
           raw_values: {
@@ -378,6 +386,7 @@ describe('FormRenderer snapshot contract', () => {
 
       return (
         <FormRenderer
+          engineOptions={{ events: { recordKind: 'existing' } }}
           schema={BASE_SCHEMA}
           initialSnapshot={snapshot}
           onSnapshotChange={(nextSnapshot, meta) => {
@@ -417,6 +426,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={BASE_SCHEMA}
         recordMetadataFields={[createTextField('project_name', 'Project', 'metadata_project')]}
         initialSnapshot={{
@@ -460,6 +470,7 @@ describe('FormRenderer snapshot contract', () => {
 
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={FLAT_SCHEMA}
         recordMetadataFields={[latitudeField]}
         initialSnapshot={{
@@ -487,7 +498,13 @@ describe('FormRenderer snapshot contract', () => {
   });
 
   it('can force the sidebar visible even when the form has no sections yet', async () => {
-    render(<FormRenderer schema={FLAT_SCHEMA} forceShowNavigationPanel={true} />);
+    render(
+      <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
+        schema={FLAT_SCHEMA}
+        forceShowNavigationPanel={true}
+      />
+    );
 
     expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
     expect(
@@ -498,6 +515,7 @@ describe('FormRenderer snapshot contract', () => {
   it('opens a repeatable create modal from drilldown add without crashing', async () => {
     render(
       <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
         schema={BASE_SCHEMA}
         forceShowNavigationPanel={true}
         headerAccessory={<div data-testid="static-accessory">Static accessory</div>}
@@ -547,7 +565,13 @@ describe('FormRenderer snapshot contract', () => {
       },
     };
 
-    render(<FormRenderer schema={titledSchema} forceShowNavigationPanel={true} />);
+    render(
+      <FormRenderer
+        engineOptions={{ events: { recordKind: 'existing' } }}
+        schema={titledSchema}
+        forceShowNavigationPanel={true}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
