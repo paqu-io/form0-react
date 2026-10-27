@@ -105,7 +105,6 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         ...(eventInteractions && ['TextField', 'NumericField'].includes(field.type)
           ? {
               onBlur: () => eventInteractions('blur', field.data_name),
-              onClick: () => eventInteractions('click', field.data_name),
             }
           : {}),
       }

@@ -226,10 +226,17 @@ it('serializes user edits with change handlers, without programmatic change casc
   await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed'));
 });
 
-it('focus/blur/click default on, permit explicit opt-out and do not evaluate pure notifications', async () => {
+it('inputs emit focus/blur without click, permit opt-out and do not evaluate pure notifications', async () => {
   const seen = vi.fn();
   const fixture = eventSchema(
-    "ON('focus', 'input', function() { seen('focus'); });\nON('blur', 'input', function() { seen('blur'); });\nON('click', 'input', function() { seen('click'); });"
+    ['input', 'trace']
+      .map(
+        (name) => `
+ON('focus', '${name}', function() { seen('${name}:focus'); });
+ON('blur', '${name}', function() { seen('${name}:blur'); });
+ON('click', '${name}', function() { seen('${name}:click'); });`
+      )
+      .join('\n')
   );
   const diagnostic = vi.fn();
   const managed = await mount(
@@ -242,11 +249,33 @@ it('focus/blur/click default on, permit explicit opt-out and do not evaluate pur
     }
   );
   const count = diagnostic.mock.calls.length;
-  fireEvent.focus(screen.getByLabelText('input'));
-  fireEvent.blur(screen.getByLabelText('input'));
-  fireEvent.click(screen.getByLabelText('input'));
-  await waitFor(() => expect(seen.mock.calls.map(([v]) => v)).toEqual(['focus', 'blur', 'click']));
+  for (const name of ['input', 'trace']) {
+    fireEvent.focus(screen.getByLabelText(name));
+    fireEvent.blur(screen.getByLabelText(name));
+    fireEvent.click(screen.getByLabelText(name));
+  }
+  await waitFor(() =>
+    expect(seen.mock.calls.map(([v]) => v)).toEqual([
+      'input:focus',
+      'input:blur',
+      'trace:focus',
+      'trace:blur',
+    ])
+  );
   expect(diagnostic).toHaveBeenCalledTimes(count);
+  // Explicit host dispatch stays available independently of built-in UI eligibility.
+  await act(async () => {
+    expect(
+      (await managed.controller.dispatch({ type: 'click', fieldKey: 'input' })).issues
+    ).toEqual([]);
+  });
+  expect(seen.mock.calls.map(([v]) => v)).toEqual([
+    'input:focus',
+    'input:blur',
+    'trace:focus',
+    'trace:blur',
+    'input:click',
+  ]);
   managed.view.unmount();
   await mount(
     fixture,
@@ -254,8 +283,11 @@ it('focus/blur/click default on, permit explicit opt-out and do not evaluate pur
     { helpers: { seen }, events: { recordKind: 'new', fieldInteractions: [] } }
   );
   const before = seen.mock.calls.length;
-  fireEvent.focus(screen.getByLabelText('input'));
-  fireEvent.blur(screen.getByLabelText('input'));
+  for (const name of ['input', 'trace']) {
+    fireEvent.focus(screen.getByLabelText(name));
+    fireEvent.blur(screen.getByLabelText(name));
+    fireEvent.click(screen.getByLabelText(name));
+  }
   await act(async () => {});
   expect(seen).toHaveBeenCalledTimes(before);
 });
