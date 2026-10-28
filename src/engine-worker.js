@@ -35,14 +35,40 @@ async function evaluateEngine() {
     return;
   }
   const snapshot = recordSnapshot || { values: engine.getState().values, repeatable: {} };
+  if (!Array.isArray(recordPath)) throw new Error('The record worker scope path is invalid.');
   let selected = snapshot;
   for (const part of recordPath) {
-    const rows = selected.repeatable?.[part.repeatableKey] || [];
+    // Reject property names used as positions before any record write can reach a prototype.
+    if (
+      !part ||
+      typeof part.repeatableKey !== 'string' ||
+      !part.repeatableKey ||
+      typeof part.index !== 'number' ||
+      !Number.isSafeInteger(part.index) ||
+      part.index < 0 ||
+      !['id', 'position'].includes(part.identity) ||
+      (part.identity === 'id' &&
+        !(
+          (typeof part.instanceId === 'string' && part.instanceId.trim()) ||
+          (typeof part.instanceId === 'number' && Number.isFinite(part.instanceId))
+        )) ||
+      (part.identity === 'position' && part.instanceId != null)
+    )
+      throw new Error('The record worker scope path is invalid.');
+    const collections = selected.repeatable;
+    const rows =
+      collections && Object.hasOwn(collections, part.repeatableKey)
+        ? collections[part.repeatableKey]
+        : null;
+    if (!Array.isArray(rows)) throw new Error('The record worker scope no longer exists.');
     selected =
       part.identity === 'id'
-        ? rows.find((row) => (row.id ?? row.record_id) === part.instanceId)
-        : rows[part.index];
-    if (!selected) throw new Error('The record worker scope no longer exists.');
+        ? rows.find((row) => row && (row.id ?? row.record_id) === part.instanceId)
+        : Object.hasOwn(rows, part.index)
+          ? rows[part.index]
+          : null;
+    if (!selected || typeof selected !== 'object' || Array.isArray(selected))
+      throw new Error('The record worker scope no longer exists.');
   }
   selected.values = {
     ...selected.values,
