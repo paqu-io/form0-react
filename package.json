@@ -59,6 +59,7 @@
     }
   ],
   "license": "MIT",
+  "funding": "https://opencollective.com/form0",
   "peerDependencies": {
     "@vanilla-extract/css": "^1.17.4",
     "react": "^18.0.0 || ^19.0.0",
@@ -78,7 +79,7 @@
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-switch": "^1.2.5",
-    "form0-core": "^0.5.1",
+    "form0-core": "^0.8.1",
     "lucide-react": "^0.553.0"
   },
   "repository": {

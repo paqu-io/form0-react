@@ -1,3 +1,6 @@
+import { useEngineMode } from './use-engine-mode.js';
+import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
+import { useContext } from 'react';
 import { createEventEngineBinding } from './utils/event-engine.js';
 import { useEngineDiagnostics } from './use-engine-diagnostics.js';
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
@@ -6,6 +9,7 @@ import { buildRepeatableInfo, createEmptyRepeatableInstance } from './utils/repe
 import { uuidv7 } from './utils/uuid.js';
 import { EngineWorkerClient } from './engine-worker-client.js';
 import { createEngineStore } from './engine-store.js';
+import { normalizeChoiceOperationValue } from './utils/choice-operation-values.js';
 
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
 const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -33,8 +37,10 @@ export function useRepeatableInstanceEngine({
   initialInstance = {},
   diagnosticInstancePath = [],
   diagnosticsActive = true,
+  mode = 'edit',
   engineOptions = {},
 }) {
+  const recordCoordinator = useContext(RecordCoordinatorContext);
   const engineMode = useMemo(() => {
     const desiredMode = engineOptions?.engineMode === 'worker' ? 'worker' : 'main-thread';
     if (desiredMode === 'worker' && CAN_USE_WORKERS) {
@@ -54,7 +60,10 @@ export function useRepeatableInstanceEngine({
   const [repeatableState, setRepeatableState] = useState(() =>
     cloneDeep(initialInstance.repeatable || {})
   );
+  const repeatableStateRef = useRef(repeatableState);
+  repeatableStateRef.current = repeatableState;
   const engineRef = useRef(null);
+  const modeRef = useEngineMode(engineRef, mode, (engine) => syncState(engine));
   const engineStoreRef = useRef(createEngineStore(createEmptyState(repInfo)));
   const engineStore = engineStoreRef.current;
   const engineModeRef = useRef(engineMode);
@@ -235,10 +244,26 @@ export function useRepeatableInstanceEngine({
         ...(instanceValues || {}),
       };
       const engine = createObservedEngine({
+        mode: modeRef.current,
         schema,
         initialValues: mergedValues,
         helpers: engineOptions.helpers,
         security: engineOptions.security,
+        recordSource: {
+          metadata: () => initialInstance,
+          pickValues: (values) => pickFields(values),
+          repeatable: () => repeatableStateRef.current,
+          setRepeatable: (next) => {
+            repeatableStateRef.current = next;
+            setRepeatableState(next);
+          },
+          notify: (nextEngine) => {
+            const next = reduceEngineState(nextEngine.getState());
+            valuesRef.current = next.values;
+            setState(next);
+            engineStore.setState(next);
+          },
+        },
       });
       engine.eval();
       return engine;
@@ -416,8 +441,21 @@ export function useRepeatableInstanceEngine({
         const client = createWorkerClient();
         if (client) {
           engineRef.current = client;
+          if (recordCoordinator)
+            attachRecordWorker(client, recordCoordinator, diagnosticInstancePath, {
+              metadata: () => initialInstance,
+              pickValues: (values) => pickFields(values),
+              repeatable: () => repeatableStateRef.current,
+              setRepeatable: (next) => {
+                repeatableStateRef.current = next;
+                setRepeatableState(next);
+              },
+            });
           client
             .init({
+              mode: modeRef.current,
+              recordSnapshot: recordCoordinator?.capture(diagnosticInstancePath),
+              recordPath: diagnosticInstancePath,
               scopeId: startScope().scopeId,
               eventScope: getScope(),
               schema,
@@ -636,6 +674,15 @@ export function useRepeatableInstanceEngine({
 
   const submit = useCallback(() => cloneDeep(state.values), [state.values]);
 
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (engine?.recordCoordinator?.hasCollections())
+      Promise.resolve(engine.eval()).catch((error) => {
+        if (engineRef.current === engine)
+          console.warn('form0: accepted collection evaluation failed.', error);
+      });
+  }, [repeatableState]);
+
   const setRepeatableSlice = useCallback((updater) => {
     setRepeatableState((prev) => {
       const base = prev && typeof prev === 'object' ? prev : {};
@@ -789,12 +836,16 @@ export function useRepeatableInstanceEngine({
     (operations = []) => {
       const updates = {};
       for (const operation of operations) {
-        if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE')
-          updates[operation.params.fieldDataName] = cloneDeep(operation.params.valueToSet);
+        if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE') {
+          const { fieldDataName, valueToSet } = operation.params;
+          updates[fieldDataName] = cloneDeep(
+            normalizeChoiceOperationValue(repInfo?.fields?.get(fieldDataName)?.field, valueToSet)
+          );
+        }
       }
       if (Object.keys(updates).length) setValues(updates);
     },
-    [setValues]
+    [setValues, repInfo]
   );
 
   const getEventBinding = useCallback(

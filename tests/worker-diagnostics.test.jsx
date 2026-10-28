@@ -54,6 +54,35 @@ const createWorker = () =>
   new ThreadWorker(pathToFileURL(resolve(process.cwd(), 'src/engine-worker.js')));
 const values = { input: 4 };
 
+it('worker view preserves accepted scalar results and exposes authoritative event modes', async () => {
+  const client = new EngineWorkerClient({ createWorker });
+  const fixture = {
+    form: {
+      name: 'Worker view',
+      elements: [
+        field('NumericField', 'input'),
+        field('CalculatedField', 'result', { calculate: '$input * 2' }),
+      ],
+      events: {
+        code: "ON('load-record', function(e) { ALERT('Mode', e.mode); if (e.mode === 'edit') SETVALUE('input', 9); }); ON('edit-record', function(e) { ALERT('Mode', e.mode); });",
+      },
+    },
+  };
+  await client.init({ schema: fixture, initialValues: { input: 2, result: 99 }, mode: 'readonly' });
+  expect(client.getState().values.result).toBe(99);
+  const load = await client.triggerDetailed('load-record', undefined, { mode: 'edit' });
+  expect(load.issues).toEqual([]);
+  expect(load.operations).toHaveLength(1);
+  expect(load.operations[0].params.message).toBe('readonly');
+  await client.setMode('edit');
+  expect((await client.readState()).values.result).toBe(4);
+  expect((await client.triggerDetailed('edit-record')).operations[0].params.message).toBe('edit');
+  await client.setMode('readonly');
+  await client.eval();
+  expect(client.getState().values.result).toBe(4);
+  client.terminate();
+});
+
 it('real worker initialization/updates/eval/reset and events deliver each evaluation once', async () => {
   const reports = [];
   const warnings = [];

@@ -14,10 +14,19 @@ afterEach(() => {
 const quiet = { diagnostics: { console: false } };
 const options = (onEventController, extras = {}) => ({
   ...quiet,
-  events: { lifecycle: true, recordKind: 'new' },
+  events: { recordKind: 'new' },
   onEventController,
   ...extras,
 });
+
+it('requires explicit classification when lifecycle is omitted', () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  expect(() => render(<FormRenderer schema={eventSchema()} />)).toThrow(/recordKind/);
+  expect(() =>
+    render(<FormRenderer schema={eventSchema()} engineOptions={{ events: {} }} />)
+  ).toThrow(/recordKind/);
+});
+
 async function mount(fixture, extraProps = {}, extraOptions = {}) {
   let controller;
   const onUpdate = vi.fn();
@@ -38,33 +47,40 @@ async function mount(fixture, extraProps = {}, extraOptions = {}) {
   };
 }
 
-it('opt-in initializes load/new once, while opt-out preserves load/edit', async () => {
+it('default lifecycle initializes load/new once, while explicit opt-out preserves load/edit', async () => {
   const fixture = eventSchema(
     "ON('load-record', function() { SETVALUE('trace', 'load'); });\nON('new-record', function() { SETVALUE('trace', $trace + ':new'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
   );
   const managed = await mount(fixture);
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:new');
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:new'));
   managed.view.unmount();
   const legacyUpdate = vi.fn();
-  render(<FormRenderer schema={fixture} engineOptions={{ ...quiet, onUpdate: legacyUpdate }} />);
+  render(
+    <FormRenderer
+      schema={fixture}
+      engineOptions={{ ...quiet, events: { lifecycle: false }, onUpdate: legacyUpdate }}
+    />
+  );
   await waitFor(() => expect(legacyUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:edit'));
 });
 
 it('readonly opens with load only and entering edit uses explicit classification', async () => {
   const fixture = eventSchema(
-    "ON('load-record', function() { SETVALUE('trace', 'load'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
+    "ON('load-record', function(event) { if (event.mode === 'edit') SETVALUE('trace', 'load'); });\nON('edit-record', function() { SETVALUE('trace', $trace + ':edit'); });"
   );
   const managed = await mount(
     fixture,
-    { mode: 'readonly' },
-    { events: { lifecycle: true, recordKind: 'existing' } }
+    { mode: 'readonly', initialValues: { input: 4, trace: 'accepted' } },
+    { events: { recordKind: 'existing' } }
   );
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load');
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('accepted'));
   expect((await managed.controller.prepareSave({ intent: 'submit' })).issues[0].code).toBe(
     'readonly_scope'
   );
   fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('load:edit'));
+  await waitFor(() =>
+    expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('accepted:edit')
+  );
 });
 
 it('custom validation uses the existing summary UI, clears on edits and remains separate from intrinsic errors', async () => {
@@ -206,13 +222,21 @@ it('serializes user edits with change handlers, without programmatic change casc
       [8, 8],
     ])
   );
-  expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed');
+  // The handler runs before its queued SETVALUE batch has finished publishing state.
+  await waitFor(() => expect(managed.onUpdate.mock.calls.at(-1)[0].values.trace).toBe('changed'));
 });
 
-it('additional focus/blur/click interactions are opt-in and do not evaluate pure notifications', async () => {
+it('inputs emit focus/blur without click, permit opt-out and do not evaluate pure notifications', async () => {
   const seen = vi.fn();
   const fixture = eventSchema(
-    "ON('focus', 'input', function() { seen('focus'); });\nON('blur', 'input', function() { seen('blur'); });\nON('click', 'input', function() { seen('click'); });"
+    ['input', 'trace']
+      .map(
+        (name) => `
+ON('focus', '${name}', function() { seen('${name}:focus'); });
+ON('blur', '${name}', function() { seen('${name}:blur'); });
+ON('click', '${name}', function() { seen('${name}:click'); });`
+      )
+      .join('\n')
   );
   const diagnostic = vi.fn();
   const managed = await mount(
@@ -221,24 +245,49 @@ it('additional focus/blur/click interactions are opt-in and do not evaluate pure
     {
       helpers: { seen },
       onDiagnostics: diagnostic,
-      events: {
-        lifecycle: true,
-        recordKind: 'existing',
-        fieldInteractions: ['focus', 'blur', 'click'],
-      },
+      events: { recordKind: 'existing' },
     }
   );
   const count = diagnostic.mock.calls.length;
-  fireEvent.focus(screen.getByLabelText('input'));
-  fireEvent.blur(screen.getByLabelText('input'));
-  fireEvent.click(screen.getByLabelText('input'));
-  await waitFor(() => expect(seen.mock.calls.map(([v]) => v)).toEqual(['focus', 'blur', 'click']));
+  for (const name of ['input', 'trace']) {
+    fireEvent.focus(screen.getByLabelText(name));
+    fireEvent.blur(screen.getByLabelText(name));
+    fireEvent.click(screen.getByLabelText(name));
+  }
+  await waitFor(() =>
+    expect(seen.mock.calls.map(([v]) => v)).toEqual([
+      'input:focus',
+      'input:blur',
+      'trace:focus',
+      'trace:blur',
+    ])
+  );
   expect(diagnostic).toHaveBeenCalledTimes(count);
+  // Explicit host dispatch stays available independently of built-in UI eligibility.
+  await act(async () => {
+    expect(
+      (await managed.controller.dispatch({ type: 'click', fieldKey: 'input' })).issues
+    ).toEqual([]);
+  });
+  expect(seen.mock.calls.map(([v]) => v)).toEqual([
+    'input:focus',
+    'input:blur',
+    'trace:focus',
+    'trace:blur',
+    'input:click',
+  ]);
   managed.view.unmount();
-  await mount(fixture, {}, { helpers: { seen } });
+  await mount(
+    fixture,
+    {},
+    { helpers: { seen }, events: { recordKind: 'new', fieldInteractions: [] } }
+  );
   const before = seen.mock.calls.length;
-  fireEvent.focus(screen.getByLabelText('input'));
-  fireEvent.blur(screen.getByLabelText('input'));
+  for (const name of ['input', 'trace']) {
+    fireEvent.focus(screen.getByLabelText(name));
+    fireEvent.blur(screen.getByLabelText(name));
+    fireEvent.click(screen.getByLabelText(name));
+  }
   await act(async () => {});
   expect(seen).toHaveBeenCalledTimes(before);
 });
@@ -268,10 +317,13 @@ it('root preparation preserves closed row and media metadata while open row prep
   );
   let prepared;
   await act(async () => {
-    prepared = await managed.controller.prepareSave({ intent: 'submit' });
+    const blocked = await managed.controller.prepareSave({ intent: 'submit' });
+    expect(blocked.eligible).toBe(false);
+    expect(blocked.validationSummary.scopeIssues[0].message).toBe('Row needs three.');
+    prepared = await managed.controller.prepareSave({ intent: 'draft' });
   });
-  expect(prepared.meta.repeatable.rows[0].attachment.media_id).toBe('media-A');
-  expect(prepared.meta.repeatable.rows[0].repeatable.children[0].id).toBe(0);
+  expect(prepared.payload.repeatable.rows[0].attachment.media_id).toBe('media-A');
+  expect(prepared.payload.repeatable.rows[0].repeatable.children[0].id).toBe(0);
   fireEvent.click(screen.getByRole('button', { name: 'View' }));
   fireEvent.click(screen.getByRole('button', { name: 'View' }));
   await waitFor(() => expect(reports.some((meta) => meta.instancePath.length)).toBe(true));

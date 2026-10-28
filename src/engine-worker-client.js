@@ -190,6 +190,7 @@ export class EngineWorkerClient {
     }
     const scopeId = params.scopeId || `form0-worker-${++nextClientScope}`;
     this.scopeId = scopeId;
+    this.mode = params.mode || 'edit';
     this.stateVersion = 0;
     this.diagnostics = [];
     this.diagnosticSequence = 0;
@@ -224,6 +225,17 @@ export class EngineWorkerClient {
     return this.call('EVAL');
   }
 
+  getMode() {
+    return this.mode || 'edit';
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+    this.modeUpdate = this.call('SET_MODE', { mode });
+    this.modeUpdate.catch(() => {});
+    return this.modeUpdate;
+  }
+
   triggerEvent(eventType, fieldKey, metadata = {}) {
     return this.call('TRIGGER_EVENT', { eventType, fieldKey, metadata });
   }
@@ -232,7 +244,39 @@ export class EngineWorkerClient {
     return this.call('SYNC_EVENT_READS', { values, scopeId: this.scopeId });
   }
 
+  syncRecordContext(snapshot, instancePath = []) {
+    return this.call('SYNC_RECORD_CONTEXT', { snapshot, instancePath });
+  }
+  applyRecordState(state) {
+    return this.call('APPLY_RECORD_STATE', { state });
+  }
+  evaluateRecordScope(snapshot, options) {
+    return this.call('RECORD_EVALUATE_SCOPE', { snapshot, options });
+  }
+  async prepareRecord(snapshot, options = {}) {
+    const { signal, ...portable } = options;
+    const token = `record-${this.nextId}`;
+    if (signal?.aborted)
+      return { status: 'cancelled', eligible: false, snapshot: null, issues: [], diagnostics: [] };
+    const cancel = () => {
+      this.call('CANCEL_RECORD', { token }).catch(() => {});
+    };
+    signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      return await this.call('RECORD_PREPARE', { snapshot, options: portable, token });
+    } finally {
+      signal?.removeEventListener('abort', cancel);
+    }
+  }
+  recordChanges(page) {
+    return this.call('RECORD_CHANGES', page);
+  }
+  releaseRecord() {
+    return this.call('RECORD_RELEASE').catch(() => {});
+  }
+
   async readState() {
+    await this.modeUpdate;
     const result = await this.call('READ_STATE');
     return result.state;
   }
