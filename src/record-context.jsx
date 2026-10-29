@@ -147,6 +147,10 @@ export function attachRecordWorker(client, coordinator, path, source = {}) {
     for (const method of ['eval', 'setValues']) {
       const original = client[method].bind(client);
       client[method] = async (...args) => {
+        if (method === 'setValues') {
+          args[0] = client.prepareValueUpdates(args[0], args[1]);
+          if (!Object.keys(args[0]).length) return original(...args);
+        }
         coordinator.changed();
         await client.syncRecordContext(coordinator.capture(path), path);
         return original(...args);

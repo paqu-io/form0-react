@@ -1,3 +1,4 @@
+import { normalizeUpdates, normalizeLoadedValue, scopeFields } from './utils/value-updates.js';
 import { buildRepeatableMetadata } from 'form0-core';
 import { createDiagnosticEngine } from './utils/engine-diagnostics.js';
 import {
@@ -7,11 +8,13 @@ import {
 } from './utils/record-coordinator.js';
 
 let engine = null;
+let updateFields = new Map();
 let cachedSchema = null;
 let cachedHelpers = undefined;
 let cachedSecurity = undefined;
 let cachedScopeId = null;
 let cachedEventScope = { instancePath: [] };
+let cachedMetadataFields = [];
 let diagnosticSequence = 0;
 let stateVersion = 0;
 let lastUpdateVersion = 0;
@@ -113,6 +116,7 @@ const buildEngine = async ({
   recordSnapshot: snapshot,
   recordPath: path = [],
   mode = 'edit',
+  metadataFields = [],
 }) => {
   if (!schema || !schema.form) {
     throw new Error('form0-react: engine worker requires a valid schema');
@@ -126,10 +130,15 @@ const buildEngine = async ({
   if (scopeId !== cachedScopeId) diagnosticSequence = 0;
   cachedScopeId = scopeId;
   cachedEventScope = eventScope || { scopeId, instancePath: [] };
+  cachedMetadataFields = metadataFields;
   recordBackend?.dispose();
   recordBackend = null;
   recordSnapshot = snapshot || null;
   recordPath = path;
+  updateFields = scopeFields(schema, path);
+  if (!path.length)
+    for (const field of metadataFields)
+      if (field?.data_name) updateFields.set(field.data_name, field);
   const metadata = buildRepeatableMetadata(schema.form?.elements || []);
   recordNames = new Set(
     [...metadata.fieldOwnership]
@@ -172,20 +181,28 @@ const resetEngine = (initialValues = {}, scopeId = cachedScopeId) => {
     security: cachedSecurity,
     scopeId,
     eventScope: { ...cachedEventScope, scopeId },
+    metadataFields: cachedMetadataFields,
     recordSnapshot,
     recordPath,
     mode: engine?.getMode() || 'edit',
   });
 };
 
-const applyValueUpdates = async (updates = {}) => {
+const applyValueUpdates = async (updates = {}, replacement = false) => {
   if (!engine) {
     throw new Error('form0-react: engine worker not initialized');
   }
-  //log('applyValueUpdates', updates);
+  const prepared = replacement
+    ? Object.fromEntries(
+        Object.entries(updates).map(([name, value]) => [
+          name,
+          normalizeLoadedValue(updateFields.get(name), value),
+        ])
+      )
+    : normalizeUpdates(updateFields, updates, engine.getMode());
   const engineState = engine.getState();
   let dirty = false;
-  for (const [key, value] of Object.entries(updates)) {
+  for (const [key, value] of Object.entries(prepared)) {
     if (engineState.values[key] !== value) {
       engineState.values[key] = value;
       dirty = true;
@@ -246,10 +263,13 @@ const ACTIONS = {
   async SET_VALUES(payload = {}) {
     //log('SET_VALUES');
     const updateVersion = Number(payload.updateVersion || 0);
-    if (updateVersion > lastUpdateVersion) {
-      lastUpdateVersion = updateVersion;
-    }
-    const state = await applyValueUpdates(payload.updates || {});
+    const state = await applyValueUpdates(Object.hasOwn(payload, 'updates') ? payload.updates : {});
+    if (updateVersion > lastUpdateVersion) lastUpdateVersion = updateVersion;
+    return withState(state, { updateVersion: lastUpdateVersion });
+  },
+  async REPLACE_VALUES(payload = {}) {
+    const state = await applyValueUpdates(payload.updates || {}, true);
+    lastUpdateVersion = Math.max(lastUpdateVersion, Number(payload.updateVersion || 0));
     return withState(state, { updateVersion: lastUpdateVersion });
   },
   async EVAL() {
