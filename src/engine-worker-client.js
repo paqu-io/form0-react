@@ -156,6 +156,8 @@ export class EngineWorkerClient {
           this.stateVersion = incomingVersion;
         }
         this.state = payload.state;
+        if (pending.retentionContext === this.getRetentionContext?.())
+          this.onRetentionClears?.(payload.clearedFields || []);
         if (typeof this.onState === 'function') {
           this.onState(this.state, payload);
         }
@@ -174,7 +176,7 @@ export class EngineWorkerClient {
     const id = this.nextId++;
     //console.log('[form0-worker-client] call', action, data);
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve, reject, retentionContext: this.getRetentionContext?.() });
       try {
         this.worker.postMessage({ id, action, payload: data });
       } catch (error) {

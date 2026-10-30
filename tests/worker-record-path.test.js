@@ -160,3 +160,46 @@ for (const security of [undefined, { mode: 'safe' }]) {
     }
   });
 }
+
+it('actual worker transports closed-row clearing without collection calculations', async () => {
+  const worker = recordWorker();
+  const schema = {
+    form: {
+      name: 'Worker retention',
+      elements: [
+        field('NumericField', 'show_rows'),
+        {
+          ...repeatable('rows', [field('TextField', 'secret', { visible_preserve_value: false })]),
+          visible: false,
+          visible_conditions: { field_id: 'show_rows', operator: 'equal_to', value: 1 },
+        },
+      ],
+    },
+  };
+  const snapshot = {
+    values: { show_rows: 1 },
+    repeatable: { rows: [{ id: 0, values: { secret: 'secret' } }] },
+  };
+  try {
+    await worker.call('INIT', {
+      schema,
+      initialValues: snapshot.values,
+      recordSnapshot: snapshot,
+      recordPath: [],
+      eventScope: { instancePath: [] },
+    });
+    const result = await worker.call('SET_VALUES', { updates: { show_rows: 0 } });
+    expect(result.state.values.show_rows).toBe(0);
+    expect(result.clearedFields).toHaveLength(1);
+    expect(result.clearedFields[0].instancePath[0].instanceId).toBe(0);
+    expect((await worker.call('READ_STATE')).clearedFields).toEqual([]);
+    const strict = await worker.call('RECORD_PREPARE', {
+      token: 'strict',
+      snapshot: { values: { show_rows: 'bad' } },
+      options: { validateHiddenValues: true },
+    });
+    expect(strict.eligible).toBe(false);
+  } finally {
+    await worker.terminate();
+  }
+});
