@@ -1,3 +1,5 @@
+import { normalizeFieldValue } from 'form0-core';
+import { normalizeUpdates, normalizeLoadedValue, scopeFields } from './utils/value-updates.js';
 import { useEngineMode } from './use-engine-mode.js';
 import {
   RecordCoordinatorContext,
@@ -26,6 +28,7 @@ const createEmptyState = () => ({
   errors: {},
 });
 
+const EMPTY_METADATA_FIELDS = [];
 const CAN_USE_WORKERS = typeof window !== 'undefined' && typeof Worker !== 'undefined';
 const useStoreSyncEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -35,7 +38,8 @@ export function useFormEngine(
   overrideValues,
   options = {},
   initialRepeatable = {},
-  mode = 'edit'
+  mode = 'edit',
+  metadataFields = EMPTY_METADATA_FIELDS
 ) {
   const recordCoordinator = useContext(RecordCoordinatorContext);
   const normalizedOptions = useMemo(() => {
@@ -515,17 +519,21 @@ export function useFormEngine(
   }, [syncWorkerState, acceptWorkerDiagnostics, forwardWarning]);
 
   const sendWorkerValueUpdates = useCallback(
-    (updates = {}, updateVersion = 0) => {
+    (updates = {}, updateVersion = 0, replacement = false) => {
       const client = workerClientRef.current;
       if (!client) {
         return;
       }
       if (!workerReadyRef.current) {
-        pendingWorkerUpdatesRef.current.push({ updates: { ...updates }, updateVersion });
+        pendingWorkerUpdatesRef.current.push({
+          updates: { ...updates },
+          updateVersion,
+          replacement,
+        });
         return;
       }
       client
-        .setValues(updates, { updateVersion })
+        .setValues(updates, { updateVersion, replacement })
         .then((result) => {
           if (result?.state) {
             syncWorkerState(result.state, result);
@@ -553,27 +561,25 @@ export function useFormEngine(
       });
       return acc;
     }, {});
+    const replacement = pendingWorkerUpdatesRef.current.some((entry) => entry.replacement);
     pendingWorkerUpdatesRef.current = [];
     if (Object.keys(merged).length > 0) {
-      sendWorkerValueUpdates(merged, latestUpdateVersion);
+      sendWorkerValueUpdates(merged, latestUpdateVersion, replacement);
     }
   }, [sendWorkerValueUpdates]);
 
-  const normalizeSeedValueForField = useCallback((fieldName, value) => {
-    const fieldDef = fieldDefinitionsRef.current.get(fieldName);
-    if (!fieldDef) {
-      return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
-    }
-    switch (fieldDef.type) {
-      case 'SingleChoiceField':
-      case 'BooleanField':
-        return normalizeSingleChoiceValue(fieldDef, value);
-      case 'MultiChoiceField':
-        return normalizeMultiChoiceValue(fieldDef, value);
-      default:
-        return typeof value === 'object' && value !== null ? cloneDeep(value) : value;
-    }
-  }, []);
+  const metadataFieldSignature = JSON.stringify(
+    metadataFields.map((field) => [field?.data_name, field?.type, field?.choices])
+  );
+  const updateFields = useMemo(() => {
+    const fields = scopeFields(preparedSchema);
+    for (const field of metadataFields) if (field?.data_name) fields.set(field.data_name, field);
+    return fields;
+  }, [preparedSchema, metadataFieldSignature]);
+  const normalizeSeedValueForField = useCallback(
+    (fieldName, value) => normalizeLoadedValue(fieldDefinitionsRef.current.get(fieldName), value),
+    []
+  );
 
   const normalizeSeedValues = useCallback(
     (inputValues = {}) => {
@@ -639,6 +645,7 @@ export function useFormEngine(
               eventScope: getScope(),
               schema: preparedSchema,
               initialValues: normalizedSeedValues,
+              metadataFields,
               helpers: optionsRef.current.helpers,
               security: optionsRef.current.security,
             })
@@ -711,6 +718,7 @@ export function useFormEngine(
       createWorkerClient,
       flushPendingWorkerUpdates,
       normalizeSeedValues,
+      metadataFields,
       preparedSchema,
       syncState,
       syncWorkerState,
@@ -770,10 +778,11 @@ export function useFormEngine(
     });
   }, []);
 
-  const setValues = useCallback(
-    (updates = {}) => {
-      if (!updates || typeof updates !== 'object') return;
-      const normalizedUpdates = normalizeSeedValues(updates);
+  const applyValueUpdates = useCallback(
+    (updates, replacement = false) => {
+      const normalizedUpdates = replacement
+        ? normalizeSeedValues(updates)
+        : normalizeUpdates(updateFields, updates, modeRef.current);
       //console.log('[form0-react] setValues called', updates, 'mode=', engineModeRef.current);
       if (engineModeRef.current === 'worker') {
         if (!workerClientRef.current) {
@@ -791,10 +800,11 @@ export function useFormEngine(
           pendingWorkerUpdatesRef.current.push({
             updates: { ...normalizedUpdates },
             updateVersion,
+            replacement,
           });
           return;
         }
-        sendWorkerValueUpdates(normalizedUpdates, updateVersion);
+        sendWorkerValueUpdates(normalizedUpdates, updateVersion, replacement);
         return;
       }
       if (!engineRef.current) return;
@@ -810,24 +820,24 @@ export function useFormEngine(
         evaluateAndSync();
       }
     },
-    [applyOptimisticValues, evaluateAndSync, normalizeSeedValues, sendWorkerValueUpdates]
+    [
+      applyOptimisticValues,
+      evaluateAndSync,
+      normalizeSeedValues,
+      sendWorkerValueUpdates,
+      updateFields,
+    ]
   );
+
+  const setValues = useCallback((updates) => applyValueUpdates(updates), [applyValueUpdates]);
 
   const setValue = useCallback(
     (field, value) => {
-      if (!field) return;
-      if (engineModeRef.current === 'worker') {
-        //console.log('[form0-react] setValue proxied to setValues', field, value);
-        setValues({ [field]: value });
-        return;
-      }
-      if (!engineRef.current) return;
-      const engineState = engineRef.current.getState();
-      if (engineState.values[field] === value) return;
-      engineState.values[field] = value;
-      evaluateAndSync();
+      if (typeof field !== 'string' || !field)
+        throw new TypeError('A field data_name is required.');
+      setValues({ [field]: value });
     },
-    [evaluateAndSync, setValues]
+    [setValues]
   );
 
   const reset = useCallback(
@@ -860,12 +870,10 @@ export function useFormEngine(
 
         if (type === 'FIELD_OPERATION' && opName === 'SETVALUE') {
           const { fieldDataName, valueToSet } = params || {};
-          if (typeof fieldDataName !== 'string' || fieldDataName.length === 0) {
-            console.warn('form0-react: SETVALUE operation missing fieldDataName.', operation);
-            return;
-          }
-          pendingValueUpdates[fieldDataName] = normalizeSeedValueForField(
-            fieldDataName,
+          if (typeof fieldDataName !== 'string' || fieldDataName.length === 0)
+            throw new TypeError('SETVALUE requires a nonempty field data_name.');
+          pendingValueUpdates[fieldDataName] = normalizeFieldValue(
+            updateFields.get(fieldDataName),
             valueToSet
           );
           return;
@@ -898,7 +906,7 @@ export function useFormEngine(
         setValues(pendingValueUpdates);
       }
     },
-    [setValues, normalizeSeedValueForField]
+    [setValues, updateFields]
   );
 
   const processOperations = useCallback(
@@ -988,6 +996,7 @@ export function useFormEngine(
     engineStore,
     initialRepeatableSignature,
     initialValuesSignature,
+    metadataFieldSignature,
     preparedSchema,
     updateRepeatableState,
   ]);
@@ -1019,8 +1028,8 @@ export function useFormEngine(
 
   useEffect(() => {
     if (!overrideValues || !engineRef.current) return;
-    setValues(overrideValues);
-  }, [overrideSignature, overrideValues, setValues]);
+    applyValueUpdates(overrideValues, true);
+  }, [overrideSignature, overrideValues, applyValueUpdates]);
 
   useEffect(() => {
     const handler = optionsRef.current.onUpdate;
@@ -1110,170 +1119,4 @@ function buildFieldDefinitionMap(form) {
   }
 
   return map;
-}
-
-function coerceChoiceValue(field, rawValue) {
-  const choices = Array.isArray(field?.choices) ? field.choices : [];
-  const match = choices.find((choice) => choice && String(choice.value) === String(rawValue));
-  if (match) {
-    return match.value;
-  }
-  return rawValue;
-}
-
-function lookupChoiceLabel(field, value) {
-  const choices = Array.isArray(field?.choices) ? field.choices : [];
-  const match = choices.find((choice) => choice && String(choice.value) === String(value));
-  if (match && typeof match.label === 'string' && match.label.trim() !== '') {
-    return match.label;
-  }
-  return value != null ? String(value) : '';
-}
-
-function normalizeChoiceEntry(field, entry) {
-  if (entry == null) {
-    return null;
-  }
-
-  if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') {
-    const coercedValue = coerceChoiceValue(field, entry);
-    return {
-      value: coercedValue,
-      label: lookupChoiceLabel(field, coercedValue),
-    };
-  }
-
-  if (typeof entry === 'object') {
-    const value = coerceChoiceValue(
-      field,
-      entry.value != null
-        ? entry.value
-        : typeof entry.label === 'string' && entry.label.trim() !== ''
-          ? entry.label
-          : null
-    );
-    if (value == null) {
-      return null;
-    }
-    const label =
-      typeof entry.label === 'string' && entry.label.trim() !== ''
-        ? entry.label
-        : lookupChoiceLabel(field, value);
-    return {
-      ...entry,
-      value,
-      label,
-    };
-  }
-
-  return null;
-}
-
-function normalizeOtherEntry(entry) {
-  if (entry == null) {
-    return null;
-  }
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim();
-    return trimmed ? { label: trimmed } : null;
-  }
-  if (typeof entry === 'object') {
-    const label =
-      typeof entry.label === 'string' && entry.label.trim() !== ''
-        ? entry.label
-        : entry.value != null
-          ? String(entry.value)
-          : '';
-    return {
-      ...entry,
-      label,
-    };
-  }
-  return null;
-}
-
-function normalizeSingleChoiceValue(field, value) {
-  if (value == null) {
-    return { choice: [], other: [] };
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    const normalizedChoice = normalizeChoiceEntry(field, value);
-    return {
-      choice: normalizedChoice ? [normalizedChoice] : [],
-      other: [],
-    };
-  }
-
-  if (Array.isArray(value)) {
-    const normalizedChoice = value
-      .map((entry) => normalizeChoiceEntry(field, entry))
-      .filter(Boolean);
-    return {
-      choice: normalizedChoice,
-      other: [],
-    };
-  }
-
-  if (typeof value === 'object') {
-    const choiceSource = Array.isArray(value.choice)
-      ? value.choice
-      : Array.isArray(value.choices)
-        ? value.choices
-        : [];
-    const otherSource = Array.isArray(value.other) ? value.other : [];
-    const normalizedChoice = choiceSource
-      .map((entry) => normalizeChoiceEntry(field, entry))
-      .filter(Boolean);
-    const normalizedOther = otherSource.map((entry) => normalizeOtherEntry(entry)).filter(Boolean);
-    return {
-      choice: normalizedChoice,
-      other: normalizedOther,
-    };
-  }
-
-  return { choice: [], other: [] };
-}
-
-function normalizeMultiChoiceValue(field, value) {
-  if (value == null) {
-    return { choices: [], other: [] };
-  }
-
-  if (Array.isArray(value)) {
-    const normalizedChoices = value
-      .map((entry) => normalizeChoiceEntry(field, entry))
-      .filter(Boolean);
-    return {
-      choices: normalizedChoices,
-      other: [],
-    };
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    const normalizedChoice = normalizeChoiceEntry(field, value);
-    return {
-      choices: normalizedChoice ? [normalizedChoice] : [],
-      other: [],
-    };
-  }
-
-  if (typeof value === 'object') {
-    const choiceSource = Array.isArray(value.choices)
-      ? value.choices
-      : Array.isArray(value.choice)
-        ? value.choice
-        : [];
-    const otherSource = Array.isArray(value.other) ? value.other : [];
-    const normalizedChoices = choiceSource
-      .map((entry) => normalizeChoiceEntry(field, entry))
-      .filter(Boolean);
-    const normalizedOther = otherSource.map((entry) => normalizeOtherEntry(entry)).filter(Boolean);
-    return {
-      choices: normalizedChoices,
-      other: normalizedOther,
-    };
-  }
-
-  return { choices: [], other: [] };
 }

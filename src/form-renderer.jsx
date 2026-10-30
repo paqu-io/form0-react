@@ -1485,7 +1485,8 @@ function FormRendererContent({
     overrideValues,
     engineOptions,
     appliedInitialRepeatableSeed,
-    interactionMode
+    interactionMode,
+    recordMetadataFields
   );
 
   const flattenedSchemaFields = useMemo(

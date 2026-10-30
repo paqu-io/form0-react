@@ -8,6 +8,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { field, schema, nestedSchema } from './fixtures/diagnostic-conformance.js';
 import { buildRepeatableInfo } from '../src/utils/repeatable-manager.js';
+import { attachRecordWorker } from '../src/record-context.jsx';
+import { createRecordCoordinator } from '../src/utils/record-coordinator.js';
 
 const workers = new Set();
 class ThreadWorker {
@@ -444,4 +446,26 @@ it('worker media survives unchanged validation/preparation reads without extra e
     cleanup();
     globalThis.Blob = previousBlob;
   }
+});
+
+it('exposed worker setters reject batches before record coordination or transport', async () => {
+  const client = new EngineWorkerClient({ createWorker });
+  await client.init({ schema: nestedSchema, initialValues: { input: 4 } });
+  const coordinator = createRecordCoordinator({
+    schema: nestedSchema,
+    seed: { values: { input: 4 }, repeatable: {} },
+  });
+  attachRecordWorker(client, coordinator, [], { repeatable: () => ({}) });
+  const changed = vi.spyOn(coordinator, 'changed');
+  const sent = client.worker.sent.length;
+  const before = structuredClone(client.getState());
+  for (const updates of [undefined, null, [], { input: 9, typo: 1 }, { result: 999 }])
+    await expect(client.setValues(updates)).rejects.toThrow(TypeError);
+  expect(changed).not.toHaveBeenCalled();
+  expect(client.worker.sent.length).toBe(sent);
+  expect(client.getState()).toEqual(before);
+  await client.setValues({});
+  expect(changed).not.toHaveBeenCalled();
+  expect(client.worker.sent.at(-1).action).toBe('SET_VALUES');
+  client.terminate();
 });

@@ -1,3 +1,4 @@
+import { normalizeUpdates } from './utils/value-updates.js';
 import { useEngineMode } from './use-engine-mode.js';
 import { RecordCoordinatorContext, attachRecordWorker } from './record-context.jsx';
 import { useContext } from 'react';
@@ -575,9 +576,9 @@ export function useRepeatableInstanceEngine({
   );
 
   const setValues = useCallback(
-    (updates = {}) => {
-      const filtered = filterUpdates(updates);
-      if (!filtered || Object.keys(filtered).length === 0) return;
+    (updates) => {
+      const filtered = normalizeUpdates(repInfo?.fields, updates, modeRef.current);
+      if (Object.keys(filtered).length === 0) return;
 
       if (engineModeRef.current === 'worker') {
         if (!workerClientRef.current) {
@@ -610,12 +611,13 @@ export function useRepeatableInstanceEngine({
         evaluateAndSync();
       }
     },
-    [applyOptimisticValues, evaluateAndSync, filterUpdates, sendWorkerValueUpdates]
+    [applyOptimisticValues, evaluateAndSync, repInfo, sendWorkerValueUpdates]
   );
 
   const setValue = useCallback(
     (field, value) => {
-      if (!field) return;
+      if (typeof field !== 'string' || !field)
+        throw new TypeError('A field data_name is required.');
       setValues({ [field]: value });
     },
     [setValues]
@@ -838,8 +840,9 @@ export function useRepeatableInstanceEngine({
       for (const operation of operations) {
         if (operation?.type === 'FIELD_OPERATION' && operation.operation === 'SETVALUE') {
           const { fieldDataName, valueToSet } = operation.params;
-          updates[fieldDataName] = cloneDeep(
-            normalizeChoiceOperationValue(repInfo?.fields?.get(fieldDataName)?.field, valueToSet)
+          updates[fieldDataName] = normalizeChoiceOperationValue(
+            repInfo?.fields?.get(fieldDataName)?.field,
+            valueToSet
           );
         }
       }

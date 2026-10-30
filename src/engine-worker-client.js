@@ -1,3 +1,5 @@
+import { normalizeUpdates, normalizeLoadedValue, scopeFields } from './utils/value-updates.js';
+
 const cloneDiagnostics = (value) => JSON.parse(JSON.stringify(value));
 let nextClientScope = 0;
 function assertWorkerConfiguration(params) {
@@ -191,6 +193,10 @@ export class EngineWorkerClient {
     const scopeId = params.scopeId || `form0-worker-${++nextClientScope}`;
     this.scopeId = scopeId;
     this.mode = params.mode || 'edit';
+    this.valueFields = scopeFields(params.schema, params.eventScope?.instancePath || []);
+    if (!params.eventScope?.instancePath?.length)
+      for (const field of params.metadataFields || [])
+        if (field?.data_name) this.valueFields.set(field.data_name, field);
     this.stateVersion = 0;
     this.diagnostics = [];
     this.diagnosticSequence = 0;
@@ -213,12 +219,34 @@ export class EngineWorkerClient {
     return this.call('RESET', { initialValues, updateVersion, scopeId });
   }
 
-  setValues(updates = {}, meta = {}) {
+  prepareValueUpdates(updates, meta = {}) {
+    return meta.replacement
+      ? Object.fromEntries(
+          Object.entries(updates).map(([name, value]) => [
+            name,
+            normalizeLoadedValue(this.valueFields?.get(name), value),
+          ])
+        )
+      : normalizeUpdates(this.valueFields, updates, this.getMode());
+  }
+
+  setValues(updates, meta = {}) {
+    try {
+      updates = this.prepareValueUpdates(updates, meta);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     const updateVersion = meta?.updateVersion;
-    return this.call('SET_VALUES', {
+    return this.call(meta?.replacement ? 'REPLACE_VALUES' : 'SET_VALUES', {
       updates,
       updateVersion,
     });
+  }
+
+  setValue(dataName, value) {
+    if (typeof dataName !== 'string' || !dataName)
+      return Promise.reject(new TypeError('A field data_name is required.'));
+    return this.setValues({ [dataName]: value });
   }
 
   eval() {
