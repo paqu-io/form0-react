@@ -5,6 +5,7 @@ import {
   createRecordBackend,
   hasRecordCollections,
   applyRecordState,
+  applyClearedFieldUpdates,
 } from './utils/record-coordinator.js';
 
 let engine = null;
@@ -23,6 +24,7 @@ let recordSnapshot = null;
 let recordNames = null;
 let recordPath = [];
 let recordEvaluationSequence = 0;
+let clearedFields = [];
 const recordAborts = new Map();
 const getRecordBackend = () =>
   (recordBackend ||= createRecordBackend({
@@ -31,6 +33,7 @@ const getRecordBackend = () =>
     security: cachedSecurity,
   }));
 async function evaluateEngine() {
+  clearedFields = [];
   const evaluation = ++recordEvaluationSequence;
   const capturedEngine = engine;
   if (!hasRecordCollections(cachedSchema)) {
@@ -86,6 +89,8 @@ async function evaluateEngine() {
   if (capturedEngine !== engine || evaluation !== recordEvaluationSequence) return;
   if (result.status !== 'evaluated')
     throw new Error(result.issues?.[0]?.message || 'Record scope evaluation failed.');
+  clearedFields = result.clearedFields || [];
+  recordSnapshot = applyClearedFieldUpdates(snapshot, clearedFields);
   applyRecordState(engine, result.state);
   self.postMessage({
     kind: 'diagnostics',
@@ -233,12 +238,17 @@ const serializeState = (state) => {
   };
 };
 
-const withState = (state, extra = {}) => ({
-  state: serializeState(state),
-  scopeId: cachedScopeId,
-  stateVersion: ++stateVersion,
-  ...extra,
-});
+const withState = (state, extra = {}) => {
+  const cleared = clearedFields;
+  clearedFields = []; // A later READ_STATE must never replay a prior clearing batch.
+  return {
+    state: serializeState(state),
+    clearedFields: cleared,
+    scopeId: cachedScopeId,
+    stateVersion: ++stateVersion,
+    ...extra,
+  };
+};
 
 const deepClone = (value) => {
   if (typeof structuredClone === 'function') {
