@@ -1,3 +1,4 @@
+import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
 import { SubmissionReview, submissionMessages } from './submission-review.jsx';
@@ -1086,6 +1087,7 @@ function findSectionNodeById(nodes = [], targetId) {
 /**
  * @param {Object} props
  * @param {FormRendererEngineOptions} [props.engineOptions] Construction settings, host observers and operation delegation.
+ * @param {{saveFailures?: boolean, validationBlocks?: boolean}} [props.submissionDiagnostics] Console-only save reporting: failures on, validation blocks off.
  */
 function FormRendererContent({
   schema,
@@ -1099,6 +1101,7 @@ function FormRendererContent({
   submitBlockedReason = null,
   onSubmit,
   submissionOptions,
+  submissionDiagnostics,
   initialFreshness,
   onSnapshotChange,
   mode = 'edit',
@@ -1127,6 +1130,12 @@ function FormRendererContent({
   buildingPlanModalWidthOverride = null,
   ...rest
 }) {
+  const submissionDiagnosticsRef = useRef(submissionDiagnostics);
+  submissionDiagnosticsRef.current = submissionDiagnostics;
+  const submissionReporter = useMemo(
+    () => createSubmissionReporter('form0-react', () => submissionDiagnosticsRef.current),
+    []
+  );
   const [activeDrilldownPath, setActiveDrilldownPath] = useState([]);
   const sectionRefs = useRef(new Map());
   const fieldRefs = useRef(new Map());
@@ -2441,16 +2450,24 @@ function FormRendererContent({
         if (managedSaveBusyRef.current) return;
         managedSaveBusyRef.current = true;
         const closeTarget = rootEvents.captureClose();
+        let stage = 'preparation';
         try {
           const prepared = await submissionReview.prepare('submit');
+          submissionReporter.result('Submit', stage, prepared);
           if (!prepared.eligible || typeof onSubmit !== 'function') return;
+          stage = 'onSubmit';
           await onSubmit(prepared.payload, prepared.meta);
+          stage = 'acknowledgement';
           const acknowledged = rootEvents.controller?.acknowledgeSave({
             preparationId: prepared.preparationId,
           });
-          if (!acknowledged || acknowledged.status === 'completed')
+          submissionReporter.result('Submit', stage, acknowledged);
+          if (!acknowledged || acknowledged.status === 'completed') {
+            stage = 'close';
             await closeOverlayAfterSubmit(closeTarget);
-        } catch {
+          }
+        } catch (error) {
+          submissionReporter.failure('Submit', stage, error);
           recordCoordinator?.cancelPreparation();
           /* Persistence is application-owned; retain the editor for retry. */
         } finally {
@@ -2460,8 +2477,7 @@ function FormRendererContent({
       }
       const validationSummary = rootValidationSummary;
       if (validationSummary?.hasErrors) {
-        console.info('🚀 [RECORD SUBMIT] Starting record submission...');
-        console.log('❌ [RECORD SUBMIT] Submission blocked due to validation errors');
+        submissionReporter.blocked('Submit');
         return;
       }
       if (onSubmit) {
@@ -2510,17 +2526,13 @@ function FormRendererContent({
           validationSummary,
           rawValues,
         };
-        const submitReturn = onSubmit(structuredRecord, meta);
-        if (submitReturn && typeof submitReturn.then === 'function') {
-          submitReturn
-            .then(() => {
-              closeOverlayAfterSubmit();
-            })
-            .catch((error) => {
-              //console.error('[form0-react] onSubmit promise rejected', error);
-            });
-        } else {
-          closeOverlayAfterSubmit();
+        let stage = 'onSubmit';
+        try {
+          await onSubmit(structuredRecord, meta);
+          stage = 'close';
+          await closeOverlayAfterSubmit();
+        } catch (error) {
+          submissionReporter.failure('Submit', stage, error);
         }
       }
     },
@@ -2541,6 +2553,11 @@ function FormRendererContent({
       rootEvents.lifecycle,
       rootEvents.prepare,
       rootEvents.captureClose,
+      rootEvents.record,
+      rootEvents.controller,
+      recordCoordinator,
+      submissionReview.prepare,
+      submissionReporter,
     ]
   );
 
@@ -4399,6 +4416,7 @@ function FormRendererContent({
                 readOnlyEditToggleDisabledReason={readOnlyEditToggleDisabledReason}
                 forceShowNavigationPanel={forceShowNavigationPanel}
                 onSave={handleRepeatableModalSave}
+                submissionReporter={submissionReporter}
                 onCancel={handleRepeatableModalCancel}
                 openNestedModal={openRepeatableModal}
                 resolveRepeatableKey={resolveRepeatableKey}
@@ -4562,6 +4580,7 @@ function RepeatableEntryModal({
   readOnlyEditToggleDisabledReason = null,
   forceShowNavigationPanel = false,
   onSave,
+  submissionReporter,
   onCancel,
   openNestedModal,
   resolveRepeatableKey,
@@ -5361,14 +5380,22 @@ function RepeatableEntryModal({
     setEntrySubmitCount((count) => count + 1);
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
-      const prepared = await rowEvents.prepare('submit');
-      if (prepared.eligible) await onSave(modal, prepared.payload, closeTarget);
+      let stage = 'preparation';
+      try {
+        const prepared = await rowEvents.prepare('submit');
+        submissionReporter.result('Row save', stage, prepared);
+        if (prepared.eligible) {
+          stage = 'row acceptance';
+          await onSave(modal, prepared.payload, closeTarget);
+        }
+      } catch (error) {
+        submissionReporter.failure('Row save', stage, error);
+      }
       return;
     }
     const validationSummary = entryValidationSummary;
     if (validationSummary?.hasErrors) {
-      console.info('📝 [ENTRY SAVE] Attempting to save repeatable entry...');
-      console.log('❌ [ENTRY SAVE] Save blocked due to validation errors');
+      submissionReporter.blocked('Row save');
       return;
     }
     const submissionTimestamp = new Date().toISOString();
@@ -5397,6 +5424,8 @@ function RepeatableEntryModal({
     rowEvents.lifecycle,
     rowEvents.prepare,
     rowEvents.captureClose,
+    rowEvents.record,
+    submissionReporter,
     isEntryReadOnly,
   ]);
 
