@@ -6,6 +6,8 @@ import { Worker as NodeWorker } from 'node:worker_threads';
 import { Blob as NodeBlob } from 'node:buffer';
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { runEventReportingTests } from './event-reporting.fixture.jsx';
+import { repeatable } from './fixtures/diagnostic-conformance.js';
 import { field, schema, nestedSchema } from './fixtures/diagnostic-conformance.js';
 import { buildRepeatableInfo } from '../src/utils/repeatable-manager.js';
 import { attachRecordWorker } from '../src/record-context.jsx';
@@ -468,4 +470,10 @@ it('exposed worker setters reject batches before record coordination or transpor
   expect(changed).not.toHaveBeenCalled();
   expect(client.worker.sent.at(-1).action).toBe('SET_VALUES');
   client.terminate();
+});
+
+const { FormRenderer: FormRendererForReporting } = await import('../dist/index.js');
+runEventReportingTests(FormRendererForReporting, field, repeatable, 'form0-react', {
+  engineMode: 'worker',
+  engineOptions: { createWorker },
 });

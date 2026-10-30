@@ -1087,6 +1087,7 @@ function findSectionNodeById(nodes = [], targetId) {
 /**
  * @param {Object} props
  * @param {FormRendererEngineOptions} [props.engineOptions] Construction settings, host observers and operation delegation.
+ * @param {{failures?: boolean}} [props.eventDiagnostics] Managed event failure console reporting, enabled by default.
  * @param {{saveFailures?: boolean, validationBlocks?: boolean}} [props.submissionDiagnostics] Console-only save reporting: failures on, validation blocks off.
  */
 function FormRendererContent({
@@ -1102,6 +1103,7 @@ function FormRendererContent({
   onSubmit,
   submissionOptions,
   submissionDiagnostics,
+  eventDiagnostics,
   initialFreshness,
   onSnapshotChange,
   mode = 'edit',
@@ -1446,7 +1448,8 @@ function FormRendererContent({
 
   const { session: eventSession, announce: announceEventController } = useEventSession(
     consumerEngineOptions,
-    schema
+    schema,
+    eventDiagnostics
   );
   const eventDispatchRef = useRef(null);
   const managedSaveBusyRef = useRef(false);
