@@ -1,6 +1,7 @@
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
+import { useValidationNavigation } from './use-validation-navigation.js';
 import { SubmissionReview, submissionMessages } from './submission-review.jsx';
 import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
@@ -2769,7 +2770,12 @@ function FormRendererContent({
         : [],
     [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
   );
-  const showNavigationPanel = forceShowNavigationPanel || hasNavigableSections || submitCount > 0;
+  const keepRootValidationNavigation = useValidationNavigation(
+    submitCount,
+    rootValidationSummary?.hasErrors
+  );
+  const showNavigationPanel =
+    forceShowNavigationPanel || hasNavigableSections || keepRootValidationNavigation;
 
   const activeRepeatableListContext = useMemo(() => {
     // Standard RepeatableSection first page
@@ -5688,8 +5694,12 @@ function RepeatableEntryModal({
     ? { role: 'img', 'aria-label': modalStatusLabel }
     : { 'aria-hidden': 'true' };
   const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
+  const keepEntryValidationNavigation = useValidationNavigation(
+    entrySubmitCount,
+    entryValidationSummary?.hasErrors
+  );
   const showModalNavigationPanel =
-    forceShowNavigationPanel || hasModalNavigation || entrySubmitCount > 0;
+    forceShowNavigationPanel || hasModalNavigation || keepEntryValidationNavigation;
 
   const modalLeftAction = nestedListActive
     ? {

@@ -7,6 +7,22 @@ import { field, repeatable } from './fixtures/diagnostic-conformance.js';
 
 afterEach(cleanup);
 
+it('keeps a valid sectionless form compact after successful submission', async () => {
+  const saved = vi.fn();
+  render(
+    <FormRenderer
+      schema={{ form: { name: 'Valid form', elements: [field('TextField', 'answer')] } }}
+      initialValues={{ answer: 'Valid' }}
+      engineOptions={{ events: { lifecycle: false } }}
+      onSubmit={saved}
+    />
+  );
+  expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
+  await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+  expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+});
+
 for (const hidden of [false, true]) {
   it(`keeps Validation visible after resolving the last finding without sections; hidden=${hidden}`, async () => {
     const saved = vi.fn();
@@ -64,6 +80,14 @@ it('keeps the row Validation panel after correcting its last required answer', a
   fireEvent.change(editor.getByLabelText(/^product/), { target: { value: 'Apples' } });
   expect(await editor.findByText('No validation issues.')).toBeTruthy();
   expect(editor.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
+  fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  expect(
+    within(await screen.findByRole('dialog')).queryByRole('navigation', {
+      name: 'Form sidebar',
+    })
+  ).toBeNull();
 });
 
 for (const recovery of [false, true]) {
