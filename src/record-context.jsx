@@ -73,6 +73,7 @@ export function attachRecordEngine(engine, coordinator, path, source, report) {
   };
   const release = coordinator.bind(path, {
     read,
+    canEdit: () => engine.getMode() !== 'readonly',
     signature: createEditorSignature(read),
     apply,
     acknowledged: () => source?.acknowledged?.(),
@@ -133,6 +134,7 @@ export function attachRecordWorker(client, coordinator, path, source = {}) {
   });
   const release = coordinator.bind(path, {
     read,
+    canEdit: () => client.getMode() !== 'readonly',
     signature: createEditorSignature(read),
     async apply(snapshot) {
       await client.applyRecordState(snapshot);
@@ -164,6 +166,8 @@ export function attachRecordWorker(client, coordinator, path, source = {}) {
   if (!path.length)
     coordinator.setBackend({
       evaluateScope: (snapshot, options) => client.evaluateRecordScope(snapshot, options),
+      inspectHiddenValue: (snapshot, options) => client.inspectHiddenValue(snapshot, options),
+      correctHiddenValue: (snapshot, options) => client.correctHiddenValue(snapshot, options),
       prepare: (snapshot, options) => client.prepareRecord(snapshot, options),
       getChanges: (page) => client.recordChanges(page),
       release: releaseRecord,

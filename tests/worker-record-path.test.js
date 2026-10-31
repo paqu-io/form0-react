@@ -8,6 +8,33 @@ const cleanPrototypes = {
   objectValuesAbsent: true,
 };
 
+it('actual worker inspects and corrects a hidden malformed value without revealing it', async () => {
+  const worker = recordWorker();
+  try {
+    const schema = {
+      form: {
+        name: 'Hidden recovery',
+        elements: [field('TextField', 'hidden', { visible: false })],
+      },
+    };
+    await worker.call('INIT', { schema, initialValues: { hidden: 9 } });
+    const snapshot = { values: { hidden: 9 } };
+    const options = { fieldName: 'hidden', instancePath: [] };
+    const inspected = await worker.call('RECORD_INSPECT_HIDDEN', { snapshot, options });
+    expect(inspected.finding.hidden).toBe(true);
+    expect(inspected.value).toBe(9);
+    const corrected = await worker.call('RECORD_CORRECT_HIDDEN', {
+      snapshot,
+      options: { ...options, value: null },
+    });
+    expect(corrected.snapshot.values.hidden).toBeNull();
+    expect(corrected.snapshot.visible.hidden).toBe(false);
+    expect(snapshot.values.hidden).toBe(9);
+  } finally {
+    await worker.terminate();
+  }
+});
+
 function recordWorker() {
   const worker = new Worker(new URL('./fixtures/worker-thread-adapter.js', import.meta.url), {
     workerData: { moduleUrl: new URL('../src/engine-worker.js', import.meta.url).href },

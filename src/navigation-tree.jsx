@@ -112,6 +112,7 @@ export function NavigationTree({
   validationIssues = [],
   validationEnabled = false,
   onSelectValidationIssue,
+  onResolveHiddenValue,
   forceRender = false,
 }) {
   const [issueOffset, setIssueOffset] = useState(0);
@@ -173,26 +174,11 @@ export function NavigationTree({
       <ul className={styles.validationList}>
         {validationIssues.slice(issueOffset, issueOffset + 50).map((issue) => (
           <li key={issue.id} className={styles.validationItem}>
-            <button
-              type="button"
-              className={styles.validationButton}
-              onClick={() => onSelectValidationIssue?.(issue)}
-            >
-              <div className={styles.validationHeader}>
-                <span>{issue.label}</span>
-                <span className={styles.validationField}>
-                  {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
-                </span>
-              </div>
-              <div className={styles.validationMessage}>
-                {(issue.messages && issue.messages.length > 0
-                  ? issue.messages
-                  : ['Validation error']
-                ).map((message, idx) => (
-                  <span key={`${issue.id}-message-${idx}`}>{message}</span>
-                ))}
-              </div>
-            </button>
+            <ValidationFinding
+              issue={issue}
+              onSelect={onSelectValidationIssue}
+              onResolve={onResolveHiddenValue}
+            />
           </li>
         ))}
         <li>
@@ -259,5 +245,55 @@ export function NavigationTree({
         {activeTab === 'validation' ? renderValidation() : renderNavigation()}
       </div>
     </nav>
+  );
+}
+
+function ValidationFinding({ issue, onSelect, onResolve }) {
+  const [busy, setBusy] = useState(false);
+  const content = (
+    <>
+      <div className={styles.validationHeader}>
+        <span>{issue.label}</span>
+        <span className={styles.validationField}>
+          {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
+        </span>
+      </div>
+      <div className={styles.validationMessage}>
+        {(issue.messages?.length ? issue.messages : ['Validation error']).map((message, index) => (
+          <span key={index}>{message}</span>
+        ))}
+      </div>
+    </>
+  );
+  if (!issue.hidden)
+    return (
+      <button type="button" className={styles.validationButton} onClick={() => onSelect?.(issue)}>
+        {content}
+      </button>
+    );
+  return (
+    <div className={styles.validationButton}>
+      {content}
+      <p>
+        This value is hidden. Make the field visible to correct it, or ask the application to
+        resolve it.
+      </p>
+      {onResolve ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onResolve(issue);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Resolving…' : 'Resolve hidden value'}
+        </button>
+      ) : null}
+    </div>
   );
 }

@@ -347,6 +347,12 @@ const ACTIONS = {
   RECORD_EVALUATE_SCOPE(payload) {
     return getRecordBackend().evaluateScope(payload.snapshot, payload.options);
   },
+  RECORD_INSPECT_HIDDEN(payload) {
+    return getRecordBackend().inspectHiddenValue(payload.snapshot, payload.options);
+  },
+  RECORD_CORRECT_HIDDEN(payload) {
+    return getRecordBackend().correctHiddenValue(payload.snapshot, payload.options);
+  },
   async RECORD_PREPARE(payload) {
     const controller = new AbortController();
     recordAborts.set(payload.token, controller);
