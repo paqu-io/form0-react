@@ -2769,8 +2769,7 @@ function FormRendererContent({
         : [],
     [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
   );
-  const showNavigationPanel =
-    forceShowNavigationPanel || hasNavigableSections || showRootValidationList;
+  const showNavigationPanel = forceShowNavigationPanel || hasNavigableSections || submitCount > 0;
 
   const activeRepeatableListContext = useMemo(() => {
     // Standard RepeatableSection first page
@@ -5689,7 +5688,8 @@ function RepeatableEntryModal({
     ? { role: 'img', 'aria-label': modalStatusLabel }
     : { 'aria-hidden': 'true' };
   const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
-  const showModalNavigationPanel = hasModalNavigation || showModalValidationList;
+  const showModalNavigationPanel =
+    forceShowNavigationPanel || hasModalNavigation || entrySubmitCount > 0;
 
   const modalLeftAction = nestedListActive
     ? {

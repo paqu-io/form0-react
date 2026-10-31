@@ -7,6 +7,65 @@ import { field, repeatable } from './fixtures/diagnostic-conformance.js';
 
 afterEach(cleanup);
 
+for (const hidden of [false, true]) {
+  it(`keeps Validation visible after resolving the last finding without sections; hidden=${hidden}`, async () => {
+    const saved = vi.fn();
+    render(
+      <FormRenderer
+        schema={{
+          form: {
+            name: 'Flat form',
+            elements: [
+              field('TextField', 'answer', hidden ? { visible: false } : { required: true }),
+            ],
+          },
+        }}
+        initialValues={{ answer: hidden ? 42 : null }}
+        engineOptions={{ events: { lifecycle: false } }}
+        submissionOptions={{ validateHiddenValues: true }}
+        onResolveHiddenValue={async () => ({ value: null })}
+        onSubmit={saved}
+      />
+    );
+    expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
+    if (hidden) {
+      fireEvent.click(await screen.findByRole('button', { name: 'Resolve hidden value' }));
+    } else {
+      await screen.findAllByText('This field is required');
+      fireEvent.change(screen.getByLabelText(/^answer/), { target: { value: 'fixed' } });
+    }
+    expect(await screen.findByText('No validation issues.')).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
+    await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+    expect(saved.mock.calls[0][0].form_values.answer).toBe(hidden ? null : 'fixed');
+  });
+}
+
+it('keeps the row Validation panel after correcting its last required answer', async () => {
+  render(
+    <FormRenderer
+      schema={{
+        form: {
+          name: 'Order',
+          elements: [repeatable('items', [field('TextField', 'product', { required: true })])],
+        },
+      }}
+      engineOptions={{ events: { lifecycle: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  const editor = within(await screen.findByRole('dialog'));
+  expect(editor.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+  fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
+  await editor.findByText('This field is required');
+  fireEvent.change(editor.getByLabelText(/^product/), { target: { value: 'Apples' } });
+  expect(await editor.findByText('No validation issues.')).toBeTruthy();
+  expect(editor.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
+});
+
 for (const recovery of [false, true]) {
   it(`keeps a new empty row after Add, Save and Submit; recovery=${recovery}`, async () => {
     const save = vi.fn();
@@ -142,7 +201,7 @@ it('shows hidden findings as explanations without dead navigation when no recove
   expect(screen.queryByRole('button', { name: /hidden.*must be a string/ })).toBeNull();
 });
 
-it('keeps stale recovery feedback visible after editing removes the validation sidebar', async () => {
+it('keeps stale recovery feedback visible after editing resets the validation findings', async () => {
   let finish;
   const snapshots = vi.fn();
   const resolve = vi.fn(
