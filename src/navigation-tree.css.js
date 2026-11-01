@@ -8,6 +8,9 @@ export const navigationContainer = style({
   width: '220px',
   maxHeight: 'calc(100vh - var(--form0-sticky-top-offset, 0px))',
   overflowY: 'auto',
+  overflowX: 'hidden',
+  boxSizing: 'border-box',
+  minWidth: 0,
   borderRight: 'none',
   background: vars.color.background,
   padding: vars.spacing.sm,
@@ -232,6 +235,7 @@ export const navigationTabPanel = style({
 });
 
 export const validationList = style({
+  minWidth: 0,
   listStyle: 'none',
   padding: 0,
   margin: 0,
@@ -245,6 +249,10 @@ export const validationItem = style({
 });
 
 export const validationButton = style({
+  boxSizing: 'border-box',
+  minWidth: 0,
+  maxWidth: '100%',
+  overflowWrap: 'anywhere',
   width: '100%',
   textAlign: 'left',
   border: `1px solid rgba(0, 0, 0, 0.08)`,
@@ -269,6 +277,9 @@ export const validationButton = style({
 });
 
 export const validationHeader = style({
+  flexWrap: 'wrap',
+  gap: vars.spacing.xs,
+  minWidth: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -293,4 +304,43 @@ export const validationEmptyState = style({
   fontSize: '0.85rem',
   color: '#6b7280',
   padding: vars.spacing.sm,
+});
+
+export const validationPager = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: vars.spacing.xs,
+  paddingTop: vars.spacing.xs,
+});
+
+export const validationPageCount = style({
+  fontSize: '0.75rem',
+  color: vars.color.foreground,
+  overflowWrap: 'anywhere',
+});
+
+export const validationPageButton = style({
+  appearance: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  width: '2rem',
+  height: '2rem',
+  padding: 0,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.section,
+  color: vars.color.foreground,
+  fontFamily: 'inherit',
+  fontSize: '1.2rem',
+  lineHeight: 1,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover:not(:disabled)': { borderColor: vars.color.primary },
+    '&:focus-visible': { outline: `2px solid ${vars.color.primary}`, outlineOffset: '2px' },
+    '&:disabled': { opacity: 0.4, cursor: 'default' },
+  },
 });

@@ -76,7 +76,7 @@ it('keeps the row Validation panel after correcting its last required answer', a
   const editor = within(await screen.findByRole('dialog'));
   expect(editor.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
   fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
-  await editor.findByText('This field is required');
+  await editor.findAllByText('This field is required');
   fireEvent.change(editor.getByLabelText(/^product/), { target: { value: 'Apples' } });
   expect(await editor.findByText('No validation issues.')).toBeTruthy();
   expect(editor.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
@@ -147,7 +147,7 @@ it('blocks an empty required row and keeps a cancelled new row out of submission
   fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
   const editor = within(await screen.findByRole('dialog'));
   fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
-  expect(await editor.findByText('This field is required')).toBeTruthy();
+  expect(await editor.findAllByText('This field is required')).toBeTruthy();
   expect(save).not.toHaveBeenCalled();
   fireEvent.click(editor.getByRole('button', { name: 'Cancel', exact: true }));
   fireEvent.click(await screen.findByRole('button', { name: 'Yes, discard', exact: true }));

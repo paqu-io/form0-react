@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
+import { getValidationPage, VALIDATION_PAGE_SIZE } from './utils/validation-pagination.js';
 
 const NAVIGATION_INDENT_STEP = 14;
 
@@ -116,7 +117,8 @@ export function NavigationTree({
   forceRender = false,
 }) {
   const [issueOffset, setIssueOffset] = useState(0);
-  useEffect(() => setIssueOffset(0), [validationIssues]);
+  const page = getValidationPage(issueOffset, validationIssues.length);
+  useEffect(() => setIssueOffset(page.offset), [page.offset]);
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -172,7 +174,7 @@ export function NavigationTree({
     }
     return (
       <ul className={styles.validationList}>
-        {validationIssues.slice(issueOffset, issueOffset + 50).map((issue) => (
+        {validationIssues.slice(page.offset, page.end).map((issue) => (
           <li key={issue.id} className={styles.validationItem}>
             <ValidationFinding
               issue={issue}
@@ -181,26 +183,33 @@ export function NavigationTree({
             />
           </li>
         ))}
-        <li>
-          <button
-            type="button"
-            disabled={!issueOffset}
-            onClick={() => setIssueOffset(Math.max(0, issueOffset - 50))}
-          >
-            Previous
-          </button>
-          <span>
-            {issueOffset + 1}–{Math.min(validationIssues.length, issueOffset + 50)} /{' '}
-            {validationIssues.length}
-          </span>
-          <button
-            type="button"
-            disabled={issueOffset + 50 >= validationIssues.length}
-            onClick={() => setIssueOffset(issueOffset + 50)}
-          >
-            Next
-          </button>
-        </li>
+        {page.hasPages && (
+          <li className={styles.validationPager}>
+            <button
+              type="button"
+              className={styles.validationPageButton}
+              aria-label="Previous"
+              title="Previous findings"
+              disabled={!page.hasPrevious}
+              onClick={() => setIssueOffset(page.offset - VALIDATION_PAGE_SIZE)}
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <span className={styles.validationPageCount} aria-live="polite">
+              {page.offset + 1}–{page.end} of {validationIssues.length}
+            </span>
+            <button
+              type="button"
+              className={styles.validationPageButton}
+              aria-label="Next"
+              title="Next findings"
+              disabled={!page.hasNext}
+              onClick={() => setIssueOffset(page.offset + VALIDATION_PAGE_SIZE)}
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </li>
+        )}
       </ul>
     );
   };

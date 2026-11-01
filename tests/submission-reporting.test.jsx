@@ -140,7 +140,7 @@ it('applies the validation preference to nested row Save buttons', async () => {
     expect(validationLog.mock.calls).toEqual([['[form0-react] Row save blocked by validation.']])
   );
   expect(errorLog).not.toHaveBeenCalled();
-  expect(await dialog.findByText(/required/i)).toBeTruthy();
+  expect(await dialog.findAllByText(/required/i)).toBeTruthy();
 });
 
 it('a throwing console reporter cannot prevent another save attempt', async () => {
