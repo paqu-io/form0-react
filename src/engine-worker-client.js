@@ -283,6 +283,12 @@ export class EngineWorkerClient {
   evaluateRecordScope(snapshot, options) {
     return this.call('RECORD_EVALUATE_SCOPE', { snapshot, options });
   }
+  inspectHiddenValue(snapshot, options) {
+    return this.call('RECORD_INSPECT_HIDDEN', { snapshot, options });
+  }
+  correctHiddenValue(snapshot, options) {
+    return this.call('RECORD_CORRECT_HIDDEN', { snapshot, options });
+  }
   async prepareRecord(snapshot, options = {}) {
     const { signal, ...portable } = options;
     const token = `record-${this.nextId}`;

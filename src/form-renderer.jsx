@@ -1,6 +1,7 @@
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
+import { useValidationNavigation } from './use-validation-navigation.js';
 import { SubmissionReview, submissionMessages } from './submission-review.jsx';
 import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
@@ -846,6 +847,7 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLa
         label: truncateLabel(label),
         recordPathLabel: pathLabeler?.(issue.instancePath || []),
         messages: new Set(),
+        hidden: issue.hidden === true,
         sectionPath: fieldToSectionPath?.[dataName] || [],
       };
       grouped.set(key, entry);
@@ -858,6 +860,7 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLa
   return Array.from(grouped.values()).map((entry, index) => ({
     id: `${entry.id}-${index}`,
     fieldName: entry.fieldName,
+    hidden: entry.hidden === true,
     instancePath: entry.instancePath || [],
     label: entry.label,
     sectionPath: entry.sectionPath,
@@ -1101,6 +1104,7 @@ function FormRendererContent({
   externalDirty = false,
   submitBlockedReason = null,
   onSubmit,
+  onResolveHiddenValue,
   submissionOptions,
   submissionDiagnostics,
   eventDiagnostics,
@@ -1145,6 +1149,7 @@ function FormRendererContent({
   const touchedFieldsRef = useRef(new Set());
   const [, setTouchVersion] = useState(0);
   const [submitCount, setSubmitCount] = useState(0);
+  const [hiddenValueRecoveryError, setHiddenValueRecoveryError] = useState(null);
   const [alertQueue, setAlertQueue] = useState([]);
   const [activeAlert, setActiveAlert] = useState(null);
   const loadEventTriggeredRef = useRef(false);
@@ -2765,8 +2770,12 @@ function FormRendererContent({
         : [],
     [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
   );
+  const keepRootValidationNavigation = useValidationNavigation(
+    submitCount,
+    rootValidationSummary?.hasErrors
+  );
   const showNavigationPanel =
-    forceShowNavigationPanel || hasNavigableSections || showRootValidationList;
+    forceShowNavigationPanel || hasNavigableSections || keepRootValidationNavigation;
 
   const activeRepeatableListContext = useMemo(() => {
     // Standard RepeatableSection first page
@@ -3060,6 +3069,7 @@ function FormRendererContent({
 
   const handleValidationIssueSelect = useCallback(
     (issue) => {
+      if (issue?.hidden) return;
       if (issue?.instancePath?.length) {
         let row = recordCoordinator.capture();
         const parentPath = [];
@@ -4354,6 +4364,7 @@ function FormRendererContent({
         {rootEvents.issues?.length ? (
           <p role="alert">{rootEvents.issues.map((issue) => issue.message).join('\n')}</p>
         ) : null}
+        {hiddenValueRecoveryError ? <p role="alert">{hiddenValueRecoveryError}</p> : null}
         <SubmissionReview
           state={submissionReview}
           schema={finalSchema}
@@ -4376,6 +4387,20 @@ function FormRendererContent({
               activeSectionId={activeNavigationSectionId}
               onNavigate={handleNavigate}
               validationIssues={rootValidationIssues}
+              onResolveHiddenValue={
+                interactionMode === 'edit' && typeof onResolveHiddenValue === 'function'
+                  ? async (issue) => {
+                      setHiddenValueRecoveryError(null);
+                      try {
+                        await recordCoordinator.resolveHiddenValue(issue, onResolveHiddenValue);
+                      } catch (error) {
+                        setHiddenValueRecoveryError(
+                          error.message || 'The value could not be resolved.'
+                        );
+                      }
+                    }
+                  : undefined
+              }
               validationEnabled={submitCount > 0}
               onSelectValidationIssue={handleValidationIssueSelect}
               forceRender={forceShowNavigationPanel}
@@ -5669,7 +5694,12 @@ function RepeatableEntryModal({
     ? { role: 'img', 'aria-label': modalStatusLabel }
     : { 'aria-hidden': 'true' };
   const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
-  const showModalNavigationPanel = hasModalNavigation || showModalValidationList;
+  const keepEntryValidationNavigation = useValidationNavigation(
+    entrySubmitCount,
+    entryValidationSummary?.hasErrors
+  );
+  const showModalNavigationPanel =
+    forceShowNavigationPanel || hasModalNavigation || keepEntryValidationNavigation;
 
   const modalLeftAction = nestedListActive
     ? {

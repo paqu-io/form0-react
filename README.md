@@ -87,6 +87,13 @@ Applications can replace or extend field components without forking the package.
 field registry APIs or a `FieldRegistryProvider` to keep application-specific UI outside the form
 engine.
 
+The default `TimeField` uses a text editor for `HH:MM` or `HH:MM:SS`. It preserves incomplete input
+while typing and emits complete minute values with `:00` seconds. Applications can register a
+custom time picker through the same field registry; no picker dependency is required by default.
+
+The validation sidebar displays 15 findings per page. Compact themed pagination appears only when
+there is more than one page, and long labels and messages wrap within the sidebar.
+
 `FormRenderer` also supports consumer-owned state and layout integration:
 
 - `headerAccessory` renders application UI between the form summary and body.

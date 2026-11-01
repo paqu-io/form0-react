@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as styles from './navigation-tree.css.js';
+import { getValidationPage, VALIDATION_PAGE_SIZE } from './utils/validation-pagination.js';
 
 const NAVIGATION_INDENT_STEP = 14;
 
@@ -112,10 +113,12 @@ export function NavigationTree({
   validationIssues = [],
   validationEnabled = false,
   onSelectValidationIssue,
+  onResolveHiddenValue,
   forceRender = false,
 }) {
   const [issueOffset, setIssueOffset] = useState(0);
-  useEffect(() => setIssueOffset(0), [validationIssues]);
+  const page = getValidationPage(issueOffset, validationIssues.length);
+  useEffect(() => setIssueOffset(page.offset), [page.offset]);
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -171,50 +174,42 @@ export function NavigationTree({
     }
     return (
       <ul className={styles.validationList}>
-        {validationIssues.slice(issueOffset, issueOffset + 50).map((issue) => (
+        {validationIssues.slice(page.offset, page.end).map((issue) => (
           <li key={issue.id} className={styles.validationItem}>
-            <button
-              type="button"
-              className={styles.validationButton}
-              onClick={() => onSelectValidationIssue?.(issue)}
-            >
-              <div className={styles.validationHeader}>
-                <span>{issue.label}</span>
-                <span className={styles.validationField}>
-                  {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
-                </span>
-              </div>
-              <div className={styles.validationMessage}>
-                {(issue.messages && issue.messages.length > 0
-                  ? issue.messages
-                  : ['Validation error']
-                ).map((message, idx) => (
-                  <span key={`${issue.id}-message-${idx}`}>{message}</span>
-                ))}
-              </div>
-            </button>
+            <ValidationFinding
+              issue={issue}
+              onSelect={onSelectValidationIssue}
+              onResolve={onResolveHiddenValue}
+            />
           </li>
         ))}
-        <li>
-          <button
-            type="button"
-            disabled={!issueOffset}
-            onClick={() => setIssueOffset(Math.max(0, issueOffset - 50))}
-          >
-            Previous
-          </button>
-          <span>
-            {issueOffset + 1}–{Math.min(validationIssues.length, issueOffset + 50)} /{' '}
-            {validationIssues.length}
-          </span>
-          <button
-            type="button"
-            disabled={issueOffset + 50 >= validationIssues.length}
-            onClick={() => setIssueOffset(issueOffset + 50)}
-          >
-            Next
-          </button>
-        </li>
+        {page.hasPages && (
+          <li className={styles.validationPager}>
+            <button
+              type="button"
+              className={styles.validationPageButton}
+              aria-label="Previous"
+              title="Previous findings"
+              disabled={!page.hasPrevious}
+              onClick={() => setIssueOffset(page.offset - VALIDATION_PAGE_SIZE)}
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <span className={styles.validationPageCount} aria-live="polite">
+              {page.offset + 1}–{page.end} of {validationIssues.length}
+            </span>
+            <button
+              type="button"
+              className={styles.validationPageButton}
+              aria-label="Next"
+              title="Next findings"
+              disabled={!page.hasNext}
+              onClick={() => setIssueOffset(page.offset + VALIDATION_PAGE_SIZE)}
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </li>
+        )}
       </ul>
     );
   };
@@ -259,5 +254,55 @@ export function NavigationTree({
         {activeTab === 'validation' ? renderValidation() : renderNavigation()}
       </div>
     </nav>
+  );
+}
+
+function ValidationFinding({ issue, onSelect, onResolve }) {
+  const [busy, setBusy] = useState(false);
+  const content = (
+    <>
+      <div className={styles.validationHeader}>
+        <span>{issue.label}</span>
+        <span className={styles.validationField}>
+          {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
+        </span>
+      </div>
+      <div className={styles.validationMessage}>
+        {(issue.messages?.length ? issue.messages : ['Validation error']).map((message, index) => (
+          <span key={index}>{message}</span>
+        ))}
+      </div>
+    </>
+  );
+  if (!issue.hidden)
+    return (
+      <button type="button" className={styles.validationButton} onClick={() => onSelect?.(issue)}>
+        {content}
+      </button>
+    );
+  return (
+    <div className={styles.validationButton}>
+      {content}
+      <p>
+        This value is hidden. Make the field visible to correct it, or ask the application to
+        resolve it.
+      </p>
+      {onResolve ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onResolve(issue);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Resolving…' : 'Resolve hidden value'}
+        </button>
+      ) : null}
+    </div>
   );
 }
