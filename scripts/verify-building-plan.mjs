@@ -73,10 +73,37 @@ const browser = await chromium.launch({
 const { createBuildingPlanSession, writeBuildingPlanRecord, readBuildingPlanRecord } = await import(
   core
 );
+async function canvasBox(canvas) {
+  const box = await canvas.boundingBox();
+  const offset = await canvas.evaluate((element) => {
+    const ctx = element.getContext('2d');
+    const matrix = ctx.buildingPlanView || ctx.getTransform();
+    return { x: matrix.e, y: matrix.f };
+  });
+  return { ...box, x: box.x + offset.x, y: box.y + offset.y };
+}
 const evidence = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   page.setDefaultTimeout(10000);
+  // This renderer restores the context transform after painting. Capture the scene transform
+  // immediately after its clear so real pointer coordinates and pixel samples use that view.
+  await page.addInitScript(() => {
+    const prototype = CanvasRenderingContext2D.prototype;
+    const clear = prototype.clearRect,
+      transform = prototype.setTransform;
+    prototype.clearRect = function (...args) {
+      this.captureBuildingPlanView = true;
+      return clear.apply(this, args);
+    };
+    prototype.setTransform = function (a, b, c, d, e, f) {
+      if (this.captureBuildingPlanView) {
+        this.buildingPlanView = { a, b, c, d, e, f };
+        this.captureBuildingPlanView = false;
+      }
+      return transform.call(this, a, b, c, d, e, f);
+    };
+  });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.stack));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -87,7 +114,7 @@ try {
   await floor.getByRole('button', { name: 'Draw Room', exact: true }).click();
   const canvas = floor.locator('canvas');
   await canvas.scrollIntoViewIfNeeded();
-  const box = await canvas.boundingBox();
+  const box = await canvasBox(canvas);
   const baseline = await page.evaluate(() => JSON.stringify(window.snapshot.repeatable));
   await page.mouse.move(box.x + 80, box.y + 80);
   await page.mouse.wheel(0, -160);
@@ -141,7 +168,7 @@ try {
   });
   const rootCanvas = page.locator('canvas');
   await rootCanvas.scrollIntoViewIfNeeded();
-  const rootBox = await rootCanvas.boundingBox();
+  const rootBox = await canvasBox(rootCanvas);
   await page.mouse.click(rootBox.x + 120, rootBox.y + 120);
   await page.getByRole('dialog', { name: 'Rooms', exact: true }).waitFor();
   assert.equal(
@@ -230,18 +257,44 @@ try {
   const sharedDialog = page.getByRole('dialog', { name: 'Floors', exact: true });
   const sharedCanvas = sharedDialog.locator('canvas');
   await sharedCanvas.scrollIntoViewIfNeeded();
-  let sharedBox = await sharedCanvas.boundingBox();
+  let sharedBox = await canvasBox(sharedCanvas);
   async function openSharedRoom() {
     await sharedCanvas.scrollIntoViewIfNeeded();
-    const currentBox = await sharedCanvas.boundingBox();
+    const currentBox = await canvasBox(sharedCanvas);
     await page.mouse.click(currentBox.x + 40, currentBox.y + 25);
     const roomDialog = page.getByRole('dialog', { name: 'Rooms', exact: true });
     await roomDialog.waitFor();
     await roomDialog.locator('canvas').scrollIntoViewIfNeeded();
-    sharedBox = await roomDialog.locator('canvas').boundingBox();
+    sharedBox = await canvasBox(roomDialog.locator('canvas'));
     return roomDialog;
   }
   let activeRoom = await openSharedRoom();
+  const colors = await activeRoom.locator('canvas').evaluate((element) => {
+    const ctx = element.getContext('2d');
+    const m = ctx.buildingPlanView || ctx.getTransform();
+    const pixel = (x, y) =>
+      [...ctx.getImageData(Math.round(x * m.a + m.e), Math.round(y * m.d + m.f), 1, 1).data].slice(
+        0,
+        3
+      );
+    return {
+      frame: { x: m.e, y: m.f, scale: m.a },
+      exterior: pixel(-2, -2),
+      material: pixel(30, 62),
+      door: pixel(81, 62),
+      above: pixel(81, 57),
+      below: pixel(81, 67),
+    };
+  });
+  assert.deepEqual(colors.exterior, [68, 68, 68], JSON.stringify(colors));
+  assert.deepEqual(colors.material, [68, 68, 68]);
+  assert.deepEqual(colors.door, [43, 138, 62]);
+  assert.notDeepEqual(colors.above, colors.door);
+  assert.notDeepEqual(colors.below, colors.door);
+  evidence.push({
+    scenario: 'shared wall material and one canonical opening occupy the actual thickness',
+    passed: true,
+  });
   // Capture actual black/blue strokes, checking both the compound jog and the old extra edge.
   await page.evaluate(() => {
     window.wallStrokes = [];
@@ -326,12 +379,12 @@ try {
   await activeRoom.getByRole('button', { name: 'Cancel', exact: true }).click();
   await activeRoom.waitFor({ state: 'detached' });
   await sharedCanvas.scrollIntoViewIfNeeded();
-  const floorBox = await sharedCanvas.boundingBox();
+  const floorBox = await canvasBox(sharedCanvas);
   await page.mouse.click(floorBox.x + 130, floorBox.y + 100);
   const secondRoom = page.getByRole('dialog', { name: 'Rooms', exact: true });
   await secondRoom.waitFor();
   await secondRoom.locator('canvas').scrollIntoViewIfNeeded();
-  let secondBox = await secondRoom.locator('canvas').boundingBox();
+  let secondBox = await canvasBox(secondRoom.locator('canvas'));
   let remove = false,
     prompts = 0;
   page.on('dialog', (dialog) => {
@@ -341,7 +394,7 @@ try {
   });
   async function cutOpening() {
     await secondRoom.locator('canvas').scrollIntoViewIfNeeded();
-    secondBox = await secondRoom.locator('canvas').boundingBox();
+    secondBox = await canvasBox(secondRoom.locator('canvas'));
     await page.keyboard.down('Alt');
     await page.mouse.move(secondBox.x + 60, secondBox.y + 100);
     await page.mouse.down();
@@ -350,10 +403,10 @@ try {
     await page.keyboard.up('Alt');
     await page.waitForTimeout(150);
   }
-  const surfaceBefore = await secondRoom.locator('canvas').boundingBox();
+  const surfaceBefore = await canvasBox(secondRoom.locator('canvas'));
   await cutOpening();
   assert.equal(prompts, 1);
-  const surfaceAfter = await secondRoom.locator('canvas').boundingBox();
+  const surfaceAfter = await canvasBox(secondRoom.locator('canvas'));
   assert.equal(
     surfaceAfter.y,
     surfaceBefore.y,
@@ -398,7 +451,7 @@ try {
     [[40, 72], [40, 56], true],
   ]) {
     await activeRoom.locator('canvas').scrollIntoViewIfNeeded();
-    const box = await activeRoom.locator('canvas').boundingBox();
+    const box = await canvasBox(activeRoom.locator('canvas'));
     if (bypass) await page.keyboard.down('Alt');
     await page.mouse.move(box.x + from[0], box.y + from[1]);
     await page.mouse.down();

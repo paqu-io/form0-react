@@ -814,6 +814,7 @@ export class BuildingPlanCanvas {
 
       this.rooms = snapshot.rooms || [];
       this.walls = snapshot.walls || [];
+      this.wallFootprints = snapshot.wallFootprints;
       this.columns = snapshot.columns || [];
       this.beams = snapshot.beams || [];
       this.doors = snapshot.doors || [];
@@ -822,6 +823,16 @@ export class BuildingPlanCanvas {
       this.activeFloorIndex =
         typeof snapshot.activeFloorIndex === 'number' ? snapshot.activeFloorIndex : 0;
       this.hasFloors = this.floors.length > 0;
+      if (prevFloorCount === 0 && this.hasFloors && this.wallFootprints?.length) {
+        // Initial framing includes material outside room faces at the floor origin.
+        // Later previews and completed gestures never recenter the viewport.
+        const points = this.wallFootprints.flatMap((wall) => wall.polygons.flat());
+        if (points.length)
+          this.panOffset = {
+            x: Math.max(0, 8 - Math.min(...points.map((point) => point.x))),
+            y: Math.max(0, 8 - Math.min(...points.map((point) => point.y))),
+          };
+      }
 
       // Auto-select a primary room (preferring non-dimmed) when none is selected.
       if (!this.selectedRoomId && Array.isArray(this.rooms) && this.rooms.length > 0) {
@@ -1667,6 +1678,9 @@ export class BuildingPlanCanvas {
         wall.previewPoints = roundedPoints;
         state.previewPoints = roundedPoints;
       } else if (state.type === 'resize') {
+        // A click within a handle's tolerance is still a click, even off its exact centre.
+        if (!state.moved && distance(point, state.pointerStart) <= 1) return;
+        state.moved = true;
         const snappedPoint = wall.isBoundary
           ? {
               x: Math.round(point.x / (this.gridSize / 10)) * (this.gridSize / 10),
@@ -1696,11 +1710,6 @@ export class BuildingPlanCanvas {
               bypass: Boolean(this.lastPointerEvent?.altKey),
             }
           );
-        }
-
-        const basePoint = state.originalPoints[state.handleIndex];
-        if (!state.moved && (basePoint.x !== snappedPoint.x || basePoint.y !== snappedPoint.y)) {
-          state.moved = true;
         }
 
         const roundedPoints = roundPoints(newPoints);
@@ -2515,11 +2524,18 @@ export class BuildingPlanCanvas {
         return;
       }
 
+      const inMaterial = this.wallFootprints
+        ?.find((entry) => entry.id === wall.physicalWallId)
+        ?.polygons.some((vertices) => pointInRoom(point, { vertices }));
       for (let index = 0; index < renderedPoints.length - 1; index += 1) {
         const start = renderedPoints[index];
         const end = renderedPoints[index + 1];
         const distanceToSegment = pointToSegmentDistance(point, start, end);
-        if (distanceToSegment < bestDistance) {
+        const along = projectScalarToSegment(point, start, end);
+        if (
+          distanceToSegment < bestDistance ||
+          (inMaterial && !bestMatch && along >= 0 && along <= 1)
+        ) {
           const ratio = clamp(projectScalarToSegment(point, start, end), 0, 1);
           bestDistance = distanceToSegment;
           bestMatch = {
@@ -2702,14 +2718,14 @@ export class BuildingPlanCanvas {
 
     this.rooms.forEach((room) => this.drawRoom(room));
 
+    this.drawPhysicalWalls();
     this.walls.forEach((wall) => this.drawWall(wall));
     this.drawAlignmentGuides();
 
     this.beams.forEach((beam) => this.drawBeam(beam));
     this.columns.forEach((column) => this.drawColumn(column));
 
-    this.doors.forEach((door) => this.drawOpening(door, 'door'));
-    this.windows.forEach((window) => this.drawOpening(window, 'window'));
+    this.drawOpenings();
 
     if (this.wallDraft && this.wallDraft.start && this.wallDraft.end) {
       this.drawDraftWall(this.wallDraft.start, this.wallDraft.end);
@@ -3337,6 +3353,61 @@ export class BuildingPlanCanvas {
     ctx.restore();
   }
 
+  drawPhysicalWalls() {
+    if (!this.wallFootprints) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = '#444';
+    ctx.strokeStyle = '#444';
+    ctx.beginPath();
+    for (const wall of this.wallFootprints) {
+      // Opaque fills compose valid junctions without double-stroked interior seams.
+      for (const polygon of wall.polygons) {
+        if (!polygon.length) continue;
+        ctx.moveTo(polygon[0].x, polygon[0].y);
+        for (const point of polygon.slice(1)) ctx.lineTo(point.x, point.y);
+        ctx.closePath();
+      }
+    }
+    ctx.fill();
+    for (const wall of this.wallFootprints) {
+      for (const segment of wall.schematicSegments) {
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1 / this.zoomLevel;
+        ctx.moveTo(segment.points[0].x, segment.points[0].y);
+        ctx.lineTo(segment.points[1].x, segment.points[1].y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  drawOpenings() {
+    for (const [type, collection] of [
+      ['door', this.doors],
+      ['window', this.windows],
+    ]) {
+      for (const opening of collection) opening._labelRect = null;
+      const chosen = new Map();
+      for (const opening of collection) {
+        const key = opening.subjectId || opening.id;
+        const previous = chosen.get(key);
+        const selected = type === 'door' ? this.selectedDoorId : this.selectedWindowId;
+        if (
+          !previous ||
+          opening.id === selected ||
+          (previous.id !== selected &&
+            (previous.isDimmed ||
+              opening.roomId === (this.controller?.getActiveRoomId?.() || this.selectedRoomId)))
+        )
+          chosen.set(key, opening);
+      }
+      for (const opening of chosen.values()) this.drawOpening(opening, type);
+    }
+  }
+
   drawWall(wall) {
     const ctx = this.ctx;
     const points = this.getRenderedWallPoints(wall);
@@ -3360,7 +3431,7 @@ export class BuildingPlanCanvas {
     for (let i = 1; i < points.length; i += 1) {
       ctx.lineTo(points[i].x, points[i].y);
     }
-    ctx.stroke();
+    if (!this.wallFootprints || this.selectedWallId === wall.id) ctx.stroke();
     ctx.restore();
 
     if (this.selectedWallId === wall.id) {
@@ -3427,7 +3498,8 @@ export class BuildingPlanCanvas {
     const wall = this.walls.find((entry) => entry.id === opening.wallId);
     if (!wall) return null;
 
-    const wallPoints = this.getRenderedWallPoints(wall);
+    const wallPoints =
+      opening.physical && wall.axisPoints ? wall.axisPoints : this.getRenderedWallPoints(wall);
     if (!Array.isArray(wallPoints) || wallPoints.length < 2) {
       return null;
     }
@@ -3523,7 +3595,11 @@ export class BuildingPlanCanvas {
     }
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
+    ctx.lineCap = opening.physical ? 'butt' : 'round';
+    if (opening.physical?.thickness > 0) {
+      // The opening occupies the full host band; keep the existing door/window colours.
+      ctx.lineWidth = opening.physical.thickness * this.gridSize;
+    }
     ctx.beginPath();
     ctx.moveTo(geometry.startPoint.x, geometry.startPoint.y);
     ctx.lineTo(geometry.endPoint.x, geometry.endPoint.y);
