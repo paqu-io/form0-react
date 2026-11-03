@@ -291,6 +291,12 @@ export function BuildingPlanCanvasHost({
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
   const [issues, setIssues] = useState([]);
+  const [editingPolicy, setEditingPolicy] = useState({ snapping: true, edgeAutoPan: true });
+  const editingPolicyRef = useRef(editingPolicy);
+  editingPolicyRef.current = editingPolicy;
+  useEffect(() => {
+    controllerRef.current?.setEditingPolicy?.(editingPolicy);
+  }, [editingPolicy]);
 
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
@@ -353,6 +359,7 @@ export function BuildingPlanCanvasHost({
       metaEntry?.version === 1
         ? new BuildingPlanCanvasController({
             meta: metaEntry,
+            editingPolicy: editingPolicyRef.current,
             readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
             writeRecord: (record, command) =>
               repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
@@ -514,8 +521,12 @@ export function BuildingPlanCanvasHost({
   return (
     <div className="building-plan-canvas-host">
       {issues.length > 0 && (
-        <div role="status" className="building-plan-conflict">
-          {issues.map((issue) => issue.message).join(' ')}
+        <div
+          role="status"
+          className="building-plan-conflict"
+          data-diagnostics={JSON.stringify(issues)}
+        >
+          {issues[0].message}
         </div>
       )}
       {repeatableApi.editor && (
@@ -540,6 +551,16 @@ export function BuildingPlanCanvasHost({
           >
             Redo
           </button>
+          {['snapping', 'edgeAutoPan'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={editingPolicy[key]}
+              onClick={() => setEditingPolicy((policy) => ({ ...policy, [key]: !policy[key] }))}
+            >
+              {key === 'snapping' ? 'Magnetic alignment' : 'Edge auto-pan'}
+            </button>
+          ))}
         </div>
       )}
       <BuildingPlanToolbar

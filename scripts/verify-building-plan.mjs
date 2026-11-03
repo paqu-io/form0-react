@@ -70,6 +70,9 @@ const browser = await chromium.launch({
     ? { executablePath: process.env.FORM0_CHROMIUM_EXECUTABLE }
     : {}),
 });
+const { createBuildingPlanSession, writeBuildingPlanRecord, readBuildingPlanRecord } = await import(
+  core
+);
 const evidence = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
@@ -167,6 +170,146 @@ try {
   assert.deepEqual(restored, saved.snapshot.repeatable);
   evidence.push({
     scenario: 'saved canonical layout reloads without changing row or subject identities',
+    passed: true,
+  });
+  // Repeat the shared-face regressions through the actual React pointer adapter.
+  const fixture = await page.evaluate(() => window.fixture);
+  const shared = createBuildingPlanSession();
+  const floorId = shared.apply({
+    type: 'create_floor',
+    values: {
+      floor_name: { choice: [{ value: 'ground_floor', label: 'Ground Floor' }], other: [] },
+      floor_elevation_m: 0,
+      floor_height_m: 3,
+    },
+    defaults: { wall_height_m: 3 },
+  }).created.id;
+  for (const rectangle of [
+    { x: 0, y: 0, width: 5, height: 3 },
+    { x: 3, y: 3.2, width: 5, height: 3 },
+  ])
+    shared.apply({
+      type: 'create_room',
+      floorId,
+      rectangle,
+      values: { room_name: { choice: [{ value: 'bedroom', label: 'Bedroom' }], other: [] } },
+    });
+  const sharedFloor = shared.getSnapshot().floors[0];
+  assert.equal(
+    shared.apply({
+      type: 'bind_faces',
+      floorId,
+      referenceFaceId: sharedFloor.rooms[0].faces[2].id,
+      faceId: sharedFloor.rooms[1].faces[0].id,
+    }).status,
+    'applied'
+  );
+  const sharedRecord = writeBuildingPlanRecord({ meta: fixture.meta, plan: shared.getSnapshot() });
+  await page.evaluate(
+    (record) =>
+      localStorage.setItem(
+        'building-plan-record',
+        JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+      ),
+    sharedRecord
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  const sharedDialog = page.getByRole('dialog', { name: 'Floors', exact: true });
+  const sharedCanvas = sharedDialog.locator('canvas');
+  await sharedCanvas.scrollIntoViewIfNeeded();
+  let sharedBox = await sharedCanvas.boundingBox();
+  async function openSharedRoom() {
+    await sharedCanvas.scrollIntoViewIfNeeded();
+    const currentBox = await sharedCanvas.boundingBox();
+    await page.mouse.click(currentBox.x + 40, currentBox.y + 25);
+    const roomDialog = page.getByRole('dialog', { name: 'Rooms', exact: true });
+    await roomDialog.waitFor();
+    await roomDialog.locator('canvas').scrollIntoViewIfNeeded();
+    sharedBox = await roomDialog.locator('canvas').boundingBox();
+    return roomDialog;
+  }
+  let activeRoom = await openSharedRoom();
+  // Capture actual black/blue strokes, checking both the compound jog and the old extra edge.
+  await page.evaluate(() => {
+    window.wallStrokes = [];
+    const p = CanvasRenderingContext2D.prototype;
+    const begin = p.beginPath,
+      move = p.moveTo,
+      line = p.lineTo,
+      stroke = p.stroke;
+    p.beginPath = function (...args) {
+      this.wallPath = [];
+      return begin.apply(this, args);
+    };
+    p.moveTo = function (x, y) {
+      this.wallPath?.push({ x, y, move: true });
+      return move.call(this, x, y);
+    };
+    p.lineTo = function (x, y) {
+      this.wallPath?.push({ x, y });
+      return line.call(this, x, y);
+    };
+    p.stroke = function (...args) {
+      if (this.canvas === document.querySelector('[role="dialog"][aria-label="Rooms"] canvas'))
+        window.wallStrokes.push({ style: this.strokeStyle, points: [...(this.wallPath || [])] });
+      return stroke.apply(this, args);
+    };
+  });
+  const wallState = () =>
+    page.evaluate(() => ({ snapshot: window.snapshot, strokes: window.wallStrokes }));
+  for (const [from, to, bypass] of [
+    [60, 64, true],
+    [64, 56, true],
+    [56, 62, false],
+  ]) {
+    if (bypass) await page.keyboard.down('Alt');
+    await page.mouse.move(sharedBox.x + 40, sharedBox.y + from);
+    await page.mouse.down();
+    await page.mouse.move(sharedBox.x + 40, sharedBox.y + to, { steps: 8 });
+    await page.mouse.up();
+    if (bypass) await page.keyboard.up('Alt');
+    await page.waitForTimeout(150);
+    assert.equal(
+      await page.getByRole('dialog', { name: 'Walls', exact: true }).count(),
+      0,
+      'Dragging must not navigate'
+    );
+    // Save to observe the canonical accepted output, then reopen the ordinary floor editor.
+    await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+    await activeRoom.waitFor({ state: 'detached' });
+    await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await sharedDialog.waitFor({ state: 'detached' });
+    const accepted = await wallState();
+    const plan = readBuildingPlanRecord({
+      meta: fixture.meta,
+      record: { values: {}, repeatable: accepted.snapshot.repeatable },
+    });
+    assert.equal(plan.floors[0].rooms[1].faces.length, bypass ? 6 : 4);
+    assert.equal(plan.floors[0].walls.length, bypass ? 9 : 7);
+    for (const stroke of accepted.strokes)
+      for (let i = 1; i < stroke.points.length; i++) {
+        const a = stroke.points[i - 1],
+          b = stroke.points[i];
+        if (!b.move && ['#343a40', '#3a6fb0', '#1b4b91'].includes(stroke.style))
+          assert.ok(
+            Math.abs(a.x - b.x) < 1e-6 || Math.abs(a.y - b.y) < 1e-6,
+            'No diagonal wall or room stroke'
+          );
+      }
+    await page.getByRole('button', { name: 'View', exact: true }).last().click();
+    await sharedDialog.waitFor();
+    activeRoom = await openSharedRoom();
+  }
+  const magnet = activeRoom.getByRole('button', { name: 'Magnetic alignment', exact: true });
+  await magnet.click();
+  assert.equal(await magnet.getAttribute('aria-pressed'), 'false');
+  await magnet.click();
+  assert.equal(await magnet.getAttribute('aria-pressed'), 'true');
+  evidence.push({
+    scenario:
+      'shared jogs expose six rows, draw orthogonal paths, realign magnetically and preserve standard Save controls',
     passed: true,
   });
   assert.deepEqual(errors, []);
