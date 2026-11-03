@@ -360,6 +360,10 @@ export function BuildingPlanCanvasHost({
         ? new BuildingPlanCanvasController({
             meta: metaEntry,
             editingPolicy: editingPolicyRef.current,
+            confirmOpeningRemoval: (issue) =>
+              globalThis.confirm?.(
+                `${issue.message}\n\n${issue.observationIds.length ? `This also deletes ${issue.observationIds.length} associated observation(s).\n\n` : ''}Keep this position and remove the opening(s)?`
+              ) === true,
             readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
             writeRecord: (record, command) =>
               repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
@@ -520,15 +524,6 @@ export function BuildingPlanCanvasHost({
 
   return (
     <div className="building-plan-canvas-host">
-      {issues.length > 0 && (
-        <div
-          role="status"
-          className="building-plan-conflict"
-          data-diagnostics={JSON.stringify(issues)}
-        >
-          {issues[0].message}
-        </div>
-      )}
       {repeatableApi.editor && (
         <div className="building-plan-toolbar">
           <button
@@ -580,6 +575,15 @@ export function BuildingPlanCanvasHost({
           disabled={readOnly}
         />
       </div>
+      {issues.length > 0 && (
+        <div
+          role="status"
+          className="building-plan-conflict"
+          data-diagnostics={JSON.stringify(issues)}
+        >
+          {issues[0].message}
+        </div>
+      )}
     </div>
   );
 }

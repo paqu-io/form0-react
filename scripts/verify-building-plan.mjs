@@ -204,6 +204,17 @@ try {
     }).status,
     'applied'
   );
+  const sharedDoor = shared.apply({
+    type: 'create_opening',
+    floorId,
+    wallId: sharedFloor.rooms[0].faces[2].wallId,
+    kind: 'door',
+    offset: 3.5,
+    width: 0.9,
+    height: 2,
+    values: { door_label: 'Shared door' },
+  });
+  assert.equal(sharedDoor.status, 'applied');
   const sharedRecord = writeBuildingPlanRecord({ meta: fixture.meta, plan: shared.getSnapshot() });
   await page.evaluate(
     (record) =>
@@ -310,6 +321,106 @@ try {
   evidence.push({
     scenario:
       'shared jogs expose six rows, draw orthogonal paths, realign magnetically and preserve standard Save controls',
+    passed: true,
+  });
+  await activeRoom.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await activeRoom.waitFor({ state: 'detached' });
+  await sharedCanvas.scrollIntoViewIfNeeded();
+  const floorBox = await sharedCanvas.boundingBox();
+  await page.mouse.click(floorBox.x + 130, floorBox.y + 100);
+  const secondRoom = page.getByRole('dialog', { name: 'Rooms', exact: true });
+  await secondRoom.waitFor();
+  await secondRoom.locator('canvas').scrollIntoViewIfNeeded();
+  let secondBox = await secondRoom.locator('canvas').boundingBox();
+  let remove = false,
+    prompts = 0;
+  page.on('dialog', (dialog) => {
+    prompts++;
+    assert.match(dialog.message(), /Shared door/);
+    return remove ? dialog.accept() : dialog.dismiss();
+  });
+  async function cutOpening() {
+    await secondRoom.locator('canvas').scrollIntoViewIfNeeded();
+    secondBox = await secondRoom.locator('canvas').boundingBox();
+    await page.keyboard.down('Alt');
+    await page.mouse.move(secondBox.x + 60, secondBox.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(secondBox.x + 80, secondBox.y + 100, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up('Alt');
+    await page.waitForTimeout(150);
+  }
+  const surfaceBefore = await secondRoom.locator('canvas').boundingBox();
+  await cutOpening();
+  assert.equal(prompts, 1);
+  const surfaceAfter = await secondRoom.locator('canvas').boundingBox();
+  assert.equal(
+    surfaceAfter.y,
+    surfaceBefore.y,
+    'Conflict feedback must not move the drawing surface'
+  );
+  remove = true;
+  await cutOpening();
+  assert.equal(prompts, 2);
+  await secondRoom.getByRole('button', { name: 'Save', exact: true }).click();
+  await secondRoom.waitFor({ state: 'detached' });
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const removed = await page.evaluate(() => window.snapshot.repeatable);
+  const removedPlan = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: removed },
+  });
+  assert.equal(removedPlan.floors[0].walls.flatMap((wall) => wall.doors).length, 0);
+  assert.equal(removedPlan.floors[0].rooms[1].vertices[0].x, 4);
+  evidence.push({
+    scenario:
+      'a partial opening cut offers cancel or explicit removal through the existing nested editor workflow',
+    passed: true,
+  });
+  await page.evaluate(
+    (record) =>
+      localStorage.setItem(
+        'building-plan-record',
+        JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+      ),
+    sharedRecord
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  await sharedDialog.waitFor();
+  activeRoom = await openSharedRoom();
+  for (const [from, to, bypass] of [
+    [[40, 60], [40, 72], true],
+    [[100, 30], [92, 30], true],
+    [[92, 30], [95.4, 30], false],
+    [[40, 72], [40, 56], true],
+  ]) {
+    await activeRoom.locator('canvas').scrollIntoViewIfNeeded();
+    const box = await activeRoom.locator('canvas').boundingBox();
+    if (bypass) await page.keyboard.down('Alt');
+    await page.mouse.move(box.x + from[0], box.y + from[1]);
+    await page.mouse.down();
+    await page.mouse.move(box.x + to[0], box.y + to[1], { steps: 8 });
+    await page.mouse.up();
+    if (bypass) await page.keyboard.up('Alt');
+    await page.waitForTimeout(150);
+  }
+  assert.equal(await page.getByRole('dialog', { name: 'Walls', exact: true }).count(), 0);
+  await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+  await activeRoom.waitFor({ state: 'detached' });
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const junctionPlan = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+  });
+  assert.equal(junctionPlan.floors[0].rooms[0].vertices[1].x, 4.8);
+  assert.equal(junctionPlan.floors[0].rooms[1].vertices.length, 6);
+  evidence.push({
+    scenario:
+      'the exact W3/W2 shared-contact sequence snaps stably and saves without the narrow dent',
     passed: true,
   });
   assert.deepEqual(errors, []);

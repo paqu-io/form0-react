@@ -1178,6 +1178,7 @@ export class BuildingPlanCanvas {
         this.wallDragState = {
           type: 'resize',
           wallId: wall.id,
+          physicalWallId: wall.physicalWallId,
           handleIndex: index,
           originalPoints: basePoints,
           pointerStart: point,
@@ -1411,6 +1412,7 @@ export class BuildingPlanCanvas {
       this.wallDragState = {
         type: 'move',
         wallId: wall.id,
+        physicalWallId: wall.physicalWallId,
         pointerStart: point,
         originalPoints: basePoints,
         moved: false,
@@ -1655,7 +1657,7 @@ export class BuildingPlanCanvas {
           wall.isBoundary && this.controller?.interaction
             ? this.controller.interaction.snapTranslation(newPoints, {
                 roomId: room.id,
-                physicalWallId: wall.physicalWallId,
+                physicalWallId: state.physicalWallId,
                 zoom: this.zoomLevel,
                 originalPoints: state.originalPoints,
                 bypass: Boolean(this.lastPointerEvent?.altKey),
@@ -1688,7 +1690,7 @@ export class BuildingPlanCanvas {
             })),
             {
               roomId: room.id,
-              physicalWallId: wall.physicalWallId,
+              physicalWallId: state.physicalWallId,
               zoom: this.zoomLevel,
               originalPoints: state.originalPoints,
               bypass: Boolean(this.lastPointerEvent?.altKey),
