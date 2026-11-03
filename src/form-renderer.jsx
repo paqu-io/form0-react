@@ -6297,7 +6297,7 @@ function RepeatableEntryModal({
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'minmax(360px, 1fr) minmax(360px, 1fr)',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
                           gap: '16px',
                         }}
                       >

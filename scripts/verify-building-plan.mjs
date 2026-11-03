@@ -14,6 +14,7 @@ const bundle = await build({
     import React from 'react';
     import {createRoot} from 'react-dom/client';
     import {FormRenderer} from './dist/index.js';
+    import './dist/index.css';
     import {createBuildingPlanSession, expandBuildingPlanSchema, writeBuildingPlanRecord} from 'form0-core';
     const schema = {form:{name:'BuildingPlan pointer verification',elements:[{type:'BuildingPlanSection',key:'plan',data_name:'plan',label:'Plan',description:null,description_mode:null,visible:true,visible_conditions:null,read_only:false,read_only_conditions:null,node_overrides:null}]}};
     const expanded = expandBuildingPlanSchema(schema);
@@ -115,6 +116,7 @@ try {
   const canvas = floor.locator('canvas');
   await canvas.scrollIntoViewIfNeeded();
   const box = await canvasBox(canvas);
+  assert.ok(box.width > 300, `Styled floor canvas must remain usable; width ${box.width}`);
   const baseline = await page.evaluate(() => JSON.stringify(window.snapshot.repeatable));
   await page.mouse.move(box.x + 80, box.y + 80);
   await page.mouse.wheel(0, -160);
