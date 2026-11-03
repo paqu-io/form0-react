@@ -61,6 +61,20 @@ const BUTTON_STATES = {
  * Each button has an id, label, icon name (Lucide), shortcut key, and per-mode state.
  */
 export const TOOLBAR_BUTTONS = [
+  {
+    id: 'room',
+    label: 'Draw Room',
+    icon: 'Square',
+    shortcutKey: 'R',
+    mode: TOOL_MODES.DRAW_ROOM,
+    isAction: false,
+    group: 'structural',
+    stateByCanvasMode: {
+      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
+      [CANVAS_MODES.FLOOR]: BUTTON_STATES.ENABLED,
+      [CANVAS_MODES.ROOM]: BUTTON_STATES.DISABLED,
+    },
+  },
   // Primary actions (top section)
   {
     id: 'select',

@@ -61,6 +61,15 @@ export function BuildingPlanSectionView({
 
           <div className={styles.repeatableList}>
             <div className={styles.repeatableListHeader}>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className={styles.formNameActionButton}
+                  onClick={repeatableApi.addFloor}
+                >
+                  Add
+                </button>
+              )}
               <div className={styles.repeatableListHeaderText}>
                 <h3 className={styles.repeatableListTitle}>
                   {controller?.floorField?.label || 'Floors'}

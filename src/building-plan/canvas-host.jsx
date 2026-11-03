@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { BuildingPlanCanvasController } from 'form0-core';
 import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
 import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
 import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
@@ -289,6 +290,7 @@ export function BuildingPlanCanvasHost({
 
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [issues, setIssues] = useState([]);
 
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
@@ -347,17 +349,46 @@ export function BuildingPlanCanvasHost({
       repeatableApiRef,
     });
 
-    const controller = new LegacyBuildingPlanController(
-      formRenderer,
-      formStateManager,
-      section,
-      [],
-      metaEntry,
-      scope
-    );
+    const controller =
+      metaEntry?.version === 1
+        ? new BuildingPlanCanvasController({
+            meta: metaEntry,
+            readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
+            writeRecord: (record, command) =>
+              repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
+            focusRow: (path) => repeatableApiRef.current.focusRow?.(path),
+            reportIssues: setIssues,
+            readOnly: () => canvasRef.current?.readOnly || mode === 'parent',
+          })
+        : new LegacyBuildingPlanController(
+            formRenderer,
+            formStateManager,
+            section,
+            [],
+            metaEntry,
+            scope
+          );
 
     // We handle repeatable sync manually; avoid listening to DOM events the React stack never emits
     document.removeEventListener('form0:repeatable-change', controller.handleRepeatableChange);
+    if (metaEntry?.version === 1) {
+      const snapshot = controller.getSnapshot.bind(controller);
+      controller.getSnapshot = () => {
+        const view = snapshot();
+        for (const collection of ['rooms', 'walls', 'columns', 'beams', 'doors', 'windows'])
+          for (const item of view[collection])
+            item.isDimmed = Boolean(
+              controller.scope?.roomId &&
+              (collection === 'rooms' ? item.id : item.roomId) !== controller.scope.roomId
+            );
+        return view;
+      };
+      controller.setScope = (next) => {
+        controller.scope = next;
+        controller.emitUpdate();
+      };
+      controller.scope = scope;
+    }
 
     const canvas = new LegacyBuildingPlanCanvas({
       container,
@@ -482,6 +513,35 @@ export function BuildingPlanCanvasHost({
 
   return (
     <div className="building-plan-canvas-host">
+      {issues.length > 0 && (
+        <div role="status" className="building-plan-conflict">
+          {issues.map((issue) => issue.message).join(' ')}
+        </div>
+      )}
+      {repeatableApi.editor && (
+        <div className="building-plan-toolbar">
+          <button
+            type="button"
+            disabled={readOnly || !repeatableApi.editor.getState().canUndo}
+            onClick={() => {
+              const result = repeatableApi.editor.undo({ scopeId: repeatableApi.scopeId });
+              setIssues(result.issues);
+            }}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            disabled={readOnly || !repeatableApi.editor.getState().canRedo}
+            onClick={() => {
+              const result = repeatableApi.editor.redo({ scopeId: repeatableApi.scopeId });
+              setIssues(result.issues);
+            }}
+          >
+            Redo
+          </button>
+        </div>
+      )}
       <BuildingPlanToolbar
         canvasMode={mode}
         activeToolMode={activeToolMode}

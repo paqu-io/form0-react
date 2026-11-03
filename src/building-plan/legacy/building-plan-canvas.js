@@ -163,6 +163,22 @@ function pointInRect(point, rect) {
   );
 }
 
+function pointInRoom(point, room) {
+  const vertices = room.previewRect ? null : room.vertices;
+  if (!vertices?.length) return pointInRect(point, room.previewRect || room.rect);
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const a = vertices[i],
+      b = vertices[j];
+    if (
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    )
+      inside = !inside;
+  }
+  return inside;
+}
+
 function inflateRect(rect, amount) {
   return {
     x: rect.x - amount,
@@ -292,6 +308,10 @@ export class BuildingPlanCanvas {
   }
 
   destroy() {
+    if (this.moveFrame != null) cancelAnimationFrame(this.moveFrame);
+    this.canvas?.removeEventListener('pointercancel', this.boundPointerCancel);
+    this.canvas?.removeEventListener('lostpointercapture', this.boundLostCapture);
+    window.removeEventListener('keydown', this.boundGestureKey, true);
     window.removeEventListener('resize', this.boundResizeHandler);
     if (this.resizeObserver) {
       try {
@@ -302,9 +322,9 @@ export class BuildingPlanCanvas {
       this.resizeObserver = null;
     }
     if (this.canvas) {
-      this.canvas.removeEventListener('mousedown', this.boundMouseDown);
-      this.canvas.removeEventListener('mousemove', this.boundMouseMove);
-      window.removeEventListener('mouseup', this.boundMouseUp);
+      this.canvas.removeEventListener('pointerdown', this.boundMouseDown);
+      this.canvas.removeEventListener('pointermove', this.boundMouseMove);
+      this.canvas.removeEventListener('pointerup', this.boundMouseUp);
       this.canvas.removeEventListener('mouseleave', this.boundMouseLeave);
       this.canvas.removeEventListener('wheel', this.boundWheelHandler);
     }
@@ -604,15 +624,96 @@ export class BuildingPlanCanvas {
   }
 
   attachEvents() {
-    this.boundMouseDown = (event) => this.handleMouseDown(event);
-    this.boundMouseMove = (event) => this.handleMouseMove(event);
-    this.boundMouseUp = (event) => this.handleMouseUp(event);
-    this.boundMouseLeave = () => this.handleMouseLeave();
+    this.canvas.style.touchAction = 'none';
+    this.boundMouseDown = (event) => {
+      if (this.activePointerId != null) return;
+      this.activePointerId = event.pointerId;
+      this.pendingFocus = null;
+      this.controller?.clearPreview?.({ clearIssues: true });
+      this.canvas.setPointerCapture?.(event.pointerId);
+      return this.handleMouseDown(event);
+    };
+    const flushMove = () => {
+      if (this.moveFrame != null) cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+      const event = this.pendingMove;
+      this.pendingMove = null;
+      if (event) {
+        this.handleMouseMove(event);
+        if (this.dragState?.moved && this.controller?.previewRoom) {
+          const room = this.rooms.find((entry) => entry.id === this.dragState.roomId);
+          if (room) this.controller.previewRoom(room.id, room.previewRect || room.rect);
+        }
+        if (
+          this.wallDragState?.moved &&
+          this.controller?.previewWall &&
+          this.wallDragState.previewPoints
+        )
+          this.controller.previewWall(this.wallDragState.wallId, this.wallDragState.previewPoints);
+      }
+    };
+    this.boundMouseMove = (event) => {
+      this.pendingMove = event;
+      if (this.moveFrame == null) this.moveFrame = requestAnimationFrame(flushMove);
+    };
+    this.boundMouseUp = async (event) => {
+      if (this.activePointerId !== event.pointerId) return;
+      flushMove();
+      this.activePointerId = null;
+      this.canvas.releasePointerCapture?.(event.pointerId);
+      const moved = [
+        this.dragState,
+        this.wallDragState,
+        this.columnDragState,
+        this.beamDragState,
+        this.openingDragState,
+      ].some((state) => state?.moved);
+      const focus = this.pendingFocus;
+      this.pendingFocus = null;
+      try {
+        await this.handleMouseUp(event);
+      } finally {
+        this.controller?.clearPreview?.();
+        if (!moved) focus?.();
+      }
+    };
+    this.boundMouseLeave = () => {
+      if (this.activePointerId == null) this.handleMouseLeave();
+    };
+    this.boundPointerCancel = () => {
+      const pointerId = this.activePointerId;
+      this.activePointerId = null;
+      if (pointerId != null && this.canvas.hasPointerCapture?.(pointerId))
+        this.canvas.releasePointerCapture?.(pointerId);
+      this.isPanning = false;
+      this.panStartPoint = null;
+      this.panStartOffset = null;
+      this.pendingFocus = null;
+      this.pendingMove = null;
+      if (this.moveFrame != null) cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+      this.handleMouseLeave();
+      this.controller?.clearPreview?.({ clearIssues: true });
+    };
+    this.boundGestureKey = (event) => {
+      if (event.key === 'Escape' && this.activePointerId != null) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.boundPointerCancel();
+      }
+    };
+    this.canvas.addEventListener('pointercancel', this.boundPointerCancel);
+    this.boundLostCapture = () => {
+      if (this.activePointerId != null) this.boundPointerCancel();
+    };
+    this.canvas.addEventListener('lostpointercapture', this.boundLostCapture);
+    window.addEventListener('keydown', this.boundGestureKey, true);
+
     this.boundWheelHandler = (event) => this.handleWheel(event);
 
-    this.canvas.addEventListener('mousedown', this.boundMouseDown);
-    this.canvas.addEventListener('mousemove', this.boundMouseMove);
-    window.addEventListener('mouseup', this.boundMouseUp);
+    this.canvas.addEventListener('pointerdown', this.boundMouseDown);
+    this.canvas.addEventListener('pointermove', this.boundMouseMove);
+    this.canvas.addEventListener('pointerup', this.boundMouseUp);
     this.canvas.addEventListener('mouseleave', this.boundMouseLeave);
     this.canvas.addEventListener('wheel', this.boundWheelHandler, { passive: false });
   }
@@ -823,7 +924,7 @@ export class BuildingPlanCanvas {
     this.render();
   }
 
-  handleMouseDown(event) {
+  async handleMouseDown(event) {
     // Panning with middle mouse button or space+left click (always allowed)
     if (event.button === 1 || (event.button === 0 && event.shiftKey)) {
       event.preventDefault();
@@ -836,7 +937,29 @@ export class BuildingPlanCanvas {
     }
 
     // Block all other interactions in read-only mode
-    if (this.readOnly) return;
+    if (this.readOnly) {
+      const point = this.getCanvasPoint(event);
+      const opening = this.findOpeningNearPoint(point);
+      const column = this.findColumnHit(point)?.column;
+      const beam = this.findBeamHit(point)?.beam;
+      const wall = this.findWallNearPoint(point)?.wall;
+      const room = this.findRoomAtPoint(point);
+      this.pendingFocus = opening
+        ? () =>
+            this.controller?.[opening.type === 'door' ? 'focusDoor' : 'focusWindow']?.(
+              opening.opening.id
+            )
+        : column
+          ? () => this.controller?.focusColumn?.(column.id)
+          : beam
+            ? () => this.controller?.focusBeam?.(beam.id)
+            : wall
+              ? () => this.controller?.focusWall?.(wall.id)
+              : room
+                ? () => this.controller?.focusRoom?.(room.id)
+                : null;
+      return;
+    }
 
     const caps = getCapabilities(this.controller);
     const point = this.getCanvasPoint(event);
@@ -861,7 +984,7 @@ export class BuildingPlanCanvas {
         wallRatio = wallSnap.ratio;
       }
       const ratios = getRoomRatios(placementPoint, roomRect);
-      const created = this.controller?.createColumn?.(room.id, {
+      const created = await this.controller?.createColumn?.(room.id, {
         centerU: ratios.u,
         centerV: ratios.v,
         wallSegmentIndex,
@@ -910,7 +1033,7 @@ export class BuildingPlanCanvas {
       if (this.mode === MODE_DRAW_WINDOW && !caps.canDrawWindow) return;
       const wallHit = this.findWallNearPoint(point);
       if (wallHit && wallHit.wall) {
-        const created = this.placeOpening(
+        const created = await this.placeOpening(
           this.mode === MODE_DRAW_DOOR ? 'door' : 'window',
           wallHit
         );
@@ -944,7 +1067,7 @@ export class BuildingPlanCanvas {
             moved: false,
           };
           this.setHoverState(null);
-          this.controller?.focusRoom(room.id);
+          this.pendingFocus = () => this.controller?.focusRoom(room.id);
           this.updateButtonStates();
           this.updateCursor();
           this.render();
@@ -973,7 +1096,7 @@ export class BuildingPlanCanvas {
           moved: false,
         };
         this.setHoverState(null);
-        this.controller?.focusWall(wall.id);
+        this.pendingFocus = () => this.controller?.focusWall(wall.id);
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -999,7 +1122,7 @@ export class BuildingPlanCanvas {
         };
         this.setHoverState(null);
         if (typeof this.controller?.focusColumn === 'function') {
-          this.controller.focusColumn(column.id);
+          this.pendingFocus = () => this.controller.focusColumn(column.id);
         }
         this.updateButtonStates();
         this.updateCursor();
@@ -1038,7 +1161,7 @@ export class BuildingPlanCanvas {
         };
         this.setHoverState(null);
         if (typeof this.controller?.focusBeam === 'function') {
-          this.controller.focusBeam(beam.id);
+          this.pendingFocus = () => this.controller.focusBeam(beam.id);
         }
         this.updateButtonStates();
         this.updateCursor();
@@ -1080,7 +1203,7 @@ export class BuildingPlanCanvas {
         };
         this.setHoverState(null);
         if (typeof this.controller?.focusBeam === 'function') {
-          this.controller.focusBeam(beam.id);
+          this.pendingFocus = () => this.controller.focusBeam(beam.id);
         }
         this.updateButtonStates();
         this.updateCursor();
@@ -1115,7 +1238,7 @@ export class BuildingPlanCanvas {
         this.setHoverState(null);
         const focusFn = type === 'door' ? this.controller?.focusDoor : this.controller?.focusWindow;
         if (typeof focusFn === 'function') {
-          focusFn.call(this.controller, openingId);
+          this.pendingFocus = () => focusFn.call(this.controller, openingId);
         }
         this.updateButtonStates();
         this.updateCursor();
@@ -1187,7 +1310,10 @@ export class BuildingPlanCanvas {
     const room = this.findRoomAtPoint(point);
 
     if (this.mode === MODE_SELECT && wall) {
-      if (!caps.canMoveStructural) return;
+      if (!caps.canMoveStructural) {
+        this.pendingFocus = () => this.controller?.focusWall?.(wall.id);
+        return;
+      }
       const basePoints =
         wall.previewPoints && wall.previewPoints.length > 0
           ? clonePoints(wall.previewPoints)
@@ -1202,7 +1328,7 @@ export class BuildingPlanCanvas {
         moved: false,
       };
       this.setHoverState(null);
-      this.controller?.focusWall(wall.id);
+      this.pendingFocus = () => this.controller?.focusWall(wall.id);
       this.updateButtonStates();
       this.updateCursor();
       this.render();
@@ -1210,7 +1336,10 @@ export class BuildingPlanCanvas {
     }
 
     if (room) {
-      if (!caps.canMove) return;
+      if (!caps.canMove) {
+        this.pendingFocus = () => this.controller?.focusRoom(room.id);
+        return;
+      }
       this.selectedRoomId = room.id;
       this.selectedWallId = null;
       this.selectedDoorId = null;
@@ -1218,11 +1347,13 @@ export class BuildingPlanCanvas {
       this.dragState = {
         type: 'move',
         roomId: room.id,
+        pointerStart: point,
+        moved: false,
         offsetX: point.x - room.rect.x,
         offsetY: point.y - room.rect.y,
       };
       this.setHoverState(null);
-      this.controller?.focusRoom(room.id);
+      this.pendingFocus = () => this.controller?.focusRoom(room.id);
       this.updateButtonStates();
       this.updateCursor();
       this.render();
@@ -1352,6 +1483,9 @@ export class BuildingPlanCanvas {
       if (!room) return;
 
       if (state.type === 'move') {
+        state.moved =
+          state.moved ||
+          Math.hypot(point.x - state.pointerStart.x, point.y - state.pointerStart.y) > 3;
         const width = room.rect.width;
         const height = room.rect.height;
         const snappedOrigin = this.snapPoint({
@@ -1407,6 +1541,13 @@ export class BuildingPlanCanvas {
             x: pt.x + deltaX,
             y: pt.y + deltaY,
           };
+          if (wall.isBoundary) {
+            const increment = this.gridSize / 10;
+            return {
+              x: Math.round(translated.x / increment) * increment,
+              y: Math.round(translated.y / increment) * increment,
+            };
+          }
           const clamped = {
             x: clamp(translated.x, room.rect.x, room.rect.x + room.rect.width),
             y: clamp(translated.y, room.rect.y, room.rect.y + room.rect.height),
@@ -1418,7 +1559,12 @@ export class BuildingPlanCanvas {
         wall.previewPoints = roundedPoints;
         state.previewPoints = roundedPoints;
       } else if (state.type === 'resize') {
-        const snappedPoint = this.snapToRoomEdges(point, room);
+        const snappedPoint = wall.isBoundary
+          ? {
+              x: Math.round(point.x / (this.gridSize / 10)) * (this.gridSize / 10),
+              y: Math.round(point.y / (this.gridSize / 10)) * (this.gridSize / 10),
+            }
+          : this.snapToRoomEdges(point, room);
         const newPoints = state.originalPoints.map((pt, idx) =>
           idx === state.handleIndex ? { ...snappedPoint } : { ...pt }
         );
@@ -1605,7 +1751,7 @@ export class BuildingPlanCanvas {
     }
   }
 
-  handleMouseUp(event) {
+  async handleMouseUp(event) {
     // Stop panning (always allowed)
     if (this.isPanning) {
       this.isPanning = false;
@@ -1631,7 +1777,7 @@ export class BuildingPlanCanvas {
           width: this.snapSize(rect.width),
           height: this.snapSize(rect.height),
         };
-        const created = this.controller?.createRoom(snapped);
+        const created = await this.controller?.createRoom(snapped);
         if (created) {
           this.selectedRoomId = created.id;
           this.controller?.focusRoom(created.id);
@@ -1650,7 +1796,7 @@ export class BuildingPlanCanvas {
         const endPoint = this.snapToRoomEdges(point, room);
         if (distance(this.wallDraft.start, endPoint) > 3) {
           const wallPoints = roundPoints([this.wallDraft.start, endPoint]);
-          const created = this.controller?.createWall(room.id, wallPoints);
+          const created = await this.controller?.createWall(room.id, wallPoints);
           if (created) {
             this.selectedWallId = created.id;
             this.controller?.focusWall(created.id);
@@ -1672,7 +1818,7 @@ export class BuildingPlanCanvas {
         const endPoint = preview.endPoint;
         const length = startPoint && endPoint ? distance(startPoint, endPoint) : 0;
         if (length > 5) {
-          const created = this.controller?.createBeam?.(draft.roomId, {
+          const created = await this.controller?.createBeam?.(draft.roomId, {
             startU: preview.startU,
             startV: preview.startV,
             endU: preview.endU,
@@ -1707,8 +1853,8 @@ export class BuildingPlanCanvas {
       const room = this.rooms.find((r) => r.id === state.roomId);
       if (room) {
         const commitRect = room.previewRect || room.rect;
-        if (commitRect && (state.type !== 'resize' || state.moved)) {
-          this.controller?.updateRoom(room.id, commitRect);
+        if (commitRect && state.moved) {
+          await this.controller?.updateRoom(room.id, commitRect);
         }
       }
       this.dragState = null;
@@ -1723,7 +1869,7 @@ export class BuildingPlanCanvas {
       const state = this.wallDragState;
       const wall = this.walls.find((w) => w.id === state.wallId);
       if (wall && state.previewPoints && state.moved) {
-        this.controller?.updateWall(wall.id, state.previewPoints);
+        await this.controller?.updateWall(wall.id, state.previewPoints);
       }
       if (wall) {
         delete wall.previewPoints;
@@ -1750,11 +1896,11 @@ export class BuildingPlanCanvas {
           };
           if (state.type === 'door') {
             updates.height = opening.height;
-            this.controller?.updateDoor?.(opening.id, updates);
+            await this.controller?.updateDoor?.(opening.id, updates);
           } else {
             updates.height = opening.height;
             updates.distanceFromFloor = opening.distanceFromFloor;
-            this.controller?.updateWindow?.(opening.id, updates);
+            await this.controller?.updateWindow?.(opening.id, updates);
           }
         }
       }
@@ -1771,7 +1917,7 @@ export class BuildingPlanCanvas {
       if (column) {
         const preview = column.preview;
         if (preview && state.moved) {
-          this.controller?.updateColumn?.(column.id, {
+          await this.controller?.updateColumn?.(column.id, {
             centerU: preview.centerU,
             centerV: preview.centerV,
             wallSegmentIndex: preview.wallSegmentIndex,
@@ -1795,7 +1941,7 @@ export class BuildingPlanCanvas {
       if (beam) {
         const preview = beam.preview;
         if (preview && state.moved) {
-          this.controller?.updateBeam?.(beam.id, {
+          await this.controller?.updateBeam?.(beam.id, {
             startU: preview.startU,
             startV: preview.startV,
             endU: preview.endU,
@@ -2031,12 +2177,7 @@ export class BuildingPlanCanvas {
       }
       const rect = room.previewRect || room.rect;
       if (!rect) continue;
-      if (
-        point.x >= rect.x &&
-        point.x <= rect.x + rect.width &&
-        point.y >= rect.y &&
-        point.y <= rect.y + rect.height
-      ) {
+      if (pointInRoom(point, room)) {
         return room;
       }
     }
@@ -2990,12 +3131,19 @@ export class BuildingPlanCanvas {
     ctx.save();
     ctx.fillStyle = room.color || '#79b8ff';
     ctx.globalAlpha = isDimmed ? 0.18 : isSelected ? 0.55 : 0.35;
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    const vertices = room.previewRect ? null : room.vertices;
+    ctx.beginPath();
+    if (vertices?.length) {
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (const vertex of vertices.slice(1)) ctx.lineTo(vertex.x, vertex.y);
+      ctx.closePath();
+    } else ctx.rect(rect.x, rect.y, rect.width, rect.height);
+    ctx.fill();
 
     ctx.globalAlpha = 1;
     ctx.lineWidth = isSelected ? 4 : 2;
     ctx.strokeStyle = isSelected ? '#1b4b91' : isDimmed ? 'rgba(58, 111, 176, 0.45)' : '#3a6fb0';
-    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+    ctx.stroke();
 
     if (isSelected) {
       const handleSize = ROOM_HANDLE_SIZE;
@@ -3403,7 +3551,7 @@ export class BuildingPlanCanvas {
     return bestMatch;
   }
 
-  placeOpening(type, wallHit) {
+  async placeOpening(type, wallHit) {
     const wall = wallHit?.wall;
     if (!wall) return null;
 
@@ -3434,7 +3582,7 @@ export class BuildingPlanCanvas {
     const endRatio = clamp(startRatio + spanRatio, 0, 1);
 
     if (type === 'door' && this.controller && typeof this.controller.createDoor === 'function') {
-      const result = this.controller.createDoor(wall.id, {
+      const result = await this.controller.createDoor(wall.id, {
         segmentIndex: wallHit.segmentIndex || 0,
         startRatio,
         endRatio,
@@ -3457,7 +3605,7 @@ export class BuildingPlanCanvas {
       this.controller &&
       typeof this.controller.createWindow === 'function'
     ) {
-      const result = this.controller.createWindow(wall.id, {
+      const result = await this.controller.createWindow(wall.id, {
         segmentIndex: wallHit.segmentIndex || 0,
         startRatio,
         endRatio,

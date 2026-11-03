@@ -2,6 +2,13 @@
 import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
 
+export const buildingPlanConflict = style({
+  padding: vars.spacing.md,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.borderRadius,
+  color: vars.color.foreground,
+});
+
 export const form = style({
   position: 'relative',
   boxSizing: 'border-box',

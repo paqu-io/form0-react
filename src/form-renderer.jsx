@@ -49,6 +49,10 @@ import {
   createStructuredRecord,
   flattenFields,
   resolveDatasetRowTitle,
+  createBuildingPlanEditor,
+  createRecordEvaluator,
+  resolveBuildingPlanRow,
+  isBuildingPlanInternalCollection,
 } from 'form0-core';
 
 const SECTION_LIKE_TYPES = new Set(['Section', 'RepeatableSection', 'BuildingPlanSection']);
@@ -1620,7 +1624,7 @@ function FormRendererContent({
         return indices;
       };
 
-      const initialInstance = config.initialInstance || {
+      let initialInstance = config.initialInstance || {
         id: instanceId,
         values: config.initialValues || {},
         repeatable: config.initialRepeatable || {},
@@ -1631,6 +1635,50 @@ function FormRendererContent({
         config.parentIndices && Array.isArray(config.parentIndices)
           ? config.parentIndices
           : computeParentIndices();
+      let buildingPlan = null;
+      const planMeta = buildingPlanMeta.find(
+        (entry) =>
+          entry.version === 1 &&
+          entry.repeatables.some((node) => node.preferredKey === repeatableKey)
+      );
+      if (planMeta) {
+        const floorsKey = planMeta.repeatablesByNodeKey.floors.preferredKey;
+        const editor =
+          controller.buildingPlan?.editor ||
+          createBuildingPlanEditor({
+            meta: planMeta,
+            record: {
+              values: {},
+              repeatable: { [floorsKey]: controller.getInstances(floorsKey, parentPath) || [] },
+            },
+          });
+        const path = controller.buildingPlan
+          ? [...controller.buildingPlan.path, ...parentPath, { key: repeatableKey, id: instanceId }]
+          : [{ key: repeatableKey, id: instanceId }];
+        const opened = editor.openRow({
+          path,
+          scopeId: modalId,
+          parentScopeId: controller.buildingPlan?.scopeId || null,
+          row: { ...initialInstance, id: instanceId },
+        });
+        if (opened.issues.length) throw new TypeError(opened.issues[0].message);
+        initialInstance = opened.row;
+        buildingPlan = {
+          editor,
+          path,
+          scopeId: modalId,
+          meta: planMeta,
+          evaluator:
+            controller.buildingPlan?.evaluator ||
+            createRecordEvaluator({
+              schema: finalSchema,
+              ...engineOptions,
+              diagnostics: { console: false },
+            }),
+          evaluationValues:
+            controller.buildingPlan?.evaluationValues || controller.buildParentValues(parentPath),
+        };
+      }
       setRepeatableModals((prev) => [
         ...prev,
         {
@@ -1652,6 +1700,7 @@ function FormRendererContent({
           repInfo,
           controller,
           initialInstance,
+          buildingPlan,
           buildingPlanMeta,
           layoutOverrides: buildModalLayoutOverrides(repeatableKey),
         },
@@ -1698,7 +1747,14 @@ function FormRendererContent({
   );
 
   const handleRepeatableEdit = useCallback(
-    (field, repeatableKey, instanceId, parentPath = [], controller = formRepeatableController) => {
+    (
+      field,
+      repeatableKey,
+      instanceId,
+      parentPath = [],
+      controller = formRepeatableController,
+      buildingPlanFocusPath = null
+    ) => {
       if (!controller) {
         console.warn('form0-react: repeatable controller is unavailable');
         return;
@@ -1723,6 +1779,7 @@ function FormRendererContent({
           parentValues: controller.buildParentValues(parentPath),
           instanceId,
           initialInstance: cloneDeepSafe(existing),
+          buildingPlanFocusPath,
         },
         controller
       );
@@ -1736,6 +1793,28 @@ function FormRendererContent({
         return;
       }
       const instances = controller.getInstances(repeatableKey, parentPath);
+      const planMeta = buildingPlanMeta.find(
+        (entry) =>
+          entry.version === 1 && entry.repeatablesByNodeKey.floors.preferredKey === repeatableKey
+      );
+      if (planMeta) {
+        const editor = createBuildingPlanEditor({
+          meta: planMeta,
+          record: { values: {}, repeatable: { [repeatableKey]: instances } },
+        });
+        let result = editor.removeRow([{ key: repeatableKey, id: instanceId }]);
+        if (
+          result.issues.some(
+            (issue) => issue.code === 'observation_deletion_requires_confirmation'
+          ) &&
+          globalThis.confirm?.(result.issues.map((issue) => issue.message).join(' '))
+        )
+          result = editor.removeRow([{ key: repeatableKey, id: instanceId }], {
+            allowObservationDeletion: true,
+          });
+        if (result.issues.length) return;
+      }
+
       const next = instances.filter((instance) => instance.id !== instanceId);
       controller.setInstances(repeatableKey, next, parentPath);
       if (eventSession.config.lifecycle) {
@@ -1765,6 +1844,35 @@ function FormRendererContent({
       const { controller, repeatableKey, parentPath, mode } = modalConfig;
       if (!controller) {
         return;
+      }
+      if (modalConfig.buildingPlan) {
+        const { editor, scopeId, path } = modalConfig.buildingPlan;
+        const updated = editor.updateRow(scopeId, payload);
+        if (updated.issues.length) throw new TypeError(updated.issues[0].message);
+        payload = {
+          ...resolveBuildingPlanRow(editor.getRecord(), path),
+          ...payload,
+          values: resolveBuildingPlanRow(editor.getRecord(), path).values,
+          repeatable: resolveBuildingPlanRow(editor.getRecord(), path).repeatable,
+        };
+        const accepted = editor.acceptRow(scopeId);
+        if (accepted.issues.length) throw new TypeError(accepted.issues[0].message);
+        // Child data is already accepted into the shared parent draft by the adapter.
+        if (controller.buildingPlan) {
+          if (eventSession.config.lifecycle)
+            controller.eventDispatch?.(
+              'change',
+              repeatableChangeMetadata(
+                controller,
+                repeatableKey,
+                payload.id,
+                parentPath,
+                mode === 'edit' ? 'edit' : 'add'
+              ),
+              modalConfig.repInfo?.field?.data_name
+            );
+          return;
+        }
       }
       const existing = controller.getInstances(repeatableKey, parentPath);
       let next = [];
@@ -1805,6 +1913,11 @@ function FormRendererContent({
 
   const handleRepeatableModalCancel = useCallback(
     (modalConfig) => {
+      if (modalConfig?.buildingPlan) {
+        const { editor, scopeId } = modalConfig.buildingPlan;
+        const result = editor.cancelRow(scopeId);
+        if (result.issues.length) throw new TypeError(result.issues[0].message);
+      }
       closeRepeatableModal(modalConfig?.modalId);
     },
     [closeRepeatableModal]
@@ -4128,6 +4241,19 @@ function FormRendererContent({
     };
 
     const repeatableApi = {
+      addFloor: () => handleRepeatableAdd(floorField, floorKey, repeatableContextPath),
+      focusRow: (path) => {
+        const selected = floorInstances[path[0]?.index];
+        if (!selected) return;
+        handleRepeatableEdit(
+          floorField,
+          floorKey,
+          selected.id,
+          repeatableContextPath,
+          formRepeatableController,
+          path
+        );
+      },
       addInstance: (repeatableKey, options = {}) => addRepeatableInstance(repeatableKey, options),
       updateInstance: (repeatableKey, instanceId, updater, parentPath = []) =>
         updateRepeatableInstance(repeatableKey, instanceId, updater, parentPath),
@@ -4619,6 +4745,7 @@ function RepeatableEntryModal({
   const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
   const [entryMode, setEntryMode] = useState(normalizedEntryMode);
   const effectiveEntryMode = parentReadOnly ? 'readonly' : entryMode;
+  const isEntryReadOnly = effectiveEntryMode === 'readonly';
   const {
     values: entryValues,
     visible: entryVisible,
@@ -4675,6 +4802,51 @@ function RepeatableEntryModal({
   });
 
   const [entrySubmitCount, setEntrySubmitCount] = useState(0);
+  const [buildingPlanRevision, setBuildingPlanRevision] = useState(0);
+  const [buildingPlanIssues, setBuildingPlanIssues] = useState([]);
+  const planIncomingValues = useRef(null);
+  const domainRevision = modal.buildingPlan?.editor.getState().revision;
+  useEffect(() => {
+    const context = modal.buildingPlan;
+    if (context)
+      context.editor
+        .evaluate(context.evaluator, context.evaluationValues)
+        .catch((error) => setBuildingPlanIssues([{ message: error.message }]));
+  }, [domainRevision, modal.buildingPlan]);
+  useEffect(() => {
+    const context = modal.buildingPlan;
+    if (!context) return;
+    return context.editor.subscribe(() => {
+      setBuildingPlanRevision(context.editor.getRevision());
+      setBuildingPlanIssues([]);
+      // Opening a child also publishes; browsing a readonly row is not a value write.
+      if (isEntryReadOnly || !context.editor.hasEditor(context.scopeId)) return;
+      const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
+      if (!row) return;
+      planIncomingValues.current = JSON.stringify(row.values);
+      setEntryValues(row.values);
+      for (const [key, rows] of Object.entries(row.repeatable || {}))
+        setEntryRepeatableInstances(key, rows, []);
+    });
+  }, [modal.buildingPlan, setEntryValues, setEntryRepeatableInstances, isEntryReadOnly]);
+  useEffect(() => {
+    const context = modal.buildingPlan;
+    if (!context || !context.editor.hasEditor(context.scopeId) || isEntryReadOnly) return;
+    const node = context.editor.resolveRow(context.path).node;
+    const model = node.fields.find(
+      (field) => field.binding?.role === 'storage' || field.binding?.storageRole === 'storage'
+    );
+    if (!entryValues[model?.dataName]) return;
+    const signature = JSON.stringify(entryValues);
+    if (signature === planIncomingValues.current) return;
+    planIncomingValues.current = signature;
+    const result = context.editor.updateRow(context.scopeId, {
+      ...modal.initialInstance,
+      values: entryValues,
+      repeatable: entryRepeatable,
+    });
+    setBuildingPlanIssues(result.issues);
+  }, [entryValues, entryRepeatable, modal.buildingPlan, modal.initialInstance, effectiveEntryMode]);
 
   useEffect(() => {
     setEntrySubmitCount(0);
@@ -4684,7 +4856,6 @@ function RepeatableEntryModal({
     setEntryMode(normalizedEntryMode);
   }, [normalizedEntryMode, modal.modalId]);
 
-  const isEntryReadOnly = parentReadOnly || entryMode === 'readonly';
   const enterEntryEditMode = useCallback(() => {
     if (!parentReadOnly) setEntryMode('edit');
   }, [parentReadOnly]);
@@ -4799,6 +4970,7 @@ function RepeatableEntryModal({
 
   const entryController = useMemo(
     () => ({
+      buildingPlan: modal.buildingPlan,
       diagnosticInstancePath: modal.diagnosticInstancePath,
       eventDispatch: rowEvents.dispatch,
       eventInteraction: rowEvents.interaction,
@@ -4816,6 +4988,7 @@ function RepeatableEntryModal({
     }),
     [
       modal.diagnosticInstancePath,
+      modal.buildingPlan,
       buildEntryParentValues,
       entryRepeatableMetadata,
       getEntryRepeatableInstance,
@@ -4827,6 +5000,59 @@ function RepeatableEntryModal({
 
   // Building Plan modal canvas context (scoped to current floor/room)
   const buildingPlanModalContext = useMemo(() => {
+    if (modal.buildingPlan) {
+      const { editor, meta, path, scopeId } = modal.buildingPlan;
+      const selected = editor.resolveRow(path);
+      if (!['floors', 'rooms'].includes(selected.node.nodeKey)) return null;
+      const floorNode = meta.repeatablesByNodeKey.floors;
+      const roomNode = meta.repeatablesByNodeKey.rooms;
+      return {
+        metaEntry: meta,
+        section: findBuildingPlanSection(modal.schema?.form?.elements || [], meta.dataName),
+        repeatableState: editor.getRecord().repeatable,
+        repeatableApi: {
+          writeBuildingPlan: (_record, { operation }) => editor.apply(operation, { scopeId }),
+          focusRow: (indexPath) => {
+            const record = editor.getRecord();
+            let row = record;
+            const idPath = indexPath.map((part) => {
+              row = row.repeatable[part.key][part.index];
+              return { key: part.key, id: row.id };
+            });
+            const local = idPath.slice(path.length);
+            if (!local.length) return;
+            const target = local.at(-1);
+            const info = entryController.metadata?.byPreferredKey?.get(target.key);
+            if (!info) return;
+            openNestedModal(
+              {
+                repeatableKey: target.key,
+                field: info.field,
+                label: info.field.label,
+                mode: 'edit',
+                instanceId: target.id,
+                parentPath: local.slice(0, -1),
+                schema: modal.schema,
+                engineOptions: modal.engineOptions,
+                parentValues: entryController.buildParentValues(local.slice(0, -1)),
+                initialInstance: cloneDeepSafe(row),
+              },
+              entryController
+            );
+          },
+          editor,
+          scopeId,
+        },
+        scope: {
+          floorId: selected.floorId,
+          roomId: selected.node.nodeKey === 'rooms' ? selected.model.id : null,
+        },
+        mode: selected.node.nodeKey === 'rooms' ? 'room-modal' : 'floor-modal',
+        floorsKey: floorNode.preferredKey,
+        roomsKey: roomNode.preferredKey,
+        wallsKey: meta.repeatablesByNodeKey.walls.preferredKey,
+      };
+    }
     if (!modal.buildingPlanMeta || !modal.repInfo?.preferredKey) return null;
     const metaEntry = findMetaByRepeatableKey(modal.buildingPlanMeta, modal.repInfo.preferredKey);
     if (!metaEntry) return null;
@@ -5038,7 +5264,20 @@ function RepeatableEntryModal({
     modal.repInfo?.preferredKey,
     modal.schema?.form?.elements,
     modal.mode,
+    buildingPlanRevision,
   ]);
+
+  const initialPlanFocus = useRef(null);
+  useEffect(() => {
+    if (
+      !modal.buildingPlanFocusPath ||
+      !buildingPlanModalContext ||
+      initialPlanFocus.current === modal.modalId
+    )
+      return;
+    initialPlanFocus.current = modal.modalId;
+    buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath);
+  }, [modal.modalId, modal.buildingPlanFocusPath, buildingPlanModalContext]);
 
   const buildingPlanModalController = useBuildingPlanController({
     sectionDataName: buildingPlanModalContext?.metaEntry?.dataName,
@@ -5058,11 +5297,13 @@ function RepeatableEntryModal({
     () =>
       buildSectionHierarchy(entryElements, resolveRepeatableKey, (field) => {
         if (!field?.data_name) return false;
+        if (isBuildingPlanInternalCollection(modal.buildingPlan?.meta, field.data_name))
+          return false;
         return Object.prototype.hasOwnProperty.call(entryVisible, field.data_name)
           ? entryVisible[field.data_name] !== false
           : field.visible !== false;
       }),
-    [entryElements, entryVisible, resolveRepeatableKey]
+    [entryElements, entryVisible, resolveRepeatableKey, modal.buildingPlan?.meta]
   );
   const showModalValidationList = entrySubmitCount > 0 && entryValidationSummary?.hasErrors;
   const modalValidationIssues = useMemo(
@@ -5075,6 +5316,7 @@ function RepeatableEntryModal({
 
   // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing
   useEffect(() => {
+    if (modal.buildingPlan) return;
     if (!modal.buildingPlanMeta || !entryController || !modal.repInfo?.preferredKey) return;
     const wallsInfo = buildPerimeterWallsFromRoomValues(
       modal.buildingPlanMeta,
@@ -5405,6 +5647,7 @@ function RepeatableEntryModal({
 
   const handleSave = useCallback(async () => {
     if (isEntryReadOnly) return;
+    if (buildingPlanIssues.length) return;
     setEntrySubmitCount((count) => count + 1);
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
@@ -5620,7 +5863,22 @@ function RepeatableEntryModal({
     (repeatableKey, instanceId, parentPath = []) => {
       const instances = entryController.getInstances(repeatableKey, parentPath);
       const next = instances.filter((instance) => instance.id !== instanceId);
-      entryController.setInstances(repeatableKey, next, parentPath);
+      if (modal.buildingPlan) {
+        const { editor, path, scopeId } = modal.buildingPlan;
+        const targetPath = [...path, ...parentPath, { key: repeatableKey, id: instanceId }];
+        let result = editor.removeRow(targetPath, { scopeId });
+        if (
+          result.issues.some(
+            (issue) => issue.code === 'observation_deletion_requires_confirmation'
+          ) &&
+          globalThis.confirm?.(result.issues.map((issue) => issue.message).join(' '))
+        )
+          result = editor.removeRow(targetPath, { scopeId, allowObservationDeletion: true });
+        if (result.issues.length) {
+          setBuildingPlanIssues(result.issues);
+          return;
+        }
+      } else entryController.setInstances(repeatableKey, next, parentPath);
       if (rowEvents.lifecycle)
         entryController.eventDispatch?.(
           'change',
@@ -5968,6 +6226,11 @@ function RepeatableEntryModal({
           aria-modal={isTopModal ? 'true' : undefined}
           aria-label={modalTitle}
         >
+          {buildingPlanIssues.length > 0 && (
+            <div role="status" className={styles.buildingPlanConflict}>
+              {buildingPlanIssues.map((issue) => issue.message).join(' ')}
+            </div>
+          )}
           <ModeBanner mode={isEntryReadOnly ? 'readonly' : 'edit'} />
           <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
             <div className={styles.repeatableModalHeaderTopRow}>
@@ -6235,6 +6498,8 @@ function RepeatableEntryForm({
     if (!field) {
       return null;
     }
+    if (isBuildingPlanInternalCollection(controller?.buildingPlan?.meta, field.data_name))
+      return null;
     if (field.data_name) {
       const resolvedVisible = Object.prototype.hasOwnProperty.call(
         state.visible || {},
@@ -6520,6 +6785,9 @@ function RepeatableEntryForm({
     }
 
     const dataName = field.data_name;
+    const planContext = controller?.buildingPlan;
+    const propertyState = planContext?.editor.fieldState(planContext.path, dataName);
+    if (propertyState?.managed) return null;
     if (dataName && state.visible && state.visible[dataName] === false) {
       return null;
     }
@@ -6547,22 +6815,64 @@ function RepeatableEntryForm({
           };
 
     return (
-      <FieldRenderer
-        key={field.key || dataName}
-        ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
-        field={field}
-        value={fieldValue}
-        readOnly={fieldReadOnly}
-        required={fieldRequired}
-        error={fieldError}
-        onChange={handleChange}
-        labelPosition={labelPosition}
-        labelWidthPercent={labelWidthPercent}
-        eventInteractions={controller?.eventInteraction}
-        onFocus={dataName ? () => onFieldFocus?.(dataName) : undefined}
-        engineStore={engineStore}
-        storeMode={engineStoreMode}
-      />
+      <React.Fragment key={field.key || dataName}>
+        {propertyState?.source && (
+          <div
+            role="group"
+            aria-label={
+              propertyState.scope === 'physical_wall' ? 'Shared physical wall' : 'Room side'
+            }
+          >
+            <small>
+              {propertyState.scope === 'physical_wall' ? 'Shared physical wall' : 'Room side'} ·{' '}
+              {propertyState.source.mode === 'inherit' ? 'Inherited from ' : 'Override at '}
+              {{
+                floor: 'floor default',
+                room: 'room default',
+                physical_wall: 'this wall',
+                room_face: 'this room side',
+                construction_segment: 'this construction segment',
+                schema: 'form default',
+              }[propertyState.source.scope] || propertyState.source.scope}
+            </small>
+            {propertyState.inheritable &&
+              propertyState.source.mode === 'override' &&
+              !fieldReadOnly && (
+                <button
+                  type="button"
+                  className={styles.formNameActionButton}
+                  onClick={() => {
+                    const row = resolveBuildingPlanRow(
+                      planContext.editor.getRecord(),
+                      planContext.path
+                    );
+                    planContext.editor.updateRow(planContext.scopeId, row, {
+                      resetProperties: [propertyState.property],
+                    });
+                  }}
+                >
+                  Reset to inheritance
+                </button>
+              )}
+          </div>
+        )}
+        <FieldRenderer
+          key={field.key || dataName}
+          ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
+          field={field}
+          value={fieldValue}
+          readOnly={fieldReadOnly}
+          required={fieldRequired}
+          error={fieldError}
+          onChange={handleChange}
+          labelPosition={labelPosition}
+          labelWidthPercent={labelWidthPercent}
+          eventInteractions={controller?.eventInteraction}
+          onFocus={dataName ? () => onFieldFocus?.(dataName) : undefined}
+          engineStore={engineStore}
+          storeMode={engineStoreMode}
+        />
+      </React.Fragment>
     );
   });
 }

@@ -1,5 +1,12 @@
 import { Worker } from 'node:worker_threads';
 import { it, expect } from 'vitest';
+import {
+  createBuildingPlanSession,
+  expandBuildingPlanSchema,
+  writeBuildingPlanRecord,
+  readBuildingPlanRecord,
+} from 'form0-core';
+import { createRecordBackend } from '../src/utils/record-coordinator.js';
 import { field, repeatable } from './fixtures/diagnostic-conformance.js';
 
 const cleanPrototypes = {
@@ -230,3 +237,91 @@ it('actual worker transports closed-row clearing without collection calculations
     await worker.terminate();
   }
 });
+
+for (const mode of ['trusted', 'safe'])
+  it(`actual worker matches main-thread BuildingPlan effective calculations and semantic output (${mode})`, async () => {
+    const authored = {
+      form: {
+        name: 'BuildingPlan worker',
+        elements: [
+          {
+            type: 'BuildingPlanSection',
+            key: 'plan',
+            data_name: 'plan',
+            label: 'Plan',
+            description: null,
+            description_mode: null,
+            visible: true,
+            visible_conditions: null,
+            read_only: false,
+            read_only_conditions: null,
+            node_overrides: {
+              walls: {
+                extra_elements: [
+                  field('CalculatedField', 'cost', {
+                    calculate: 'SETRESULT($wall_thickness_m * 1000)',
+                  }),
+                  field('CalculatedField', 'face_cost', { calculate: 'SETRESULT($cost + 1)' }),
+                ],
+                field_bindings: { cost: { scope: 'physical_wall' } },
+              },
+            },
+          },
+        ],
+      },
+    };
+    const expanded = expandBuildingPlanSchema(authored);
+    const meta = expanded.buildingPlanMeta[0],
+      nodes = meta.repeatablesByNodeKey;
+    const domain = createBuildingPlanSession({ properties: meta.properties });
+    const floorId = domain.apply({
+      type: 'create_floor',
+      defaults: { wall_thickness_m: 0.3, wall_height_m: 3 },
+    }).created.id;
+    for (const [x, y] of [
+      [0, 0],
+      [3, 3.3],
+    ])
+      domain.apply({ type: 'create_room', floorId, rectangle: { x, y, width: 5, height: 3 } });
+    const floor = domain.getSnapshot().floors[0];
+    expect(
+      domain.apply({
+        type: 'bind_faces',
+        floorId,
+        referenceFaceId: floor.rooms[0].faces[2].id,
+        faceId: floor.rooms[1].faces[0].id,
+      }).status
+    ).toBe('applied');
+    const snapshot = writeBuildingPlanRecord({ meta, plan: domain.getSnapshot() });
+    const security = { mode };
+    const main = await createRecordBackend({
+      schema: authored,
+      security,
+      diagnostics: { console: false },
+    }).prepare(snapshot);
+    const worker = recordWorker();
+    try {
+      await worker.call('INIT', {
+        schema: expanded.schema,
+        security,
+        initialValues: {},
+        recordSnapshot: snapshot,
+      });
+      const result = await worker.call('RECORD_PREPARE', { token: 'plan', snapshot });
+      expect(result.status).toBe(main.status);
+      const faceCost = nodes.walls.fieldsByOriginalDataName.face_cost.dataName;
+      for (const room of result.snapshot.repeatable[nodes.floors.preferredKey][0].repeatable[
+        nodes.rooms.preferredKey
+      ])
+        for (const face of room.repeatable[nodes.walls.preferredKey])
+          expect(face.values[faceCost]).toBe(301);
+      expect(readBuildingPlanRecord({ meta, record: result.snapshot })).toEqual(
+        readBuildingPlanRecord({ meta, record: main.snapshot })
+      );
+      expect(
+        readBuildingPlanRecord({ meta, record: result.snapshot }).floors[0].walls
+      ).toHaveLength(7);
+    } finally {
+      await worker.terminate();
+    }
+  });
