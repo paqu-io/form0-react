@@ -12,6 +12,11 @@ import { field, schema, nestedSchema } from './fixtures/diagnostic-conformance.j
 import { buildRepeatableInfo } from '../src/utils/repeatable-manager.js';
 import { attachRecordWorker } from '../src/record-context.jsx';
 import { createRecordCoordinator } from '../src/utils/record-coordinator.js';
+import {
+  createBuildingPlanSession,
+  expandBuildingPlanSchema,
+  writeBuildingPlanRecord,
+} from 'form0-core';
 
 const workers = new Set();
 class ThreadWorker {
@@ -57,6 +62,94 @@ afterEach(() => {
 const createWorker = () =>
   new ThreadWorker(pathToFileURL(resolve(process.cwd(), 'src/engine-worker.js')));
 const values = { input: 4 };
+
+for (const security of ['trusted', 'safe'])
+  it(`worker submission preserves split thickness and its bound calculation (${security})`, async () => {
+    const definition = {
+      form: {
+        name: 'Worker building',
+        elements: [
+          {
+            type: 'BuildingPlanSection',
+            key: 'plan',
+            data_name: 'plan',
+            label: 'Plan',
+            description: null,
+            description_mode: null,
+            visible: true,
+            visible_conditions: null,
+            read_only: false,
+            read_only_conditions: null,
+            node_overrides: {
+              walls: {
+                extra_elements: [
+                  field('CalculatedField', 'span_cost', {
+                    calculate: 'SETRESULT($wall_thickness_m * 1000);',
+                  }),
+                ],
+              },
+            },
+          },
+        ],
+      },
+    };
+    const meta = expandBuildingPlanSchema(definition).buildingPlanMeta[0];
+    const domain = createBuildingPlanSession({ properties: meta.properties });
+    const choice = (value, label) => ({ choice: [{ value, label }], other: [] });
+    const floorId = domain.apply({
+      type: 'create_floor',
+      defaults: { wall_height_m: 3 },
+      values: {
+        floor_name: choice('ground_floor', 'Ground Floor'),
+        floor_height_m: 3,
+        floor_elevation_m: 0,
+      },
+    }).created.id;
+    domain.apply({
+      type: 'create_room',
+      floorId,
+      rectangle: { x: 0, y: 0, width: 5, height: 3 },
+      values: { room_name: choice('bedroom', 'Bedroom') },
+    });
+    const faceId = domain.getSnapshot().floors[0].rooms[0].faces[0].id;
+    expect(domain.apply({ type: 'split_face', floorId, faceId, offset: 2.5 }).status).toBe(
+      'applied'
+    );
+    expect(
+      domain.apply({
+        type: 'set_property',
+        floorId,
+        faceId,
+        property: 'wall_thickness_m',
+        value: 0.4,
+      }).status
+    ).toBe('applied');
+    const record = writeBuildingPlanRecord({ meta, plan: domain.getSnapshot() });
+    const client = new EngineWorkerClient({ createWorker });
+    await client.init({ schema: definition, initialValues: {}, security: { mode: security } });
+    const result = await client.prepareRecord(record, { mode: 'automatic', intent: 'submit' });
+    expect(
+      result.eligible,
+      JSON.stringify({
+        status: result.status,
+        issues: result.issues,
+        summary: result.validationSummary,
+        review: result.review,
+      })
+    ).toBe(true);
+    const nodes = meta.repeatablesByNodeKey;
+    const rows =
+      result.snapshot.repeatable[nodes.floors.preferredKey][0].repeatable[
+        nodes.rooms.preferredKey
+      ][0].repeatable[nodes.walls.preferredKey];
+    const thickness = nodes.walls.fieldsByOriginalDataName.wall_thickness_m.dataName;
+    const cost = nodes.walls.fieldsByOriginalDataName.span_cost.dataName;
+    expect(rows[0].values[thickness]).toBe(0.4);
+    expect(rows[0].values[cost]).toBe(400);
+    expect(rows[1].values[thickness]).toBe(0.2);
+    expect(rows[1].values[cost]).toBe(200);
+    client.terminate();
+  });
 
 it('worker view preserves accepted scalar results and exposes authoritative event modes', async () => {
   const client = new EngineWorkerClient({ createWorker });

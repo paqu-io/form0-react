@@ -645,7 +645,7 @@ try {
   await page.mouse.up();
   await page.waitForTimeout(150);
   await activeRoom.getByRole('button', { name: 'Select', exact: true }).click();
-  const dragPartition = async (from, to, bypass = false) => {
+  const dragActiveWall = async (from, to, bypass = false) => {
     partitionCanvas = activeRoom.locator('canvas');
     await partitionCanvas.scrollIntoViewIfNeeded();
     current = await canvasBox(partitionCanvas);
@@ -657,7 +657,7 @@ try {
     if (bypass) await page.keyboard.up('Alt');
     await page.waitForTimeout(150);
   };
-  const savePartition = async () => {
+  const saveActiveRoom = async () => {
     await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
     await activeRoom.waitFor({ state: 'detached' });
     await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
@@ -667,22 +667,174 @@ try {
       record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
     });
   };
-  await dragPartition([60, 20], [66, 32], true);
-  let partitionPlan = await savePartition();
+  await dragActiveWall([60, 20], [66, 32], true);
+  let partitionPlan = await saveActiveRoom();
   assert.equal(partitionPlan.floors[0].rooms[0].faces.filter((face) => face.freePath).length, 3);
   await page.getByRole('button', { name: 'View', exact: true }).last().click();
   activeRoom = await openSharedRoom([10, 30]);
-  await dragPartition([60, 32], [60, 21]);
+  await dragActiveWall([60, 32], [60, 21]);
   await activeRoom.getByRole('button', { name: 'Rejoin', exact: true }).click();
   current = await canvasBox(activeRoom.locator('canvas'));
   await page.mouse.move(current.x + 40, current.y + 20);
   await page.mouse.down();
   await page.mouse.up();
   await page.waitForTimeout(150);
-  partitionPlan = await savePartition();
+  partitionPlan = await saveActiveRoom();
   assert.equal(partitionPlan.floors[0].rooms[0].faces.filter((face) => face.freePath).length, 1);
   evidence.push({
     scenario: 'a cut partition moves locally and saves, then magnetically straightens and Rejoins',
+    passed: true,
+  });
+  for (const axis of ['x', 'y']) {
+    const domain = createBuildingPlanSession({ snapshot: shared.getSnapshot() });
+    assert.equal(
+      domain.apply({
+        type: 'split_face',
+        floorId,
+        faceId: sharedFloor.rooms[0].faces[axis === 'x' ? 3 : 0].id,
+        offset: axis === 'x' ? 1.5 : 2,
+      }).status,
+      'applied'
+    );
+    const before = domain.getSnapshot();
+    const seed = writeBuildingPlanRecord({ meta: fixture.meta, plan: before });
+    await page.evaluate(
+      (record) =>
+        localStorage.setItem(
+          'building-plan-record',
+          JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+        ),
+      seed
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    await page.getByRole('button', { name: 'View', exact: true }).last().click();
+    activeRoom = await openSharedRoom([20, 30]);
+    await dragActiveWall(
+      axis === 'x' ? [0, 45] : [20, 0],
+      axis === 'x' ? [12, 45] : [20, 12],
+      true
+    );
+    await dragActiveWall(axis === 'x' ? [12, 45] : [20, 12], axis === 'x' ? [2, 45] : [20, 2]);
+    const aligned = await saveActiveRoom();
+    assert.deepEqual(
+      aligned.floors[0].rooms[0].vertices.map(({ x, y }) => [x, y]),
+      before.floors[0].rooms[0].vertices.map(({ x, y }) => [x, y])
+    );
+    assert.equal(aligned.floors[0].rooms[0].faces.length, 5);
+    await page.getByRole('button', { name: 'View', exact: true }).last().click();
+    activeRoom = await openSharedRoom([20, 30]);
+    await activeRoom.getByRole('button', { name: 'Rejoin', exact: true }).click();
+    const box = await canvasBox(activeRoom.locator('canvas')),
+      point = axis === 'x' ? [0, 30] : [40, 0];
+    await page.mouse.click(box.x + point[0], box.y + point[1]);
+    await page.waitForTimeout(150);
+    assert.equal((await saveActiveRoom()).floors[0].rooms[0].faces.length, 4);
+    evidence.push({
+      scenario: `stationary extension realignment and Rejoin (${axis})`,
+      passed: true,
+    });
+  }
+  const thicknessDomain = createBuildingPlanSession({ snapshot: shared.getSnapshot() });
+  assert.equal(
+    thicknessDomain.apply({
+      type: 'split_face',
+      floorId,
+      faceId: sharedFloor.rooms[1].faces[0].id,
+      offset: 2,
+    }).status,
+    'applied'
+  );
+  const thicknessSeed = writeBuildingPlanRecord({
+    meta: fixture.meta,
+    plan: thicknessDomain.getSnapshot(),
+  });
+  await page.evaluate(
+    (record) =>
+      localStorage.setItem(
+        'building-plan-record',
+        JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+      ),
+    thicknessSeed
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([130, 90]);
+  const openThickness = async () => {
+    await activeRoom.locator('canvas').scrollIntoViewIfNeeded();
+    const box = await canvasBox(activeRoom.locator('canvas'));
+    await page.mouse.click(box.x + 130, box.y + 64);
+    const dialog = page.getByRole('dialog', { name: 'Walls', exact: true });
+    await dialog.waitFor();
+    return dialog;
+  };
+  let wallDialog = await openThickness();
+  const thicknessSelector = `input[name="${fixture.meta.repeatablesByNodeKey.walls.fieldsByOriginalDataName.wall_thickness_m.dataName}"]`;
+  let thicknessInput = wallDialog.locator(thicknessSelector);
+  assert.equal(await thicknessInput.count(), 1);
+  await thicknessInput.fill('0.4');
+  await thicknessInput.press('Tab');
+  await wallDialog.getByText(/this wall portion/).waitFor();
+  await wallDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await wallDialog.waitFor({ state: 'detached' });
+  const thicknessCanvas = activeRoom.locator('canvas');
+  await thicknessCanvas.scrollIntoViewIfNeeded();
+  current = await canvasBox(thicknessCanvas);
+  await page.mouse.click(current.x + 250, current.y + 200);
+  await page.waitForTimeout(150);
+  const profilePixels = await thicknessCanvas.evaluate((element) => {
+    const context = element.getContext('2d'),
+      matrix = context.buildingPlanView || context.getTransform();
+    const pixel = (x, y) =>
+      [
+        ...context.getImageData(
+          Math.round(x * matrix.a + matrix.e),
+          Math.round(y * matrix.d + matrix.f),
+          1,
+          1
+        ).data,
+      ].slice(0, 3);
+    return {
+      thick: pixel(150, 57),
+      beyondThick: pixel(150, 54),
+      shared: pixel(66, 62),
+      aboveShared: pixel(66, 58),
+    };
+  });
+  assert.deepEqual(profilePixels.thick, [68, 68, 68]);
+  assert.notDeepEqual(profilePixels.beyondThick, [68, 68, 68]);
+  assert.deepEqual(profilePixels.shared, [68, 68, 68]);
+  assert.notDeepEqual(profilePixels.aboveShared, [68, 68, 68]);
+  const thickPlan = await saveActiveRoom();
+  assert.equal(thickPlan.floors[0].walls.length, 7);
+  assert.deepEqual(thickPlan.floors[0].rooms[0].vertices, sharedFloor.rooms[0].vertices);
+  const physical = thickPlan.floors[0].walls.find(
+    (wall) => wall.id === sharedFloor.rooms[0].faces[2].wallId
+  );
+  assert.equal(physical.properties.wall_thickness_m, 0.2);
+  assert.ok(physical.segments.some((segment) => segment.overrides?.wall_thickness_m === 0.4));
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([130, 90]);
+  wallDialog = await openThickness();
+  thicknessInput = wallDialog.locator(thicknessSelector);
+  assert.equal(Number(await thicknessInput.inputValue()), 0.4);
+  await wallDialog.getByRole('button', { name: 'Reset to inheritance', exact: true }).click();
+  await page.waitForTimeout(150);
+  assert.equal(Number(await thicknessInput.inputValue()), 0.2);
+  await wallDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await wallDialog.waitFor({ state: 'detached' });
+  const inheritedPlan = await saveActiveRoom();
+  assert.ok(
+    inheritedPlan.floors[0].walls
+      .flatMap((wall) => wall.segments)
+      .every((segment) => !Object.hasOwn(segment.overrides || {}, 'wall_thickness_m'))
+  );
+  evidence.push({
+    scenario:
+      'one thickness field saves only its split span, survives reload and resets to inheritance',
     passed: true,
   });
   assert.deepEqual(errors, []);
