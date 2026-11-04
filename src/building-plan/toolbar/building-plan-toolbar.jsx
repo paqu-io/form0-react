@@ -1,5 +1,15 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { MousePointer2, X, Minus, Square, GripHorizontal, DoorOpen, Grid2x2 } from 'lucide-react';
+import {
+  MousePointer2,
+  X,
+  Minus,
+  Square,
+  GripHorizontal,
+  DoorOpen,
+  Grid2x2,
+  Scissors,
+  Combine,
+} from 'lucide-react';
 import {
   TOOL_MODES,
   TOOLBAR_BUTTONS,
@@ -12,6 +22,8 @@ import './toolbar.css';
  * Icon component lookup by name.
  */
 const ICON_MAP = {
+  Scissors,
+  Combine,
   MousePointer2,
   X,
   Minus,

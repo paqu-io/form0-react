@@ -19,6 +19,8 @@ export const TOOL_MODES = {
   DRAW_WINDOW: 'draw-window',
   DRAW_COLUMN: 'draw-column',
   DRAW_BEAM: 'draw-beam',
+  SPLIT: 'split',
+  REJOIN: 'rejoin',
   CLEAR: 'clear', // Special action, not a mode
 };
 
@@ -61,6 +63,19 @@ const BUTTON_STATES = {
  * Each button has an id, label, icon name (Lucide), shortcut key, and per-mode state.
  */
 export const TOOLBAR_BUTTONS = [
+  ...[
+    { id: 'split', label: 'Split', icon: 'Scissors', shortcutKey: 'P', mode: TOOL_MODES.SPLIT },
+    { id: 'rejoin', label: 'Rejoin', icon: 'Combine', shortcutKey: 'J', mode: TOOL_MODES.REJOIN },
+  ].map((button) => ({
+    ...button,
+    isAction: false,
+    group: 'structural',
+    stateByCanvasMode: {
+      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
+      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
+      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
+    },
+  })),
   {
     id: 'room',
     label: 'Draw Room',

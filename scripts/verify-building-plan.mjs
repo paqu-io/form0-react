@@ -260,10 +260,10 @@ try {
   const sharedCanvas = sharedDialog.locator('canvas');
   await sharedCanvas.scrollIntoViewIfNeeded();
   let sharedBox = await canvasBox(sharedCanvas);
-  async function openSharedRoom() {
+  async function openSharedRoom(position = [40, 25]) {
     await sharedCanvas.scrollIntoViewIfNeeded();
     const currentBox = await canvasBox(sharedCanvas);
-    await page.mouse.click(currentBox.x + 40, currentBox.y + 25);
+    await page.mouse.click(currentBox.x + position[0], currentBox.y + position[1]);
     const roomDialog = page.getByRole('dialog', { name: 'Rooms', exact: true });
     await roomDialog.waitFor();
     await roomDialog.locator('canvas').scrollIntoViewIfNeeded();
@@ -556,6 +556,133 @@ try {
   assert.equal(stationary.doors[0].width, 0.9);
   evidence.push({
     scenario: 'room detachment saves trimmed stationary extents while retaining the shared door',
+    passed: true,
+  });
+  await reloadShared();
+  assert.equal(
+    await sharedDialog.getByRole('button', { name: 'Split', exact: true }).isDisabled(),
+    true
+  );
+  activeRoom = await openSharedRoom();
+  await activeRoom.getByRole('button', { name: 'Split', exact: true }).click();
+  let cutCanvas = activeRoom.locator('canvas');
+  await cutCanvas.scrollIntoViewIfNeeded();
+  current = await canvasBox(cutCanvas);
+  await page.keyboard.down('Alt');
+  await page.mouse.move(current.x + 70, current.y + 60);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.keyboard.up('Alt');
+  await page.waitForTimeout(150);
+  await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+  await activeRoom.waitFor({ state: 'detached' });
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const cutPlan = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+  });
+  assert.ok(cutPlan.floors[0].rooms.every((room) => room.faces.length === 5));
+  assert.equal(cutPlan.floors[0].walls.length, 7);
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom();
+  await activeRoom.getByRole('button', { name: 'Rejoin', exact: true }).click();
+  cutCanvas = activeRoom.locator('canvas');
+  await cutCanvas.scrollIntoViewIfNeeded();
+  current = await canvasBox(cutCanvas);
+  await page.mouse.move(current.x + 70, current.y + 60);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+  await activeRoom.waitFor({ state: 'detached' });
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const rejoined = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+  });
+  assert.ok(rejoined.floors[0].rooms.every((room) => room.faces.length === 4));
+  evidence.push({
+    scenario:
+      'room-scoped Split saves shared portions and Rejoin survives reload through normal Save controls',
+    passed: true,
+  });
+  const partitionDomain = createBuildingPlanSession({ snapshot: shared.getSnapshot() });
+  partitionDomain.apply({
+    type: 'create_wall',
+    floorId,
+    roomId: sharedFloor.rooms[0].id,
+    vertices: [
+      { x: 1, y: 1 },
+      { x: 4, y: 1 },
+    ],
+  });
+  const partitionRecord = writeBuildingPlanRecord({
+    meta: fixture.meta,
+    plan: partitionDomain.getSnapshot(),
+  });
+  await page.evaluate(
+    (record) =>
+      localStorage.setItem(
+        'building-plan-record',
+        JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+      ),
+    partitionRecord
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([10, 30]);
+  await activeRoom.getByRole('button', { name: 'Split', exact: true }).click();
+  let partitionCanvas = activeRoom.locator('canvas');
+  await partitionCanvas.scrollIntoViewIfNeeded();
+  current = await canvasBox(partitionCanvas);
+  await page.mouse.move(current.x + 40, current.y + 20);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await activeRoom.getByRole('button', { name: 'Select', exact: true }).click();
+  const dragPartition = async (from, to, bypass = false) => {
+    partitionCanvas = activeRoom.locator('canvas');
+    await partitionCanvas.scrollIntoViewIfNeeded();
+    current = await canvasBox(partitionCanvas);
+    if (bypass) await page.keyboard.down('Alt');
+    await page.mouse.move(current.x + from[0], current.y + from[1]);
+    await page.mouse.down();
+    await page.mouse.move(current.x + to[0], current.y + to[1], { steps: 8 });
+    await page.mouse.up();
+    if (bypass) await page.keyboard.up('Alt');
+    await page.waitForTimeout(150);
+  };
+  const savePartition = async () => {
+    await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+    await activeRoom.waitFor({ state: 'detached' });
+    await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await sharedDialog.waitFor({ state: 'detached' });
+    return readBuildingPlanRecord({
+      meta: fixture.meta,
+      record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+    });
+  };
+  await dragPartition([60, 20], [66, 32], true);
+  let partitionPlan = await savePartition();
+  assert.equal(partitionPlan.floors[0].rooms[0].faces.filter((face) => face.freePath).length, 3);
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([10, 30]);
+  await dragPartition([60, 32], [60, 21]);
+  await activeRoom.getByRole('button', { name: 'Rejoin', exact: true }).click();
+  current = await canvasBox(activeRoom.locator('canvas'));
+  await page.mouse.move(current.x + 40, current.y + 20);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  partitionPlan = await savePartition();
+  assert.equal(partitionPlan.floors[0].rooms[0].faces.filter((face) => face.freePath).length, 1);
+  evidence.push({
+    scenario: 'a cut partition moves locally and saves, then magnetically straightens and Rejoins',
     passed: true,
   });
   assert.deepEqual(errors, []);

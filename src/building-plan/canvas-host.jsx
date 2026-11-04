@@ -408,6 +408,11 @@ export function BuildingPlanCanvasHost({
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
       readOnly, // Disable canvas interactions in view mode
     });
+    const changeMode = canvas.setMode.bind(canvas);
+    canvas.setMode = (nextMode) => {
+      changeMode(nextMode);
+      setActiveToolMode(canvas.mode);
+    };
 
     // Persistently gate tools per toolbarState (legacy updateButtonStates may flip them)
     const applyToolbarGating = (state) => {
