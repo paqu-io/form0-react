@@ -449,7 +449,7 @@ try {
   for (const [from, to, bypass] of [
     [[40, 60], [40, 72], true],
     [[100, 30], [92, 30], true],
-    [[92, 30], [95.4, 30], false],
+    [[92, 30], [96, 30], true],
     [[40, 72], [40, 56], true],
   ]) {
     await activeRoom.locator('canvas').scrollIntoViewIfNeeded();
@@ -475,7 +475,87 @@ try {
   assert.equal(junctionPlan.floors[0].rooms[1].vertices.length, 6);
   evidence.push({
     scenario:
-      'the exact W3/W2 shared-contact sequence snaps stably and saves without the narrow dent',
+      'the supplied W3/W2 shared-corner sequence stays linked and saves without the narrow dent',
+    passed: true,
+  });
+  async function reloadShared() {
+    await page.evaluate(
+      (record) =>
+        localStorage.setItem(
+          'building-plan-record',
+          JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+        ),
+      sharedRecord
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    await page.getByRole('button', { name: 'View', exact: true }).last().click();
+    await sharedDialog.waitFor();
+  }
+  await reloadShared();
+  activeRoom = await openSharedRoom();
+  let current = await canvasBox(activeRoom.locator('canvas'));
+  await page.keyboard.down('Alt');
+  await page.mouse.move(current.x + 40, current.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(current.x + 40, current.y + 72, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Alt');
+  await page.waitForTimeout(150);
+  // Clear the resize handle before sampling the short return's material.
+  await page.mouse.click(current.x + 250, current.y + 200);
+  await page.waitForTimeout(150);
+  const returnColors = await activeRoom.locator('canvas').evaluate((element) => {
+    const ctx = element.getContext('2d'),
+      m = ctx.buildingPlanView || ctx.getTransform();
+    const pixel = (x, y) =>
+      [...ctx.getImageData(Math.round(x * m.a + m.e), Math.round(y * m.d + m.f), 1, 1).data].slice(
+        0,
+        3
+      );
+    // Sample below the neighbouring wall's label badge.
+    return { band: pixel(102, 70), interior: pixel(98, 70) };
+  });
+  await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
+  await activeRoom.waitFor({ state: 'detached' });
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const bandPlan = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+  });
+  const stableRight = sharedFloor.rooms[0].faces[1].wallId;
+  assert.ok(bandPlan.floors[0].rooms[1].vertices.some((v) => v.x === 5.2));
+  assert.ok(bandPlan.floors[0].rooms[1].faces.some((f) => f.wallId === stableRight));
+  assert.deepEqual(returnColors.band, [68, 68, 68]);
+  assert.notDeepEqual(returnColors.interior, [68, 68, 68]);
+  evidence.push({
+    scenario: 'a jog return shares the existing construction and draws one 0.20 m band',
+    passed: true,
+  });
+  await reloadShared();
+  await sharedCanvas.scrollIntoViewIfNeeded();
+  current = await canvasBox(sharedCanvas);
+  await page.keyboard.down('Alt');
+  await page.mouse.move(current.x + 40, current.y + 25);
+  await page.mouse.down();
+  await page.mouse.move(current.x - 160, current.y + 25, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.up('Alt');
+  await page.waitForTimeout(150);
+  await sharedDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await sharedDialog.waitFor({ state: 'detached' });
+  const detached = readBuildingPlanRecord({
+    meta: fixture.meta,
+    record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+  });
+  const stableShared = shared.getSnapshot().floors[0].walls.find((w) => w.doors.length);
+  const stationary = detached.floors[0].walls.find((w) => w.id === stableShared.id);
+  assert.deepEqual([stationary.segments[0].start.x, stationary.segments[0].end.x], [8, 3]);
+  assert.equal(stationary.doors[0].id, stableShared.doors[0].id);
+  assert.equal(stationary.doors[0].width, 0.9);
+  evidence.push({
+    scenario: 'room detachment saves trimmed stationary extents while retaining the shared door',
     passed: true,
   });
   assert.deepEqual(errors, []);
