@@ -271,6 +271,8 @@ try {
     return roomDialog;
   }
   let activeRoom = await openSharedRoom();
+  // Inspect physical corner material without the new vertex-selection handle overlay.
+  await activeRoom.getByRole('button', { name: 'Pin / unpin', exact: true }).click();
   const colors = await activeRoom.locator('canvas').evaluate((element) => {
     const ctx = element.getContext('2d');
     const m = ctx.buildingPlanView || ctx.getTransform();
@@ -293,6 +295,7 @@ try {
   assert.deepEqual(colors.door, [43, 138, 62]);
   assert.notDeepEqual(colors.above, colors.door);
   assert.notDeepEqual(colors.below, colors.door);
+  await activeRoom.getByRole('button', { name: 'Select', exact: true }).click();
   evidence.push({
     scenario: 'shared wall material and one canonical opening occupy the actual thickness',
     passed: true,
@@ -504,6 +507,7 @@ try {
   await page.waitForTimeout(150);
   // Clear the resize handle before sampling the short return's material.
   await page.mouse.click(current.x + 250, current.y + 200);
+  await activeRoom.getByRole('button', { name: 'Pin / unpin', exact: true }).click();
   await page.waitForTimeout(150);
   const returnColors = await activeRoom.locator('canvas').evaluate((element) => {
     const ctx = element.getContext('2d'),
@@ -513,7 +517,7 @@ try {
         0,
         3
       );
-    // Sample below the neighbouring wall's label badge.
+    // Sample below the label, with corner-selection overlays hidden by the pin tool.
     return { band: pixel(102, 70), interior: pixel(98, 70) };
   });
   await activeRoom.getByRole('button', { name: 'Save', exact: true }).click();
@@ -835,6 +839,132 @@ try {
   evidence.push({
     scenario:
       'one thickness field saves only its split span, survives reload and resets to inheritance',
+    passed: true,
+  });
+  async function resetCornerFixture() {
+    await page.evaluate(
+      (record) =>
+        localStorage.setItem(
+          'building-plan-record',
+          JSON.stringify({ raw_values: {}, repeatable: record.repeatable })
+        ),
+      sharedRecord
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    await page.getByRole('button', { name: 'View', exact: true }).last().click();
+    activeRoom = await openSharedRoom([130, 90]);
+  }
+  await resetCornerFixture();
+  await dragActiveWall([140, 64], [140, 76], true);
+  await dragActiveWall([140, 76], [140, 52], true);
+  const reversedCornerPlan = await saveActiveRoom();
+  assert.ok(reversedCornerPlan.floors[0].rooms[0].vertices.some((v) => v.x === 2.8 && v.y === 2.4));
+  evidence.push({
+    scenario: 'shared-face reversal saves one-thickness return geometry through the room editor',
+    passed: true,
+  });
+  await resetCornerFixture();
+  await dragActiveWall([140, 64], [140, 52], true);
+  await dragActiveWall([140, 52], [140, 76], true);
+  await saveActiveRoom();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([10, 30]);
+  await dragActiveWall([20, 60], [20, 76]);
+  const realignedCornerPlan = await saveActiveRoom();
+  assert.equal(realignedCornerPlan.floors[0].rooms[0].vertices.length, 4);
+  assert.ok(realignedCornerPlan.floors[0].rooms[0].vertices.some((v) => v.y === 3.6));
+  evidence.push({
+    scenario: 'W3.2 release commits after a shared reversal even when its preview row coalesces',
+    passed: true,
+  });
+  await resetCornerFixture();
+  await activeRoom.getByRole('button', { name: 'Pin / unpin', exact: true }).click();
+  current = await canvasBox(activeRoom.locator('canvas'));
+  await page.mouse.click(current.x + 140, current.y + 64);
+  await activeRoom.getByRole('button', { name: 'Select', exact: true }).click();
+  await dragActiveWall([160, 124], [180, 125]);
+  const cornerPlan = await saveActiveRoom();
+  const southEast = cornerPlan.floors[0].rooms[1].vertices[2];
+  assert.equal(southEast.x, 9);
+  assert.equal(southEast.y, 6.2);
+  assert.deepEqual(cornerPlan.floors[0].rooms[0].vertices, sharedFloor.rooms[0].vertices);
+  await page.reload();
+  assert.deepEqual(
+    readBuildingPlanRecord({
+      meta: fixture.meta,
+      record: { values: {}, repeatable: await page.evaluate(() => window.snapshot.repeatable) },
+    }).floors[0].rooms[1].vertices,
+    cornerPlan.floors[0].rooms[1].vertices
+  );
+  evidence.push({
+    scenario:
+      'optional canvas pin and axis-guided corner reshape use ordinary room/floor Save and reload',
+    passed: true,
+  });
+  await resetCornerFixture();
+  await dragActiveWall([160, 80], [100, 80], true);
+  await dragActiveWall([80, 64], [80, 44], true);
+  const joggedBefore = await saveActiveRoom();
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([80, 90]);
+  await dragActiveWall([60, 44], [60, 28]);
+  const cornerColors = await activeRoom.locator('canvas').evaluate((element) => {
+    const ctx = element.getContext('2d'),
+      m = ctx.buildingPlanView || ctx.getTransform();
+    const pixel = (x, y) =>
+      [...ctx.getImageData(Math.round(x * m.a + m.e), Math.round(y * m.d + m.f), 1, 1).data].slice(
+        0,
+        3
+      );
+    return { band: pixel(102, 54), outside: pixel(106, 40) };
+  });
+  assert.deepEqual(cornerColors.band, [68, 68, 68]);
+  assert.notDeepEqual(cornerColors.outside, [68, 68, 68]);
+  const joggedAfter = await saveActiveRoom();
+  for (const old of joggedBefore.floors[0].rooms[0].vertices.filter((v) => v.y === 3))
+    assert.deepEqual(
+      joggedAfter.floors[0].rooms[0].vertices.find((v) => v.id === old.id),
+      old
+    );
+  for (const room of joggedAfter.floors[0].rooms)
+    for (const vertex of room.vertices.filter((v) => v.x > 4.9)) assert.equal(vertex.x, 5);
+  await page.getByRole('button', { name: 'View', exact: true }).last().click();
+  activeRoom = await openSharedRoom([80, 90]);
+  await dragActiveWall([60, 28], [60, 43.6]);
+  const joggedRestored = await saveActiveRoom();
+  assert.deepEqual(
+    joggedRestored.floors[0].rooms.map((r) => r.vertices),
+    joggedBefore.floors[0].rooms.map((r) => r.vertices)
+  );
+  evidence.push({
+    scenario:
+      'a jogged shared corner preserves stationary wall lines, has no outer spike, and returns after Save',
+    passed: true,
+  });
+  await resetCornerFixture();
+  await dragActiveWall([160, 64], [160, 52], true);
+  await dragActiveWall([120, 56.8], [140, 57.2]);
+  const sharedDiagonal = await saveActiveRoom();
+  assert.ok(Math.abs(sharedDiagonal.floors[0].rooms[1].vertices[1].y - 2.72) < 1e-5);
+  assert.ok(Math.abs(sharedDiagonal.floors[0].rooms[1].vertices[0].x - 3) < 1e-6);
+  assert.ok(Math.abs(sharedDiagonal.floors[0].rooms[1].vertices[1].x - 8) < 1e-6);
+  assert.deepEqual(createBuildingPlanSession({ snapshot: sharedDiagonal }).validate(), []);
+  await resetCornerFixture();
+  await dragActiveWall([60, 64], [60, 76], true);
+  const sharedDown = await saveActiveRoom();
+  assert.deepEqual(createBuildingPlanSession({ snapshot: sharedDown }).validate(), []);
+  const alignedReturns = sharedDown.floors[0].rooms[0].faces
+    .flatMap((face) =>
+      sharedDown.floors[0].walls.filter((w) => w.id === face.wallId).flatMap((w) => w.segments)
+    )
+    .filter(
+      (segment) => Math.abs(segment.start.x - 2.9) < 1e-6 && Math.abs(segment.end.x - 2.9) < 1e-6
+    );
+  assert.equal(alignedReturns.length, 1);
+  evidence.push({
+    scenario:
+      'shared diagonal junctions preserve physical alignment and guided wall movement through Save',
     passed: true,
   });
   assert.deepEqual(errors, []);
