@@ -967,6 +967,31 @@ try {
       'shared diagonal junctions preserve physical alignment and guided wall movement through Save',
     passed: true,
   });
+  await resetCornerFixture();
+  await dragActiveWall([120, 64], [120, 60], true);
+  await dragActiveWall([60, 100], [48, 100], true);
+  const axisPixels = await activeRoom.locator('canvas').evaluate((element) => {
+    const ctx = element.getContext('2d'),
+      m = ctx.buildingPlanView || ctx.getTransform();
+    return [
+      [42, 58],
+      [56, 62],
+    ].map(([x, y]) =>
+      [...ctx.getImageData(Math.round(x * m.a + m.e), Math.round(y * m.d + m.f), 1, 1).data].slice(
+        0,
+        3
+      )
+    );
+  });
+  for (const pixel of axisPixels) assert.notDeepEqual(pixel, [68, 68, 68]);
+  const axesPlan = await saveActiveRoom();
+  assert.ok(axesPlan.floors[0].rooms[0].vertices.some((v) => v.x === 2.2 && v.y === 2.8));
+  assert.deepEqual(createBuildingPlanSession({ snapshot: axesPlan }).validate(), []);
+  evidence.push({
+    scenario:
+      'axis-connected return follows the west wall without stale material through room and floor Save',
+    passed: true,
+  });
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ scenarios: evidence, passed: evidence.length }, null, 2));
 } finally {
