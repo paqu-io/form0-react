@@ -23,7 +23,10 @@ export function createEventEngineBinding({
   };
   return {
     recordCoordinator: engine.recordCoordinator,
-    endScope,
+    endScope: () => {
+      Promise.resolve(engine.cancelUIRequests?.()).catch(() => {});
+      endScope?.();
+    },
     scopeId: scope.scopeId,
     instancePath: copyEventData(scope.instancePath),
     isCurrent,
@@ -44,15 +47,37 @@ export function createEventEngineBinding({
     trigger: (type, fieldKey, metadata) =>
       engine.triggerDetailed(type, fieldKey, copyEventData(metadata)),
     async process(operations, meta, targetCurrent) {
-      await completeEventOperations(operations, meta, {
+      const operationMode = engine.getMode?.();
+      const operationCurrent = () =>
+        isCurrent() && targetCurrent() && engine.getMode?.() === operationMode;
+      const questions = operations.filter((op) => op?.operation === 'MESSAGEBOX');
+      const immediate = operations.filter((op) => op?.operation !== 'MESSAGEBOX');
+      await completeEventOperations(immediate, meta, {
         delegate: getOptions()?.onOperations,
-        isCurrent: () => isCurrent() && targetCurrent(),
+        isCurrent: operationCurrent,
         applyDefault: async (selected, selectedMeta) => {
           await applyDefault(selected, selectedMeta);
           await read();
         },
       });
       await read();
+      for (const question of questions) {
+        if (!operationCurrent()) throw new Error('Question target has ended.');
+        const present = getOptions()?.onMessageBox;
+        if (typeof present !== 'function')
+          throw new Error('MESSAGEBOX requires an onMessageBox presenter.');
+        const response = await present(copyEventData(question.params), {
+          ...meta,
+          isCurrent: operationCurrent,
+        });
+        if (!operationCurrent()) {
+          await engine.cancelUIRequests?.();
+          throw new Error('Question target has ended.');
+        }
+        const result = await engine.resolveUIRequest(question.params.requestId, response);
+        if (result.issues?.length) throw new Error(result.issues[0].message);
+        if (result.operations?.length) await this.process(result.operations, meta, targetCurrent);
+      }
     },
   };
 }

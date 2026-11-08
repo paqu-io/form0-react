@@ -326,6 +326,15 @@ export class EngineWorkerClient {
     return this.call('TRIGGER_DETAILED', { eventType, fieldKey, metadata, scopeId: this.scopeId });
   }
 
+  resolveUIRequest(requestId, response) {
+    assertWorkerConfiguration(response);
+    return this.call('RESOLVE_UI_REQUEST', { requestId, response, scopeId: this.scopeId });
+  }
+
+  cancelUIRequests() {
+    return this.call('CANCEL_UI_REQUESTS', { scopeId: this.scopeId });
+  }
+
   submit() {
     return this.call('SUBMIT');
   }

@@ -260,10 +260,10 @@ for (const mode of ['trusted', 'safe'])
                 extra_elements: [
                   field('CalculatedField', 'cost', {
                     calculate: 'SETRESULT($wall_thickness_m * 1000)',
+                    building_plan: { scope: 'physical_wall' },
                   }),
                   field('CalculatedField', 'face_cost', { calculate: 'SETRESULT($cost + 1)' }),
                 ],
-                field_bindings: { cost: { scope: 'physical_wall' } },
               },
             },
           },
@@ -320,7 +320,7 @@ for (const mode of ['trusted', 'safe'])
       );
       expect(
         readBuildingPlanRecord({ meta, record: result.snapshot }).floors[0].walls
-      ).toHaveLength(7);
+      ).toHaveLength(9);
     } finally {
       await worker.terminate();
     }

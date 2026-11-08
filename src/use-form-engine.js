@@ -910,15 +910,24 @@ export function useFormEngine(
   );
 
   const processOperations = useCallback(
-    (operations = [], meta = {}) => {
-      if (!Array.isArray(operations) || operations.length === 0) {
-        return;
-      }
+    async (operations = [], meta = {}) => {
+      if (!Array.isArray(operations) || !operations.length) return;
+      const engine = engineRef.current;
+      const immediate = operations.filter((operation) => operation?.operation !== 'MESSAGEBOX');
       const handler = optionsRef.current.onOperations;
-      if (typeof handler === 'function') {
-        handler(operations, meta, defaultProcessOperations);
-      } else {
-        defaultProcessOperations(operations, meta);
+      if (immediate.length) {
+        if (typeof handler === 'function') await handler(immediate, meta, defaultProcessOperations);
+        else await defaultProcessOperations(immediate, meta);
+      }
+      for (const operation of operations.filter((op) => op?.operation === 'MESSAGEBOX')) {
+        const present = optionsRef.current.onMessageBox;
+        if (typeof present !== 'function')
+          throw new Error('MESSAGEBOX requires an onMessageBox presenter.');
+        const reply = await present(operation.params, meta);
+        if (engine !== engineRef.current) return;
+        const result = await engine.resolveUIRequest(operation.params.requestId, reply);
+        if (result.issues?.length) throw new Error(result.issues[0].message);
+        await processOperations(result.operations, meta);
       }
     },
     [defaultProcessOperations]

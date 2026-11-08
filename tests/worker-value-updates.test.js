@@ -128,3 +128,44 @@ it('actual worker retains registered host metadata fields after reset', async ()
     await worker.terminate();
   }
 });
+
+for (const mode of ['trusted', 'safe'])
+  it(`actual worker transports data-only MESSAGEBOX replies (${mode})`, async () => {
+    const worker = startWorker();
+    try {
+      const questionSchema = structuredClone(schema);
+      questionSchema.form.events = {
+        code: `ON('blur','width',function(){MESSAGEBOX({buttons:[{id:'apply',label:'Apply'}],context:{original:$width}},function(reply){if(!reply.cancelled)SETVALUE('width',$width+reply.context.original);});});`,
+      };
+      await worker.call('INIT', {
+        schema: questionSchema,
+        scopeId: 'question',
+        security: { mode },
+        initialValues: { width: 3, height: 2 },
+      });
+      const request = await worker.call('TRIGGER_DETAILED', {
+        scopeId: 'question',
+        eventType: 'blur',
+        fieldKey: 'width',
+      });
+      expect(request.issues).toEqual([]);
+      expect(request.operations[0].params.context).toBeUndefined();
+      await worker.call('SET_VALUES', { updates: { width: 5 } });
+      const id = request.operations[0].params.requestId;
+      const reply = await worker.call('RESOLVE_UI_REQUEST', {
+        scopeId: 'question',
+        requestId: id,
+        response: { value: 'apply' },
+      });
+      expect(reply.issues).toEqual([]);
+      expect(reply.operations[0].params.valueToSet).toBe(8);
+      const duplicate = await worker.call('RESOLVE_UI_REQUEST', {
+        scopeId: 'question',
+        requestId: id,
+        response: { value: 'apply' },
+      });
+      expect(duplicate.issues).toHaveLength(1);
+    } finally {
+      await worker.terminate();
+    }
+  });

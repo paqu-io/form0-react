@@ -1,3 +1,4 @@
+import { settleBuildingPlanQuestions } from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
@@ -1085,7 +1086,8 @@ function findSectionNodeById(nodes = [], targetId) {
  * @property {Object} [security] Construction-time core security configuration.
  * @property {(warning: Object) => void} [onWarning] Legacy warning observer.
  * @property {(state: Object, engine: Object) => void} [onUpdate] Execution-specific state observer.
- * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void | Promise<void>} [onOperations] Non-alert operation delegation.
+ * @property {(operations: Array<Object>, meta: Object, applyDefault: Function) => void | Promise<void>} [onOperations] Non-dialog operation delegation.
+ * @property {(question: Object, lifetime: Object) => Promise<Object>} [onMessageBox] Presenter for standalone hooks; FormRenderer supplies its managed dialog.
  * @property {{lifecycle?: boolean, recordKind?: 'new' | 'existing', fieldInteractions?: Array<'focus' | 'blur' | 'click'>}} [events] Session-fixed integration; lifecycle and field interactions default on. Lifecycle requires explicit recordKind.
  * @property {(controller: {dispatch: (request: Object) => Promise<Object>, prepareSave: (request: Object) => Promise<Object>} | null) => void | Promise<void>} [onEventController] Current generation after initialization; null on retirement.
  * @property {{console?: boolean}} [diagnostics] Calculation console reporting (default true).
@@ -1156,6 +1158,38 @@ function FormRendererContent({
   const [hiddenValueRecoveryError, setHiddenValueRecoveryError] = useState(null);
   const [alertQueue, setAlertQueue] = useState([]);
   const [activeAlert, setActiveAlert] = useState(null);
+  const [messageBoxInput, setMessageBoxInput] = useState('');
+  const pendingQuestions = useRef(new Set());
+  const requestMessageBox = useCallback(
+    (options, lifetime = {}) =>
+      new Promise((resolve) => {
+        const finish = (response) => {
+          pendingQuestions.current.delete(finish);
+          resolve(response);
+        };
+        pendingQuestions.current.add(finish);
+        setAlertQueue((queue) => [
+          ...queue,
+          { ...options, isCurrent: lifetime.isCurrent, resolve: finish },
+        ]);
+      }),
+    []
+  );
+  useEffect(
+    () => () => {
+      for (const finish of pendingQuestions.current) finish({ cancelled: true });
+    },
+    []
+  );
+  useEffect(() => {
+    setMessageBoxInput('');
+  }, [activeAlert]);
+  useEffect(() => {
+    if (activeAlert?.resolve && activeAlert.isCurrent && !activeAlert.isCurrent()) {
+      activeAlert.resolve({ cancelled: true });
+      setActiveAlert(null);
+    }
+  });
   const loadEventTriggeredRef = useRef(false);
   const previousInteractionModeRef = useRef(null);
   const alertOkButtonRef = useRef(null);
@@ -1466,15 +1500,17 @@ function FormRendererContent({
     () => ({
       ...(consumerEngineOptions || {}),
       onOperations: handleOperations,
+      onMessageBox: requestMessageBox,
       engineMode,
       engineStoreMode,
     }),
-    [consumerEngineOptions, engineMode, engineStoreMode, handleOperations]
+    [consumerEngineOptions, engineMode, engineStoreMode, handleOperations, requestMessageBox]
   );
 
   const closeAlert = useCallback(() => {
+    activeAlert?.resolve?.({ cancelled: true });
     setActiveAlert(null);
-  }, []);
+  }, [activeAlert]);
 
   const {
     values,
@@ -1638,7 +1674,7 @@ function FormRendererContent({
       let buildingPlan = null;
       const planMeta = buildingPlanMeta.find(
         (entry) =>
-          entry.version === 1 &&
+          entry.version === 2 &&
           entry.repeatables.some((node) => node.preferredKey === repeatableKey)
       );
       if (planMeta) {
@@ -1646,6 +1682,7 @@ function FormRendererContent({
         const editor =
           controller.buildingPlan?.editor ||
           createBuildingPlanEditor({
+            editingPolicy: { copyCustomAnswersAutomatically: true },
             meta: planMeta,
             record: {
               values: {},
@@ -1795,23 +1832,15 @@ function FormRendererContent({
       const instances = controller.getInstances(repeatableKey, parentPath);
       const planMeta = buildingPlanMeta.find(
         (entry) =>
-          entry.version === 1 && entry.repeatablesByNodeKey.floors.preferredKey === repeatableKey
+          entry.version === 2 && entry.repeatablesByNodeKey.floors.preferredKey === repeatableKey
       );
       if (planMeta) {
         const editor = createBuildingPlanEditor({
+          editingPolicy: { copyCustomAnswersAutomatically: true },
           meta: planMeta,
           record: { values: {}, repeatable: { [repeatableKey]: instances } },
         });
-        let result = editor.removeRow([{ key: repeatableKey, id: instanceId }]);
-        if (
-          result.issues.some(
-            (issue) => issue.code === 'observation_deletion_requires_confirmation'
-          ) &&
-          globalThis.confirm?.(result.issues.map((issue) => issue.message).join(' '))
-        )
-          result = editor.removeRow([{ key: repeatableKey, id: instanceId }], {
-            allowObservationDeletion: true,
-          });
+        const result = editor.removeRow([{ key: repeatableKey, id: instanceId }]);
         if (result.issues.length) return;
       }
 
@@ -1840,14 +1869,20 @@ function FormRendererContent({
   );
 
   const persistRepeatableEntry = useCallback(
-    (modalConfig, payload) => {
+    async (modalConfig, payload) => {
       const { controller, repeatableKey, parentPath, mode } = modalConfig;
       if (!controller) {
         return;
       }
       if (modalConfig.buildingPlan) {
         const { editor, scopeId, path } = modalConfig.buildingPlan;
-        const updated = editor.updateRow(scopeId, payload);
+        const updated = await settleBuildingPlanQuestions(
+          editor,
+          editor.updateRow(scopeId, payload),
+          modalConfig.engineOptions?.onMessageBox
+        );
+        if (updated.status !== 'applied')
+          throw new TypeError('Resolve or cancel the pending BuildingPlan edit before saving.');
         if (updated.issues.length) throw new TypeError(updated.issues[0].message);
         payload = {
           ...resolveBuildingPlanRow(editor.getRecord(), path),
@@ -1904,7 +1939,7 @@ function FormRendererContent({
 
   const handleRepeatableModalSave = useCallback(
     async (modalConfig, entryPayload, beforeClose) => {
-      persistRepeatableEntry(modalConfig, entryPayload);
+      await persistRepeatableEntry(modalConfig, entryPayload);
       if (beforeClose && (await beforeClose()).status !== 'completed') return;
       closeRepeatableModal(modalConfig.modalId);
     },
@@ -3674,6 +3709,7 @@ function FormRendererContent({
                   type="button"
                   className={styles.formNameActionButton}
                   data-variant={action.variant || 'ghost'}
+                  data-action={action.id}
                   onClick={action.onClick}
                   disabled={action.disabled}
                   title={action.title || undefined}
@@ -3797,7 +3833,7 @@ function FormRendererContent({
             error={fieldError}
             showError={false}
             onChange={handleFieldChange}
-            eventInteractions={rootEvents.interaction}
+            eventInteractions={(type, name) => rootEvents.interaction(type, name)}
             onFocus={() => handleFieldFocus(field.data_name)}
             labelPosition={labelPosition}
             labelWidthPercent={labelWidthPercent}
@@ -3968,7 +4004,7 @@ function FormRendererContent({
               error={currentFieldError}
               onChange={currentFieldChangeHandler}
               onKeyDown={handleKeyDown}
-              eventInteractions={rootEvents.interaction}
+              eventInteractions={(type, name) => rootEvents.interaction(type, name)}
               labelPosition="top"
               labelWidthPercent={100}
             />
@@ -4036,16 +4072,30 @@ function FormRendererContent({
                 </h3>
                 <div id="form0-react-alert-message" className={styles.alertMessage}>
                   {activeAlert.message || ''}
+                  {activeAlert.input && (
+                    <input
+                      aria-label={activeAlert.placeholder || 'Response'}
+                      placeholder={activeAlert.placeholder}
+                      value={messageBoxInput}
+                      onChange={(event) => setMessageBoxInput(event.target.value)}
+                    />
+                  )}
                 </div>
                 <div className={styles.alertFooter}>
-                  <button
-                    type="button"
-                    ref={alertOkButtonRef}
-                    className={styles.alertOkButton}
-                    onClick={closeAlert}
-                  >
-                    OK
-                  </button>
+                  {(activeAlert.buttons || [{ id: 'OK', label: 'OK' }]).map((button, index) => (
+                    <button
+                      key={button.id}
+                      type="button"
+                      ref={index === 0 ? alertOkButtonRef : undefined}
+                      className={styles.alertOkButton}
+                      onClick={() => {
+                        activeAlert.resolve?.({ value: button.id, input: messageBoxInput });
+                        setActiveAlert(null);
+                      }}
+                    >
+                      {button.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>,
@@ -4469,7 +4519,7 @@ function FormRendererContent({
           required={fieldRequired}
           error={fieldError}
           onChange={handleFieldChange}
-          eventInteractions={rootEvents.interaction}
+          eventInteractions={(type, name) => rootEvents.interaction(type, name)}
           onFocus={() => handleFieldFocus(field.data_name)}
           labelPosition={labelPosition}
           labelWidthPercent={labelWidthPercent}
@@ -4611,16 +4661,30 @@ function FormRendererContent({
               </h3>
               <div id="form0-react-alert-message" className={styles.alertMessage}>
                 {activeAlert.message || ''}
+                {activeAlert.input && (
+                  <input
+                    aria-label={activeAlert.placeholder || 'Response'}
+                    placeholder={activeAlert.placeholder}
+                    value={messageBoxInput}
+                    onChange={(event) => setMessageBoxInput(event.target.value)}
+                  />
+                )}
               </div>
               <div className={styles.alertFooter}>
-                <button
-                  type="button"
-                  ref={alertOkButtonRef}
-                  className={styles.alertOkButton}
-                  onClick={closeAlert}
-                >
-                  OK
-                </button>
+                {(activeAlert.buttons || [{ id: 'OK', label: 'OK' }]).map((button, index) => (
+                  <button
+                    key={button.id}
+                    type="button"
+                    ref={index === 0 ? alertOkButtonRef : undefined}
+                    className={styles.alertOkButton}
+                    onClick={() => {
+                      activeAlert.resolve?.({ value: button.id, input: messageBoxInput });
+                      setActiveAlert(null);
+                    }}
+                  >
+                    {button.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>,
@@ -4830,23 +4894,62 @@ function RepeatableEntryModal({
     });
   }, [modal.buildingPlan, setEntryValues, setEntryRepeatableInstances, isEntryReadOnly]);
   useEffect(() => {
-    const context = modal.buildingPlan;
-    if (!context || !context.editor.hasEditor(context.scopeId) || isEntryReadOnly) return;
-    const node = context.editor.resolveRow(context.path).node;
-    const model = node.fields.find(
-      (field) => field.binding?.role === 'storage' || field.binding?.storageRole === 'storage'
-    );
-    if (!entryValues[model?.dataName]) return;
-    const signature = JSON.stringify(entryValues);
-    if (signature === planIncomingValues.current) return;
-    planIncomingValues.current = signature;
-    const result = context.editor.updateRow(context.scopeId, {
-      ...modal.initialInstance,
-      values: entryValues,
-      repeatable: entryRepeatable,
-    });
-    setBuildingPlanIssues(result.issues);
-  }, [entryValues, entryRepeatable, modal.buildingPlan, modal.initialInstance, effectiveEntryMode]);
+    const editor = modal.buildingPlan?.editor;
+    if (isEntryReadOnly) editor?.cancelUIRequests();
+    return () => editor?.cancelUIRequests();
+  }, [modal.buildingPlan?.editor, modal.buildingPlan?.scopeId, isEntryReadOnly]);
+  const pendingPlanCompletion = useRef(Promise.resolve());
+  const pendingPlanValueChange = useRef(Promise.resolve());
+  const planDraft = useRef(null);
+  planDraft.current = {
+    initialInstance: modal.initialInstance,
+    repeatable: entryRepeatable,
+    readOnly: isEntryReadOnly,
+  };
+  const completePlanRow = useCallback(
+    (fieldName = null, finishAll = false) => {
+      const context = modal.buildingPlan;
+      if (!context) return Promise.resolve(null);
+      const run = async () => {
+        try {
+          await pendingPlanValueChange.current;
+          const binding = getEventBinding();
+          if (!binding || !context.editor.hasEditor(context.scopeId) || planDraft.current.readOnly)
+            return null;
+          const state = await binding.read();
+          if (
+            !binding.isCurrent() ||
+            !context.editor.hasEditor(context.scopeId) ||
+            planDraft.current.readOnly
+          )
+            return null;
+          const row = {
+            ...planDraft.current.initialInstance,
+            ...state,
+            repeatable: planDraft.current.repeatable,
+          };
+          const result = await settleBuildingPlanQuestions(
+            context.editor,
+            context.editor.completeRow(context.scopeId, row, { fieldName, finishAll }),
+            modal.engineOptions?.onMessageBox
+          );
+          if (!['draft', 'unchanged', 'invalid'].includes(result.status))
+            setBuildingPlanIssues(result.issues);
+          return result;
+        } catch (error) {
+          if (context.editor.hasEditor(context.scopeId) && !planDraft.current.readOnly)
+            setBuildingPlanIssues([{ message: error.message }]);
+          return { status: 'invalid', issues: [{ message: error.message }] };
+        }
+      };
+      pendingPlanCompletion.current = pendingPlanCompletion.current.then(run, run);
+      return pendingPlanCompletion.current;
+    },
+    [modal.buildingPlan, modal.engineOptions, getEventBinding]
+  );
+  useEffect(() => {
+    completePlanRow();
+  }, [entryValues, entryRepeatable, completePlanRow]);
 
   useEffect(() => {
     setEntrySubmitCount(0);
@@ -4917,13 +5020,16 @@ function RepeatableEntryModal({
   });
   const setEntryValue = useCallback(
     (name, value) => {
-      if (rowEvents.lifecycle)
-        rowEvents.change('change', name, { value }, () => setRawEntryValue(name, value));
-      else setRawEntryValue(name, value);
+      pendingPlanValueChange.current = Promise.resolve(
+        rowEvents.lifecycle
+          ? rowEvents.change('change', name, { value }, () => setRawEntryValue(name, value))
+          : setRawEntryValue(name, value)
+      );
     },
     [setRawEntryValue, rowEvents.lifecycle, rowEvents.change]
   );
   const cancelEntry = useCallback(async () => {
+    modal.buildingPlan?.editor.cancelUIRequests();
     const result = await rowEvents.close(true);
     if (result.status === 'completed') onCancel(modal);
   }, [rowEvents.close, onCancel, modal]);
@@ -4973,7 +5079,14 @@ function RepeatableEntryModal({
       buildingPlan: modal.buildingPlan,
       diagnosticInstancePath: modal.diagnosticInstancePath,
       eventDispatch: rowEvents.dispatch,
-      eventInteraction: rowEvents.interaction,
+      eventInteraction: (type, name, event) => {
+        const interaction = rowEvents.interaction(type, name);
+        if (type === 'blur' && event?.relatedTarget?.dataset?.action !== 'cancel')
+          Promise.resolve(interaction).then(
+            () => completePlanRow(name),
+            () => {}
+          );
+      },
       metadata: entryRepeatableMetadata,
       getInstances: (repeatableKey, parentPath = []) =>
         getEntryRepeatableInstances(repeatableKey, parentPath),
@@ -4988,6 +5101,7 @@ function RepeatableEntryModal({
     }),
     [
       modal.diagnosticInstancePath,
+      completePlanRow,
       modal.buildingPlan,
       buildEntryParentValues,
       entryRepeatableMetadata,
@@ -5011,7 +5125,12 @@ function RepeatableEntryModal({
         section: findBuildingPlanSection(modal.schema?.form?.elements || [], meta.dataName),
         repeatableState: editor.getRecord().repeatable,
         repeatableApi: {
-          writeBuildingPlan: (_record, { operation }) => editor.apply(operation, { scopeId }),
+          writeBuildingPlan: (_record, { operation }) =>
+            settleBuildingPlanQuestions(
+              editor,
+              editor.apply(operation, { scopeId }),
+              modal.engineOptions?.onMessageBox
+            ),
           focusRow: (indexPath) => {
             const record = editor.getRecord();
             let row = record;
@@ -5647,7 +5766,9 @@ function RepeatableEntryModal({
 
   const handleSave = useCallback(async () => {
     if (isEntryReadOnly) return;
-    if (buildingPlanIssues.length) return;
+    await pendingPlanCompletion.current;
+    const completion = await completePlanRow(null, true);
+    if (completion && !['applied', 'unchanged'].includes(completion.status)) return;
     setEntrySubmitCount((count) => count + 1);
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
@@ -5860,20 +5981,21 @@ function RepeatableEntryModal({
   );
 
   const handleNestedRemove = useCallback(
-    (repeatableKey, instanceId, parentPath = []) => {
+    async (repeatableKey, instanceId, parentPath = []) => {
       const instances = entryController.getInstances(repeatableKey, parentPath);
       const next = instances.filter((instance) => instance.id !== instanceId);
       if (modal.buildingPlan) {
         const { editor, path, scopeId } = modal.buildingPlan;
         const targetPath = [...path, ...parentPath, { key: repeatableKey, id: instanceId }];
-        let result = editor.removeRow(targetPath, { scopeId });
-        if (
-          result.issues.some(
-            (issue) => issue.code === 'observation_deletion_requires_confirmation'
-          ) &&
-          globalThis.confirm?.(result.issues.map((issue) => issue.message).join(' '))
-        )
-          result = editor.removeRow(targetPath, { scopeId, allowObservationDeletion: true });
+        const result = await settleBuildingPlanQuestions(
+          editor,
+          editor.removeRow(targetPath, { scopeId }),
+          modal.engineOptions?.onMessageBox
+        );
+        if (result.status !== 'applied') {
+          setBuildingPlanIssues(result.issues);
+          return;
+        }
         if (result.issues.length) {
           setBuildingPlanIssues(result.issues);
           return;
@@ -6189,6 +6311,7 @@ function RepeatableEntryModal({
                 type="button"
                 className={styles.formNameActionButton}
                 data-variant={action.variant || 'ghost'}
+                data-action={action.id}
                 onClick={disabled ? undefined : action.onClick}
                 disabled={disabled}
               >
@@ -6787,7 +6910,7 @@ function RepeatableEntryForm({
     const dataName = field.data_name;
     const planContext = controller?.buildingPlan;
     const propertyState = planContext?.editor.fieldState(planContext.path, dataName);
-    if (propertyState?.managed) return null;
+    if (propertyState?.managed || propertyState?.applicable === false) return null;
     if (dataName && state.visible && state.visible[dataName] === false) {
       return null;
     }
@@ -6816,16 +6939,33 @@ function RepeatableEntryForm({
 
     return (
       <React.Fragment key={field.key || dataName}>
+        {(propertyState?.outside || propertyState?.opposite) && !propertyState.source && (
+          <small aria-label={propertyState.outside ? 'Exterior' : 'Opposite face'}>
+            {propertyState.outside ? 'Exterior' : 'Opposite face'}
+          </small>
+        )}
         {propertyState?.source && (
           <div
             role="group"
             aria-label={
-              propertyState.scope === 'physical_wall' ? 'Shared physical wall' : 'Room side'
+              propertyState.outside
+                ? 'Exterior'
+                : propertyState.opposite
+                  ? 'Opposite face'
+                  : propertyState.scope === 'physical_wall'
+                    ? 'Shared physical wall'
+                    : 'Room side'
             }
           >
             <small>
-              {propertyState.scope === 'physical_wall' ? 'Shared physical wall' : 'Room side'} ·{' '}
-              {propertyState.source.mode === 'inherit' ? 'Inherited from ' : 'Override at '}
+              {propertyState.outside
+                ? 'Exterior'
+                : propertyState.opposite
+                  ? 'Opposite face'
+                  : propertyState.scope === 'physical_wall'
+                    ? 'Shared physical wall'
+                    : 'Room side'}{' '}
+              · {propertyState.source.mode === 'inherit' ? 'Inherited from ' : 'Override at '}
               {{
                 floor: 'floor default',
                 room: 'room default',
@@ -6847,7 +6987,7 @@ function RepeatableEntryForm({
                       planContext.path
                     );
                     planContext.editor.updateRow(planContext.scopeId, row, {
-                      resetProperties: [propertyState.property],
+                      resetProperties: [propertyState.dataName],
                     });
                   }}
                 >

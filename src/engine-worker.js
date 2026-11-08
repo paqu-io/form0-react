@@ -325,6 +325,18 @@ const ACTIONS = {
       scopeId: cachedScopeId,
     };
   },
+  RESOLVE_UI_REQUEST(payload = {}) {
+    if (!engine || payload.scopeId !== cachedScopeId)
+      throw new Error('Question worker scope has ended.');
+    return {
+      ...engine.resolveUIRequest(payload.requestId, payload.response),
+      scopeId: cachedScopeId,
+    };
+  },
+  CANCEL_UI_REQUESTS(payload = {}) {
+    if (engine && payload.scopeId === cachedScopeId) engine.cancelUIRequests();
+    return { scopeId: cachedScopeId };
+  },
   SUBMIT() {
     if (!engine) {
       return { values: {} };

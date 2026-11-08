@@ -88,7 +88,7 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const dialog = within(await screen.findByRole('dialog'));
   expect(dialog.getByRole('button', { name: /Cancel/ })).toBeTruthy();
   expect(dialog.queryByRole('button', { name: 'Apply', exact: true })).toBeNull();
-  expect(await dialog.findByText(/Default height/i)).toBeTruthy();
+  expect(await dialog.findByText(/Storey Height/i)).toBeTruthy();
   expect(dialog.queryByText('Building plan model')).toBeNull();
   expect(dialog.queryByText('Physical walls', { exact: true })).toBeNull();
   expect(dialog.queryByText('Observations', { exact: true })).toBeNull();

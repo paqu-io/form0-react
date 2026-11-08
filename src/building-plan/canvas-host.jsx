@@ -291,7 +291,11 @@ export function BuildingPlanCanvasHost({
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
   const [issues, setIssues] = useState([]);
-  const [editingPolicy, setEditingPolicy] = useState({ snapping: true, edgeAutoPan: true });
+  const [editingPolicy, setEditingPolicy] = useState({
+    snapping: true,
+    edgeAutoPan: true,
+    copyCustomAnswersAutomatically: true,
+  });
   const editingPolicyRef = useRef(editingPolicy);
   editingPolicyRef.current = editingPolicy;
   useEffect(() => {
@@ -356,13 +360,14 @@ export function BuildingPlanCanvasHost({
     });
 
     const controller =
-      metaEntry?.version === 1
+      metaEntry?.version === 2
         ? new BuildingPlanCanvasController({
             meta: metaEntry,
+            managedTransactions: true,
             editingPolicy: editingPolicyRef.current,
             confirmOpeningRemoval: (issue) =>
               globalThis.confirm?.(
-                `${issue.message}\n\n${issue.observationIds.length ? `This also deletes ${issue.observationIds.length} associated observation(s).\n\n` : ''}Keep this position and remove the opening(s)?`
+                `${issue.message}\n\nKeep this position and remove the opening(s)?`
               ) === true,
             readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
             writeRecord: (record, command) =>
@@ -382,7 +387,7 @@ export function BuildingPlanCanvasHost({
 
     // We handle repeatable sync manually; avoid listening to DOM events the React stack never emits
     document.removeEventListener('form0:repeatable-change', controller.handleRepeatableChange);
-    if (metaEntry?.version === 1) {
+    if (metaEntry?.version === 2) {
       const snapshot = controller.getSnapshot.bind(controller);
       controller.getSnapshot = () => {
         const view = snapshot();
