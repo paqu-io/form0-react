@@ -1,4 +1,4 @@
-import { createBuildingPlanPresentation } from 'form0-core';
+import { BUILDING_PLAN_ZOOM_LIMITS, createBuildingPlanPresentation } from 'form0-core';
 const MODE_SELECT = 'select';
 const MODE_DRAW_ROOM = 'draw-room';
 const MODE_DRAW_WALL = 'draw-wall';
@@ -44,9 +44,9 @@ const MIN_OPENING_RATIO = 0.05;
 const ROUND_DECIMALS = 3;
 
 // Zoom configuration
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
-const ZOOM_STEP = 0.25;
+const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
+// Multiplicative, so each click is proportionate across the whole zoom range.
+const ZOOM_STEP = 1.25;
 const ZOOM_WHEEL_SENSITIVITY = 0.002;
 
 const DEFAULT_LABEL_SETTINGS = {
@@ -390,7 +390,7 @@ export class BuildingPlanCanvas {
    */
   zoomIn() {
     const center = this.getCanvasCenter();
-    this.setZoom(this.zoomLevel + ZOOM_STEP, center);
+    this.setZoom(this.zoomLevel * ZOOM_STEP, center);
   }
 
   /**
@@ -398,7 +398,7 @@ export class BuildingPlanCanvas {
    */
   zoomOut() {
     const center = this.getCanvasCenter();
-    this.setZoom(this.zoomLevel - ZOOM_STEP, center);
+    this.setZoom(this.zoomLevel / ZOOM_STEP, center);
   }
 
   /**

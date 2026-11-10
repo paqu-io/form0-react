@@ -1,10 +1,9 @@
 import React from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
+import { BUILDING_PLAN_ZOOM_LIMITS } from 'form0-core';
 import './zoom-controls.css';
 
-// Zoom limits (should match canvas constants)
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
+const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
 
 /**
  * Format zoom level for display (e.g., 1 -> "100%", 0.5 -> "50%")
