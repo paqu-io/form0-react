@@ -56,8 +56,10 @@ function fixture() {
     type: 'create_floor',
     values: {
       floor_name: { choice: [{ value: 'ground_floor', label: 'Ground Floor' }], other: [] },
-      floor_elevation_m: 0,
-      floor_height_m: 3,
+      floor_elevation: 0,
+      floor_height: 3,
+      floor_interior_wall_thickness: 0.2,
+      floor_exterior_wall_thickness: 0.2,
     },
     defaults: { wall_height_m: 3 },
   }).created.id;
@@ -88,7 +90,7 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const dialog = within(await screen.findByRole('dialog'));
   expect(dialog.getByRole('button', { name: /Cancel/ })).toBeTruthy();
   expect(dialog.queryByRole('button', { name: 'Apply', exact: true })).toBeNull();
-  expect(await dialog.findByText(/Storey Height/i)).toBeTruthy();
+  expect(await dialog.findByText(/Structural clear height/i)).toBeTruthy();
   expect(dialog.queryByText('Building plan model')).toBeNull();
   expect(dialog.queryByText('Physical walls', { exact: true })).toBeNull();
   expect(dialog.queryByText('Observations', { exact: true })).toBeNull();
@@ -112,4 +114,33 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   expect(screen.getAllByText('Windows', { exact: true }).length).toBeGreaterThan(0);
   expect(screen.queryByText('Observations', { exact: true })).toBeNull();
   expect(floorRow).toBeTruthy();
+});
+
+it('updates system labels and choices from a dynamic locale without losing an open floor draft', async () => {
+  const f = fixture();
+  const props = {
+    schema: f.schema,
+    initialSnapshot: f.snapshot,
+    mode: 'edit',
+    repeatableEntryMode: 'edit',
+    engineOptions: { events: { recordKind: 'existing' }, diagnostics: { console: false } },
+  };
+  const view = render(<FormRenderer {...props} locale="en" />);
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await screen.findByText('Ground Floor');
+  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  const input = await screen.findByLabelText(/Structural clear height/);
+  fireEvent.change(input, { target: { value: '3.75' } });
+  fireEvent.blur(input);
+  await waitFor(() => expect(input.value).toBe('3.75'));
+  view.rerender(<FormRenderer {...props} locale="fr-FR" />);
+  const translated = await screen.findByLabelText(/Hauteur libre sous structure/);
+  expect(translated).toBe(input);
+  expect(translated.value).toBe('3.75');
+  expect(screen.getByRole('option', { name: 'Rez-de-chaussée' }).value).toBe('ground_floor');
+  const thickness = screen.getByLabelText(/Épaisseur prédominante des murs extérieurs/);
+  expect(thickness.value).toBe('200');
+  view.rerender(<FormRenderer {...props} locale="it" />);
+  expect(await screen.findByLabelText(/Altezza libera strutturale/)).toBe(input);
+  expect(input.value).toBe('3.75');
 });

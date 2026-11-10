@@ -1,3 +1,4 @@
+import { useBuildingPlanPresentation } from './building-plan/presentation.jsx';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Info, Image, AlertTriangle } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
@@ -25,6 +26,8 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   },
   ref
 ) {
+  const presentation = useBuildingPlanPresentation();
+  field = presentation.field(field);
   const registry = useFieldRegistry();
   const FieldComponent = registry.getFieldComponent(field.type);
   const elementKey = field.key || field.data_name;
@@ -87,6 +90,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const inputProps = shouldRenderLabelElement
     ? {
         name: field.data_name,
+        lang: presentation.locale,
         readOnly: resolvedReadOnly,
         required: resolvedRequired,
         disabled: resolvedReadOnly,
@@ -113,7 +117,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const handleChange =
     onChange &&
     ((nextValue) => {
-      onChange(nextValue);
+      onChange(presentation.fromDisplay(field, nextValue));
     });
 
   const supportingImage = useMemo(() => {
@@ -260,7 +264,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const fieldInput = (
     <FieldComponent
       field={field}
-      value={selectorEnabled ? resolvedValue : value}
+      value={presentation.toDisplay(field, selectorEnabled ? resolvedValue : value)}
       onChange={handleChange}
       onKeyDown={onKeyDown}
       readOnly={resolvedReadOnly}

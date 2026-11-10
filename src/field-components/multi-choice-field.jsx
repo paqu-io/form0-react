@@ -1,3 +1,4 @@
+import { useBuildingPlanPresentation } from '../building-plan/presentation.jsx';
 import React from 'react';
 import * as styles from '../field-renderer.css.js';
 
@@ -28,6 +29,7 @@ export function MultiChoiceFieldComponent({
   readOnly,
   inputProps = {},
 }) {
+  const presentation = useBuildingPlanPresentation();
   const inputOnFocus = inputProps.onFocus;
   const choices = Array.isArray(field.choices) ? field.choices : [];
   const selectedValues = new Set(
@@ -121,7 +123,9 @@ export function MultiChoiceFieldComponent({
               disabled={readOnly}
               onFocus={inputOnFocus}
             />
-            <label htmlFor={`${inputProps.id || field.data_name}_other`}>Other</label>
+            <label htmlFor={`${inputProps.id || field.data_name}_other`}>
+              {presentation.t('Other')}
+            </label>
           </div>
         )}
 
@@ -172,7 +176,7 @@ export function MultiChoiceFieldComponent({
             {choice.label || choice.value}
           </option>
         ))}
-        {field.allow_other && <option value={OTHER_OPTION_VALUE}>Other</option>}
+        {field.allow_other && <option value={OTHER_OPTION_VALUE}>{presentation.t('Other')}</option>}
       </select>
       {field.allow_other && showOtherInput && (
         <input

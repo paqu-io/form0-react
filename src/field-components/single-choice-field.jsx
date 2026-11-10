@@ -1,3 +1,4 @@
+import { useBuildingPlanPresentation } from '../building-plan/presentation.jsx';
 import React from 'react';
 import * as styles from '../field-renderer.css.js';
 
@@ -22,6 +23,7 @@ export function SingleChoiceFieldComponent({
   readOnly,
   inputProps = {},
 }) {
+  const presentation = useBuildingPlanPresentation();
   const inputOnFocus = inputProps.onFocus;
   const choices = Array.isArray(field.choices) ? field.choices : [];
   const selectedChoice = value?.choice?.[0]?.value ?? '';
@@ -124,7 +126,9 @@ export function SingleChoiceFieldComponent({
               required={required && !selectedChoice}
               onFocus={inputOnFocus}
             />
-            <label htmlFor={`${inputProps.id || field.data_name}_other`}>Other</label>
+            <label htmlFor={`${inputProps.id || field.data_name}_other`}>
+              {presentation.t('Other')}
+            </label>
             <input
               type="text"
               value={otherValue || ''}
@@ -164,7 +168,7 @@ export function SingleChoiceFieldComponent({
             {choice.label || choice.value}
           </option>
         ))}
-        {field.allow_other && <option value={OTHER_OPTION_VALUE}>Other</option>}
+        {field.allow_other && <option value={OTHER_OPTION_VALUE}>{presentation.t('Other')}</option>}
       </select>
       {field.allow_other && showOtherInput && (
         <input

@@ -1,3 +1,4 @@
+import { useBuildingPlanPresentation } from './presentation.jsx';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { BuildingPlanCanvasController } from 'form0-core';
 import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
@@ -279,6 +280,12 @@ export function BuildingPlanCanvasHost({
   toolbarState = {},
   readOnly = false,
 }) {
+  const presentation = useBuildingPlanPresentation();
+  const presentationRef = useRef(presentation);
+  presentationRef.current = presentation;
+  useEffect(() => {
+    canvasRef.current?.setPresentation(presentation);
+  }, [presentation]);
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const controllerRef = useRef(null);
@@ -407,6 +414,7 @@ export function BuildingPlanCanvasHost({
     }
 
     const canvas = new LegacyBuildingPlanCanvas({
+      presentation: presentationRef.current,
       container,
       controller,
       labelSettings: {},

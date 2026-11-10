@@ -1,3 +1,7 @@
+import {
+  BuildingPlanPresentationProvider,
+  BuildingPlanFieldLabel,
+} from './building-plan/presentation.jsx';
 import { settleBuildingPlanQuestions } from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
@@ -1095,6 +1099,7 @@ function findSectionNodeById(nodes = [], targetId) {
  */
 /**
  * @param {Object} props
+ * @param {string} [props.locale='en'] Dynamic EN/FR/IT/ES presentation locale.
  * @param {FormRendererEngineOptions} [props.engineOptions] Construction settings, host observers and operation delegation.
  * @param {{failures?: boolean}} [props.eventDiagnostics] Managed event failure console reporting, enabled by default.
  * @param {{saveFailures?: boolean, validationBlocks?: boolean}} [props.submissionDiagnostics] Console-only save reporting: failures on, validation blocks off.
@@ -4429,7 +4434,9 @@ function FormRendererContent({
           if (shouldRenderPreviewState) {
             return (
               <div key={sectionId} className={styles.drilldownInactive}>
-                <span className={styles.drilldownLabel}>{field.label}</span>
+                <span className={styles.drilldownLabel}>
+                  <BuildingPlanFieldLabel field={field} />
+                </span>
                 <button
                   type="button"
                   className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
@@ -4468,7 +4475,9 @@ function FormRendererContent({
               ref={(node) => registerSectionNode(sectionId, node)}
               tabIndex={-1}
             >
-              <h3 className={styles.sectionHeader}>{field.label}</h3>
+              <h3 className={styles.sectionHeader}>
+                <BuildingPlanFieldLabel field={field} />
+              </h3>
               {renderElements(
                 field.elements || [],
                 sectionPath,
@@ -4486,7 +4495,9 @@ function FormRendererContent({
             ref={(node) => registerSectionNode(sectionId, node)}
             tabIndex={-1}
           >
-            <h3 className={styles.sectionHeader}>{field.label}</h3>
+            <h3 className={styles.sectionHeader}>
+              <BuildingPlanFieldLabel field={field} />
+            </h3>
             {renderElements(
               field.elements || [],
               sectionPath,
@@ -6717,7 +6728,9 @@ function RepeatableEntryForm({
             tabIndex={rawSectionId ? -1 : undefined}
           >
             {field.label ? (
-              <h4 className={styles.repeatableModalSectionTitle}>{field.label}</h4>
+              <h4 className={styles.repeatableModalSectionTitle}>
+                <BuildingPlanFieldLabel field={field} />
+              </h4>
             ) : null}
             <RepeatableEntryForm
               elements={field.elements || []}
@@ -6770,7 +6783,9 @@ function RepeatableEntryForm({
       if (shouldRenderPreviewState) {
         return (
           <div key={sectionId} className={styles.drilldownInactive}>
-            <span className={styles.drilldownLabel}>{field.label}</span>
+            <span className={styles.drilldownLabel}>
+              <BuildingPlanFieldLabel field={field} />
+            </span>
             <button
               type="button"
               className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
@@ -6828,7 +6843,9 @@ function RepeatableEntryForm({
           ref={(node) => registerSectionNode?.(rawSectionId, node)}
           tabIndex={-1}
         >
-          <h3 className={styles.sectionHeader}>{field.label}</h3>
+          <h3 className={styles.sectionHeader}>
+            <BuildingPlanFieldLabel field={field} />
+          </h3>
           <RepeatableEntryForm
             elements={field.elements || []}
             contextPath={contextPath}
@@ -7024,10 +7041,12 @@ function getRepeatableEntryTitle(field, instance, index, titleDescriptor) {
   );
 }
 
-export function FormRenderer(props) {
+export function FormRenderer({ locale = 'en', ...props }) {
   return (
-    <RecordCoordinatorProvider {...props}>
-      <FormRendererContent {...props} />
-    </RecordCoordinatorProvider>
+    <BuildingPlanPresentationProvider schema={props.schema} locale={locale}>
+      <RecordCoordinatorProvider {...props}>
+        <FormRendererContent {...props} />
+      </RecordCoordinatorProvider>
+    </BuildingPlanPresentationProvider>
   );
 }

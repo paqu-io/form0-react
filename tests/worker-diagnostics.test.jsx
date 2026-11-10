@@ -101,8 +101,10 @@ for (const security of ['trusted', 'safe'])
       defaults: { wall_height_m: 3 },
       values: {
         floor_name: choice('ground_floor', 'Ground Floor'),
-        floor_height_m: 3,
-        floor_elevation_m: 0,
+        floor_height: 3,
+        floor_interior_wall_thickness: 0.2,
+        floor_exterior_wall_thickness: 0.2,
+        floor_elevation: 0,
       },
     }).created.id;
     domain.apply({

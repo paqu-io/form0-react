@@ -369,3 +369,16 @@ Numeric fields still accept numbers: `SETVALUE("quantity", 1)` is valid. Choice 
 IDs: `SETVALUE("rating", "1")` for single selection and `SETVALUE("tags", ["1"])` for multiple
 selection. A rejected call leaves its operation batch unapplied; reporting does not change values,
 validation, submitted records or evaluation counts.
+
+## BuildingPlan presentation
+
+`<FormRenderer schema={schema} locale={applicationLanguage} />` accepts a dynamic EN/FR/IT/ES
+locale, including regional variants and English fallback. Updating the prop translates system
+labels, descriptions and choice display labels while preserving active engines, open drafts and
+stored answers. Custom labels remain authored content.
+
+`schema.form.measurement_system` is `si` by default or `imperial`. System elevation/height/length
+uses m/decimal ft; wall/plaster thickness uses mm/decimal in. Controls convert input/output while
+canonical measurements and geometry stay in metres. Floor numbers and ordinary custom numeric
+answers are unitless/unconverted. Floor elevation and structural clear height supply live room
+defaults with the existing override and Reset to inheritance controls.
