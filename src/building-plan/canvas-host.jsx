@@ -279,6 +279,8 @@ export function BuildingPlanCanvasHost({
   scope = { floorId: null, roomId: null },
   toolbarState = {},
   readOnly = false,
+  // Geometry engine: the derived core when true (redesign step 3, under test until the switch).
+  derivedCommands = false,
 }) {
   const presentation = useBuildingPlanPresentation();
   const presentationRef = useRef(presentation);
@@ -372,6 +374,7 @@ export function BuildingPlanCanvasHost({
             meta: metaEntry,
             managedTransactions: true,
             editingPolicy: editingPolicyRef.current,
+            derivedCommands,
             confirmOpeningRemoval: (issue) =>
               globalThis.confirm?.(
                 `${issue.message}\n\nKeep this position and remove the opening(s)?`
@@ -488,7 +491,8 @@ export function BuildingPlanCanvasHost({
       canvas?.destroy?.();
       controller?.dispose?.();
     };
-  }, [section, buildingPlanMeta]);
+    // A controller keeps the engine it started with: a new engine needs a new controller.
+  }, [section, buildingPlanMeta, derivedCommands]);
 
   // When repeatable state changes, refresh the controller snapshot without full re-init
   useEffect(() => {

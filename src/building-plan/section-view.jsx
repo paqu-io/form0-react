@@ -17,6 +17,7 @@ export function BuildingPlanSectionView({
   onViewFloor,
   onRemoveFloor,
   readOnly = false,
+  derivedCommands = false,
 }) {
   const dataName = section?.data_name || null;
 
@@ -57,6 +58,7 @@ export function BuildingPlanSectionView({
             toolbarState={controller?.toolbarState || {}}
             scope={controller?.scope || {}}
             readOnly={readOnly}
+            derivedCommands={derivedCommands}
           />
 
           <div className={styles.repeatableList}>

@@ -1145,6 +1145,8 @@ function FormRendererContent({
   readOnlyEditToggleDisabledReason = null,
   fieldKeyMode = 'prefer-key',
   buildingPlanModalWidthOverride = null,
+  // BuildingPlan geometry engine: the derived core when true (under test until the switch).
+  buildingPlanDerivedCommands = false,
   ...rest
 }) {
   const submissionDiagnosticsRef = useRef(submissionDiagnostics);
@@ -1688,6 +1690,7 @@ function FormRendererContent({
           controller.buildingPlan?.editor ||
           createBuildingPlanEditor({
             editingPolicy: { copyCustomAnswersAutomatically: true },
+            derivedCommands: buildingPlanDerivedCommands,
             meta: planMeta,
             record: {
               values: {},
@@ -1744,6 +1747,7 @@ function FormRendererContent({
           initialInstance,
           buildingPlan,
           buildingPlanMeta,
+          buildingPlanDerivedCommands,
           layoutOverrides: buildModalLayoutOverrides(repeatableKey),
         },
       ]);
@@ -1751,6 +1755,7 @@ function FormRendererContent({
     [
       buildModalLayoutOverrides,
       buildingPlanMeta,
+      buildingPlanDerivedCommands,
       formRepeatableController,
       repeatableMetadata,
       diagnosticGeneration,
@@ -1842,6 +1847,7 @@ function FormRendererContent({
       if (planMeta) {
         const editor = createBuildingPlanEditor({
           editingPolicy: { copyCustomAnswersAutomatically: true },
+          derivedCommands: buildingPlanDerivedCommands,
           meta: planMeta,
           record: { values: {}, repeatable: { [repeatableKey]: instances } },
         });
@@ -1870,7 +1876,13 @@ function FormRendererContent({
         markRootDirty();
       }
     },
-    [formRepeatableController, markRootDirty, eventSession]
+    [
+      formRepeatableController,
+      markRootDirty,
+      eventSession,
+      buildingPlanMeta,
+      buildingPlanDerivedCommands,
+    ]
   );
 
   const persistRepeatableEntry = useCallback(
@@ -4330,6 +4342,7 @@ function FormRendererContent({
         onViewFloor={handleViewFloor}
         onRemoveFloor={handleRemoveFloor}
         readOnly={isReadOnlyMode}
+        derivedCommands={buildingPlanDerivedCommands}
       />
     );
   }
@@ -6460,6 +6473,7 @@ function RepeatableEntryModal({
                             scope={buildingPlanModalContext.scope}
                             toolbarState={buildingPlanModalController?.toolbarState}
                             readOnly={readOnly}
+                            derivedCommands={modal.buildingPlanDerivedCommands === true}
                           />
                         </div>
                         <div>
