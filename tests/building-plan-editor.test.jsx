@@ -70,7 +70,23 @@ function fixture() {
     values: { room_name: { choice: [{ value: 'bedroom', label: 'Bedroom' }], other: [] } },
   });
   const record = writeBuildingPlanRecord({ meta, plan: session.getSnapshot() });
-  return { schema, snapshot: { raw_values: {}, repeatable: record.repeatable } };
+  return { schema, meta, snapshot: { raw_values: {}, repeatable: record.repeatable } };
+}
+
+/** A floor row's container keys, each null, as a record prepared before 2026-11-13 saved them. */
+function floorContainerNulls(schema) {
+  const plan = expandBuildingPlanSchema(schema).schema.form.elements[0];
+  const floors = plan.elements.find((element) => element.type === 'RepeatableSection');
+  const names = {};
+  const walk = (elements) => {
+    for (const element of elements) {
+      if (!['Section', 'RepeatableSection'].includes(element.type)) continue;
+      names[element.data_name] = null;
+      if (element.type === 'Section') walk(element.elements);
+    }
+  };
+  walk(floors.elements);
+  return names;
 }
 it('opens a BuildingPlan floor through its existing repeatable view and keeps standard controls', async () => {
   const f = fixture();
@@ -168,4 +184,39 @@ it('the BuildingPlanSection page goes Back and adds floors, and never submits', 
   fireEvent.click(screen.getByRole('button', { name: /^Back/ }));
   expect(await screen.findByRole('button', { name: /^Submit/ })).toBeTruthy();
   expect(onSubmit).not.toHaveBeenCalled();
+});
+
+// Mobile round 2026-11-13, issue 2: the floor dialog copied the whole saved row into its engine and
+// the opening room's publish threw, leaving the room's editor scope open.
+it('opens a room from an editable floor whose saved row carries container keys', async () => {
+  const f = fixture();
+  const floor = f.snapshot.repeatable[f.meta.repeatablesByNodeKey.floors.preferredKey][0];
+  Object.assign(floor.values, floorContainerNulls(f.schema));
+  const errors = [];
+  vi.spyOn(console, 'error').mockImplementation((...args) =>
+    errors.push(args.map(String).join(' '))
+  );
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      repeatableEntryMode="edit"
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await screen.findByText('Ground Floor');
+  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  const dialog = within(await screen.findByRole('dialog'));
+  await dialog.findByText(/Structural clear height/i);
+  const rooms = dialog.getAllByText('Rooms', { exact: true }).at(-1).parentElement.parentElement;
+  fireEvent.click(within(rooms).getByRole('button', { name: 'View', exact: true }));
+  await screen.findByText('Rooms 1');
+  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  await waitFor(() =>
+    expect(screen.getAllByText('Walls', { exact: true }).length).toBeGreaterThan(0)
+  );
+  expect(screen.queryByText(/value-update field/)).toBeNull();
+  expect(errors.filter((error) => /value-update field|child editor/.test(error))).toEqual([]);
 });

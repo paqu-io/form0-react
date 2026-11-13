@@ -62,3 +62,14 @@ export function normalizeUpdates(fields, updates, mode = 'edit') {
     })
   );
 }
+
+/**
+ * The entries of `values` whose fields `fields` owns. A BuildingPlan row copied into its screen's
+ * engine may carry other keys (rows saved with container keys); only the screen's fields are copied.
+ * @param {Map<string, object> | null | undefined} fields
+ * @param {Record<string, unknown> | null | undefined} values
+ * @returns {Record<string, unknown>}
+ */
+export function pickOwnedValues(fields, values) {
+  return Object.fromEntries(Object.entries(values || {}).filter(([name]) => fields?.has(name)));
+}

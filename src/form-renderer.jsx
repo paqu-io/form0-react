@@ -25,6 +25,8 @@ import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
+import { openBuildingPlanEditorRow } from './building-plan/open-editor-row.js';
+import { pickOwnedValues } from './utils/value-updates.js';
 import {
   standardThemeLight,
   standardThemeDark,
@@ -1700,7 +1702,7 @@ function FormRendererContent({
         const path = controller.buildingPlan
           ? [...controller.buildingPlan.path, ...parentPath, { key: repeatableKey, id: instanceId }]
           : [{ key: repeatableKey, id: instanceId }];
-        const opened = editor.openRow({
+        const opened = openBuildingPlanEditorRow(editor, {
           path,
           scopeId: modalId,
           parentScopeId: controller.buildingPlan?.scopeId || null,
@@ -4847,12 +4849,19 @@ function RepeatableEntryModal({
       if (isEntryReadOnly || !context.editor.hasEditor(context.scopeId)) return;
       const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
       if (!row) return;
-      planIncomingValues.current = JSON.stringify(row.values);
-      setEntryValues(row.values);
+      const own = pickOwnedValues(modal.repInfo?.fields, row.values);
+      planIncomingValues.current = JSON.stringify(own);
+      setEntryValues(own);
       for (const [key, rows] of Object.entries(row.repeatable || {}))
         setEntryRepeatableInstances(key, rows, []);
     });
-  }, [modal.buildingPlan, setEntryValues, setEntryRepeatableInstances, isEntryReadOnly]);
+  }, [
+    modal.buildingPlan,
+    modal.repInfo,
+    setEntryValues,
+    setEntryRepeatableInstances,
+    isEntryReadOnly,
+  ]);
   useEffect(() => {
     const editor = modal.buildingPlan?.editor;
     if (isEntryReadOnly) editor?.cancelUIRequests();
