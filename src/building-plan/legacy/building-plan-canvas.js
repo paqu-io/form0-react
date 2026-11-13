@@ -1,4 +1,8 @@
-import { BUILDING_PLAN_ZOOM_LIMITS, createBuildingPlanPresentation } from 'form0-core';
+import {
+  BUILDING_PLAN_ZOOM_LIMITS,
+  buildingPlanLabelPlacement,
+  createBuildingPlanPresentation,
+} from 'form0-core';
 const MODE_SELECT = 'select';
 const MODE_DRAW_ROOM = 'draw-room';
 const MODE_DRAW_WALL = 'draw-wall';
@@ -24,7 +28,8 @@ const BEAM_COLOR = '#7048e8';
 const LABEL_BACKGROUND = '#ffffff';
 const LABEL_BORDER = '#2f3640';
 const LABEL_TEXT_COLOR = '#2f3640';
-const LABEL_FONT = '12px Inter, sans-serif';
+const LABEL_FONT_SIZE = 12;
+const labelFont = (scale = 1) => `${LABEL_FONT_SIZE * scale}px Inter, sans-serif`;
 const LABEL_PADDING_X = 6;
 const LABEL_PADDING_Y = 4;
 const OPENING_SELECTED_COLOR = '#d12d2d';
@@ -60,6 +65,7 @@ const DEFAULT_LABEL_SETTINGS = {
 
 const CAPABILITY_DEFAULTS = {
   canMove: false,
+  canMoveRoom: false,
   canMoveStructural: false,
   canResize: false,
   canDrawFloor: false,
@@ -1704,7 +1710,8 @@ export class BuildingPlanCanvas {
     }
 
     if (room) {
-      if (!caps.canMove) {
+      // Openings follow `canMove`; the whole room moves only where `canMoveRoom` (a floor canvas).
+      if (!caps.canMoveRoom) {
         this.pendingFocus = () => this.controller?.focusRoom(room.id);
         return;
       }
@@ -3064,17 +3071,18 @@ export class BuildingPlanCanvas {
   computeLabelRect(
     text,
     anchor,
-    { position = 'top', paddingX = LABEL_PADDING_X, paddingY = LABEL_PADDING_Y } = {}
+    { position = 'top', paddingX = LABEL_PADDING_X, paddingY = LABEL_PADDING_Y, scale = 1 } = {}
   ) {
     if (!this.ctx || !text) return null;
     const ctx = this.ctx;
     ctx.save();
-    ctx.font = LABEL_FONT;
+    ctx.font = labelFont(scale);
     const metrics = ctx.measureText(text);
     const textHeight =
-      (metrics.actualBoundingBoxAscent || 8) + (metrics.actualBoundingBoxDescent || 4);
-    const width = metrics.width + paddingX * 2;
-    const height = textHeight + paddingY * 2;
+      (metrics.actualBoundingBoxAscent || 8 * scale) +
+      (metrics.actualBoundingBoxDescent || 4 * scale);
+    const width = metrics.width + paddingX * scale * 2;
+    const height = textHeight + paddingY * scale * 2;
     let x = anchor.x - width / 2;
     let y = anchor.y - height;
     if (position === 'bottom') {
@@ -3092,7 +3100,7 @@ export class BuildingPlanCanvas {
     const rect = this.computeLabelRect(text, anchor, options);
     if (!rect) return null;
     ctx.save();
-    ctx.font = LABEL_FONT;
+    ctx.font = labelFont(options.scale);
     ctx.fillStyle = LABEL_BACKGROUND;
     ctx.strokeStyle = LABEL_BORDER;
     ctx.lineWidth = 1;
@@ -3643,8 +3651,25 @@ export class BuildingPlanCanvas {
         'room'
       );
       if (labelText) {
-        const labelAnchor = { x: rect.x + rect.width / 2, y: rect.y - 6 };
-        const labelRect = this.drawLabelBadge(labelText, labelAnchor, { position: 'top' });
+        // Inside the room, clear of its walls, shrunk when the room is small (form0-core).
+        const outline = vertices?.length
+          ? vertices
+          : [
+              { x: rect.x, y: rect.y },
+              { x: rect.x + rect.width, y: rect.y },
+              { x: rect.x + rect.width, y: rect.y + rect.height },
+              { x: rect.x, y: rect.y + rect.height },
+            ];
+        const badge = this.computeLabelRect(labelText, { x: 0, y: 0 }, { position: 'center' });
+        const placement = buildingPlanLabelPlacement(outline, badge) || {
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2,
+          scale: 1,
+        };
+        const labelRect = this.drawLabelBadge(labelText, placement, {
+          position: 'center',
+          scale: placement.scale,
+        });
         if (labelRect) {
           room._labelRect = labelRect;
         }

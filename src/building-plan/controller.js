@@ -117,6 +117,8 @@ export function useBuildingPlanController({
       const base = {
         canSelect: true,
         canMove: false,
+        // Moving a whole room: on a floor canvas only (a room canvas resizes its room).
+        canMoveRoom: false,
         canResize: false,
         canMoveResize: false,
         canDrawFloor: false,
@@ -136,12 +138,13 @@ export function useBuildingPlanController({
       // Floor canvas/modal: select + move (no resize)
       if (mode === 'floor-modal' || mode === 'floor') {
         base.canMove = true;
+        base.canMoveRoom = true;
         base.canMoveStructural = false; // Only move rooms; walls/columns/beams stay fixed here
         base.canDrawRoom = true; // Can draw rooms in floor view
         return base;
       }
 
-      // Room canvas/modal: select + move + resize, full drawing
+      // Room canvas/modal: select + resize, full drawing; the room itself is moved on its floor
       if (mode === 'room-modal' || mode === 'room') {
         return {
           ...base,
