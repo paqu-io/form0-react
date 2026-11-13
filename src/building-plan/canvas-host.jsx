@@ -8,6 +8,22 @@ import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import './canvas.css';
 
+// Magnetic alignment and edge auto-pan are always on (no toggle until the UI revamp).
+const EDITING_POLICY = Object.freeze({
+  snapping: true,
+  edgeAutoPan: true,
+  copyCustomAnswersAutomatically: true,
+});
+// The canvas shows room names only.
+const LABEL_SETTINGS = Object.freeze({
+  rooms: true,
+  walls: false,
+  doors: false,
+  windows: false,
+  columns: false,
+  beams: false,
+});
+
 const NODE_KEYS = {
   floors: 'floors',
   rooms: 'rooms',
@@ -300,16 +316,6 @@ export function BuildingPlanCanvasHost({
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
   const [issues, setIssues] = useState([]);
-  const [editingPolicy, setEditingPolicy] = useState({
-    snapping: true,
-    edgeAutoPan: true,
-    copyCustomAnswersAutomatically: true,
-  });
-  const editingPolicyRef = useRef(editingPolicy);
-  editingPolicyRef.current = editingPolicy;
-  useEffect(() => {
-    controllerRef.current?.setEditingPolicy?.(editingPolicy);
-  }, [editingPolicy]);
 
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
@@ -373,7 +379,7 @@ export function BuildingPlanCanvasHost({
         ? new BuildingPlanCanvasController({
             meta: metaEntry,
             managedTransactions: true,
-            editingPolicy: editingPolicyRef.current,
+            editingPolicy: EDITING_POLICY,
             derivedCommands,
             confirmOpeningRemoval: (issue) =>
               globalThis.confirm?.(
@@ -420,7 +426,7 @@ export function BuildingPlanCanvasHost({
       presentation: presentationRef.current,
       container,
       controller,
-      labelSettings: {},
+      labelSettings: LABEL_SETTINGS,
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
       readOnly, // Disable canvas interactions in view mode
     });
@@ -568,16 +574,6 @@ export function BuildingPlanCanvasHost({
           >
             Redo
           </button>
-          {['snapping', 'edgeAutoPan'].map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={editingPolicy[key]}
-              onClick={() => setEditingPolicy((policy) => ({ ...policy, [key]: !policy[key] }))}
-            >
-              {key === 'snapping' ? 'Magnetic alignment' : 'Edge auto-pan'}
-            </button>
-          ))}
         </div>
       )}
       <BuildingPlanToolbar

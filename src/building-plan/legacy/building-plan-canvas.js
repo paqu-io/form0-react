@@ -329,6 +329,7 @@ export class BuildingPlanCanvas {
       this.canvas.removeEventListener('pointerdown', this.boundMouseDown);
       this.canvas.removeEventListener('pointermove', this.boundMouseMove);
       this.canvas.removeEventListener('pointerup', this.boundMouseUp);
+      this.canvas.removeEventListener('dblclick', this.boundDoubleClick);
       this.canvas.removeEventListener('mouseleave', this.boundMouseLeave);
       this.canvas.removeEventListener('wheel', this.boundWheelHandler);
     }
@@ -991,7 +992,8 @@ export class BuildingPlanCanvas {
         this.beamDragState,
         this.openingDragState,
       ].some((state) => state?.moved);
-      const focus = this.pendingFocus;
+      // A click only selects; a double-click opens the clicked item's row (boundDoubleClick).
+      this.clickFocus = moved ? null : this.pendingFocus;
       this.pendingFocus = null;
       try {
         if (this.mode === 'pin') {
@@ -1001,8 +1003,12 @@ export class BuildingPlanCanvas {
         } else await this.handleMouseUp(event);
       } finally {
         this.controller?.clearPreview?.();
-        if (!moved) focus?.();
       }
+    };
+    this.boundDoubleClick = () => {
+      const focus = this.clickFocus;
+      this.clickFocus = null;
+      focus?.();
     };
     this.boundMouseLeave = () => {
       if (this.activePointerId == null) this.handleMouseLeave();
@@ -1018,6 +1024,7 @@ export class BuildingPlanCanvas {
       this.panStartPoint = null;
       this.panStartOffset = null;
       this.pendingFocus = null;
+      this.clickFocus = null;
       this.pendingMove = null;
       if (this.moveFrame != null) cancelAnimationFrame(this.moveFrame);
       this.moveFrame = null;
@@ -1047,6 +1054,7 @@ export class BuildingPlanCanvas {
     this.canvas.addEventListener('pointerdown', this.boundMouseDown);
     this.canvas.addEventListener('pointermove', this.boundMouseMove);
     this.canvas.addEventListener('pointerup', this.boundMouseUp);
+    this.canvas.addEventListener('dblclick', this.boundDoubleClick);
     this.canvas.addEventListener('mouseleave', this.boundMouseLeave);
     this.canvas.addEventListener('wheel', this.boundWheelHandler, { passive: false });
   }
@@ -1357,9 +1365,6 @@ export class BuildingPlanCanvas {
         this.selectedWallId = null;
         this.selectedDoorId = null;
         this.selectedWindowId = null;
-        if (typeof this.controller?.focusColumn === 'function') {
-          this.controller.focusColumn(created.id);
-        }
       }
       this.render();
       return;
@@ -1391,13 +1396,7 @@ export class BuildingPlanCanvas {
       if (this.mode === MODE_DRAW_WINDOW && !caps.canDrawWindow) return;
       const wallHit = this.findWallNearPoint(point);
       if (wallHit && wallHit.wall) {
-        const created = await this.placeOpening(
-          this.mode === MODE_DRAW_DOOR ? 'door' : 'window',
-          wallHit
-        );
-        if (created && created.wallId && typeof this.controller?.focusWall === 'function') {
-          this.controller.focusWall(created.wallId);
-        }
+        await this.placeOpening(this.mode === MODE_DRAW_DOOR ? 'door' : 'window', wallHit);
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -2222,10 +2221,7 @@ export class BuildingPlanCanvas {
           height: this.snapSize(rect.height),
         };
         const created = await this.controller?.createRoom(snapped);
-        if (created) {
-          this.selectedRoomId = created.id;
-          this.controller?.focusRoom(created.id);
-        }
+        if (created) this.selectedRoomId = created.id;
       }
 
       this.updateCursor();
@@ -2241,10 +2237,7 @@ export class BuildingPlanCanvas {
         if (distance(this.wallDraft.start, endPoint) > 3) {
           const wallPoints = roundPoints([this.wallDraft.start, endPoint]);
           const created = await this.controller?.createWall(room.id, wallPoints);
-          if (created) {
-            this.selectedWallId = created.id;
-            this.controller?.focusWall(created.id);
-          }
+          if (created) this.selectedWallId = created.id;
         }
       }
       this.wallDraft = null;
@@ -2279,9 +2272,6 @@ export class BuildingPlanCanvas {
             this.selectedDoorId = null;
             this.selectedWindowId = null;
             this.selectedWallId = null;
-            if (typeof this.controller?.focusBeam === 'function') {
-              this.controller.focusBeam(created.id);
-            }
           }
         }
       }
@@ -4128,9 +4118,6 @@ export class BuildingPlanCanvas {
         this.selectedDoorId = result.id;
         this.selectedWindowId = null;
         this.selectedWallId = wall.id;
-        if (typeof this.controller.focusDoor === 'function') {
-          this.controller.focusDoor(result.id);
-        }
       }
       return result;
     }
@@ -4152,9 +4139,6 @@ export class BuildingPlanCanvas {
         this.selectedWindowId = result.id;
         this.selectedDoorId = null;
         this.selectedWallId = wall.id;
-        if (typeof this.controller.focusWindow === 'function') {
-          this.controller.focusWindow(result.id);
-        }
       }
       return result;
     }
