@@ -25,7 +25,6 @@ import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
-import { openBuildingPlanEditorRow } from './building-plan/open-editor-row.js';
 import { pickOwnedValues } from './utils/value-updates.js';
 import {
   standardThemeLight,
@@ -1702,7 +1701,7 @@ function FormRendererContent({
         const path = controller.buildingPlan
           ? [...controller.buildingPlan.path, ...parentPath, { key: repeatableKey, id: instanceId }]
           : [{ key: repeatableKey, id: instanceId }];
-        const opened = openBuildingPlanEditorRow(editor, {
+        const opened = editor.openRow({
           path,
           scopeId: modalId,
           parentScopeId: controller.buildingPlan?.scopeId || null,

@@ -7,6 +7,7 @@ import { useFormEngine } from '../src/use-form-engine.js';
 import { useRepeatableInstanceEngine } from '../src/use-repeatable-instance.js';
 import { RecordCoordinatorContext } from '../src/record-context.jsx';
 import { createRecordCoordinator } from '../src/utils/record-coordinator.js';
+import { pickOwnedValues } from '../src/utils/value-updates.js';
 import { auditField } from './fixtures/consumer-compatibility.js';
 
 afterEach(cleanup);
@@ -185,4 +186,17 @@ it('legacy operation batches reject a missing target and retain last-write-wins 
   } finally {
     warning.mockRestore();
   }
+});
+
+// A BuildingPlan row copied into its dialog's engine may carry keys the dialog does not own.
+it('pickOwnedValues keeps only the fields the scope owns', () => {
+  const fields = new Map([
+    ['name', {}],
+    ['height', {}],
+  ]);
+  expect(pickOwnedValues(fields, { name: 'A', height: 3, system_section: null })).toEqual({
+    name: 'A',
+    height: 3,
+  });
+  expect(pickOwnedValues(undefined, { name: 'A' })).toEqual({});
 });
