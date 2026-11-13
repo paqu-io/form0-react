@@ -312,7 +312,7 @@ it('root preparation preserves closed row and media metadata while open row prep
   const reports = [];
   const managed = await mount(
     fixture,
-    { initialSnapshot: snapshot },
+    { initialSnapshot: snapshot, repeatableEntryMode: 'readonly' },
     { onDiagnostics: (value, meta) => reports.push(meta) }
   );
   let prepared;

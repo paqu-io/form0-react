@@ -76,6 +76,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
         schema={schema}
         initialSnapshot={source}
         mode="readonly"
+        repeatableEntryMode="readonly"
         onSnapshotChange={snapshots}
         engineOptions={{
           security,

@@ -222,6 +222,7 @@ describe('engine options and diagnostics', () => {
       <FormRenderer
         schema={nestedSchema}
         initialSnapshot={snapshot}
+        repeatableEntryMode="readonly"
         engineOptions={{ ...options, events: { recordKind: 'existing', ...options?.events } }}
       />
     );

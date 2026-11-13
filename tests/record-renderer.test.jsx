@@ -126,6 +126,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
       <FormRenderer
         schema={form}
         initialSnapshot={seed}
+        repeatableEntryMode="readonly"
         onSnapshotChange={snapshots}
         engineOptions={{
           events: { recordKind: 'existing' },

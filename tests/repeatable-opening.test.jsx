@@ -55,10 +55,36 @@ const openRow = async () => {
 const locked = (input) => input.readOnly || input.disabled;
 
 for (const security of [undefined, { mode: 'safe' }]) {
-  it(`web existing rows open in view mode and dispatch edit once on transition (${security?.mode || 'trusted'})`, async () => {
+  it(`web existing rows follow the record's mode by default (${security?.mode || 'trusted'})`, async () => {
+    for (const rootReadOnly of [false, true]) {
+      const { schema, snapshot } = fixture();
+      render(
+        <FormRenderer
+          schema={schema}
+          initialSnapshot={snapshot}
+          mode={rootReadOnly ? 'readonly' : 'edit'}
+          engineOptions={options(security)}
+        />
+      );
+      // A record opened in view mode: its Edit puts the record, and so its rows, in edit mode.
+      if (rootReadOnly)
+        fireEvent.click(await screen.findByRole('button', { name: 'Edit', exact: true }));
+      const row = await openRow();
+      await waitFor(() => expect(row.getByLabelText('row_trace').value).toBe('load:edit'));
+      expect(locked(row.getByLabelText('name'))).toBe(false);
+      expect(row.queryByRole('button', { name: 'Edit', exact: true })).toBeNull();
+      cleanup();
+    }
+  });
+  it(`web existing rows open in view mode when asked and dispatch edit once on transition (${security?.mode || 'trusted'})`, async () => {
     const { schema, snapshot } = fixture();
     render(
-      <FormRenderer schema={schema} initialSnapshot={snapshot} engineOptions={options(security)} />
+      <FormRenderer
+        schema={schema}
+        initialSnapshot={snapshot}
+        repeatableEntryMode="readonly"
+        engineOptions={options(security)}
+      />
     );
     const row = await openRow();
     expect(locked(row.getByLabelText('name'))).toBe(true);

@@ -279,8 +279,11 @@ the media compatibility correction.
 
 ## Repeatable entry opening mode
 
-`repeatableEntryMode` accepts `'readonly'` (default) or `'edit'` for existing rows at every nesting
-level. View mode offers Edit when the containing record permits editing. New rows start in edit
+`repeatableEntryMode` accepts `'readonly'` or `'edit'` for existing rows at every nesting level.
+Without it, existing rows open in the record's current mode: in edit mode when the record is being
+edited (`mode="edit"`, or after the user taps Edit), read-only otherwise. Pass `'readonly'` to open
+them read-only while the record is edited. View mode offers Edit when the containing record permits
+editing. New rows start in edit
 mode. Read-only parents allow browsing descendants but prevent editing, adding and removing them;
 `repeatableEntryMode="edit"` does not override that restriction. This is a renderer option, with no
 schema or saved-record change.

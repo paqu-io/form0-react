@@ -1123,7 +1123,7 @@ function FormRendererContent({
   initialFreshness,
   onSnapshotChange,
   mode = 'edit',
-  repeatableEntryMode = 'readonly',
+  repeatableEntryMode,
   debug = false,
   onSchemaReady,
   theme = 'standard',
@@ -4573,8 +4573,11 @@ function FormRendererContent({
                 themeClass={themeClass}
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
+                // Existing rows open in the record's current mode unless the host asks otherwise.
                 initialMode={
-                  modal.mode === 'create' || repeatableEntryMode === 'edit' ? 'edit' : 'readonly'
+                  modal.mode === 'create' || (repeatableEntryMode ?? interactionMode) === 'edit'
+                    ? 'edit'
+                    : 'readonly'
                 }
                 parentReadOnly={isReadOnlyMode || modal.parentReadOnly === true}
                 allowEditToggle={allowReadOnlyEditToggle && modal.mode !== 'create'}
