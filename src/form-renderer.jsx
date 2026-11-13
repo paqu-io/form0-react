@@ -2889,8 +2889,6 @@ function FormRendererContent({
   const drilldownDepth = activeDrilldownPath.length;
   const isRootPage = drilldownDepth === 0;
   const isFirstSpecialPage = drilldownDepth === 1 && isSpecialSectionActive;
-  const isNestedDrilldownPage =
-    drilldownDepth > 0 && (!isSpecialSectionActive || drilldownDepth > 1);
   const isRepeatableFirstPage =
     isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'RepeatableSection';
   const navigationSections = useMemo(() => {
@@ -2960,41 +2958,6 @@ function FormRendererContent({
     }
 
     // BuildingPlanSection first page: map header Add to the Floors repeatable
-    if (
-      isFirstSpecialPage &&
-      activeDrilldownSectionInfo?.type === 'BuildingPlanSection' &&
-      activeDrilldownSectionInfo?.field
-    ) {
-      const bpField = activeDrilldownSectionInfo.field;
-      const metaEntry = getBuildingPlanMetaEntry(buildingPlanMeta, bpField.data_name);
-      const floorRepeatableKey = getBuildingPlanRepeatableKey(metaEntry, 'floors');
-
-      const findFirstRepeatable = (nodes = []) => {
-        for (const el of nodes || []) {
-          if (!el) continue;
-          if (el.type === 'RepeatableSection') return el;
-          const found = findFirstRepeatable(el.elements || []);
-          if (found) return found;
-        }
-        return null;
-      };
-
-      const floorField = findFirstRepeatable(bpField.elements || []);
-      const repeatableKey = floorRepeatableKey || resolveRepeatableKey(floorField);
-
-      if (!floorField || !repeatableKey) {
-        return null;
-      }
-
-      return {
-        field: floorField,
-        repeatableKey,
-        parentPath: [], // Floors live at the top of BuildingPlanSection
-        kind: 'building-plan-floor',
-      };
-    }
-
-    // BuildingPlanSection first page: treat similarly to repeatable for header controls
     if (
       isFirstSpecialPage &&
       activeDrilldownSectionInfo?.type === 'BuildingPlanSection' &&
@@ -3373,11 +3336,8 @@ function FormRendererContent({
     let rightAction = null;
     let secondaryRightAction = null;
 
-    if (
-      isNestedDrilldownPage ||
-      isRepeatableFirstPage ||
-      (isFirstSpecialPage && activeDrilldownSectionInfo?.type === 'BuildingPlanSection')
-    ) {
+    // Every drill-down page goes Back (a BuildingPlanSection's too); only the root submits.
+    if (!isRootPage) {
       leftAction = {
         id: 'back',
         label: 'Back',
@@ -3386,14 +3346,7 @@ function FormRendererContent({
         disabled: !activeDrilldownSectionId,
         shortcutLabel: getAltShortcutLabel('b'),
       };
-    } else if (isFirstSpecialPage) {
-      leftAction = {
-        id: 'cancel-section',
-        label: 'Cancel',
-        icon: XCircle,
-        onClick: goBackFromDrilldown,
-      };
-    } else if (isRootPage) {
+    } else {
       leftAction = {
         id: 'cancel-root',
         label: 'Cancel',
@@ -3422,21 +3375,6 @@ function FormRendererContent({
         onClick: isReadOnlyMode ? undefined : handleRepeatableListAddFromHeader,
         disabled: isReadOnlyMode,
         shortcutLabel: getAltShortcutLabel('a'),
-      };
-    } else if (
-      primaryActionsAllowed &&
-      isFirstSpecialPage &&
-      !isRepeatableFirstPage &&
-      hasSubmitHandler
-    ) {
-      rightAction = {
-        id: 'save-section',
-        label: 'Save',
-        icon: Save,
-        variant: 'primary',
-        disabled: !canSubmitForm,
-        onClick: canSubmitForm ? submitFromHeader : undefined,
-        title: normalizedSubmitBlockedReason || undefined,
       };
     } else if (primaryActionsAllowed && isRootPage && hasSubmitHandler) {
       rightAction = {
@@ -3480,8 +3418,6 @@ function FormRendererContent({
     handleRepeatableListAddFromHeader,
     hasSubmitHandler,
     isFirstSpecialPage,
-    isNestedDrilldownPage,
-    isRepeatableFirstPage,
     isRootPage,
     isReadOnlyMode,
     mode,

@@ -144,3 +144,28 @@ it('updates system labels and choices from a dynamic locale without losing an op
   expect(await screen.findByLabelText(/Altezza libera strutturale/)).toBe(input);
   expect(input.value).toBe('3.75');
 });
+
+// Mobile round 2026-11-13, issue 2: the BuildingPlanSection page is a drill-down page; only the
+// root submits the record.
+it('the BuildingPlanSection page goes Back and adds floors, and never submits', async () => {
+  const f = fixture();
+  const onSubmit = vi.fn(async () => ({}));
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      onSubmit={onSubmit}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  expect(await screen.findByRole('button', { name: /^Submit/ })).toBeTruthy();
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await screen.findByText('Ground Floor');
+  expect(screen.getByRole('button', { name: /^Back/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Add Floor/ })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /^(Save|Submit|Cancel)/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /^Back/ }));
+  expect(await screen.findByRole('button', { name: /^Submit/ })).toBeTruthy();
+  expect(onSubmit).not.toHaveBeenCalled();
+});
