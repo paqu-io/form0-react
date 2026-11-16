@@ -33,8 +33,8 @@ beforeEach(() => {
 const name = (label) => ({ choice: [{ value: label.toLowerCase(), label }], other: [] });
 
 /**
- * Bedroom (3 m) and Kitchen (2.5 m, its room-row value as the record stores it) sharing Bedroom's
- * east wall W2, whose height is the wall's own 3 m.
+ * Bedroom (3 m) and Kitchen (2.5 m) sharing Bedroom's east wall W2, whose height is the wall's
+ * own 3 m (chosen by the shared-value question).
  */
 function fixture() {
   const schema = {
@@ -79,27 +79,21 @@ function fixture() {
       rectangle: { x, y: 0, width: 5, height: 4 },
       values: { room_name: name(label) },
     });
-  const shared = session.getSnapshot().floors[0].walls.find((wall) => wall.exposure === 'interior');
-  const typed = session.apply({
-    type: 'set_property',
+  // Kitchen's height as its room screen sends it; the shared wall asks and keeps Bedroom's 3 m.
+  const kitchen = session.getSnapshot().floors[0].rooms[1];
+  const asked = session.apply({
+    type: 'set_provider',
     floorId,
-    wallId: shared.id,
+    nodeKey: 'rooms',
+    roomId: kitchen.id,
     property: 'wall_height',
-    value: 3,
+    fieldName: 'room_structural_clear_height',
+    value: 2.5,
   });
-  if (typed.status !== 'applied') throw new Error(JSON.stringify(typed.issues));
+  const { requestId } = asked.uiOperations[0].params;
+  const applied = session.resolveUIRequest(requestId, { value: 'candidate:0' });
+  if (applied.status !== 'applied') throw new Error(JSON.stringify(applied.issues));
   const record = writeBuildingPlanRecord({ meta, plan: session.getSnapshot() });
-  const nodes = meta.repeatablesByNodeKey;
-  const kitchen =
-    record.repeatable[nodes.floors.preferredKey][0].repeatable[nodes.rooms.preferredKey][1];
-  const height = nodes.rooms.fieldsByOriginalDataName.room_structural_clear_height.dataName;
-  const storage = nodes.rooms.fields.find((field) => field.binding?.role === 'storage').dataName;
-  const model = JSON.parse(kitchen.values[storage]);
-  kitchen.values[height] = 2.5;
-  kitchen.values[storage] = JSON.stringify({
-    ...model,
-    providerProperties: ['room_structural_clear_height'],
-  });
   return { schema, snapshot: { raw_values: {}, repeatable: record.repeatable } };
 }
 
