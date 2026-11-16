@@ -263,7 +263,11 @@ it('a wall issue from the Validation list opens the wall through its floor', asy
   );
   fireEvent.click(await screen.findByRole('button', { name: /^Submit/ }));
   fireEvent.click(await screen.findByRole('button', { name: /^Validation/ }));
-  fireEvent.click((await screen.findAllByRole('button', { name: /Wall note/ }))[0]);
+  const [issue] = await screen.findAllByRole('button', { name: /Wall note/ });
+  // The entry names where it is (floor, room, wall) and hides the generated data name.
+  expect(issue.textContent).toMatch(/Ground Floor \/ Bedroom \/ W\d+/);
+  expect(issue.textContent).not.toMatch(/wall_note_/);
+  fireEvent.click(issue);
   expect(await screen.findByText('Walls 1')).toBeTruthy();
   expect(onSubmit).not.toHaveBeenCalled();
   expect(errors.filter((error) => /does not belong/.test(error))).toEqual([]);

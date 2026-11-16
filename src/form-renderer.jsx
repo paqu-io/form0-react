@@ -3,7 +3,11 @@ import {
   BuildingPlanFieldLabel,
   useBuildingPlanPresentation,
 } from './building-plan/presentation.jsx';
-import { buildingPlanIssueFocus, settleBuildingPlanQuestions } from 'form0-core';
+import {
+  buildingPlanIssueFocus,
+  buildingPlanRowTitle,
+  settleBuildingPlanQuestions,
+} from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
@@ -811,7 +815,15 @@ function buildTitleDatasetIndex(schema) {
   };
 }
 
-function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLabeler) {
+/** `presentField` shows plan fields as the canvas does ("Height [m]"); plan fields' generated
+ * data names are not shown. */
+function formatValidationIssues(
+  summary,
+  fieldLookup,
+  fieldToSectionPath,
+  pathLabeler,
+  { presentField, planFields } = {}
+) {
   if (!summary || !summary.hasErrors) {
     return [];
   }
@@ -850,13 +862,17 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLa
     let entry = grouped.get(key);
     if (!entry) {
       const fieldDef = fieldLookup?.byDataName?.get(dataName) || issue.field;
-      const label = fieldDef?.label || dataName || 'Field';
+      const label =
+        (fieldDef && presentField ? presentField(fieldDef)?.label : fieldDef?.label) ||
+        dataName ||
+        'Field';
       entry = {
         id: key,
         fieldName: dataName,
         instancePath: issue.instancePath || [],
         label: truncateLabel(label),
         recordPathLabel: pathLabeler?.(issue.instancePath || []),
+        planField: planFields?.has(dataName) === true,
         messages: new Set(),
         hidden: issue.hidden === true,
         sectionPath: fieldToSectionPath?.[dataName] || [],
@@ -874,6 +890,8 @@ function formatValidationIssues(summary, fieldLookup, fieldToSectionPath, pathLa
     hidden: entry.hidden === true,
     instancePath: entry.instancePath || [],
     label: entry.label,
+    recordPathLabel: entry.recordPathLabel,
+    planField: entry.planField === true,
     sectionPath: entry.sectionPath,
     messages: Array.from(entry.messages),
   }));
@@ -1152,7 +1170,8 @@ function FormRendererContent({
   ...rest
 }) {
   // Automatic names of new plan rows (Room 1, Door 1) follow the renderer's language.
-  const buildingPlanLocale = useBuildingPlanPresentation().locale;
+  const buildingPlanPresentation = useBuildingPlanPresentation();
+  const buildingPlanLocale = buildingPlanPresentation.locale;
   const submissionDiagnosticsRef = useRef(submissionDiagnostics);
   submissionDiagnosticsRef.current = submissionDiagnostics;
   const submissionReporter = useMemo(
@@ -2936,10 +2955,28 @@ function FormRendererContent({
             rootValidationSummary,
             fieldLookup,
             fieldToSectionPath,
-            createInstancePathLabeler(finalSchema, recordCoordinator?.capture())
+            createInstancePathLabeler(finalSchema, recordCoordinator?.capture(), {
+              rowTitle: (repeatableKey, row) =>
+                buildingPlanRowTitle({ metadata: buildingPlanMeta, repeatableKey, row }),
+            }),
+            {
+              presentField: buildingPlanPresentation.field,
+              planFields: new Set(
+                buildingPlanMeta.flatMap((meta) =>
+                  meta.repeatables.flatMap((node) => node.fields.map((entry) => entry.dataName))
+                )
+              ),
+            }
           )
         : [],
-    [fieldLookup, fieldToSectionPath, rootValidationSummary, showRootValidationList]
+    [
+      fieldLookup,
+      fieldToSectionPath,
+      rootValidationSummary,
+      showRootValidationList,
+      buildingPlanMeta,
+      buildingPlanPresentation,
+    ]
   );
   const keepRootValidationNavigation = useValidationNavigation(
     submitCount,
@@ -5424,12 +5461,33 @@ function RepeatableEntryModal({
     [entryElements, entryVisible, resolveRepeatableKey, modal.buildingPlan?.meta]
   );
   const showModalValidationList = entrySubmitCount > 0 && entryValidationSummary?.hasErrors;
+  const modalPresentation = useBuildingPlanPresentation();
   const modalValidationIssues = useMemo(
     () =>
       showModalValidationList
-        ? formatValidationIssues(entryValidationSummary, modalFieldLookup, modalFieldToSectionPath)
+        ? formatValidationIssues(
+            entryValidationSummary,
+            modalFieldLookup,
+            modalFieldToSectionPath,
+            undefined,
+            {
+              presentField: modalPresentation.field,
+              planFields: new Set(
+                (modal.buildingPlan?.meta?.repeatables || []).flatMap((node) =>
+                  node.fields.map((entry) => entry.dataName)
+                )
+              ),
+            }
+          )
         : [],
-    [entryValidationSummary, modalFieldLookup, modalFieldToSectionPath, showModalValidationList]
+    [
+      entryValidationSummary,
+      modalFieldLookup,
+      modalFieldToSectionPath,
+      showModalValidationList,
+      modalPresentation,
+      modal.buildingPlan,
+    ]
   );
 
   // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing

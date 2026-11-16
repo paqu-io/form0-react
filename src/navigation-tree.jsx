@@ -264,7 +264,9 @@ function ValidationFinding({ issue, onSelect, onResolve }) {
       <div className={styles.validationHeader}>
         <span>{issue.label}</span>
         <span className={styles.validationField}>
-          {[issue.recordPathLabel, issue.fieldName || 'Record'].filter(Boolean).join(' · ')}
+          {[issue.recordPathLabel, issue.planField ? null : issue.fieldName || 'Record']
+            .filter(Boolean)
+            .join(' · ')}
         </span>
       </div>
       <div className={styles.validationMessage}>

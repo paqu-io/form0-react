@@ -32,7 +32,11 @@ function labelsForSchema(schema) {
   return schemaLabels.get(schema);
 }
 
-export function createInstancePathLabeler(schema, snapshot) {
+/**
+ * Labels a record path for validation lists and change reviews. `rowTitle(repeatableKey, row)`
+ * may name a row first (BuildingPlan rows: "Ground floor / Room 2 / W3").
+ */
+export function createInstancePathLabeler(schema, snapshot, { rowTitle } = {}) {
   const { fields, descriptors } = labelsForSchema(schema);
   const indexes = new WeakMap();
   const paths = new Map();
@@ -53,6 +57,7 @@ export function createInstancePathLabeler(schema, snapshot) {
           entry.repeatable_field_id === part.repeatableKey
       );
       return (
+        rowTitle?.(part.repeatableKey, record) ||
         resolveDatasetRowTitle(descriptor, record?.values || {}) ||
         `${fields.get(part.repeatableKey)?.label || part.repeatableKey} ${part.index + 1}`
       );
