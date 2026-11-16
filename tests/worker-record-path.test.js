@@ -259,7 +259,7 @@ for (const mode of ['trusted', 'safe'])
               walls: {
                 extra_elements: [
                   field('CalculatedField', 'cost', {
-                    calculate: 'SETRESULT($wall_thickness_m * 1000)',
+                    calculate: 'SETRESULT($wall_thickness * 1000)',
                     building_plan: { scope: 'physical_wall' },
                   }),
                   field('CalculatedField', 'face_cost', { calculate: 'SETRESULT($cost + 1)' }),
@@ -276,7 +276,7 @@ for (const mode of ['trusted', 'safe'])
     const domain = createBuildingPlanSession({ properties: meta.properties });
     const floorId = domain.apply({
       type: 'create_floor',
-      defaults: { wall_thickness_m: 0.3, wall_height_m: 3 },
+      defaults: { wall_thickness: 0.3, wall_height: 3 },
     }).created.id;
     for (const [x, y] of [
       [0, 0],

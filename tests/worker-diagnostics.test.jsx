@@ -84,7 +84,7 @@ for (const security of ['trusted', 'safe'])
               walls: {
                 extra_elements: [
                   field('CalculatedField', 'span_cost', {
-                    calculate: 'SETRESULT($wall_thickness_m * 1000);',
+                    calculate: 'SETRESULT($wall_thickness * 1000);',
                   }),
                 ],
               },
@@ -98,7 +98,7 @@ for (const security of ['trusted', 'safe'])
     const choice = (value, label) => ({ choice: [{ value, label }], other: [] });
     const floorId = domain.apply({
       type: 'create_floor',
-      defaults: { wall_height_m: 3 },
+      defaults: { wall_height: 3 },
       values: {
         floor_name: choice('ground_floor', 'Ground Floor'),
         floor_height: 3,
@@ -122,7 +122,7 @@ for (const security of ['trusted', 'safe'])
         type: 'set_property',
         floorId,
         faceId,
-        property: 'wall_thickness_m',
+        property: 'wall_thickness',
         value: 0.4,
       }).status
     ).toBe('applied');
@@ -144,7 +144,7 @@ for (const security of ['trusted', 'safe'])
       result.snapshot.repeatable[nodes.floors.preferredKey][0].repeatable[
         nodes.rooms.preferredKey
       ][0].repeatable[nodes.walls.preferredKey];
-    const thickness = nodes.walls.fieldsByOriginalDataName.wall_thickness_m.dataName;
+    const thickness = nodes.walls.fieldsByOriginalDataName.wall_thickness.dataName;
     const cost = nodes.walls.fieldsByOriginalDataName.span_cost.dataName;
     expect(rows[0].values[thickness]).toBe(0.4);
     expect(rows[0].values[cost]).toBe(400);

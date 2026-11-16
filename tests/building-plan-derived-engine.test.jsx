@@ -79,7 +79,7 @@ function fixture() {
       floor_interior_wall_thickness: 0.2,
       floor_exterior_wall_thickness: 0.2,
     },
-    defaults: { wall_height_m: 3 },
+    defaults: { wall_height: 3 },
   }).created.id;
   session.apply({
     type: 'create_room',
