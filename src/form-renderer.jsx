@@ -5101,9 +5101,34 @@ function RepeatableEntryModal({
     [entryValues, getEntryRepeatableInstance, modal.parentValues]
   );
 
+  // "Reset to inheritance" on a plan row: the reset may ask which value applies (a shared wall
+  // whose rooms disagree) and may be refused, like any plan edit (2026-11-16 web retest).
+  const resetPlanProperty = useCallback(
+    async (dataName) => {
+      const context = modal.buildingPlan;
+      if (!context || isEntryReadOnly) return null;
+      try {
+        await pendingPlanValueChange.current;
+        const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
+        const result = await settleBuildingPlanQuestions(
+          context.editor,
+          context.editor.updateRow(context.scopeId, row, { resetProperties: [dataName] }),
+          modal.engineOptions?.onMessageBox
+        );
+        if (result.status !== 'applied') setBuildingPlanIssues(result.issues || []);
+        return result;
+      } catch (error) {
+        setBuildingPlanIssues([{ message: error.message }]);
+        return { status: 'invalid', issues: [{ message: error.message }] };
+      }
+    },
+    [modal.buildingPlan, modal.engineOptions, isEntryReadOnly]
+  );
+
   const entryController = useMemo(
     () => ({
       buildingPlan: modal.buildingPlan,
+      resetBuildingPlanProperty: resetPlanProperty,
       diagnosticInstancePath: modal.diagnosticInstancePath,
       eventDispatch: rowEvents.dispatch,
       eventInteraction: (type, name, event) => {
@@ -5130,6 +5155,7 @@ function RepeatableEntryModal({
       modal.diagnosticInstancePath,
       completePlanRow,
       modal.buildingPlan,
+      resetPlanProperty,
       buildEntryParentValues,
       entryRepeatableMetadata,
       getEntryRepeatableInstance,
@@ -7045,15 +7071,7 @@ function RepeatableEntryForm({
                 <button
                   type="button"
                   className={styles.formNameActionButton}
-                  onClick={() => {
-                    const row = resolveBuildingPlanRow(
-                      planContext.editor.getRecord(),
-                      planContext.path
-                    );
-                    planContext.editor.updateRow(planContext.scopeId, row, {
-                      resetProperties: [propertyState.dataName],
-                    });
-                  }}
+                  onClick={() => controller.resetBuildingPlanProperty(propertyState.dataName)}
                 >
                   Reset to inheritance
                 </button>
