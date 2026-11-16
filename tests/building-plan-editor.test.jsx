@@ -28,7 +28,7 @@ beforeEach(() => {
   );
   HTMLElement.prototype.scrollIntoView = () => {};
 });
-function fixture() {
+function fixture(overrides = null) {
   const schema = {
     form: {
       name: 'Building',
@@ -44,7 +44,7 @@ function fixture() {
           visible_conditions: null,
           read_only: false,
           read_only_conditions: null,
-          node_overrides: null,
+          node_overrides: overrides,
         },
       ],
     },
@@ -219,4 +219,52 @@ it('opens a room from an editable floor whose saved row carries container keys',
   );
   expect(screen.queryByText(/value-update field/)).toBeNull();
   expect(errors.filter((error) => /value-update field|child editor/.test(error))).toEqual([]);
+});
+
+// Retest 2026-11-13: selecting a validation issue inside a wall threw ("The selected row does not
+// belong to this BuildingPlanSection") and opened nothing. It now opens the floor, whose canvas
+// opens the wall.
+it('a wall issue from the Validation list opens the wall through its floor', async () => {
+  const note = {
+    type: 'TextField',
+    key: 'wall_note',
+    data_name: 'wall_note',
+    label: 'Wall note',
+    display: 'default',
+    description: null,
+    description_mode: null,
+    required: true,
+    required_conditions: null,
+    visible: true,
+    visible_conditions: null,
+    read_only: false,
+    read_only_conditions: null,
+    default_value: null,
+    pattern: null,
+    pattern_description: null,
+    supporting_image: false,
+    supporting_image_path: null,
+    supporting_image_display: null,
+  };
+  const f = fixture({ walls: { extra_elements: [note] } });
+  const errors = [];
+  vi.spyOn(console, 'error').mockImplementation((...args) =>
+    errors.push(args.map(String).join(' '))
+  );
+  const onSubmit = vi.fn(async () => ({}));
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      onSubmit={onSubmit}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: /^Submit/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Validation/ }));
+  fireEvent.click((await screen.findAllByRole('button', { name: /Wall note/ }))[0]);
+  expect(await screen.findByText('Walls 1')).toBeTruthy();
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(errors.filter((error) => /does not belong/.test(error))).toEqual([]);
 });

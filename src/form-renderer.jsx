@@ -3,7 +3,7 @@ import {
   BuildingPlanFieldLabel,
   useBuildingPlanPresentation,
 } from './building-plan/presentation.jsx';
-import { settleBuildingPlanQuestions } from 'form0-core';
+import { buildingPlanIssueFocus, settleBuildingPlanQuestions } from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
@@ -3208,18 +3208,27 @@ function FormRendererContent({
       if (issue?.hidden) return;
       if (issue?.instancePath?.length) {
         let row = recordCoordinator.capture();
+        // An issue below a BuildingPlan floor opens the floor, whose canvas opens the issue's row.
+        const planFocus = buildingPlanIssueFocus({
+          metadata: buildingPlanMeta,
+          record: row,
+          instancePath: issue.instancePath,
+        });
+        const openPath = planFocus
+          ? issue.instancePath.slice(0, planFocus.floorDepth + 1)
+          : issue.instancePath;
         const parentPath = [];
-        for (const [index, part] of issue.instancePath.entries()) {
+        for (const [index, part] of openPath.entries()) {
           const rows = row.repeatable?.[part.repeatableKey] || [];
           row =
             part.identity === 'id'
               ? rows.find((item) => (item.id ?? item.record_id) === part.instanceId)
               : rows[part.index];
           if (!row) return;
-          if (index < issue.instancePath.length - 1)
+          if (index < openPath.length - 1)
             parentPath.push({ key: part.repeatableKey, id: row.id ?? row.record_id });
         }
-        const part = issue.instancePath.at(-1);
+        const part = openPath.at(-1);
         const repInfo = repeatableMetadata.byPreferredKey?.get(part.repeatableKey);
         if (!repInfo) return;
         openRepeatableModal(
@@ -3236,7 +3245,9 @@ function FormRendererContent({
             instanceId: row.id ?? row.record_id,
             instanceIndex: part.index,
             initialInstance: cloneDeepSafe(row),
-            validationFocus: issue,
+            ...(planFocus
+              ? { buildingPlanFocusPath: planFocus.focusPath, buildingPlanFocusIssue: issue }
+              : { validationFocus: issue }),
           },
           formRepeatableController
         );
@@ -3263,6 +3274,7 @@ function FormRendererContent({
       finalSchema,
       engineOptions,
       formRepeatableController,
+      buildingPlanMeta,
     ]
   );
 
@@ -5109,7 +5121,7 @@ function RepeatableEntryModal({
               editor.apply(operation, { scopeId }),
               modal.engineOptions?.onMessageBox
             ),
-          focusRow: (indexPath) => {
+          focusRow: (indexPath, { validationFocus = null } = {}) => {
             const record = editor.getRecord();
             let row = record;
             const idPath = indexPath.map((part) => {
@@ -5133,6 +5145,7 @@ function RepeatableEntryModal({
                 engineOptions: modal.engineOptions,
                 parentValues: entryController.buildParentValues(local.slice(0, -1)),
                 initialInstance: cloneDeepSafe(row),
+                ...(validationFocus ? { validationFocus } : {}),
               },
               entryController
             );
@@ -5373,8 +5386,16 @@ function RepeatableEntryModal({
     )
       return;
     initialPlanFocus.current = modal.modalId;
-    buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath);
-  }, [modal.modalId, modal.buildingPlanFocusPath, buildingPlanModalContext]);
+    // Opened for a validation issue: the nested row focuses the issue's field.
+    buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath, {
+      validationFocus: modal.buildingPlanFocusIssue || null,
+    });
+  }, [
+    modal.modalId,
+    modal.buildingPlanFocusPath,
+    modal.buildingPlanFocusIssue,
+    buildingPlanModalContext,
+  ]);
 
   const buildingPlanModalController = useBuildingPlanController({
     sectionDataName: buildingPlanModalContext?.metaEntry?.dataName,
