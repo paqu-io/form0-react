@@ -95,6 +95,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         required: resolvedRequired,
         disabled: resolvedReadOnly,
         id: baseId,
+        'aria-invalid': showError && currentError ? true : undefined,
         autoComplete: field?.autocomplete ?? 'off',
         'aria-labelledby': labelledById,
         ...(onFocus || eventInteractions

@@ -4,7 +4,7 @@
 import { vars } from './theme.css.js';
 
 const mix = (color, percent, base) => `color-mix(in srgb, ${color} ${percent}%, ${base})`;
-const { foreground, background, primary } = vars.color;
+const { foreground, background, primary, error, buttonBg } = vars.color;
 
 export const derived = {
   fill: mix(foreground, 4, background), // quiet surface: disabled inputs, thumbnails
@@ -15,4 +15,17 @@ export const derived = {
   borderStrong: mix(foreground, 30, background),
   primarySoft: mix(primary, 12, background),
   primaryHover: mix(primary, 86, foreground),
+  borderHover: mix(foreground, 55, background),
+  placeholder: mix(foreground, 42, background),
+  errorSoft: mix(error, 10, background),
+  buttonPress: mix(buttonBg, 74, background),
+};
+
+// Shared control metrics. Web controls are 36px high; touch sizes live in form0-react-native.
+export const control = {
+  height: '2.25rem',
+  paddingX: '0.75rem',
+  focusRing: `0 0 0 3px ${mix(primary, 30, 'transparent')}`,
+  errorRing: `0 0 0 3px ${mix(error, 26, 'transparent')}`,
+  focusOutline: `2px solid ${primary}`,
 };

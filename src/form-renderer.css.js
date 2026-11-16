@@ -1,7 +1,7 @@
 // src/form-renderer.css.js
-import { style } from '@vanilla-extract/css';
+import { style, globalStyle } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
-import { derived } from './theme-derived.css.js';
+import { derived, control } from './theme-derived.css.js';
 
 export const buildingPlanConflict = style({
   padding: vars.spacing.md,
@@ -99,7 +99,7 @@ export const formNameActionSlot = style({
   top: '50%',
   transform: 'translateY(-50%)',
   display: 'flex',
-  gap: vars.spacing.xs,
+  gap: '0.5rem',
 });
 
 export const formNameActionSlotLeft = style({
@@ -112,46 +112,58 @@ export const formNameActionSlotRight = style({
 });
 
 export const formNameActionButton = style({
+  boxSizing: 'border-box',
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '0.35rem',
-  padding: '0.35rem 0.75rem',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  minHeight: control.height,
+  padding: '0 0.875rem',
   borderRadius: vars.borderRadius,
-  border: `1px solid ${vars.color.border}`,
-  background: 'transparent',
+  border: `1px solid ${derived.borderStrong}`,
+  background: vars.color.background,
   color: vars.color.foreground,
-  fontSize: '0.85rem',
+  fontFamily: vars.fontFamily.base,
+  fontSize: vars.fontSize.button,
   fontWeight: 600,
   lineHeight: 1.2,
+  whiteSpace: 'nowrap',
   cursor: 'pointer',
-  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease',
+  transition: 'background 0.12s ease, color 0.12s ease, border-color 0.12s ease',
   selectors: {
+    '&:hover:not(:disabled)': {
+      background: derived.fillHover,
+    },
+    '&:active:not(:disabled)': {
+      background: derived.fillPress,
+    },
+    '&:focus-visible': {
+      outline: control.focusOutline,
+      outlineOffset: '2px',
+    },
     '&[data-variant="primary"]': {
       background: vars.color.buttonBg,
       color: vars.color.buttonFg,
       borderColor: vars.color.buttonBorder,
     },
-    '&[data-variant="primary"]:hover': {
+    '&[data-variant="primary"]:hover:not(:disabled)': {
       background: vars.color.buttonHoverBg,
       color: vars.color.buttonHoverFg,
       borderColor: vars.color.buttonHoverBorder,
     },
+    '&[data-variant="primary"]:active:not(:disabled)': {
+      background: derived.buttonPress,
+      borderColor: derived.buttonPress,
+    },
     '&[data-variant="edit"]': {
-      background: 'transparent',
       color: vars.color.primary,
       borderColor: vars.color.primary,
     },
-    '&[data-variant="edit"]:hover': {
-      background: vars.color.section,
-      color: vars.color.primary,
-      borderColor: vars.color.primary,
-    },
-    '&:not(:disabled):hover': {
-      borderColor: vars.color.iconHover,
-      color: vars.color.iconHover,
+    '&[data-variant="edit"]:hover:not(:disabled)': {
+      background: derived.primarySoft,
     },
     '&:disabled': {
-      opacity: 0.4,
+      opacity: 0.45,
       cursor: 'not-allowed',
     },
   },
@@ -167,16 +179,16 @@ export const shortcutBadge = style({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '0 0.4rem',
-  borderRadius: '4px',
-  background: vars.color.section,
-  color: vars.color.foreground,
-  fontSize: '0.65rem',
+  padding: '0.15rem 0.3rem',
+  borderRadius: '0.3rem',
+  // Tinted from the button's own text colour, so it reads on any button variant.
+  background: 'color-mix(in srgb, currentColor 9%, transparent)',
+  border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
+  color: 'inherit',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+  fontSize: '0.66rem',
   fontWeight: 500,
-  lineHeight: 1.2,
-  border: `1px solid ${vars.color.border}`,
-  textTransform: 'lowercase',
-  letterSpacing: '0.05em',
+  lineHeight: 1,
 });
 
 export const formNameActionIcon = style({
@@ -392,19 +404,31 @@ export const drilldownActive = style({
 });
 
 export const button = style({
+  boxSizing: 'border-box',
+  minHeight: control.height,
+  padding: '0 0.875rem',
   background: vars.color.buttonBg,
   color: vars.color.buttonFg,
   border: `1px solid ${vars.color.buttonBorder}`,
   borderRadius: vars.borderRadius,
-  padding: '4px 8px',
   cursor: 'pointer',
+  fontFamily: vars.fontFamily.base,
   fontSize: vars.fontSize.button,
   fontWeight: 600,
-  transition: 'background 0.2s',
-  ':hover': {
-    background: vars.color.buttonHoverBg,
-    color: vars.color.buttonHoverFg,
-    border: `1px solid ${vars.color.buttonHoverBorder}`,
+  transition: 'background 0.12s ease, border-color 0.12s ease',
+  selectors: {
+    '&:hover': {
+      background: vars.color.buttonHoverBg,
+      color: vars.color.buttonHoverFg,
+      border: `1px solid ${vars.color.buttonHoverBorder}`,
+    },
+    '&:active': {
+      background: derived.buttonPress,
+    },
+    '&:focus-visible': {
+      outline: control.focusOutline,
+      outlineOffset: '2px',
+    },
   },
 });
 
@@ -502,29 +526,26 @@ export const repeatableListDescription = style({
   opacity: 0.75,
 });
 
+// A secondary action: the primary colour is kept for Submit and Save.
 export const repeatableAddButton = style([
   formNameActionButton,
   {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: vars.spacing.xs,
     background: vars.color.buttonBg,
     color: vars.color.buttonFg,
     borderColor: vars.color.buttonBorder,
+    selectors: {
+      '&:hover:not(:disabled)': {
+        background: vars.color.buttonHoverBg,
+        color: vars.color.buttonHoverFg,
+        borderColor: vars.color.buttonHoverBorder,
+      },
+      '&:active:not(:disabled)': {
+        background: derived.buttonPress,
+        borderColor: derived.buttonPress,
+      },
+    },
   },
 ]);
-
-export const repeatableBackButton = style({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: vars.spacing.xs,
-  fontSize: vars.fontSize.base,
-  color: vars.color.foreground,
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  padding: 0,
-});
 
 export const repeatableEntryList = style({
   display: 'flex',
@@ -557,19 +578,20 @@ export const repeatableEntryTitle = style({
 
 export const repeatableEntryActions = style({
   display: 'flex',
-  gap: vars.spacing.xs,
+  gap: '0.5rem',
 });
 
 export const repeatableActionButton = style([formNameActionButton]);
 
 export const repeatableDangerButton = style({
-  background: 'transparent',
   color: vars.color.error,
-  borderColor: vars.color.error,
   selectors: {
-    '&:hover': {
-      color: vars.color.primary,
-      borderColor: vars.color.primary,
+    '&:hover:not(:disabled)': {
+      background: derived.errorSoft,
+      borderColor: vars.color.error,
+    },
+    '&:active:not(:disabled)': {
+      background: derived.errorSoft,
     },
   },
 });
@@ -614,6 +636,10 @@ export const repeatableModal = style({
   display: 'flex',
   flexDirection: 'column',
   fontFamily: vars.fontFamily.base,
+  // Same text metrics as the form: the modal is portalled outside it and would otherwise
+  // inherit the host page's.
+  fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.normal,
 });
 
 export const repeatableModalHeader = style({
@@ -846,3 +872,12 @@ export const confirmPrimaryButton = style([
     minWidth: '120px',
   },
 ]);
+
+// The form must not depend on a host CSS reset: without this, every element that is 100% wide
+// with padding or a border overflows its parent. Covers the form and the overlays it portals.
+globalStyle(
+  [form, formRendererRoot, repeatableModalOverlay, alertOverlay]
+    .flatMap((root) => [root, `${root} *`, `${root} *::before`, `${root} *::after`])
+    .join(', '),
+  { boxSizing: 'border-box' }
+);

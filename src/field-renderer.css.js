@@ -1,30 +1,26 @@
 // src/field-renderer.css.js
-import { style } from '@vanilla-extract/css';
+import { style, globalStyle } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
-import { derived } from './theme-derived.css.js';
+import { derived, control } from './theme-derived.css.js';
 
 export const fieldWrapper = style({
-  marginBottom: vars.spacing.xs,
-  paddingTop: vars.spacing.sm,
-  paddingBottom: vars.spacing.sm,
-  borderBottom: `1px solid ${vars.color.border}`,
+  // The error row below each control is always reserved, so it also spaces the fields.
+  paddingTop: '0.375rem',
+  paddingBottom: '0.375rem',
   width: '100%',
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'center',
-  selectors: {
-    '&:last-child': {
-      borderBottom: 'none',
-    },
-  },
+  gap: '0.375rem',
 });
 
 export const label = style({
   display: 'block',
   fontWeight: 500,
-  marginBottom: vars.spacing.xs,
   fontSize: vars.fontSize.label,
   lineHeight: vars.lineHeight.tight,
+  color: vars.color.foreground,
 });
 
 export const labelSideFixed = style({
@@ -35,32 +31,88 @@ export const labelSideFixed = style({
 });
 
 export const input = style({
-  border: `1px solid ${vars.color.border}`,
+  boxSizing: 'border-box',
+  border: `1px solid ${derived.borderStrong}`,
   borderRadius: vars.borderRadius,
-  padding: '6px 8px',
+  // minHeight, not height: media and signature fields put this class on a container.
+  minHeight: control.height,
+  padding: `0 ${control.paddingX}`,
   width: '100%',
+  fontFamily: vars.fontFamily.base,
   fontSize: vars.fontSize.base,
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
   background: vars.color.background,
   outline: 'none',
+  transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
   selectors: {
+    '&::placeholder': {
+      color: derived.placeholder,
+    },
+    '&:is(input, select, textarea):hover:not(:disabled):not(:focus)': {
+      borderColor: derived.borderHover,
+    },
     '&:focus': {
       borderColor: vars.color.primary,
+      boxShadow: control.focusRing,
     },
+    '&[aria-invalid="true"]': {
+      borderColor: vars.color.error,
+    },
+    '&[aria-invalid="true"]:focus': {
+      boxShadow: control.errorRing,
+    },
+    // Calculated values: a result, not an input.
+    '&[readonly]:not(:disabled)': {
+      background: derived.fillHover,
+      borderColor: 'transparent',
+      fontWeight: 600,
+      cursor: 'default',
+    },
+    '&[readonly]:not(:disabled):focus': {
+      borderColor: vars.color.primary,
+    },
+    // Read-only by attribute or logic: keeps the input outline.
     '&:disabled': {
       background: derived.fill,
-      color: derived.disabledFg,
+      color: derived.muted,
+      borderColor: vars.color.border,
+      cursor: 'not-allowed',
+      opacity: 1,
+    },
+    '&:not(input):not(select):not(textarea)': {
+      padding: `0.625rem ${control.paddingX}`,
+    },
+    'textarea&': {
+      minHeight: '5rem',
+      padding: `0.5rem ${control.paddingX}`,
+    },
+    'select&:not([multiple])': {
+      appearance: 'none',
+      paddingRight: '2.25rem',
+      cursor: 'pointer',
+      backgroundImage:
+        'linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)',
+      backgroundPosition: 'calc(100% - 1.05rem) 50%, calc(100% - 0.75rem) 50%',
+      backgroundSize: '0.3rem 0.3rem',
+      backgroundRepeat: 'no-repeat',
+    },
+    'select&:not([multiple]):disabled': {
+      cursor: 'not-allowed',
+    },
+    'select&[multiple]': {
+      padding: '0.25rem',
     },
   },
 });
 
 export const error = style({
   color: vars.color.error,
-  fontSize: '0.75rem',
+  fontSize: '0.78rem',
+  fontWeight: 500,
   lineHeight: vars.lineHeight.tight,
-  marginTop: vars.spacing.xs,
-  minHeight: '1em',
+  // Reserved even when empty, so showing an error never shifts the layout.
+  minHeight: '1.25em',
   display: 'block',
 });
 
@@ -83,20 +135,24 @@ export const labelOnly = style({
 
 export const labelInputRow = style({
   display: 'flex',
-  alignItems: 'center',
-  gap: vars.spacing.sm,
+  alignItems: 'flex-start',
+  gap: '0.75rem',
   width: '100%',
 });
 
 export const inputWrapper = style({
   flex: 1,
   width: '100%',
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.375rem',
 });
 
 export const labelRow = style({
   display: 'flex',
   alignItems: 'center',
-  gap: vars.spacing.xs,
+  gap: vars.spacing.sm,
 });
 
 export const labelColumn = style({
@@ -104,7 +160,8 @@ export const labelColumn = style({
   flexDirection: 'column',
   gap: vars.spacing.xs,
   justifyContent: 'center',
-  minHeight: '100%',
+  // Centres a one-line label on the first control row; taller content flows from the top.
+  minHeight: control.height,
   width: 'var(--label-width, 30%)',
   flexShrink: 0,
 });
@@ -115,8 +172,10 @@ export const labelText = style({
 
 export const fieldsetReset = style({
   border: 'none',
-  margin: 0,
-  padding: 0,
+  marginLeft: 0,
+  marginRight: 0,
+  paddingLeft: 0,
+  paddingRight: 0,
   minWidth: 0,
 });
 
@@ -683,7 +742,7 @@ export const formLinkTooltip = style({
   borderRadius: vars.borderRadius,
   boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
   fontSize: '0.9rem',
-  lineHeight: vars.lineHeight.snug,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const formLinkTooltipLink = style({
@@ -807,29 +866,32 @@ export const infoIconButton = style({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  width: '1.5rem',
+  height: '1.5rem',
   padding: 0,
+  borderRadius: '0.375rem',
   outline: 'none',
-  transition: 'color 0.2s ease',
+  flexShrink: 0,
+  transition: 'color 0.12s ease, background 0.12s ease',
   selectors: {
     '&:hover': {
       color: vars.color.iconHover,
+      background: derived.fillPress,
     },
     '&:focus': {
       outline: 'none',
     },
     '&:focus-visible': {
-      outline: `2px solid ${vars.color.primary}`,
-      outlineOffset: '2px',
+      outline: control.focusOutline,
+      outlineOffset: '1px',
     },
   },
 });
 
 export const subtext = style({
-  fontSize: '0.75rem',
-  color: vars.color.foreground,
-  opacity: 0.65,
-  marginTop: vars.spacing.xs,
-  lineHeight: vars.lineHeight.tight,
+  fontSize: '0.78rem',
+  color: derived.muted,
+  lineHeight: 1.35,
 });
 
 export const supportingImage = style({
@@ -920,59 +982,155 @@ export const dialogTitle = style({
 export const choiceGroup = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.xs,
+  gap: '0.125rem',
 });
 
 export const choiceOption = style({
   display: 'flex',
   alignItems: 'center',
-  gap: vars.spacing.xs,
+  gap: '0.625rem',
+  minHeight: '2rem',
+  padding: '0 0.5rem',
+  marginLeft: '-0.5rem',
+  borderRadius: vars.borderRadius,
+  fontSize: vars.fontSize.base,
   lineHeight: vars.lineHeight.tight,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      background: derived.fillHover,
+    },
+    '&:has(input:disabled)': {
+      cursor: 'not-allowed',
+      background: 'transparent',
+    },
+  },
 });
 
 export const choiceOtherInput = style({
-  marginTop: vars.spacing.xs,
-  width: '100%',
+  flex: 1,
+  minWidth: 0,
 });
 
 export const multiChoiceGroup = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.xs,
+  gap: '0.125rem',
 });
 
 export const multiChoiceOption = style({
   display: 'flex',
   alignItems: 'center',
-  gap: vars.spacing.xs,
+  gap: '0.625rem',
+  minHeight: '2rem',
+  padding: '0 0.5rem',
+  marginLeft: '-0.5rem',
+  borderRadius: vars.borderRadius,
+  fontSize: vars.fontSize.base,
   lineHeight: vars.lineHeight.tight,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      background: derived.fillHover,
+    },
+    '&:has(input:disabled)': {
+      cursor: 'not-allowed',
+      background: 'transparent',
+    },
+  },
 });
 
 export const multiChoiceOtherInput = style({
-  marginTop: vars.spacing.xs,
-  width: '100%',
+  flex: 1,
+  minWidth: 0,
+});
+
+// Radio and checkbox marks, drawn from theme tokens so they follow the host theme.
+const choiceMark = `${choiceOption} input[type="radio"], ${multiChoiceOption} input[type="checkbox"]`;
+const each = (suffix) =>
+  choiceMark
+    .split(', ')
+    .map((selector) => `${selector}${suffix}`)
+    .join(', ');
+
+globalStyle(choiceMark, {
+  appearance: 'none',
+  boxSizing: 'border-box',
+  width: '1.125rem',
+  height: '1.125rem',
+  margin: 0,
+  flexShrink: 0,
+  border: `1.5px solid ${derived.borderStrong}`,
+  background: vars.color.background,
+  display: 'grid',
+  placeContent: 'center',
+  cursor: 'pointer',
+  transition: 'border-color 0.12s ease, background 0.12s ease',
+});
+globalStyle(`${choiceOption} input[type="radio"]`, { borderRadius: '50%' });
+globalStyle(`${multiChoiceOption} input[type="checkbox"]`, { borderRadius: '0.3rem' });
+globalStyle(each(':checked'), {
+  borderColor: vars.color.primary,
+  background: vars.color.primary,
+});
+globalStyle(`${choiceOption} input[type="radio"]:checked::after`, {
+  content: '""',
+  width: '0.4375rem',
+  height: '0.4375rem',
+  borderRadius: '50%',
+  background: vars.color.background,
+});
+globalStyle(`${multiChoiceOption} input[type="checkbox"]:checked::after`, {
+  content: '""',
+  width: '0.5625rem',
+  height: '0.3125rem',
+  borderLeft: `2px solid ${vars.color.background}`,
+  borderBottom: `2px solid ${vars.color.background}`,
+  transform: 'translateY(-1px) rotate(-45deg)',
+});
+globalStyle(each(':focus-visible'), {
+  outline: control.focusOutline,
+  outlineOffset: '2px',
+});
+globalStyle(each(':disabled'), {
+  opacity: 0.55,
+  cursor: 'not-allowed',
 });
 
 export const booleanSegmented = style({
   display: 'inline-flex',
+  alignSelf: 'flex-start',
+  maxWidth: '100%',
+  minHeight: control.height,
   borderRadius: vars.borderRadius,
-  border: `1px solid ${vars.color.border}`,
+  border: `1px solid ${derived.borderStrong}`,
   overflow: 'hidden',
 });
 
 export const booleanOption = style({
   appearance: 'none',
+  boxSizing: 'border-box',
   background: vars.color.background,
   border: 'none',
-  borderRight: `1px solid ${vars.color.border}`,
-  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  borderRight: `1px solid ${derived.borderStrong}`,
+  // Two or three options share the row; long labels wrap inside their option.
+  flex: '0 1 auto',
+  minWidth: '3.25rem',
+  padding: '0.25rem 0.875rem',
   cursor: 'pointer',
+  fontFamily: vars.fontFamily.base,
   fontSize: vars.fontSize.base,
+  fontWeight: 500,
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
+  transition: 'background 0.12s ease, color 0.12s ease',
   selectors: {
-    '&:hover': {
-      background: vars.color.section,
+    '&:hover:not(:disabled)': {
+      background: derived.fillHover,
+    },
+    '&:focus-visible': {
+      outline: control.focusOutline,
+      outlineOffset: '-3px',
     },
     '&:disabled': {
       cursor: 'not-allowed',
@@ -985,6 +1143,19 @@ export const booleanOption = style({
 });
 
 export const booleanOptionSelected = style({
-  background: vars.color.primary,
-  color: vars.color.buttonFg,
+  background: vars.color.foreground,
+  color: vars.color.background,
+  selectors: {
+    '&:hover:not(:disabled)': {
+      background: vars.color.foreground,
+    },
+  },
 });
+
+// Overlays rendered outside the form root still need their own box model.
+globalStyle(
+  [signatureModalOverlay, formLinkModalOverlay, dialogBase]
+    .flatMap((root) => [root, `${root} *`, `${root} *::before`, `${root} *::after`])
+    .join(', '),
+  { boxSizing: 'border-box' }
+);

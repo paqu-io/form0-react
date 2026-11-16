@@ -43,8 +43,12 @@ Tracks the default-styling refresh for `form0-react` and `form0-react-native`
 | Topic | Decision |
 |---|---|
 | Base direction | A (Refined) |
-| Sections and issues panel | Kept. Left of the form on web. On mobile it still opens by tapping the title; a small chevron after the title marks it as openable and a small count shows only while there are issues |
-| Nested sections | Flat: only the top section is a card. Every nested level keeps a filled, full-width header band, lighter and smaller with depth; deep levels name their parent |
+| Sections and issues panel | Kept. Left of the form on web. On mobile it still opens by tapping the title; a small chevron after the title marks it as openable and a small count shows only while there are issues. The mobile header stays on one line: icon-only Back, truncated title, Submit |
+| Add buttons in repeatable lists | Primary style, like Submit |
+| Error row | Always reserved under each control, so an error never shifts the layout. Field spacing is tightened to make up for it |
+| Yes/No fields | Two or three options (`third_option_enabled`); long labels wrap inside their option |
+| Header button size | 36px, like every control. The header stays 48px high, as before |
+| Nested sections | Flat: only the top section is a card. Every nested level keeps a filled, full-width header band showing the path to it ("Structure › Roof › Covering"). A long path keeps the two nearest parents and collapses the rest into "…" |
 | Separation between inline sections | Stronger: tinted form background, filled header band, wider gap |
 | Dialog buttons | The first button is the primary one; schema order is kept |
 | Inherited values | Variant 1: source tag inside the field, becomes the reset button once overridden |
@@ -79,7 +83,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | # | Step | Repo | Status |
 |---|---|---|---|
 | 1 | Tokens and palette: neutral defaults, dark mode, derived state colours; remove hardcoded colours in field, form and navigation styles | form0-react | done |
-| 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | todo |
+| 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | done |
 | 3 | Form shell: header, mode indicator, section bands and gaps, navigation panel, repeatable list | form0-react | todo |
 | 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | todo |
 | 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs | form0-react | todo |
@@ -164,7 +168,8 @@ proven.
 ## Manual testing
 
 Web: `node preview.mjs` in `.local-test-harnesses/form0-ui-refresh-20261116/`, then open
-http://127.0.0.1:4180. It bundles this package's build with the local `form0-core` source in
+http://127.0.0.1:4180. The bar offers a "UI gallery" form (cases the starter schemas lack,
+such as three-option Yes/No) and "Show as: Modal", which puts the form in a host dialog. It bundles this package's build with the local `form0-core` source in
 memory, so nothing is installed or linked, and a page reload rebuilds after a source change.
 `shots.mjs` in the same folder writes screenshots of a fixed set of views.
 
@@ -197,3 +202,62 @@ section, the navigation panel and a failed submit.
 To revert: `git checkout -- src/theme.css.js src/field-renderer.css.js src/form-renderer.css.js
 src/navigation-tree.css.js && rm src/theme-derived.css.js`. To bring back only the old colours,
 restore `src/theme.css.js` alone; the other files work with any palette.
+
+### Step 1 commit
+
+`9651404` feat(theme): neutral default palette and theme-derived state colours.
+
+### Step 2: controls and their states (2026-11-16, tested by hand, committed)
+
+Files:
+
+- `src/theme-derived.css.js`: more derived colours (hover border, placeholder, error tint,
+  pressed button) and a `control` object with the shared metrics: 36px control height, 12px
+  horizontal padding, focus ring, error ring, focus outline.
+- `src/field-renderer.css.js`:
+  - Field rows: the hairline under every field is gone. The error row under each control is
+    still always reserved (no layout shift) and now also provides the space between fields. Side layout aligns the label with the first control
+    row instead of the vertical centre of the whole field.
+  - Inputs, selects and textareas: 36px, own `box-sizing` and font family (they no longer
+    depend on a host CSS reset, which fixes the overflow seen in the bare preview), hover
+    border, focus ring, placeholder colour, invalid state.
+  - Dropdowns: custom arrow drawn in the text colour. The open list stays the browser's.
+  - Calculated fields (read-only, not disabled) are filled with no border and bold; fields that
+    are read-only by attribute or logic (disabled) keep the outline with muted text.
+  - Radio and checkbox lists: themed marks, 32px rows with a hover fill, focus outline.
+  - Yes/No: 36px, selected option in ink, hover and focus states. Works with two or three
+    options; long labels wrap inside their option instead of overflowing.
+  - Label icon buttons (supporting image, description): 24px target with hover fill.
+  - Subtext and error text sizes and colours. One `vars.lineHeight.snug` that did not exist is
+    now `tight`.
+- `src/form-renderer.css.js`:
+  - The shared action button (`formNameActionButton`, used by header actions, View, Add,
+    Remove and others): 36px, hover, pressed, focus-visible and disabled states. Fixes an
+    existing bug where hovering the primary button gave it dark text.
+  - Shortcut hints look like key caps and are no longer forced to lowercase ("Alt+S").
+  - Generic `button`, repeatable Add (primary, with hover and pressed states) and Remove
+    (error colour, tinted hover).
+  - Header action slots: 8px between buttons (was 2px).
+  - The form and its overlays now set `box-sizing: border-box` on themselves. Before, the
+    layout relied on the host's CSS reset: without one, sections and inputs overflowed to the
+    right and the repeatable modal scrolled sideways. Hosts with a reset see no change.
+- `src/field-renderer.jsx`, one markup change with no effect on values or validation:
+  controls get `aria-invalid="true"` while they show an error, which the red border uses.
+
+Checked with screenshots from the preview (light, dark, phone width, read-only, failed
+submit, repeatable modal, host modal) and with an automated check that nothing scrolls
+sideways at desktop and phone width. Tests against the local core: 259 or 260 of 266 pass
+depending on the run; the failures are the six worker tests and, intermittently, the reset
+test, all of which also fail without this work.
+
+Not changed in this step: header layout, mode banner, sections, navigation panel, drill-down
+rows, dialogs, media fields, building plan. The lock icon on read-only fields and the "ƒ" mark
+on calculated fields from the mockup need markup and are left for step 4.
+
+After the second round of testing: 6px of padding above and below each field (the reserved
+error row plus this padding separate fields; top-label layouts were too tight), the selected
+Yes/No option keeps the same font weight so choosing it no longer shifts the others, option
+rows and the repeatable modal set their own font size (the modal is portalled outside the form
+and showed 16px text), and View / Remove are 8px apart.
+
+To revert step 2: `git revert` its commit.
