@@ -1,6 +1,7 @@
 // src/navigation-tree.css.js
 import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
+import { derived } from './theme-derived.css.js';
 
 export const navigationContainer = style({
   position: 'sticky',
@@ -32,7 +33,7 @@ export const navigationTitle = style({
   marginBottom: vars.spacing.md,
   padding: `${vars.spacing.xs} 0 ${vars.spacing.sm} 0`,
   color: vars.color.foreground,
-  borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+  borderBottom: `1px solid ${vars.color.border}`,
 });
 
 export const navigationTree = style({
@@ -51,7 +52,7 @@ export const navigationLink = style({
   fontSize: '0.875rem',
   fontWeight: 500,
   lineHeight: vars.lineHeight.tight,
-  color: '#4b5563',
+  color: derived.muted,
   textDecoration: 'none',
   cursor: 'pointer',
   borderRadius: vars.borderRadius,
@@ -67,12 +68,12 @@ export const navigationLink = style({
 export const navigationLinkHighlight = style({
   background: vars.color.section,
   borderLeft: `4px solid ${vars.color.primary}`,
-  color: '#4b5563',
+  color: derived.muted,
 });
 
 export const navigationLinkActive = style({
-  color: '#ff007a',
-  borderLeft: `4px solid #ff007a`,
+  color: vars.color.primary,
+  borderLeft: `4px solid ${vars.color.primary}`,
 });
 
 export const navigationNested = style({
@@ -156,7 +157,7 @@ export const navigationTabs = style({
   display: 'flex',
   gap: vars.spacing.xl,
   marginBottom: vars.spacing.md,
-  borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+  borderBottom: `1px solid ${vars.color.border}`,
   justifyContent: 'center',
 });
 
@@ -167,7 +168,7 @@ export const navigationTabButton = style({
   padding: `${vars.spacing.xs} 0`,
   fontWeight: 600,
   fontSize: '0.9rem',
-  color: '#6b7280',
+  color: derived.muted,
   cursor: 'pointer',
   position: 'relative',
   display: 'inline-flex',
@@ -183,12 +184,12 @@ export const navigationTabButton = style({
       outline: 'none',
     },
     '&:hover:not(:disabled)': {
-      color: '#4b5563',
-      background: 'rgba(15, 23, 42, 0.04)',
+      color: derived.muted,
+      background: derived.fill,
     },
     '&:hover:not(:disabled)[data-active="true"]': {
       color: vars.color.primary,
-      background: 'rgba(255, 0, 122, 0.08)',
+      background: derived.primarySoft,
     },
     '&:disabled': {
       cursor: 'not-allowed',
@@ -224,8 +225,8 @@ export const navigationTabBadge = style({
   minWidth: '1.5rem',
   padding: '0 0.3rem',
   borderRadius: vars.borderRadius,
-  background: 'rgba(255, 0, 122, 0.12)',
-  color: '#ff007a',
+  background: derived.primarySoft,
+  color: vars.color.primary,
 });
 
 export const navigationTabPanel = style({
@@ -255,7 +256,7 @@ export const validationButton = style({
   overflowWrap: 'anywhere',
   width: '100%',
   textAlign: 'left',
-  border: `1px solid rgba(0, 0, 0, 0.08)`,
+  border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
   padding: vars.spacing.sm,
   background: vars.color.section,
@@ -289,7 +290,7 @@ export const validationHeader = style({
 
 export const validationField = style({
   fontSize: '0.75rem',
-  color: '#6b7280',
+  color: derived.muted,
 });
 
 export const validationMessage = style({
@@ -302,7 +303,7 @@ export const validationMessage = style({
 
 export const validationEmptyState = style({
   fontSize: '0.85rem',
-  color: '#6b7280',
+  color: derived.muted,
   padding: vars.spacing.sm,
 });
 

@@ -1,6 +1,7 @@
 // src/field-renderer.css.js
 import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
+import { derived } from './theme-derived.css.js';
 
 export const fieldWrapper = style({
   marginBottom: vars.spacing.xs,
@@ -48,8 +49,8 @@ export const input = style({
       borderColor: vars.color.primary,
     },
     '&:disabled': {
-      background: '#f3f4f6',
-      color: '#9ca3af',
+      background: derived.fill,
+      color: derived.disabledFg,
     },
   },
 });
@@ -255,7 +256,7 @@ export const signaturePrimaryButton = style({
 export const signatureClearButton = style({
   appearance: 'none',
   border: `1px solid ${vars.color.border}`,
-  background: '#f3f4f6',
+  background: derived.fill,
   color: vars.color.foreground,
   borderRadius: vars.borderRadius,
   padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
@@ -264,8 +265,8 @@ export const signatureClearButton = style({
   transition: 'background 0.2s ease, border 0.2s ease',
   selectors: {
     '&:hover:not(:disabled)': {
-      background: '#e5e7eb',
-      borderColor: '#9ca3af',
+      background: derived.fillPress,
+      borderColor: derived.borderStrong,
     },
     '&:focus-visible': {
       outline: `2px solid ${vars.color.primary}`,
@@ -395,7 +396,7 @@ export const photoThumbWrapper = style({
   position: 'relative',
   width: '100%',
   paddingBottom: '75%',
-  background: '#f3f4f6',
+  background: derived.fill,
   borderRadius: vars.borderRadius,
   overflow: 'hidden',
   display: 'flex',
@@ -511,7 +512,7 @@ export const videoThumbWrapper = style({
   position: 'relative',
   width: '100%',
   paddingBottom: '56.25%',
-  background: '#1118270d',
+  background: derived.fill,
   borderRadius: vars.borderRadius,
   overflow: 'hidden',
   display: 'flex',
@@ -617,7 +618,7 @@ export const formLinkActionButton = style([
     selectors: {
       ...formLinkActionButtonBase.selectors,
       '&:hover:not(:disabled)': {
-        background: '#f3f4f6',
+        background: derived.fillHover,
       },
     },
   },
@@ -627,14 +628,14 @@ export const formLinkActionButtonPrimary = style([
   formLinkActionButtonBase,
   {
     background: vars.color.primary,
-    color: '#fff',
+    color: vars.color.buttonFg,
     border: `1px solid ${vars.color.primary}`,
     padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
     selectors: {
       ...formLinkActionButtonBase.selectors,
       '&:hover:not(:disabled)': {
-        background: '#0b60b0',
-        borderColor: '#0b60b0',
+        background: derived.primaryHover,
+        borderColor: derived.primaryHover,
       },
     },
   },
@@ -643,7 +644,7 @@ export const formLinkActionButtonPrimary = style([
 export const formLinkBanner = style({
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.borderRadius,
-  background: '#eff6ff',
+  background: derived.primarySoft,
   color: vars.color.foreground,
   padding: `${vars.spacing.sm} ${vars.spacing.md}`,
   fontSize: '0.9rem',
@@ -658,15 +659,15 @@ export const formLinkInfoIcon = style({
   height: '24px',
   borderRadius: '999px',
   border: `1px solid ${vars.color.border}`,
-  background: '#fff',
+  background: vars.color.background,
   color: vars.color.foreground,
   cursor: 'default',
   transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
   selectors: {
     '&:hover': {
-      background: vars.color.foregroundMuted,
-      color: '#fff',
-      borderColor: vars.color.foregroundMuted,
+      background: derived.muted,
+      color: vars.color.background,
+      borderColor: derived.muted,
     },
   },
 });

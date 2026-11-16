@@ -1,6 +1,7 @@
 // src/form-renderer.css.js
 import { style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
+import { derived } from './theme-derived.css.js';
 
 export const buildingPlanConflict = style({
   padding: vars.spacing.md,
@@ -264,7 +265,7 @@ const recordSummaryStatusBase = {
 
 export const recordSummaryStatus = style({
   ...recordSummaryStatusBase,
-  background: '#d4d4d8',
+  background: derived.borderStrong,
 });
 
 export const recordSummaryStatusDisabled = style({
@@ -328,7 +329,7 @@ export const sectionHeader = style({
   minHeight: '2.75rem',
   marginBottom: vars.spacing.sm,
   padding: vars.spacing.sm,
-  background: 'rgba(0, 0, 0, 0.02)',
+  background: derived.fill,
   marginLeft: `calc(-1 * ${vars.spacing.sm})`,
   marginRight: `calc(-1 * ${vars.spacing.sm})`,
   marginTop: `calc(-1 * ${vars.spacing.sm})`,
@@ -362,7 +363,7 @@ const repeatableCountPillBase = {
   borderRadius: '0.375rem',
   fontSize: '0.7rem',
   fontWeight: 600,
-  color: '#fff',
+  color: vars.color.background,
   lineHeight: 1.4,
   flexShrink: 0,
   marginRight: vars.spacing.lg,
@@ -373,7 +374,7 @@ export const repeatableCountPill = style({
 });
 
 export const repeatableCountPillEmpty = style({
-  background: '#6b7280',
+  background: derived.muted,
 });
 
 export const repeatableCountPillFilled = style({
