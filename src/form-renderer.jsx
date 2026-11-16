@@ -1,6 +1,7 @@
 import {
   BuildingPlanPresentationProvider,
   BuildingPlanFieldLabel,
+  useBuildingPlanPresentation,
 } from './building-plan/presentation.jsx';
 import { settleBuildingPlanQuestions } from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
@@ -1150,6 +1151,8 @@ function FormRendererContent({
   buildingPlanDerivedCommands = false,
   ...rest
 }) {
+  // Automatic names of new plan rows (Room 1, Door 1) follow the renderer's language.
+  const buildingPlanLocale = useBuildingPlanPresentation().locale;
   const submissionDiagnosticsRef = useRef(submissionDiagnostics);
   submissionDiagnosticsRef.current = submissionDiagnostics;
   const submissionReporter = useMemo(
@@ -1692,6 +1695,7 @@ function FormRendererContent({
           createBuildingPlanEditor({
             editingPolicy: { copyCustomAnswersAutomatically: true },
             derivedCommands: buildingPlanDerivedCommands,
+            locale: buildingPlanLocale,
             meta: planMeta,
             record: {
               values: {},
@@ -1757,6 +1761,7 @@ function FormRendererContent({
       buildModalLayoutOverrides,
       buildingPlanMeta,
       buildingPlanDerivedCommands,
+      buildingPlanLocale,
       formRepeatableController,
       repeatableMetadata,
       diagnosticGeneration,
@@ -1849,6 +1854,7 @@ function FormRendererContent({
         const editor = createBuildingPlanEditor({
           editingPolicy: { copyCustomAnswersAutomatically: true },
           derivedCommands: buildingPlanDerivedCommands,
+          locale: buildingPlanLocale,
           meta: planMeta,
           record: { values: {}, repeatable: { [repeatableKey]: instances } },
         });
@@ -1883,6 +1889,7 @@ function FormRendererContent({
       eventSession,
       buildingPlanMeta,
       buildingPlanDerivedCommands,
+      buildingPlanLocale,
     ]
   );
 
