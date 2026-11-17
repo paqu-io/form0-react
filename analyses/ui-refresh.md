@@ -587,3 +587,22 @@ imports `SignatureFieldComponent` directly).
   and form0-core pointed at the local copies (http://127.0.0.1:5174), so the template's
   overrides can be tested with the branch. The starter survey renders there (the local core
   accepts its schema).
+
+### Batch 3: photos and videos (committed)
+
+- form0-react `d7809ad`: photo and video fields get an add area: a label that wraps the
+  field's own file input (still in the page, same handler, so tests and Reform's wrapper keep
+  working) and accepts dropped files, with the limit in plain words. The "No photos selected"
+  box is replaced by it; thumbnails get more room.
+- form0-react-native `25b95ff`: the camera and library actions (which already existed) become
+  two equal 48pt buttons above the attached items. The mediaPicker contract is unchanged; Reform
+  mobile replaces these fields with its own renderers.
+
+### Open after batch 3
+
+- Signature: mockup published (review round 2 block, last row). Same steps and names as today
+  ("Add signature", "Save", "Clear pad", "Clear signature"); Reform mobile imports the mobile
+  component, so its props stay as they are. Not implemented yet.
+- Record row (title and status): to decide now that the sticky header is done. Preference so
+  far: the status as a bar on the left; box or no box open.
+- Template signature override: none planned unless the mockup review asks for one.
