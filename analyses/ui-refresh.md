@@ -118,6 +118,8 @@ Status: `todo`, `in progress`, `to test`, `done`.
 - A date picker on mobile (new feature, probably a dependency).
 - Dimensions drawn on the canvas and edited in place (new logic; second phase, see below).
 - Section counts (new derived state).
+- Mobile date typed in the device's locale order (a display/value conversion layer; the
+  library field's text is the stored YYYY-MM-DD value today).
 
 ## Second phase: dimensions on the building plan
 
@@ -600,11 +602,10 @@ imports `SignatureFieldComponent` directly).
 
 ### Open after batch 3
 
-- Signature: mockup published (review round 2 block, last row). Same steps and names as today
+- Signature (done in round A, see below): mockup published (review round 2 block, last row). Same steps and names as today
   ("Add signature", "Save", "Clear pad", "Clear signature"); Reform mobile imports the mobile
   component, so its props stay as they are. Not implemented yet.
-- Record row (title and status): to decide now that the sticky header is done. Preference so
-  far: the status as a bar on the left; box or no box open.
+- Record row (title and status): decided in review round 3: B, no box, status name shown.
 - Template signature override: none planned unless the mockup review asks for one.
 
 ### Batch 4: follow-ups from testing (committed)
@@ -650,3 +651,138 @@ Added 2026-11-17 after testing batch 4:
   time text input. With separators typed after a complete group kept, the four existing time
   tests should still pass unchanged; the visible difference is that "1430" becomes "14:30"
   instead of staying "1430" (which the engine then rejects).
+
+## Round A (2026-11-17, second chat)
+
+Order agreed: **A** signature (web and mobile) plus mockups for the record row and the shadcn
+date and time overrides; **B** record row, shadcn overrides with separators while typing, web
+time ":"; **C** device testing (one session for the keyboard checklist, the signature and the
+native pickers). Steps 5 and 10 still need discussion.
+
+Decisions:
+
+- Signature: the signed-state button stays **"Replace signature"** (the mockup's "Re-sign" is
+  not used; names stay as today). "Clear signature" is **hidden while empty** on web and
+  mobile. The pad **follows the theme** (dark pad, light ink in dark mode); the saved image is
+  always dark ink. The saved signature is shown on white "paper" in every theme, because it
+  shows the saved image. No split of the two large files in this round (web 652 lines, mobile
+  877; both over the 300-line rule): split later.
+- Web time ":" **approved** for round B. Details from the earlier analysis, not recorded
+  before: the tests protect three things (half-typed times kept, invalid text passed on for
+  the engine to reject, late worker echoes not overwriting typing). Against them: "1", "11",
+  "11:", "11:3", "11:30" come out exactly as typed and "99:99" still reaches the engine as
+  invalid text, so they should pass unchanged (not run yet). Costs: the helper and its unit
+  tests are copied into form0-react (the libraries share no code); "9" then "30" still gives
+  "93:0", as today, and the engine flags it.
+- Date order while typing: the web template's shadcn field follows the **browser's locale**
+  (it already parses with the format `Intl.DateTimeFormat` gives; in Chrome that follows the
+  browser's language, like its native date input). The web library field is the browser's own
+  date input, already in that order. The **mobile library field stays YYYY-MM-DD**: its text
+  is the stored value, so a locale order would need a display/value conversion layer (with
+  half-typed text) and is a new feature; the mobile template's native picker already shows the
+  device's locale. Added to "Needs a decision".
+
+### Signature (round A, tested by hand, committed)
+
+Web, `src/field-components/signature-field.jsx` and `src/field-renderer.css.js` (the old
+signature styles are replaced; Reform does not target them):
+
+- Empty: one dashed "Add signature" area (pen icon, "Opens the signature pad"), styled like
+  the photo and video add area. Its accessible name is "Add signature"; the hint is its
+  description.
+- Signed: a card with the signature on white paper above a sign line, then "Signed" and the
+  actions "Replace signature" (secondary) and "Clear signature" (red, no border). A value with
+  no image to show says "Preview not available." in the paper.
+- Read-only: the same card without actions, or "No signature captured." in a filled box.
+- Pad: 720px card with the dialogs' radius, shadow and scrim; Cancel / title / Save header;
+  "Draw your signature below." plus "Saving replaces the current signature." only when one
+  exists; a 260px pad on the theme's background with a sign line, a cross and "Sign above the
+  line" until the first stroke (all under the transparent canvas, so never saved); "Clear pad"
+  is disabled while the pad is empty (it was always enabled).
+- Ink: the canvas draws in the theme's text colour. On save the strokes are recoloured to
+  #222 (`source-in` fill), so the saved PNG is dark ink on a transparent background, exactly
+  as before. Checked by decoding the saved image after signing on the dark pad: every opaque
+  pixel is 34,34,34.
+- The field container also gets the renderer's input class; like photo and video it is reset
+  to a plain block. `touch-action: none` moved from the whole field to the pad, so the field no
+  longer blocks touch scrolling.
+
+Mobile, `src/field-components/signature-field.js` (`SignatureFieldComponent`, props and value
+handling unchanged; Reform mobile imports this file):
+
+- Same states as web, with touch sizes: dashed add area (`PenLine` from `lucide-react-native`,
+  which the package already uses), paper card with "Signed", "Replace signature" and "Clear
+  signature" as 44pt buttons, side by side from 480pt wide and stacked full width below (side
+  by side, "Replace signature" did not fit a phone), read-only box.
+- Pad: full screen as before, pad and ink on the theme (as before), sign line, cross and
+  placeholder under the strokes, "Clear pad" as a 44pt button disabled while empty. The export
+  (#222 on white) is unchanged.
+
+Checked: screenshots of empty, pad, signed and read-only, light and dark, on web (preview) and
+mobile (react-native-web preview). Tests: web 260 of 266 against the local core (the six worker
+tests, as before); mobile jsdom fixtures 63 of 63; mobile unit tests 130 of 132 (the two known
+failures). Harness: `native-icons.jsx` adds `PenLine` to the building plan harness's icon
+stubs for `native-build.mjs`.
+
+Commits: form0-react `edc7b46`, form0-react-native `4e15941`.
+
+Flags (existing logic, not changed): on both platforms replacing a signature keeps the first
+`signature_id` and `signed_at_client`, so a "signed on" date would show the first signing
+(which is why the card says only "Signed"). Web saves a transparent PNG, mobile a white one;
+they look the same on the paper.
+
+### Mockups for round B (reviewed 2026-11-17)
+
+"Review round 3" in the mockups page (top section):
+
+- Record row (web only; mobile has no record row): today, A (quieter box), B (no box, a divider
+  inside the header card, my pick), plus B with approved, no status field and status disabled.
+  A and B show the status name as text on the right; today it is only an `aria-label`.
+- Template date: screenshot of today's picker; proposed field with the locale's format as
+  placeholder (MM/DD/YYYY, DD/MM/YYYY, DD.MM.YYYY, YYYY/MM/DD) and separators added while
+  typing, with a live demo per locale; calendar with 32px days, arrows grouped on the right,
+  today as a dot, selected day filled, Today in the footer, opening under the field.
+- Template time: screenshot of today's picker; the typing rule (live demo); A refined columns
+  (my pick) or B hour grid then minute grid.
+
+Decisions: record row **B** (no box, a divider inside the header card) with the status name
+**shown as text** on the right; template date **as proposed** (calendar and typing); template
+time **A** (refined columns).
+
+Found while preparing them, both to fix in round B: the template date field reads the stored
+"yyyy-MM-dd" with `new Date(value)`, which is UTC midnight, so west of Greenwich it shows the
+day before. Also, in the template preview the `.dark` class and the form's own theme are not
+linked: with `.dark` the popover turns dark while the form stays light. Nothing in the
+template sets `.dark` today (it was added by hand in the preview), so the fix starts with how
+the form's theme is chosen; any choice there is asked first.
+
+### Round B (next)
+
+1. Record row, web (form0-react): B with the status name as text.
+2. Web library time field: ":" added while typing (helper and unit tests copied from
+   form0-react-native); the four time tests must pass unchanged.
+3. Web template date: locale format as placeholder, separators while typing, the proposed
+   calendar; stored value parsed as a local date (UTC bug).
+4. Web template time: same typing rule, refined columns (A).
+5. Web template: popover and form on the same light/dark switch.
+
+Then round C: device testing (checklist under Manual testing).
+
+### WSL crashes (2026-11-17)
+
+Four WSL crashes (Nov 15, and Nov 17 at 10:53, 13:30, 13:36) left kernel-panic reports in
+`%TEMP%\wsl-crashes`. All four are the same hardware machine check delivered to the WSL VM:
+`Machine Check Exception: 4 Bank 0: b200000080060001 ... Processor context corrupt ... Fatal
+machine check`, each on a different vCPU (19, 3, 5, 11). Windows logged no WHEA hardware
+error. The three on Nov 17 happened in the same second a headless Chromium started (journal of each
+boot); the Nov 15 one happened with no Chromium running. It does not happen at every
+launch: about 18 other Chromium launches that day were fine, and a video call was also running
+during that session, which adds load. So Chromium (and other bursts across all cores, such as builds)
+is at most a trigger, not the cause; the cause is on the host (CPU stability
+under sudden load, power or undervolt profile, firmware, or the WSL kernel/Hyper-V).
+
+How commands are run since: one at a time, pinned and lowered (`taskset -c 0-3 nice -n 10`),
+Vitest with `--maxWorkers=2`, `node --test --test-concurrency=2`, screenshots with Playwright's
+`chrome-headless-shell` and `--disable-gpu --renderer-process-limit=1`, one browser launch per
+batch, and the preview servers stopped before tests. No crash since (signature, tests, template
+screenshots and the mockup render all ran this way).
