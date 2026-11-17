@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { MediaDropArea } from './media-drop-area.jsx';
 import * as styles from '../field-renderer.css.js';
 
 function createClientMediaId(prefix) {
@@ -251,17 +252,24 @@ export function PhotoFieldComponent({
   return (
     <div className={`${styles.photoField} ${className || ''}`}>
       <div className={styles.photoFieldControls}>
-        <input
-          id={id}
-          name={name || field.data_name || 'photo_upload'}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFilesSelected}
-          disabled={readOnly}
-          {...otherInputProps}
-        />
-        {minMaxInfo && <div className={styles.photoFieldInfo}>{minMaxInfo}</div>}
+        <MediaDropArea
+          kind="photo"
+          readOnly={readOnly}
+          info={minMaxInfo}
+          onFiles={handleFilesSelected}
+        >
+          <input
+            id={id}
+            name={name || field.data_name || 'photo_upload'}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFilesSelected}
+            disabled={readOnly}
+            className={styles.mediaDropInput}
+            {...otherInputProps}
+          />
+        </MediaDropArea>
       </div>
 
       {items.length > 0 ? (
@@ -302,9 +310,7 @@ export function PhotoFieldComponent({
             </div>
           ))}
         </div>
-      ) : (
-        <div className={styles.photoPlaceholder}>No photos selected.</div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -238,7 +238,7 @@ export const statusText = style({
 export const photoField = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.xs,
+  gap: '0.625rem',
 });
 
 export const signatureField = style({
@@ -442,8 +442,8 @@ export const photoFieldInfo = style({
 
 export const photoPreviewList = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-  gap: vars.spacing.xs,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+  gap: '0.625rem',
 });
 
 export const photoPreview = style({
@@ -540,7 +540,7 @@ export const photoFieldReadOnlyEmpty = style({
 export const videoField = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.xs,
+  gap: '0.625rem',
 });
 
 export const videoFieldControls = style({
@@ -559,7 +559,7 @@ export const videoFieldInfo = style({
 export const videoPreviewList = style({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-  gap: vars.spacing.xs,
+  gap: '0.625rem',
 });
 
 export const videoPreview = style({
@@ -1346,3 +1346,52 @@ export const pickerNative = style({
 });
 
 globalStyle(`${pickerControl} > ${input}`, { paddingRight: '2.5rem' });
+
+// Photo and video fields: the add area wraps the field's file input.
+export const mediaDrop = style({
+  position: 'relative',
+  display: 'grid',
+  justifyItems: 'center',
+  gap: '0.25rem',
+  width: '100%',
+  padding: '1.125rem 1rem',
+  border: `1.5px dashed ${derived.borderStrong}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.background,
+  color: vars.color.foreground,
+  textAlign: 'center',
+  cursor: 'pointer',
+  transition: 'background 0.12s ease, border-color 0.12s ease',
+  selectors: {
+    '&:hover': { background: derived.fillHover },
+    '&[data-dragging="true"]': { borderColor: vars.color.primary, background: derived.primarySoft },
+    '&:has(input:focus-visible)': { outline: control.focusOutline, outlineOffset: '2px' },
+    '&[aria-disabled="true"]': { cursor: 'not-allowed', opacity: 0.55, background: 'transparent' },
+  },
+});
+
+export const mediaDropTitle = style({ fontWeight: 600 });
+
+export const mediaDropHint = style({ fontSize: '0.8125rem', color: derived.muted });
+
+// The real file input stays in the page (tests and assistive tech use it) but is not drawn.
+export const mediaDropInput = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  opacity: 0,
+  overflow: 'hidden',
+  pointerEvents: 'none',
+});
+
+// The field container also receives the input class from the renderer; here it is a plain
+// block, not a bordered box.
+for (const field of [photoField, videoField]) {
+  globalStyle(`${field}${input}`, {
+    border: 'none',
+    padding: 0,
+    minHeight: 0,
+    background: 'transparent',
+    boxShadow: 'none',
+  });
+}

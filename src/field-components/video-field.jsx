@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { MediaDropArea } from './media-drop-area.jsx';
 import * as styles from '../field-renderer.css.js';
 
 const PLACEHOLDER_ICON = '🎬';
@@ -374,17 +375,24 @@ export function VideoFieldComponent({
   return (
     <div className={`${styles.videoField} ${className || ''}`}>
       <div className={styles.videoFieldControls}>
-        <input
-          id={id}
-          name={name || field.data_name || 'video_upload'}
-          type="file"
-          accept="video/*"
-          multiple
-          onChange={handleFilesSelected}
-          disabled={readOnly}
-          {...otherInputProps}
-        />
-        {minMaxInfo && <div className={styles.videoFieldInfo}>{minMaxInfo}</div>}
+        <MediaDropArea
+          kind="video"
+          readOnly={readOnly}
+          info={minMaxInfo}
+          onFiles={handleFilesSelected}
+        >
+          <input
+            id={id}
+            name={name || field.data_name || 'video_upload'}
+            type="file"
+            accept="video/*"
+            multiple
+            onChange={handleFilesSelected}
+            disabled={readOnly}
+            className={styles.mediaDropInput}
+            {...otherInputProps}
+          />
+        </MediaDropArea>
         {totalDurationLabel && <div className={styles.videoFieldInfo}>{totalDurationLabel}</div>}
       </div>
 
@@ -433,9 +441,7 @@ export function VideoFieldComponent({
             </div>
           ))}
         </div>
-      ) : (
-        <div className={styles.videoPlaceholder}>No videos selected.</div>
-      )}
+      ) : null}
     </div>
   );
 }
