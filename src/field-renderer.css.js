@@ -1203,3 +1203,85 @@ export const inputAdornment = style({
 
 globalStyle(`${inputAdorned}[data-adornment="calculated"] > ${input}`, { paddingRight: '6.5rem' });
 globalStyle(`${inputAdorned}[data-adornment="locked"] > ${input}`, { paddingRight: '2.25rem' });
+
+// Building plan fields: where the field sits ("Room side") and where its value comes from.
+export const labelTag = style({
+  flexShrink: 0,
+  padding: '0.0625rem 0.375rem',
+  borderRadius: '0.3rem',
+  background: derived.fillPress,
+  color: derived.muted,
+  fontSize: '0.66rem',
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
+});
+
+// Inside the control, at its right edge.
+export const sourceSlot = style({
+  position: 'absolute',
+  right: '0.3125rem',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'inline-flex',
+});
+
+// Under the control, for controls that have no room inside (dropdowns, choices).
+export const sourceRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+});
+
+const sourceChipBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.3rem',
+  height: '1.5rem',
+  maxWidth: '9rem',
+  padding: '0 0.5rem',
+  borderRadius: '0.3rem',
+  fontFamily: vars.fontFamily.base,
+  fontSize: '0.72rem',
+  fontWeight: 600,
+  lineHeight: 1,
+  whiteSpace: 'nowrap',
+};
+
+// The value is inherited: says from where.
+export const sourceChip = style({
+  ...sourceChipBase,
+  background: derived.fillPress,
+  color: derived.muted,
+});
+
+// The value was set here: returns it to the inherited one.
+export const sourceResetButton = style({
+  ...sourceChipBase,
+  appearance: 'none',
+  border: `1px solid ${derived.borderStrong}`,
+  background: vars.color.background,
+  color: vars.color.foreground,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      background: derived.fillHover,
+    },
+    '&:active': {
+      background: derived.fillPress,
+    },
+    '&:focus-visible': {
+      outline: control.focusOutline,
+      outlineOffset: '1px',
+    },
+  },
+});
+
+globalStyle(`${inputAdorned}[data-adornment="source"] > ${input}`, { paddingRight: '9.75rem' });
+// An inherited value reads as linked, not typed: dashed outline, muted text, until edited.
+globalStyle(`${inputAdorned}[data-source="inherit"] > ${input}:not(:focus):not(:disabled)`, {
+  borderStyle: 'dashed',
+  background: derived.fill,
+  color: derived.muted,
+});

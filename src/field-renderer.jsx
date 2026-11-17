@@ -1,6 +1,6 @@
 import { useBuildingPlanPresentation } from './building-plan/presentation.jsx';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Info, Image, AlertTriangle, Lock } from 'lucide-react';
+import { Info, Image, AlertTriangle, Lock, Link2, RotateCcw } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
 import { useFieldRegistry } from './field-registry-context.jsx';
 import { useEngineField } from './engine-store.js';
@@ -23,6 +23,11 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     engineStore = null,
     storeMode = 'snapshot',
     showError = true,
+    // Building plan fields only. All optional and presentational.
+    labelTag = null, // where the field sits, e.g. "Room side"
+    sourceMode = null, // 'inherit' | 'override'
+    sourceLabel = null, // e.g. "Floor default" or "This wall"
+    onResetSource = null, // present when an overridden value can return to the inherited one
   },
   ref
 ) {
@@ -212,6 +217,13 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
 
   const renderLabelControls = () => {
     const controls = [];
+    if (labelTag) {
+      controls.push(
+        <span key="label-tag" className={styles.labelTag}>
+          {labelTag}
+        </span>
+      );
+    }
 
     if (field.type === 'FormLinkField') {
       controls.push(
@@ -282,16 +294,51 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
       : field.read_only === true && ['TextField', 'NumericField'].includes(field.type)
         ? 'locked'
         : null;
-  const fieldControl = adornment ? (
-    <div className={styles.inputAdorned} data-adornment={adornment}>
-      {fieldInput}
-      <span className={styles.inputAdornment} aria-hidden="true">
-        {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
-      </span>
-    </div>
+  // Where a building plan value comes from. Inherited: a tag naming the source. Set here: the
+  // same place holds the button that returns it to the inherited value.
+  const sourceNode = !sourceMode ? null : sourceMode === 'override' && onResetSource ? (
+    <button
+      type="button"
+      className={styles.sourceResetButton}
+      onClick={onResetSource}
+      aria-label="Reset to inheritance"
+      title="Reset to inheritance"
+    >
+      <RotateCcw size={12} strokeWidth={2} aria-hidden="true" />
+      Reset
+    </button>
   ) : (
-    fieldInput
+    <span
+      className={styles.sourceChip}
+      title={`${sourceMode === 'inherit' ? 'Inherited from' : 'Set on'} ${String(sourceLabel || '').toLowerCase()}`}
+    >
+      {sourceMode === 'inherit' ? <Link2 size={12} strokeWidth={2} aria-hidden="true" /> : null}
+      {sourceLabel}
+    </span>
   );
+  const sourceFitsInside = ['TextField', 'NumericField'].includes(field.type);
+
+  const fieldControl =
+    sourceNode && sourceFitsInside ? (
+      <div className={styles.inputAdorned} data-adornment="source" data-source={sourceMode}>
+        {fieldInput}
+        <span className={styles.sourceSlot}>{sourceNode}</span>
+      </div>
+    ) : sourceNode ? (
+      <>
+        {fieldInput}
+        <div className={styles.sourceRow}>{sourceNode}</div>
+      </>
+    ) : adornment ? (
+      <div className={styles.inputAdorned} data-adornment={adornment}>
+        {fieldInput}
+        <span className={styles.inputAdornment} aria-hidden="true">
+          {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
+        </span>
+      </div>
+    ) : (
+      fieldInput
+    );
 
   const labelClassNames = [labelClass, styles.labelText];
   if (isLabelField) {
@@ -568,7 +615,11 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
       prev.readOnly === next.readOnly &&
       prev.required === next.required &&
       prev.error === next.error &&
-      prev.showError === next.showError
+      prev.showError === next.showError &&
+      prev.labelTag === next.labelTag &&
+      prev.sourceMode === next.sourceMode &&
+      prev.sourceLabel === next.sourceLabel &&
+      prev.onResetSource === next.onResetSource
     );
   }
   return (
@@ -584,6 +635,10 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
     prev.onKeyDown === next.onKeyDown &&
     prev.onFocus === next.onFocus &&
     prev.eventInteractions === next.eventInteractions &&
-    prev.showError === next.showError
+    prev.showError === next.showError &&
+    prev.labelTag === next.labelTag &&
+    prev.sourceMode === next.sourceMode &&
+    prev.sourceLabel === next.sourceLabel &&
+    prev.onResetSource === next.onResetSource
   );
 });

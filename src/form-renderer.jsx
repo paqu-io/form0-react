@@ -1085,6 +1085,41 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey, isVisible = 
   return { sectionTree, sectionMetadata: metadata, fieldToSectionPath: fieldPathMap };
 }
 
+const PLAN_SOURCE_LABELS = {
+  floor: 'Floor default',
+  room: 'Room default',
+  physical_wall: 'This wall',
+  room_face: 'This room side',
+  construction_segment: 'This wall portion',
+  schema: 'Form default',
+};
+
+// How a building plan field presents its position and the source of its value: a tag after
+// the label, and inside the control either the source or the reset button.
+function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
+  if (!propertyState) return null;
+  const labelTag = propertyState.outside
+    ? 'Exterior'
+    : propertyState.opposite
+      ? 'Opposite face'
+      : !propertyState.source
+        ? null
+        : propertyState.scope === 'physical_wall'
+          ? 'Shared physical wall'
+          : 'Room side';
+  if (!propertyState.source) return labelTag ? { labelTag } : null;
+  const { mode, scope } = propertyState.source;
+  const canReset = propertyState.inheritable && mode === 'override' && !readOnly;
+  return {
+    labelTag,
+    sourceMode: mode === 'inherit' ? 'inherit' : 'override',
+    sourceLabel: PLAN_SOURCE_LABELS[scope] || scope,
+    onResetSource: canReset
+      ? () => controller.resetBuildingPlanProperty(propertyState.dataName)
+      : null,
+  };
+}
+
 // Labels of the inline sections that visibly enclose a section, outermost first. Stops at the
 // nearest drill-down ancestor, because that one is a page of its own, not an enclosing card.
 function inlineSectionTrail(parentSectionPath = [], sectionMetadata = {}) {
@@ -7088,58 +7123,10 @@ function RepeatableEntryForm({
 
     return (
       <React.Fragment key={field.key || dataName}>
-        {(propertyState?.outside || propertyState?.opposite) && !propertyState.source && (
-          <small aria-label={propertyState.outside ? 'Exterior' : 'Opposite face'}>
-            {propertyState.outside ? 'Exterior' : 'Opposite face'}
-          </small>
-        )}
-        {propertyState?.source && (
-          <div
-            role="group"
-            aria-label={
-              propertyState.outside
-                ? 'Exterior'
-                : propertyState.opposite
-                  ? 'Opposite face'
-                  : propertyState.scope === 'physical_wall'
-                    ? 'Shared physical wall'
-                    : 'Room side'
-            }
-          >
-            <small>
-              {propertyState.outside
-                ? 'Exterior'
-                : propertyState.opposite
-                  ? 'Opposite face'
-                  : propertyState.scope === 'physical_wall'
-                    ? 'Shared physical wall'
-                    : 'Room side'}{' '}
-              · {propertyState.source.mode === 'inherit' ? 'Inherited from ' : 'Override at '}
-              {{
-                floor: 'floor default',
-                room: 'room default',
-                physical_wall: 'this wall',
-                room_face: 'this room side',
-                construction_segment: 'this wall portion',
-                schema: 'form default',
-              }[propertyState.source.scope] || propertyState.source.scope}
-            </small>
-            {propertyState.inheritable &&
-              propertyState.source.mode === 'override' &&
-              !fieldReadOnly && (
-                <button
-                  type="button"
-                  className={styles.formNameActionButton}
-                  onClick={() => controller.resetBuildingPlanProperty(propertyState.dataName)}
-                >
-                  Reset to inheritance
-                </button>
-              )}
-          </div>
-        )}
         <FieldRenderer
           key={field.key || dataName}
           ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
+          {...buildingPlanFieldPresentation(propertyState, fieldReadOnly, controller)}
           field={field}
           value={fieldValue}
           readOnly={fieldReadOnly}

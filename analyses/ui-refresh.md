@@ -106,7 +106,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | # | Step | Repo | Status |
 |---|---|---|---|
 | 7 | Nested sections shown flat, with the path in nested headers. Web done in step 3 | both | web **to test**, mobile todo |
-| 8 | Inherited values, variant 1 | both | todo |
+| 8 | Inherited values, variant 1 | both | web committed, **to review** |
 | 9 | Mobile keyboard: one mechanism, whole field above the keyboard, dynamic bottom space | form0-react-native | todo |
 | 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | todo |
 | 11 | Keyboard bar | form0-react-native | todo |
@@ -363,3 +363,35 @@ text field. Tests against the local core: 260 of 266, worker tests only.
 
 The preview's UI gallery opens a MESSAGEBOX, then an ALERT, when the first three-way field is
 answered.
+
+### Step 4 commit
+
+`c994151` feat(dialogs): restyle alert, message box and field dialogs; mark calculated fields.
+
+Note: the lock also appears on the Record Metadata fields, since they are read-only text
+fields.
+
+### Step 8 (web): inherited values in the building plan (2026-11-17, committed, to review)
+
+Before: a line of text above the field ("Room side · Inherited from floor default") and a
+separate "Reset to inheritance" button.
+
+Now, in `src/field-renderer.jsx` and `src/form-renderer.jsx`:
+
+- The position ("Room side", "Shared physical wall", "Exterior", "Opposite face") is a small
+  tag after the label.
+- An inherited value has a dashed outline and muted text, with a tag inside the control naming
+  the source ("Floor default").
+- Once the value is set on the row, that same place holds a "Reset" button. Its accessible
+  name is still "Reset to inheritance", and it calls the same
+  `controller.resetBuildingPlanProperty` as before.
+- A value set here that cannot be reset (not inheritable, or read-only) shows a tag naming
+  where it is set ("This wall").
+- For controls with no room inside (dropdowns, choices) the tag or button sits under the
+  control.
+
+`FieldRenderer` gained four optional props for this (`labelTag`, `sourceMode`,
+`sourceLabel`, `onResetSource`). No engine or plan logic changed.
+
+Seen rendered in the building plan fixture (room screen): inherited and overridden states.
+The existing reset test passes.
