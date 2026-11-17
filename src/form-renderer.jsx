@@ -102,6 +102,7 @@ function observeStickyHeader(sentinel) {
       // React 18 does not run ref cleanups: stop once the sentinel has left the document.
       if (!sentinel.isConnected) {
         observer.disconnect();
+        sizer?.disconnect();
         return;
       }
       const stuck =
@@ -111,8 +112,20 @@ function observeStickyHeader(sentinel) {
     { rootMargin: `-${Math.round(top) + 1}px 0px 0px 0px` }
   );
   observer.observe(sentinel);
+  // The header's height, for content that sticks below it (the navigation panel).
+  const root = header.closest('[data-form0-presentation]');
+  const sizer =
+    root && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() =>
+          root.style.setProperty('--form0-sticky-header-height', `${header.offsetHeight}px`)
+        )
+      : null;
+  sizer?.observe(header);
   // Disconnect when React detaches the node (React 19 runs the returned cleanup).
-  return () => observer.disconnect();
+  return () => {
+    observer.disconnect();
+    sizer?.disconnect();
+  };
 }
 
 const ModePill = ({ mode }) => {

@@ -614,6 +614,18 @@ export const repeatableAddButton = style([
   },
 ]);
 
+export const repeatableBackButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: vars.spacing.xs,
+  fontSize: vars.fontSize.base,
+  color: vars.color.foreground,
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  padding: 0,
+});
+
 export const repeatableEntryList = style({
   display: 'flex',
   flexDirection: 'column',
@@ -1145,3 +1157,13 @@ for (const presentation of ['modal', 'spotlight']) {
 // of each field's own spacing. Sections keep their distance through their margin.
 globalStyle(`${repeatableModalFormColumn}`, { gap: 0 });
 globalStyle(`${repeatableModalFormColumn} > ${repeatableModalSection}`, { marginBottom: '1rem' });
+
+// The repeatable row dialog is the container, as a host dialog is for the root form: padding
+// around its content, and the header without a frame of its own.
+globalStyle(`${repeatableModal}`, { padding: '1.25rem' });
+globalStyle(`${repeatableModal} ${headerSection}`, {
+  border: 'none',
+  borderRadius: 0,
+  padding: `0 0 ${vars.spacing.md}`,
+});
+globalStyle(`${repeatableModal} ${repeatableModalBody}`, { borderRadius: vars.borderRadius });

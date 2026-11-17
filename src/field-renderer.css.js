@@ -91,10 +91,12 @@ export const input = style({
       appearance: 'none',
       paddingRight: '2.25rem',
       cursor: 'pointer',
+      // A chevron image: gradient-drawn triangles turned into a thin line under browser zoom.
+      // A mid grey reads on light and dark backgrounds.
       backgroundImage:
-        'linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)',
-      backgroundPosition: 'calc(100% - 1.05rem) 50%, calc(100% - 0.75rem) 50%',
-      backgroundSize: '0.3rem 0.3rem',
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237d8795' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+      backgroundPosition: 'right 0.75rem center',
+      backgroundSize: '1rem 1rem',
       backgroundRepeat: 'no-repeat',
     },
     'select&:not([multiple]):disabled': {
@@ -1211,7 +1213,7 @@ export const inputAdornmentLead = style({
   position: 'absolute',
   left: control.paddingX,
   top: '50%',
-  transform: 'translateY(-50%)',
+  transform: 'translateY(calc(-50% - 2px))',
   pointerEvents: 'none',
   color: derived.muted,
   fontFamily: 'Georgia, "Times New Roman", serif',
@@ -1331,11 +1333,11 @@ export const pickerButton = style({
   },
 });
 
-// The native picker input: invisible, anchored at the control's bottom right so the
-// browser opens its picker there.
+// The native picker input: invisible, anchored at the control's bottom left, so the
+// browser opens its picker where the date field's picker opens.
 export const pickerNative = style({
   position: 'absolute',
-  right: 0,
+  left: 0,
   bottom: 0,
   width: '1px',
   height: '1px',

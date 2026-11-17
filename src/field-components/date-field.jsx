@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as styles from '../field-renderer.css.js';
 
 const normalizeDateValue = (raw) => {
@@ -12,17 +12,39 @@ const normalizeDateValue = (raw) => {
 
 export function DateFieldComponent({ value, onChange, onKeyDown, readOnly, inputProps = {} }) {
   const normalizedValue = normalizeDateValue(value);
+  // The browser's date input is left uncontrolled while typing: it reports intermediate years
+  // (0002, 0020, ...) and an empty value while a segment is incomplete, and writing the last
+  // known value back between keystrokes made typed digits disappear. External changes still
+  // replace what is shown; echoes of what was just typed do not.
+  const inputRef = useRef(null);
+  const sentValues = useRef([]);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const echo = sentValues.current.lastIndexOf(normalizedValue);
+    if (echo >= 0) {
+      sentValues.current.splice(0, echo + 1);
+      return;
+    }
+    sentValues.current = [];
+    if (input.value !== normalizedValue) input.value = normalizedValue;
+  }, [normalizedValue]);
 
   const handleChange = (event) => {
     if (typeof onChange !== 'function' || readOnly) return;
-    const nextValue = event.target.value;
-    onChange(nextValue === '' ? null : nextValue);
+    const input = event.target;
+    // An incomplete date reads as empty with badInput set: keep typing, send nothing yet.
+    if (input.value === '' && input.validity?.badInput) return;
+    sentValues.current.push(input.value);
+    onChange(input.value === '' ? null : input.value);
   };
 
   return (
     <input
+      ref={inputRef}
       type="date"
-      value={normalizedValue}
+      defaultValue={normalizedValue}
       onChange={handleChange}
       onKeyDown={onKeyDown}
       readOnly={readOnly}

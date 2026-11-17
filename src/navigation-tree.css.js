@@ -5,10 +5,13 @@ import { derived } from './theme-derived.css.js';
 
 export const navigationContainer = style({
   position: 'sticky',
-  top: 'var(--form0-sticky-top-offset, 0px)',
+  // Below the sticky form header (its height is measured into --form0-sticky-header-height),
+  // so the panel stays visible while the form scrolls.
+  top: 'calc(var(--form0-sticky-top-offset, 0px) + var(--form0-sticky-header-height, 0px) + 0.75rem)',
   width: '200px',
   flexShrink: 0,
-  maxHeight: 'calc(100vh - var(--form0-sticky-top-offset, 0px))',
+  maxHeight:
+    'calc(100vh - var(--form0-sticky-top-offset, 0px) - var(--form0-sticky-header-height, 0px) - 1.5rem)',
   overflowY: 'auto',
   overflowX: 'hidden',
   boxSizing: 'border-box',
