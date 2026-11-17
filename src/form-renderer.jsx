@@ -15,6 +15,7 @@ import { SubmissionReview, submissionMessages } from './submission-review.jsx';
 import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
 import { RecordCoordinatorProvider } from './record-context.jsx';
+import { RecordSummary } from './record-summary.jsx';
 import { buildStructuredSubmission, buildStructuredSubmissionAsync } from './utils/submission.js';
 import { useEventSession, useManagedEventScope } from './use-managed-events.js';
 import { mergeCustomValidation, repeatableChangeMetadata } from './utils/managed-events.js';
@@ -3888,32 +3889,12 @@ function FormRendererContent({
     if (!recordTitleDisplay && !recordStatusInfo) {
       return null;
     }
-    const titleText = recordTitleDisplay || 'Untitled';
-    const statusColor = recordStatusInfo?.color || '#d4d4d8';
-    const statusLabel = recordStatusInfo?.label
-      ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
-      : recordStatusInfo?.disabled
-        ? 'Status disabled'
-        : undefined;
-    const statusBadgeClass = recordStatusInfo?.disabled
-      ? styles.recordSummaryStatusDisabled
-      : styles.recordSummaryStatus;
-    const statusBadgeStyle =
-      recordStatusInfo?.disabled || !statusColor ? undefined : { backgroundColor: statusColor };
-
     return (
-      <div className={styles.recordSummary} role="group" aria-label="Record summary">
-        <span
-          className={statusBadgeClass}
-          style={statusBadgeStyle}
-          {...(statusLabel
-            ? { role: 'img', 'aria-label': statusLabel }
-            : { 'aria-hidden': 'true' })}
-        />
-        <div className={styles.recordSummaryContent}>
-          <div className={styles.recordSummaryTitle}>{titleText}</div>
-        </div>
-      </div>
+      <RecordSummary
+        title={recordTitleDisplay || 'Untitled'}
+        statusInfo={recordStatusInfo}
+        ariaLabel="Record summary"
+      />
     );
   }, [recordStatusInfo, recordTitleDisplay]);
 
@@ -6264,23 +6245,6 @@ function RepeatableEntryModal({
   const modalRecordTitle =
     resolveDatasetRowTitle(modalTitleDescriptor, entryValues) ||
     `${modal.label || 'Entry'} ${(modal.instanceIndex ?? 0) + 1}`;
-  const modalStatusColor = recordStatusInfo?.color || '#d4d4d8';
-  const modalStatusLabel = recordStatusInfo?.label
-    ? `Status: ${recordStatusInfo.label}${recordStatusInfo?.disabled ? ' (disabled)' : ''}`
-    : recordStatusInfo?.disabled
-      ? 'Status disabled'
-      : undefined;
-  const modalStatusBadgeClass =
-    recordStatusInfo && recordStatusInfo.disabled
-      ? styles.recordSummaryStatusDisabled
-      : styles.recordSummaryStatus;
-  const modalStatusBadgeStyle =
-    recordStatusInfo?.disabled || !modalStatusColor
-      ? undefined
-      : { backgroundColor: modalStatusColor };
-  const modalStatusBadgeA11yProps = modalStatusLabel
-    ? { role: 'img', 'aria-label': modalStatusLabel }
-    : { 'aria-hidden': 'true' };
   // Always shown, as on the root (see showNavigationPanel).
   const showModalNavigationPanel = true;
 
@@ -6568,20 +6532,12 @@ function RepeatableEntryModal({
             </div>
             {!nestedListActive && (
               <div className={styles.repeatableModalSummaryRow}>
-                <div
-                  className={`${styles.recordSummary} ${styles.repeatableModalSummaryCard}`}
-                  role="group"
-                  aria-label="Repeatable entry summary"
-                >
-                  <span
-                    className={modalStatusBadgeClass}
-                    style={modalStatusBadgeStyle}
-                    {...modalStatusBadgeA11yProps}
-                  />
-                  <div className={styles.recordSummaryContent}>
-                    <div className={styles.recordSummaryTitle}>{modalRecordTitle}</div>
-                  </div>
-                </div>
+                <RecordSummary
+                  title={modalRecordTitle}
+                  statusInfo={recordStatusInfo}
+                  ariaLabel="Repeatable entry summary"
+                  className={styles.repeatableModalSummaryCard}
+                />
               </div>
             )}
           </div>

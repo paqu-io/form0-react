@@ -311,20 +311,25 @@ export const formColumn = style({
   minWidth: 0,
 });
 
+// The record row: a divider inside the header card, the status bar, the title and the status
+// name. It runs to the card's edges; in a host dialog and the repeatable entry dialog the header
+// has no side padding, so the row keeps to the content width (see the overrides below).
 export const recordSummary = style({
   display: 'flex',
   alignItems: 'stretch',
-  gap: vars.spacing.sm,
-  padding: vars.spacing.sm,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.borderRadius,
-  background: vars.color.section,
-  marginBottom: 'none',
+  gap: '0.625rem',
+  minWidth: 0,
+  marginTop: vars.spacing.md,
+  marginLeft: `calc(-1 * ${vars.spacing.md})`,
+  marginRight: `calc(-1 * ${vars.spacing.md})`,
+  padding: `${vars.spacing.md} ${vars.spacing.md} 0`,
+  borderTop: `1px solid ${vars.color.border}`,
 });
 
 const recordSummaryStatusBase = {
-  width: '0.5rem',
-  borderRadius: vars.borderRadius,
+  width: '6px',
+  minHeight: '1.375rem',
+  borderRadius: '3px',
   flexShrink: 0,
   alignSelf: 'stretch',
 };
@@ -336,24 +341,32 @@ export const recordSummaryStatus = style({
 
 export const recordSummaryStatusDisabled = style({
   ...recordSummaryStatusBase,
-  backgroundColor: 'transparent',
-  backgroundImage: `repeating-linear-gradient(45deg, ${vars.color.border}, ${vars.color.border} 4px, transparent 4px, transparent 8px)`,
-  border: `1px solid ${vars.color.border}`,
+  background: `repeating-linear-gradient(45deg, ${derived.borderStrong} 0 3px, transparent 3px 6px)`,
 });
 
 export const recordSummaryContent = style({
   flex: 1,
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'center',
 });
 
 export const recordSummaryTitle = style({
-  fontSize: '1.1rem',
+  fontSize: '1rem',
   fontWeight: 600,
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
-  wordWrap: 'break-word',
+  overflowWrap: 'anywhere',
+});
+
+export const recordSummaryStatusText = style({
+  alignSelf: 'center',
+  flexShrink: 0,
+  fontSize: '0.8125rem',
+  lineHeight: vars.lineHeight.tight,
+  color: derived.muted,
+  whiteSpace: 'nowrap',
 });
 
 export const recordMetadata = style({
@@ -1102,6 +1115,12 @@ for (const presentation of ['modal', 'spotlight']) {
     background: 'transparent',
     padding: `${vars.spacing.md} 0 0`,
   });
+  globalStyle(`${root} ${recordSummary}`, {
+    marginLeft: 0,
+    marginRight: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  });
 }
 
 // ALERT and MESSAGEBOX: the first button is the default action and keeps the primary style;
@@ -1165,5 +1184,11 @@ globalStyle(`${repeatableModal} ${headerSection}`, {
   border: 'none',
   borderRadius: 0,
   padding: `0 0 ${vars.spacing.md}`,
+});
+globalStyle(`${repeatableModal} ${recordSummary}`, {
+  marginLeft: 0,
+  marginRight: 0,
+  paddingLeft: 0,
+  paddingRight: 0,
 });
 globalStyle(`${repeatableModal} ${repeatableModalBody}`, { borderRadius: vars.borderRadius });
