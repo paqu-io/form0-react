@@ -540,3 +540,28 @@ picker would be a new feature.
 - Steps 5 and 10, as agreed.
 - The themed tooltip (with step 5).
 - form0-cli's own preview renderer (flagged, untouched).
+
+## Review round 2 (2026-11-17)
+
+Decisions: sticky header edge in every presentation; record row to be decided after seeing the
+header (preference: a bar on the left, box or no box open); "ƒ" plus "Calculated"; navigation
+always shown on root and rows; browser time input in the library plus a time popover in the web
+template; keypad and auto-format for mobile date and time, plus the native picker in the mobile
+template (adds `@react-native-community/datetimepicker` there); better photo and video controls;
+signature improved in the library and templates with the same logic and workflow (Reform mobile
+imports `SignatureFieldComponent` directly).
+
+### Batch 1 (committed: form0-react `5eea90a`, form0-react-native `7d6b150`)
+
+- Navigation always shown (web: also without sections, then on Validation; mobile: the title
+  always opens the sheet). `forceShowNavigationPanel` no longer changes anything. Tests that
+  asserted the old rule (`runtime-retention.test.jsx` on web, `record-renderer.fixture.jsx` on
+  mobile) now assert the panel or title button.
+- Sticky header: an IntersectionObserver sentinel sets `data-stuck` on the header; while stuck
+  it shows a bottom edge, and in modal or spotlight it also covers the host dialog's top
+  padding (1.5rem) so content does not show through above it.
+- "ƒ" before calculated values, web and mobile.
+- Repeatable rows: the extra 8px gap between fields is gone.
+- Preview: the UI gallery has a text field with `read_only: true` (shows the lock).
+- The local-core Vitest config now lives in the harness folder
+  (`vitest.local-core.config.mjs`), since `/tmp` is cleared on restart.
