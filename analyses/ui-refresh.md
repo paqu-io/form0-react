@@ -636,3 +636,17 @@ imports `SignatureFieldComponent` directly).
 
 Signature (mockup approved; no template override for now), record row (status bar on the left,
 box or no box), and mobile testing on devices (checklist under Manual testing).
+
+Added 2026-11-17 after testing batch 4:
+
+- **Web template date typing:** typing "11122001" in the shadcn date field stays one run of
+  digits, while the library's browser date input moves from segment to segment by itself. The
+  override parses the text with the locale's format (for example MM/dd/yyyy) and needs the
+  separators to be typed. Fix: add separators while typing, in the locale's order (the same
+  idea as mobile's `formatMaskedEntry`).
+- **Prettier shadcn date and time overrides** in the web template: mockup first, then
+  implement (include the typing fix above).
+- **Web time field auto ":"** (open question): adding the mobile helper's behaviour to the web
+  time text input. With separators typed after a complete group kept, the four existing time
+  tests should still pass unchanged; the visible difference is that "1430" becomes "14:30"
+  instead of staying "1430" (which the engine then rejects).
