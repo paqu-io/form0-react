@@ -98,19 +98,19 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | done |
 | 3 | Form shell: header, section bands and gaps, navigation panel, drill-down rows, repeatable list and modal | form0-react | committed, **to review** |
 | 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | committed, **to review** |
-| 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs | form0-react | todo |
-| 6 | Steps 1 to 5 mirrored on mobile, with 48px controls and the "Sections" header button | form0-react-native | todo |
+| 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs; one themed tooltip | form0-react | todo (skipped, needs discussion) |
+| 6 | Steps 1 to 4 mirrored on mobile, with 48pt controls (step 5 skipped) | form0-react-native | committed, **to review** |
 
 ### Structural (each needs a go-ahead)
 
 | # | Step | Repo | Status |
 |---|---|---|---|
-| 7 | Nested sections shown flat, with the path in nested headers. Web done in step 3 | both | web **to test**, mobile todo |
-| 8 | Inherited values, variant 1 | both | web committed, **to review** |
-| 9 | Mobile keyboard: one mechanism, whole field above the keyboard, dynamic bottom space | form0-react-native | todo |
-| 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | todo |
-| 11 | Keyboard bar | form0-react-native | todo |
-| 12 | Templates: brand theme example, date picker on library tokens, remove workaround CSS | both templates | todo |
+| 7 | Nested sections shown flat, with the path in nested headers | both | committed, **to review** |
+| 8 | Inherited values, variant 1 | both | committed, **to review** |
+| 9 | Mobile keyboard: one mechanism, whole field above the keyboard, dynamic bottom space | form0-react-native | committed, **to test on devices** |
+| 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | todo (skipped, needs discussion) |
+| 11 | Keyboard bar | form0-react-native | committed, **to test on devices** |
+| 12 | Templates: brand theme example, date picker on the form's palette, remove workaround CSS | both templates | committed, **to review** |
 
 ## Needs a decision
 
@@ -156,13 +156,20 @@ https://help.magicplan.app/magicplan-floor-plan-editor-faq
 
 - `form0-cli` ships its own static renderer (`src/server/static/form-renderer.js`) with the old
   colours. Not touched here.
-- The web template's `custom-example.css.js` omits several contract keys.
 - The mobile template has an uncommitted local edit in `src/components/Form0Form.js` marked
   "do not commit". Left alone.
-- The built CSS contains one `line-height: undefined` that predates this work. To fix in step 2.
-- Seen in the bare preview, both predating this work: inputs overflow their section on the
-  right when the host page has no `box-sizing` reset (the template's Tailwind reset hides it),
-  and the "Navigation" tab label is clipped on the left. To fix in steps 2 and 3.
+- Reform web (`reform-frontend-tanstack/src/form0-renderer/styles/form0-overrides.css`) has the
+  same labelWidthPercent workaround the web template had (see step 12). On form0-react 0.4.0 it
+  may still be needed; remove it as part of the Reform upgrade.
+- The web template's starter survey does not render with its installed form0-core 0.11.0 (the
+  known `building_plan` attribute issue from the 2026-11-16 retest). Use the nature observation
+  form when checking the template's date picker.
+- The web template also registers an older date field (`date-field.jsx`, react-day-picker
+  classNames from v8). Its stylesheet import is what overrode the shadcn calendar. It could be
+  removed if nobody uses it; not done.
+- Mobile `npm test`: `tests/managed-events.test.mjs` never finishes and two tests fail
+  (`building-plan-touch`, the consumer audit manifest), identically on the branch before this
+  work. Run the other files with `node --test $(ls tests/*.test.mjs | grep -v managed-events)`.
 
 ## Tests on this branch
 
@@ -184,6 +191,39 @@ http://127.0.0.1:4180. The bar offers a "UI gallery" form (cases the starter sch
 such as three-option Yes/No) and "Show as: Modal", which puts the form in a host dialog. It bundles this package's build with the local `form0-core` source in
 memory, so nothing is installed or linked, and a page reload rebuilds after a source change.
 `shots.mjs` in the same folder writes screenshots of a fixed set of views.
+
+Mobile, in the same folder (nothing installed; reads react-native-web from
+`reform-mobile-react-native-expo/node_modules`):
+
+- `node native-web-preview.mjs`, then http://127.0.0.1:4182 (`?form=`, `&color=dark`,
+  `&mode=readonly`). The real form0-react-native renderer in a 390×844 frame through
+  react-native-web. Good for layout and colours; fonts, gestures and the native keyboard are not
+  represented, so it does not replace a device.
+- `node native-keyboard-check.mjs <screenshot dir>` with the preview running: focuses the
+  first, a middle and the last field, raises a simulated 300pt keyboard, checks each field and
+  its error row ends above the toolbar, and checks "Next field".
+- `node native-build.mjs`, then `../../form0-react/node_modules/.bin/vitest run --config
+  native-vitest.config.mjs native-record-renderer.test.jsx native-editor.test.jsx
+  native-reset.test.jsx`: the mobile renderer's jsdom fixtures (63 tests), using the platform
+  shims of the building plan harness (read only).
+
+On devices (needed for steps 9 and 11): the Expo template as in
+`reform-backend-nestjs/docs/building-plan-retest-2026-11-16.md`, on iOS and Android. Checklist:
+
+1. Tap the first text field: the keyboard opens, nothing jumps, the toolbar sits on the
+   keyboard.
+2. Tap a field in the lower half: the whole field, including the space for its error, ends
+   just above the toolbar.
+3. Tap the last field of the form: same, and the form can still scroll down to it.
+4. Previous / Next walk the text fields in screen order, skip read-only and hidden ones, and
+   are disabled at the ends. Done closes the keyboard.
+5. Rotate, switch keyboards (emoji, suggestions bar) and dismiss by dragging (iOS): the
+   padding follows and nothing stays covered.
+6. Inside a repeatable row (the editor screen) repeat 2 to 4.
+7. Submit with errors and jump to an issue: the field scrolls into view (navigation still uses
+   the same scroll code).
+8. Android: try one device or emulator with edge-to-edge (SDK 55 and later default) and, if
+   available, one without.
 
 ## Change log
 
@@ -395,3 +435,108 @@ Now, in `src/field-renderer.jsx` and `src/form-renderer.jsx`:
 
 Seen rendered in the building plan fixture (room screen): inherited and overridden states.
 The existing reset test passes.
+
+### Step 8 commit (web)
+
+`01a3c30` feat(building-plan): show the source of an inherited value inside the field.
+
+### Steps 6, 7 and 8 on mobile (2026-11-17, committed `8a95586`, to review)
+
+One commit in `form0-react-native`, branch `feat/ui-refresh`:
+
+- `src/theme.js`: the same neutral palette as web (light and dark), `control` metrics (48pt
+  height, 14pt padding), radius 8 / 12, and new tokens `fill`, `fillPress`, `borderStrong`,
+  `primarySoft`, `errorSoft`. Existing keys keep their names, so a host `customTheme` still
+  merges.
+- `src/control-styles.js` and `src/control-input.jsx` (new): one input look (height, focus and
+  invalid borders, disabled) used by text, number, date and time fields, the choice triggers,
+  the "Other" inputs and the MESSAGEBOX input.
+- Yes/No and status: segments of the control height, selected in ink; two or three options
+  share the row.
+- Single and multiple choice: the dropdown trigger looks like an input with a chevron; the
+  picker opens as a sheet from the bottom with 48pt rows and a handle; radio and checkbox
+  marks are larger, rows have a pressed state.
+- Calculated fields: filled, bold value, "Calculated" mark.
+- Field rows: no hairline; the reserved error row is kept.
+- Header (`src/form-header.jsx`): neutral background; EDITING / VIEWING pill under the title;
+  a chevron after the title shows it opens the sections and issues sheet, with a red count
+  while there are issues (new optional `issueCount` prop, wired by the renderer). A long title
+  truncates instead of running under the buttons.
+- Buttons (`src/form-action-button.jsx`): 44pt minimum height.
+- Drill-down and repeatable rows: white, with the inset accent bar; View buttons 40pt.
+- Navigation sheet entries: 48pt, the current one white with the accent bar, single chevron for
+  a drill-down section, double for a repeatable one.
+- Nested inline sections (step 7): flat, with a full-width band showing the path, as on web.
+  Section padding goes from 8 to 14pt.
+- ALERT / MESSAGEBOX: buttons stacked at full width, the first primary.
+- Building plan fields (step 8): position tag after the label; inside the control the source
+  ("Floor default", dashed inherited look) or the "Reset to inheritance" button. One test
+  fixture that looked for the old sentence ("Override at this wall") now looks for the reset
+  button or the source tag.
+
+Seen rendered through react-native-web (see Manual testing), not on a device.
+
+### Steps 9 and 11: mobile keyboard (2026-11-17, committed `88fb7e6`, to test on devices)
+
+Before: `KeyboardAvoidingView` (padding on iOS, height on Android), the ScrollView's
+`automaticallyAdjustKeyboardInsets` and a hook that measured the focused input and scrolled.
+On iOS the three overlapped; the hook measured only the input, so the error row could stay
+under the keyboard; the bottom padding was a fixed 32pt.
+
+Now (`src/keyboard-aware-scroll.jsx`, `src/keyboard-layout.js`):
+
+- One mechanism. The keyboard's top comes from Keyboard events (iOS: will-show, will-change-
+  frame, will-hide; Android: did-show, did-hide). The covered part of the form's scroll view is
+  added as bottom padding, so the last field can always scroll clear. On Android without
+  edge-to-edge the window is already resized and the covered part is 0.
+- On focus, and when the keyboard appears, the field's whole container (label, control, error
+  row) is scrolled so it ends `keyboardScrollOffset` (default 24) above the keyboard or the
+  toolbar. A field taller than the visible area aligns its control instead.
+- Keyboard state lives in the scroll view component, so keyboard changes no longer re-render
+  the form.
+- Toolbar (`keyboardToolbar`, default true): Previous and Next walk the text fields in screen
+  order (measured, so conditional fields and sections are handled), skipping read-only and
+  hidden ones; Done closes the keyboard. Choice, yes/no and media fields are not part of the
+  walk; they are tapped.
+- Markup and API: fields now pass their name to `onFocus` (second argument); input
+  registration takes a read-only flag; `keyboardToolbar` is typed in `index.d.ts`.
+
+Tests: `tests/keyboard-layout.test.mjs` (10 unit tests of the geometry), the 63 jsdom fixture
+tests, and the browser check with a simulated keyboard (all three positions clear, Next moves
+to the next field). The remaining mobile suite gives the same result as before this work.
+Not tested on a device: that is the checklist under Manual testing.
+
+### Step 12: templates (2026-11-17, committed, to review)
+
+Web template (`form0-web-tmpl-react-vite`, branch `feat/ui-refresh`, `6158857`):
+
+- Date picker (`date-field-shadcn.jsx`): shadcn's tokens are mapped to the form's palette inside
+  the field and its popover (`.form0-date-shadcn`), and a Today button is added. The picker
+  never fitted because react-day-picker's own stylesheet, imported by the template's other date
+  field, is not in a CSS layer and so beats Tailwind's classes; scoped rules now win over it.
+- `form0-overrides.css`: the same neutral palette as form0-react's default theme, 36px fields,
+  8px radius, a focus ring like the form's, no heavy shadows.
+- `custom-example.css.js`: a complete brand theme (teal accent and primary action) instead of
+  the red-border demo, which lacked contract keys and would not build if enabled.
+- **"Remove workaround CSS"** meant this rule at the top of `form0-overrides.css`:
+  `[class*="field-renderer_labelInputRow"] > [class*="field-renderer_labelRow"] { width:
+  var(--label-width, 30%) }`. It targeted form0-react's generated class names to force the side
+  label width. In the current markup the label row sits inside `labelColumn`, which already
+  applies `--label-width`, so the selector matches nothing and the rule did nothing. It is
+  removed from the template. Reform has the same rule (see Flags).
+
+Checked: the template builds and lints; the date picker screenshot matches the mockup. The
+form itself in the template still uses the published form0-react 0.10.0 until the packages are
+released or linked.
+
+Mobile template (`form0-mobile-tmpl-react-native-expo`, branch `feat/ui-refresh`, `0294ccd`):
+`src/themes/brand-example.js` (light and dark brand variants) and a pointer to it in
+`form0.config.js`. The local edit in `src/components/Form0Form.js` was left uncommitted. The
+mobile template has no date picker of its own (the mobile date field is a text input); a real
+picker would be a new feature.
+
+### Not done
+
+- Steps 5 and 10, as agreed.
+- The themed tooltip (with step 5).
+- form0-cli's own preview renderer (flagged, untouched).
