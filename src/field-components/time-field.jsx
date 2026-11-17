@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Clock } from 'lucide-react';
 import * as styles from '../field-renderer.css.js';
 
 const timeText = (value) => (typeof value === 'string' ? value : '');
@@ -30,24 +31,65 @@ export function TimeFieldComponent({ value, onChange, onKeyDown, readOnly, input
     onChange(nextValue);
   };
 
+  // The browser's own time picker, opened from the clock button. It writes through the same
+  // path as typing; typing itself is unchanged.
+  const pickerRef = useRef(null);
+  const openPicker = () => {
+    try {
+      pickerRef.current?.showPicker?.();
+    } catch {
+      // showPicker is unavailable or refused: typing still works.
+    }
+  };
+  const handlePicked = (event) => {
+    const picked = event.target.value;
+    if (!picked) return;
+    handleChange({ target: { value: completeTime(picked) } });
+  };
+  const pickerValue = /^\d{2}:\d{2}(:\d{2})?$/.test(text) ? text.slice(0, 5) : '';
+
   const handleBlur = (event) => {
     if (!readOnly) setText(completeTime(text));
     inputOnBlur?.(event);
   };
 
   return (
-    <input
-      type="text"
-      placeholder="HH:MM[:SS]"
-      spellCheck={false}
-      value={text}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      onKeyDown={onKeyDown}
-      readOnly={readOnly}
-      disabled={readOnly}
-      className={styles.input}
-      {...restInputProps}
-    />
+    <div className={styles.pickerControl}>
+      <input
+        type="text"
+        placeholder="HH:MM[:SS]"
+        spellCheck={false}
+        value={text}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={onKeyDown}
+        readOnly={readOnly}
+        disabled={readOnly}
+        className={styles.input}
+        {...restInputProps}
+      />
+      {readOnly ? null : (
+        <>
+          <button
+            type="button"
+            className={styles.pickerButton}
+            onClick={openPicker}
+            aria-label="Choose a time"
+            title="Choose a time"
+          >
+            <Clock size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <input
+            ref={pickerRef}
+            type="time"
+            className={styles.pickerNative}
+            value={pickerValue}
+            onChange={handlePicked}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        </>
+      )}
+    </div>
   );
 }

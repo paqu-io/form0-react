@@ -1303,3 +1303,46 @@ globalStyle(`${inputAdorned}[data-source="inherit"] > ${input}:not(:focus):not(:
   background: derived.fill,
   color: derived.muted,
 });
+
+// A text control with a button at its right edge that opens the browser's picker.
+export const pickerControl = style({
+  position: 'relative',
+  width: '100%',
+});
+
+export const pickerButton = style({
+  position: 'absolute',
+  right: '0.375rem',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  width: '1.75rem',
+  height: '1.75rem',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: 'none',
+  borderRadius: '0.375rem',
+  background: 'transparent',
+  color: derived.muted,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': { background: derived.fillPress, color: vars.color.foreground },
+    '&:focus-visible': { outline: control.focusOutline, outlineOffset: '1px' },
+  },
+});
+
+// The native picker input: invisible, anchored at the control's bottom right so the
+// browser opens its picker there.
+export const pickerNative = style({
+  position: 'absolute',
+  right: 0,
+  bottom: 0,
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  border: 0,
+  opacity: 0,
+  pointerEvents: 'none',
+});
+
+globalStyle(`${pickerControl} > ${input}`, { paddingRight: '2.5rem' });
