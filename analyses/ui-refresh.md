@@ -565,3 +565,25 @@ imports `SignatureFieldComponent` directly).
 - Preview: the UI gallery has a text field with `read_only: true` (shows the lock).
 - The local-core Vitest config now lives in the harness folder
   (`vitest.local-core.config.mjs`), since `/tmp` is cleared on restart.
+
+### Batch 2: date and time (committed)
+
+- form0-react `71b79af`: the time field keeps its text input and its tested behaviour (partial
+  times kept, invalid text left for the engine, late worker echoes); a clock button opens the
+  browser's own time picker through a hidden time input. A real `<input type="time">` was not
+  used because it would drop partial and invalid text, which four tests cover. The date field
+  was already the browser's date input.
+- form0-react-native `cd7dc4d`: date and time fields open the number keypad; "-" and ":" are
+  added while digits are typed (`src/utils/masked-entry.js`, 5 unit tests). Deleting, and text
+  in any other format, is left as typed. No dependency.
+- Web template `f03ac6f`: `time-field-shadcn.jsx`, typed entry plus a popover with hour and
+  minute columns (5-minute steps) and "Now", styled like the date picker; selected in
+  `form0.config.js`.
+- Mobile template `976dc50`: `@react-native-community/datetimepicker` 9.2.1 (`npx expo install`,
+  config plugin added to `app.json`) and `src/field-renderers/date-time-pickers.js`: the
+  library's typed field plus a button that opens the platform picker (iOS bottom sheet with a
+  spinner, Android system dialog). Not run on a device yet.
+- Harness: `template-web-preview.mjs` runs the web template's own dev server with form0-react
+  and form0-core pointed at the local copies (http://127.0.0.1:5174), so the template's
+  overrides can be tested with the branch. The starter survey renders there (the local core
+  accepts its schema).
