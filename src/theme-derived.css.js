@@ -18,6 +18,7 @@ export const derived = {
   borderHover: mix(foreground, 55, background),
   placeholder: mix(foreground, 42, background),
   errorSoft: mix(error, 10, background),
+  errorHover: mix(error, 86, foreground),
   buttonPress: mix(buttonBg, 74, background),
 };
 

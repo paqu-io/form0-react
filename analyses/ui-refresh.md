@@ -97,7 +97,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | 1 | Tokens and palette: neutral defaults, dark mode, derived state colours; remove hardcoded colours in field, form and navigation styles | form0-react | done |
 | 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | done |
 | 3 | Form shell: header, section bands and gaps, navigation panel, drill-down rows, repeatable list and modal | form0-react | committed, **to review** |
-| 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | todo |
+| 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | committed, **to review** |
 | 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs | form0-react | todo |
 | 6 | Steps 1 to 5 mirrored on mobile, with 48px controls and the "Sections" header button | form0-react-native | todo |
 
@@ -333,3 +333,33 @@ repeatable list, repeatable modal, building plan root) and the sideways-scroll c
 against the local core: 259 of 266, the same failures as before.
 
 To revert step 3: `git revert` its commit.
+
+### Step 3 commit
+
+`d7e01eb` feat(shell): section cards, shared body surface and clearer navigation.
+
+### Step 4: dialogs and field marks (2026-11-17, committed, to review)
+
+Files:
+
+- `src/form-renderer.css.js`: ALERT / MESSAGEBOX dialog (padding, shadow, title, muted
+  message, close button with a real target). The first button keeps the primary style and the
+  others become secondary; the schema's order is kept. The MESSAGEBOX answer input looks like
+  the form's inputs. Discard dialog: Cancel is secondary, "Yes, discard" is styled as a
+  destructive action (error colour).
+- `src/field-renderer.css.js`: description, supporting-image and form-link dialogs get the
+  same padding, radius, shadow and close button. Styles for the marks below.
+- `src/theme-derived.css.js`: a hover colour for destructive buttons.
+- `src/field-renderer.jsx` (markup): calculated fields show "Calculated" at the right edge of
+  the control. Text and number fields whose own `read_only` attribute is true show a lock.
+  Fields that are read-only only because the form is in View mode, or through
+  `read_only_conditions`, get the read-only look without the lock: the renderer receives one
+  combined read-only flag and cannot tell those cases apart without more plumbing.
+
+Checked with screenshots: MESSAGEBOX with input and three buttons (light), ALERT (dark), the
+"Calculated" mark. **Not seen rendered:** the discard dialog and the supporting-image dialog
+(my automation could not open them), and the lock, because no starter schema has a read-only
+text field. Tests against the local core: 260 of 266, worker tests only.
+
+The preview's UI gallery opens a MESSAGEBOX, then an ALERT, when the first three-way field is
+answered.

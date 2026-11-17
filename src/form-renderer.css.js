@@ -862,32 +862,46 @@ export const alertDialog = style({
   position: 'relative',
   background: vars.color.background,
   color: vars.color.foreground,
-  borderRadius: vars.borderRadius,
+  borderRadius: `calc(${vars.borderRadius} + 2px)`,
   border: `1px solid ${vars.color.border}`,
+  boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
   maxWidth: '420px',
   width: '100%',
-  padding: vars.spacing.md,
+  padding: '1.25rem',
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: '0.75rem',
+  fontFamily: vars.fontFamily.base,
+  fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.normal,
 });
 
 export const alertTitle = style({
   margin: 0,
-  fontSize: '1.1rem',
-  fontWeight: 600,
+  // Clear of the close button.
+  paddingRight: '2rem',
+  fontSize: '1rem',
+  fontWeight: 700,
+  lineHeight: vars.lineHeight.tight,
 });
 
 export const alertMessage = style({
+  margin: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.75rem',
   fontSize: vars.fontSize.base,
   lineHeight: 1.5,
+  color: derived.muted,
   whiteSpace: 'pre-wrap',
 });
 
 export const alertFooter = style({
   display: 'flex',
+  flexWrap: 'wrap',
   justifyContent: 'flex-end',
-  marginTop: vars.spacing.md,
+  gap: '0.5rem',
+  marginTop: '0.25rem',
 });
 
 export const alertOkButton = style([
@@ -899,35 +913,40 @@ export const alertOkButton = style([
 
 export const alertCloseButton = style({
   position: 'absolute',
-  top: '12px',
-  right: '12px',
+  top: '0.75rem',
+  right: '0.75rem',
+  width: '1.75rem',
+  height: '1.75rem',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   background: 'transparent',
   border: 'none',
-  color: vars.color.foreground,
+  borderRadius: '0.375rem',
+  color: derived.muted,
   fontSize: '1.25rem',
   lineHeight: 1,
   padding: 0,
   cursor: 'pointer',
   outline: 'none',
   selectors: {
-    '&:focus': {
-      outline: 'none',
-    },
     '&:hover': {
-      color: vars.color.primary,
+      background: derived.fillPress,
+      color: vars.color.foreground,
     },
     '&:focus-visible': {
-      outline: `2px solid ${vars.color.primary}`,
-      outlineOffset: '2px',
+      outline: control.focusOutline,
+      outlineOffset: '1px',
     },
   },
 });
 
 export const confirmDialogActions = style({
   display: 'flex',
+  flexWrap: 'wrap',
   justifyContent: 'flex-end',
-  gap: vars.spacing.sm,
-  marginTop: vars.spacing.md,
+  gap: '0.5rem',
+  marginTop: '0.25rem',
 });
 
 export const confirmSecondaryButton = style([
@@ -935,20 +954,44 @@ export const confirmSecondaryButton = style([
   {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: vars.spacing.md,
-    background: vars.color.section,
+    gap: '0.5rem',
+    background: vars.color.background,
     color: vars.color.foreground,
-    borderColor: vars.color.border,
+    borderColor: derived.borderStrong,
+    selectors: {
+      '&:hover': {
+        background: derived.fillHover,
+        color: vars.color.foreground,
+        border: `1px solid ${derived.borderStrong}`,
+      },
+      '&:active': {
+        background: derived.fillPress,
+      },
+    },
   },
 ]);
 
+// Only used to confirm discarding changes, so it is styled as a destructive action.
 export const confirmPrimaryButton = style([
   button,
   {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: vars.spacing.md,
+    gap: '0.5rem',
     minWidth: '120px',
+    background: vars.color.error,
+    borderColor: vars.color.error,
+    color: vars.color.background,
+    selectors: {
+      '&:hover': {
+        background: derived.errorHover,
+        border: `1px solid ${derived.errorHover}`,
+        color: vars.color.background,
+      },
+      '&:active': {
+        background: derived.errorHover,
+      },
+    },
   },
 ]);
 
@@ -1048,3 +1091,35 @@ for (const presentation of ['modal', 'spotlight']) {
     padding: `${vars.spacing.md} 0 0`,
   });
 }
+
+// ALERT and MESSAGEBOX: the first button is the default action and keeps the primary style;
+// the others are secondary. The schema's button order is kept.
+globalStyle(`${alertFooter} > ${alertOkButton}:not(:first-child)`, {
+  background: vars.color.background,
+  color: vars.color.foreground,
+  borderColor: derived.borderStrong,
+});
+globalStyle(`${alertFooter} > ${alertOkButton}:not(:first-child):hover`, {
+  background: derived.fillHover,
+  color: vars.color.foreground,
+  borderColor: derived.borderStrong,
+});
+globalStyle(`${alertFooter} > ${alertOkButton}:not(:first-child):active`, {
+  background: derived.fillPress,
+});
+// The MESSAGEBOX answer input.
+globalStyle(`${alertMessage} > input`, {
+  minHeight: control.height,
+  padding: `0 ${control.paddingX}`,
+  border: `1px solid ${derived.borderStrong}`,
+  borderRadius: vars.borderRadius,
+  background: vars.color.background,
+  color: vars.color.foreground,
+  fontFamily: vars.fontFamily.base,
+  fontSize: vars.fontSize.base,
+  outline: 'none',
+});
+globalStyle(`${alertMessage} > input:focus`, {
+  borderColor: vars.color.primary,
+  boxShadow: control.focusRing,
+});

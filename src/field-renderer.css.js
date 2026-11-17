@@ -914,10 +914,14 @@ const dialogBase = style({
   transform: 'translate(-50%, -50%)',
   margin: 0,
   border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.borderRadius,
-  padding: vars.spacing.md,
+  borderRadius: `calc(${vars.borderRadius} + 2px)`,
+  boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+  padding: '1.25rem',
   background: vars.color.background,
   color: vars.color.foreground,
+  fontFamily: vars.fontFamily.base,
+  fontSize: vars.fontSize.base,
+  lineHeight: vars.lineHeight.normal,
   maxWidth: 'min(480px, 90vw)',
   width: '100%',
   selectors: {
@@ -954,19 +958,30 @@ export const dialogCloseButton = style({
   appearance: 'none',
   border: 'none',
   background: 'transparent',
-  fontSize: '1.5rem',
+  color: derived.muted,
+  width: '1.75rem',
+  height: '1.75rem',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '0.375rem',
+  fontSize: '1.25rem',
   cursor: 'pointer',
   lineHeight: 1,
   padding: 0,
   outline: 'none',
   flexShrink: 0,
   selectors: {
+    '&:hover': {
+      background: derived.fillPress,
+      color: vars.color.foreground,
+    },
     '&:focus': {
       outline: 'none',
     },
     '&:focus-visible': {
-      outline: `2px solid ${vars.color.primary}`,
-      outlineOffset: '2px',
+      outline: control.focusOutline,
+      outlineOffset: '1px',
     },
   },
 });
@@ -1161,3 +1176,30 @@ globalStyle(
     .join(', '),
   { boxSizing: 'border-box' }
 );
+
+// A control with a mark at its right edge: "Calculated", or a lock on a field that is
+// read-only by its own attribute or logic.
+export const inputAdorned = style({
+  position: 'relative',
+  width: '100%',
+});
+
+export const inputAdornment = style({
+  position: 'absolute',
+  right: control.paddingX,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.25rem',
+  pointerEvents: 'none',
+  color: derived.muted,
+  fontSize: '0.66rem',
+  fontWeight: 600,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+  lineHeight: 1,
+});
+
+globalStyle(`${inputAdorned}[data-adornment="calculated"] > ${input}`, { paddingRight: '6.5rem' });
+globalStyle(`${inputAdorned}[data-adornment="locked"] > ${input}`, { paddingRight: '2.25rem' });

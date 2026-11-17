@@ -1,6 +1,6 @@
 import { useBuildingPlanPresentation } from './building-plan/presentation.jsx';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Info, Image, AlertTriangle } from 'lucide-react';
+import { Info, Image, AlertTriangle, Lock } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
 import { useFieldRegistry } from './field-registry-context.jsx';
 import { useEngineField } from './engine-store.js';
@@ -274,6 +274,25 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     />
   );
 
+  // Marks at the right edge of the control. The lock is shown only for fields that are
+  // read-only by their own attribute, not for every field of a form opened in View mode.
+  const adornment =
+    field.type === 'CalculatedField'
+      ? 'calculated'
+      : field.read_only === true && ['TextField', 'NumericField'].includes(field.type)
+        ? 'locked'
+        : null;
+  const fieldControl = adornment ? (
+    <div className={styles.inputAdorned} data-adornment={adornment}>
+      {fieldInput}
+      <span className={styles.inputAdornment} aria-hidden="true">
+        {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
+      </span>
+    </div>
+  ) : (
+    fieldInput
+  );
+
   const labelClassNames = [labelClass, styles.labelText];
   if (isLabelField) {
     labelClassNames.push(styles.labelFieldLabel);
@@ -361,7 +380,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
             className={styles.supportingImage}
           />
         )}
-        {fieldInput}
+        {fieldControl}
         {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
       </div>
     </div>
@@ -383,7 +402,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
           className={styles.supportingImage}
         />
       )}
-      {fieldInput}
+      {fieldControl}
       {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
     </>
   );
