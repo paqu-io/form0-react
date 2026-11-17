@@ -756,7 +756,7 @@ linked: with `.dark` the popover turns dark while the form stays light. Nothing 
 template sets `.dark` today (it was added by hand in the preview), so the fix starts with how
 the form's theme is chosen; any choice there is asked first.
 
-### Round B (next)
+### Round B (done, tested by hand, committed)
 
 1. Record row, web (form0-react): B with the status name as text.
 2. Web library time field: ":" added while typing (helper and unit tests copied from
@@ -767,6 +767,122 @@ the form's theme is chosen; any choice there is asked first.
 5. Web template: popover and form on the same light/dark switch.
 
 Then round C: device testing (checklist under Manual testing).
+
+### Round B, item 1: record row (tested, committed)
+
+- `src/record-summary.jsx` (new): `RecordSummary`, the row used by the form header and by the
+  repeatable entry dialog (both had their own copy of the markup). The bar is decorative now;
+  the status name is visible text at the end of the row with a screen-reader-only "Status: "
+  before it (before: the bar was an image named "Status: …"). A disabled status shows
+  "<name> (disabled)" or "Status disabled", as the old label did. The group labels ("Record
+  summary", "Repeatable entry summary") are unchanged.
+- `src/form-renderer.jsx`: both places use `RecordSummary`; no logic changed.
+- `src/form-renderer.css.js`: the row is a divider inside the header card that runs to its
+  edges (no box, no fill), 4px bar, title 15px, status name 13px muted on the right; the
+  disabled bar is striped. In a host dialog and the repeatable entry dialog the header has no
+  side padding, so the row keeps to the content width there.
+
+Checked with screenshots: survey header light, dark, phone width, host dialog, and the
+repeatable entry dialog (parent status beside the entry title); equipment checkout (no status
+field: grey bar, no text). Tests: 260 of 266 against the local core, the six worker tests.
+
+### Round B, items 2 to 5 (tested, committed)
+
+Decisions taken while implementing (2026-11-17):
+
+- **Separator after one digit pads it, on every platform.** The mobile helper dropped a
+  separator typed after a single digit, so on a web keyboard "9:30" became "93:0" and an en-US
+  "1/5/2026" became "15/20/26". Now "9:" gives "09:" and "1/" gives "01/" ("9:30" gives
+  "09:30", "1/5/2026" gives "01/05/2026"); a year in progress is not padded. The mobile
+  keypad has no separator keys, so only hardware keyboards see the difference there.
+- **Template dark mode: one switch for the page.** `theme.mode` in `form0.config.js` also sets
+  the page's `.dark` class (following the system for `'system'`), so the page, the shadcn
+  pickers and the form use one setting.
+
+form0-react-native:
+
+- `src/utils/masked-entry.js`: the padding rule, and a pattern argument besides `'date'` and
+  `'time'` (`{ groups, separator }`, for a locale order). `tests/masked-entry.test.mjs`: the
+  expectation for "1" then ":" is now "01:" (was "1"); new cases for padding, a pasted
+  "9:30", a year in progress, and en-US / de-DE patterns. 9 tests pass.
+
+form0-react (item 2):
+
+- `src/utils/masked-entry.js` (new): copy of the mobile helper, same body.
+- `src/field-components/time-field.jsx`: typed text goes through the helper; picks from the
+  clock button are unchanged. The four existing time tests pass unchanged.
+- `tests/masked-entry.test.js` (new, the mobile cases in Vitest) and a new case in
+  `tests/time-input.test.jsx` (typing "1430" shows "14:30" and sends "14:30:00"; "9:30" shows
+  "09:30").
+
+Web template (items 3 to 5):
+
+- `src/lib/masked-entry.js` (new): copy of the helper.
+- `src/field-renderers/date-field-shadcn.jsx`: placeholder is the locale's format (MM/DD/YYYY,
+  DD/MM/YYYY, …) unless the field sets one; separators are added while typing in the locale's
+  order; only a complete date is read, so a year being typed is no longer sent as 0002, 0020,
+  0200; the stored "yyyy-MM-dd" is parsed as a local date (UTC bug); the popover is anchored to
+  the whole field and opens below it at its left edge; the footer shows the selected date in
+  words.
+- `src/field-renderers/time-field-shadcn.jsx`: ":" added while typing (same helper); the
+  popover is anchored to the field; while the field is empty the current hour and 5-minute
+  step are outlined and scrolled to the middle; the footer shows the value.
+- `src/components/ui/popover.jsx`: exports `PopoverAnchor`.
+- `src/styles/form0-overrides.css`: 32px days (react-day-picker's own variables were forcing
+  44px), month and year first with the arrows grouped on the right, today as a dot under the
+  day, footer with the value, ghost Today/Now button, faded ends on the time columns, the
+  "now" outline, and the calendar's background mapped to the popover surface (it drew a
+  darker box in dark mode).
+- `src/lib/color-mode.js` (new) and `src/main.jsx`: the page's `.dark` class from `theme.mode`.
+
+Checked in the template preview: en-US typing "11122001" gives 11/12/2001 (stored
+2001-11-12), "1/5/2026" gives 01/05/2026; it-IT placeholder DD/MM/YYYY and "11122001" stored
+as 2001-12-11; time "1430" gives 14:30 and "9:30" gives 09:30; in the America/Los_Angeles
+time zone the default date shows the local day; both popovers in light, and in dark with
+`mode: 'system'` (set for the check and restored to `'light'`). Tests: web 270 of 276 (the six
+worker tests); mobile unit 133 of 135 and fixtures 63 of 63 (known failures); template 8 of
+11 (the three known `building_plan` attribute failures with the installed core 0.11.0); lint
+clean.
+
+### Round B follow-ups after testing (2026-11-17, committed)
+
+- Record row: title 16px (was 15px in mockup B, 17.6px before the refresh); status bar 6px
+  (was 4px; the old boxed bar was 8px).
+- Time placeholder "HH:MM" everywhere (form0-react and form0-react-native showed
+  "HH:MM[:SS]"; the template already "HH:MM"). Seconds are still accepted when typed; there is
+  no seconds setting in the schema. One mobile fixture that looked the field up by the old
+  placeholder (`tests/validation-pagination.fixture.jsx`) uses the new one.
+- Template date segments: the library's date field is the browser's segmented input, the
+  template's a text box, so a click only placed the caret. Now, once the text is a whole date,
+  a click selects the day, month or year under it, digits fill it (a day or month waits for a
+  second digit unless the first cannot start one: "5" in a day is 05) and move to the next
+  segment; a day or month is saved at once, a year when its four digits are in or on leaving
+  the field; Left and Right (and the separator key) move between segments; tabbing in selects
+  the first segment. Partial typing in an empty field works as before. Pure logic in
+  `src/lib/date-segments.js` (5 unit tests in `tests/date-segments.test.mjs`), the input wiring
+  in `src/field-renderers/use-date-segments.js`; `getLocalePattern` moved there from the date
+  field, and the date field's save logic is one `commitText`.
+
+Checked in the template preview, en-US and it-IT: click on each segment, typing a day, a
+two-digit month, a year (stored only at four digits), Left arrow, keyboard focus. Record row
+seen at 16px with the 6px bar. Tests: form0-react time and helper tests 14 of 14; mobile
+`validation-pagination` passes with the new placeholder; template 13 of 16 (the three known
+`building_plan` failures); lint clean.
+
+Commits:
+
+- form0-react: `82f174d` record row, `1e2f9ab` time field typing (both include the
+  follow-ups above).
+- form0-react-native: `6124c2f` helper padding and pattern argument, HH:MM placeholder.
+- form0-web-tmpl-react-vite: `20c8b51` date and time pickers, typing, segments, UTC fix;
+  `0ef9613` one light/dark switch for the page.
+
+### Next
+
+Round C: device testing (checklist under Manual testing); it now also covers the mobile
+signature, the native pickers in the mobile template, and typing a separator on a hardware
+keyboard. Steps 5 (building plan on theme tokens) and 10 (mobile plan editor) still need
+discussion.
 
 ### WSL crashes (2026-11-17)
 
