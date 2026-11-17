@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { PenLine } from 'lucide-react';
 import * as styles from '../field-renderer.css.js';
 
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 150;
 const SIGNATURE_STROKE_WIDTH = 2;
+// The pad draws in the theme's text colour; the saved image always uses this ink.
+const SIGNATURE_EXPORT_INK = '#222';
 const SIGNATURE_EXPORT_PADDING = 18;
 const SIGNATURE_MIN_EXPORT_WIDTH = 120;
 const SIGNATURE_MIN_EXPORT_HEIGHT = 72;
@@ -180,6 +183,12 @@ function buildSignatureExportCanvas(sourceCanvas, bounds) {
     exportWidth,
     exportHeight
   );
+  // Recolour the strokes, keeping their edges' transparency: the pad's ink is light in dark
+  // mode, the saved signature is always dark ink on a transparent background, as before.
+  exportContext.globalCompositeOperation = 'source-in';
+  exportContext.fillStyle = SIGNATURE_EXPORT_INK;
+  exportContext.fillRect(0, 0, exportWidth, exportHeight);
+  exportContext.globalCompositeOperation = 'source-over';
 
   return exportCanvas;
 }
@@ -206,6 +215,7 @@ export function SignatureFieldComponent({
   const signatureMetaRef = useRef(normalizedValue);
   const [isPadOpen, setIsPadOpen] = useState(false);
   const [padStrokeCount, setPadStrokeCount] = useState(0);
+  const addHintId = useId();
 
   useEffect(() => {
     signatureIdRef.current = normalizedValue?.signature_id ?? null;
@@ -432,8 +442,12 @@ export function SignatureFieldComponent({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#222';
-    ctx.fillStyle = '#222';
+    // The canvas's CSS colour is the theme's text colour, so the ink reads on a dark pad.
+    const ink =
+      (typeof window !== 'undefined' && window.getComputedStyle?.(canvas)?.color) ||
+      SIGNATURE_EXPORT_INK;
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
     contextRef.current = ctx;
     clearCanvas();
   }, [clearCanvas, isPadOpen, isReadOnly]);
@@ -443,28 +457,25 @@ export function SignatureFieldComponent({
     clearCanvas();
   }, [clearCanvas, isPadOpen, isReadOnly]);
 
+  const dataUrl = normalizedValue?.data
+    ? `data:image/png;base64,${normalizedValue.data}`
+    : normalizedValue?.preview_url ||
+      normalizedValue?.thumbnail_url ||
+      normalizedValue?.url ||
+      null;
+  const imageAlt = field.label ? `${field.label} signature` : 'Signature';
+  const agreementNode = field.agreement_text ? (
+    <p className={styles.signatureAgreement}>{field.agreement_text}</p>
+  ) : null;
+
   if (isReadOnly) {
-    const dataUrl = normalizedValue?.data
-      ? `data:image/png;base64,${normalizedValue.data}`
-      : normalizedValue?.preview_url ||
-        normalizedValue?.thumbnail_url ||
-        normalizedValue?.url ||
-        null;
     return (
-      <div className={`${styles.signatureReadOnly} ${className || ''}`}>
-        {field.agreement_text && (
-          <div className={styles.signatureAgreement}>{field.agreement_text}</div>
-        )}
-        {dataUrl ? (
-          <div className={styles.signatureImageWrapper}>
-            <img
-              src={dataUrl}
-              alt={field.label ? `${field.label} signature` : 'Signature'}
-              className={styles.signatureImage}
-            />
-          </div>
+      <div className={`${styles.signatureField} ${className || ''}`}>
+        {agreementNode}
+        {normalizedValue ? (
+          <SignatureCard dataUrl={dataUrl} alt={imageAlt} />
         ) : (
-          <div className={styles.signaturePlaceholder}>No signature captured.</div>
+          <div className={styles.signatureEmpty}>No signature captured.</div>
         )}
       </div>
     );
@@ -492,34 +503,46 @@ export function SignatureFieldComponent({
           data: normalizedValue.data,
         })
       : '';
-  const dataUrl = normalizedValue?.data
-    ? `data:image/png;base64,${normalizedValue.data}`
-    : normalizedValue?.preview_url ||
-      normalizedValue?.thumbnail_url ||
-      normalizedValue?.url ||
-      null;
-  const primaryButtonLabel = normalizedValue ? 'Replace signature' : 'Add signature';
 
   return (
     <div className={`${styles.signatureField} ${className || ''}`}>
-      {field.agreement_text && (
-        <div className={styles.signatureAgreement}>{field.agreement_text}</div>
+      {agreementNode}
+      {normalizedValue ? (
+        <SignatureCard dataUrl={dataUrl} alt={imageAlt}>
+          <button
+            type="button"
+            className={styles.signatureButton}
+            onClick={handleOpenPad}
+            disabled={disabledAttr}
+          >
+            Replace signature
+          </button>
+          <button
+            type="button"
+            className={styles.signatureButton}
+            data-variant="danger"
+            onClick={handleClear}
+            disabled={disabledAttr}
+          >
+            Clear signature
+          </button>
+        </SignatureCard>
+      ) : (
+        <button
+          type="button"
+          className={styles.signatureAdd}
+          onClick={handleOpenPad}
+          disabled={disabledAttr}
+          aria-label="Add signature"
+          aria-describedby={addHintId}
+        >
+          <PenLine size={20} strokeWidth={2} aria-hidden="true" />
+          <span className={styles.signatureAddTitle}>Add signature</span>
+          <span className={styles.signatureAddHint} id={addHintId}>
+            Opens the signature pad
+          </span>
+        </button>
       )}
-      <div className={styles.signaturePreviewSurface}>
-        {dataUrl ? (
-          <div className={styles.signatureImageWrapper}>
-            <img
-              src={dataUrl}
-              alt={field.label ? `${field.label} signature` : 'Signature'}
-              className={styles.signatureImage}
-            />
-          </div>
-        ) : (
-          <div className={styles.signaturePlaceholder}>
-            Open the signature pad to capture a signature.
-          </div>
-        )}
-      </div>
       <input
         type="hidden"
         value={hiddenValue}
@@ -530,24 +553,6 @@ export function SignatureFieldComponent({
         required={requiredAttr}
         disabled={disabledAttr}
       />
-      <div className={styles.signatureControls}>
-        <button
-          type="button"
-          className={styles.signaturePrimaryButton}
-          onClick={handleOpenPad}
-          disabled={disabledAttr}
-        >
-          {primaryButtonLabel}
-        </button>
-        <button
-          type="button"
-          className={styles.signatureClearButton}
-          onClick={handleClear}
-          disabled={disabledAttr || !normalizedValue}
-        >
-          Clear signature
-        </button>
-      </div>
       {isPadOpen ? (
         <div
           className={styles.signatureModalOverlay}
@@ -557,52 +562,91 @@ export function SignatureFieldComponent({
         >
           <div className={styles.signatureModalCard}>
             <div className={styles.signatureModalHeader}>
-              <button
-                type="button"
-                className={styles.signatureClearButton}
-                onClick={handleClosePad}
-              >
+              <button type="button" className={styles.signatureButton} onClick={handleClosePad}>
                 Cancel
               </button>
               <p className={styles.signatureModalTitle}>{field.label || 'Capture signature'}</p>
               <button
                 type="button"
-                className={styles.signaturePrimaryButton}
+                className={`${styles.signatureButton} ${styles.signatureModalSave}`}
+                data-variant="primary"
                 onClick={handleSavePad}
                 disabled={padStrokeCount === 0}
               >
                 Save
               </button>
             </div>
-            <div className={styles.signatureModalHint}>
-              Draw your signature below. Saving replaces the current signature.
+            <p className={styles.signatureModalHint}>
+              {normalizedValue
+                ? 'Draw your signature below. Saving replaces the current signature.'
+                : 'Draw your signature below.'}
+            </p>
+            <div className={styles.signaturePadArea}>
+              <span className={styles.signaturePadMark} aria-hidden="true">
+                ×
+              </span>
+              <span className={styles.signaturePadLine} aria-hidden="true" />
+              {padStrokeCount === 0 ? (
+                <span className={styles.signaturePadPlaceholder} aria-hidden="true">
+                  Sign above the line
+                </span>
+              ) : null}
+              <canvas
+                ref={canvasRef}
+                className={styles.signatureModalCanvas}
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
+                role="img"
+                aria-label={field.label ? `${field.label} signature capture` : 'Signature capture'}
+                tabIndex={0}
+                id={id}
+                aria-labelledby={id ? `${id}-label` : undefined}
+                aria-disabled={disabledAttr || undefined}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerLeave}
+                onPointerLeave={handlePointerLeave}
+                {...restInputProps}
+              />
             </div>
-            <canvas
-              ref={canvasRef}
-              className={styles.signatureModalCanvas}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
-              role="img"
-              aria-label={field.label ? `${field.label} signature capture` : 'Signature capture'}
-              tabIndex={0}
-              id={id}
-              aria-labelledby={id ? `${id}-label` : undefined}
-              aria-disabled={disabledAttr || undefined}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerLeave}
-              onPointerLeave={handlePointerLeave}
-              {...restInputProps}
-            />
-            <div className={styles.signatureControls}>
-              <button type="button" className={styles.signatureClearButton} onClick={clearCanvas}>
+            <div className={styles.signatureModalFooter}>
+              <button
+                type="button"
+                className={styles.signatureButton}
+                data-variant="ghost"
+                onClick={clearCanvas}
+                disabled={padStrokeCount === 0}
+              >
                 Clear pad
               </button>
             </div>
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A saved signature: the image on white "paper" above a sign line, then "Signed" and, when
+ * editable, the field's actions.
+ */
+function SignatureCard({ dataUrl, alt, children }) {
+  return (
+    <div className={styles.signatureCard}>
+      <div className={styles.signaturePaper}>
+        {dataUrl ? (
+          <img src={dataUrl} alt={alt} className={styles.signatureImage} />
+        ) : (
+          <span className={styles.signaturePaperEmpty}>Preview not available.</span>
+        )}
+        <span className={styles.signaturePaperLine} aria-hidden="true" />
+      </div>
+      <div className={styles.signatureCardFooter}>
+        <span className={styles.signatureStatus}>Signed</span>
+        {children ? <span className={styles.signatureActions}>{children}</span> : null}
+      </div>
     </div>
   );
 }
