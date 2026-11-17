@@ -7,7 +7,9 @@ import { field, repeatable } from './fixtures/diagnostic-conformance.js';
 
 afterEach(cleanup);
 
-it('keeps a valid sectionless form compact after successful submission', async () => {
+// The sidebar is always shown since the review of 2026-11-17 (it used to need sections or a
+// failed submit), so a sectionless form keeps it before and after a successful submission.
+it('keeps the form sidebar on a valid sectionless form after successful submission', async () => {
   const saved = vi.fn();
   render(
     <FormRenderer
@@ -17,10 +19,10 @@ it('keeps a valid sectionless form compact after successful submission', async (
       onSubmit={saved}
     />
   );
-  expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+  expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-  expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+  expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
 });
 
 for (const hidden of [false, true]) {
@@ -43,7 +45,8 @@ for (const hidden of [false, true]) {
         onSubmit={saved}
       />
     );
-    expect(screen.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+    // Always shown since the review of 2026-11-17, also without sections or errors.
+    expect(screen.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Submit', exact: true }));
     if (hidden) {
       fireEvent.click(await screen.findByRole('button', { name: 'Resolve hidden value' }));
@@ -74,7 +77,8 @@ it('keeps the row Validation panel after correcting its last required answer', a
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
   fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
   const editor = within(await screen.findByRole('dialog'));
-  expect(editor.queryByRole('navigation', { name: 'Form sidebar' })).toBeNull();
+  // Always shown since the review of 2026-11-17, also in a row without sections or errors.
+  expect(editor.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
   fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
   await editor.findAllByText('This field is required');
   fireEvent.change(editor.getByLabelText(/^product/), { target: { value: 'Apples' } });
@@ -83,11 +87,9 @@ it('keeps the row Validation panel after correcting its last required answer', a
   fireEvent.click(editor.getByRole('button', { name: 'Save', exact: true }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
-  expect(
-    within(await screen.findByRole('dialog')).queryByRole('navigation', {
-      name: 'Form sidebar',
-    })
-  ).toBeNull();
+  // A new row opens with the panel too (always shown since the review of 2026-11-17).
+  const nextEditor = within(await screen.findByRole('dialog'));
+  expect(nextEditor.getByRole('navigation', { name: 'Form sidebar' })).toBeTruthy();
 });
 
 for (const recovery of [false, true]) {

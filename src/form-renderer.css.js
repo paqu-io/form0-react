@@ -1123,3 +1123,25 @@ globalStyle(`${alertMessage} > input:focus`, {
   borderColor: vars.color.primary,
   boxShadow: control.focusRing,
 });
+
+// While content passes under the sticky header it shows a bottom edge.
+globalStyle(`${stickyHeader}[data-stuck="true"]`, {
+  boxShadow: '0 10px 12px -12px rgba(0, 0, 0, 0.45)',
+});
+for (const presentation of ['modal', 'spotlight']) {
+  const root = `${formRendererRoot}[data-form0-presentation="${presentation}"]`;
+  globalStyle(`${root} ${stickyHeader}[data-stuck="true"] ${headerSection}`, {
+    borderBottom: `1px solid ${vars.color.border}`,
+  });
+  // The host dialog's top padding sits above the header: cover it while stuck, so content
+  // does not show through above the header.
+  globalStyle(`${root} ${stickyHeader}[data-stuck="true"]::before`, {
+    top: '-1.5rem',
+    height: '1.5rem',
+  });
+}
+
+// Inside a repeatable entry the fields are direct children of the column: no extra gap on top
+// of each field's own spacing. Sections keep their distance through their margin.
+globalStyle(`${repeatableModalFormColumn}`, { gap: 0 });
+globalStyle(`${repeatableModalFormColumn} > ${repeatableModalSection}`, { marginBottom: '1rem' });

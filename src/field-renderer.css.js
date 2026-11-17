@@ -1201,7 +1201,25 @@ export const inputAdornment = style({
   lineHeight: 1,
 });
 
-globalStyle(`${inputAdorned}[data-adornment="calculated"] > ${input}`, { paddingRight: '6.5rem' });
+globalStyle(`${inputAdorned}[data-adornment="calculated"] > ${input}`, {
+  paddingLeft: '2rem',
+  paddingRight: '6.5rem',
+});
+
+// The "ƒ" before a calculated value.
+export const inputAdornmentLead = style({
+  position: 'absolute',
+  left: control.paddingX,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  pointerEvents: 'none',
+  color: derived.muted,
+  fontFamily: 'Georgia, "Times New Roman", serif',
+  fontStyle: 'italic',
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  lineHeight: 1,
+});
 globalStyle(`${inputAdorned}[data-adornment="locked"] > ${input}`, { paddingRight: '2.25rem' });
 
 // Building plan fields: where the field sits ("Room side") and where its value comes from.

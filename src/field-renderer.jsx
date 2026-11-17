@@ -332,6 +332,11 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     ) : adornment ? (
       <div className={styles.inputAdorned} data-adornment={adornment}>
         {fieldInput}
+        {adornment === 'calculated' ? (
+          <span className={styles.inputAdornmentLead} aria-hidden="true">
+            ƒ
+          </span>
+        ) : null}
         <span className={styles.inputAdornment} aria-hidden="true">
           {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
         </span>

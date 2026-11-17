@@ -11,7 +11,6 @@ import {
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
 import { createInstancePathLabeler } from './utils/submission-presentation.js';
 import { useSubmissionReview } from './use-submission-review.js';
-import { useValidationNavigation } from './use-validation-navigation.js';
 import { SubmissionReview, submissionMessages } from './submission-review.jsx';
 import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
@@ -90,6 +89,32 @@ const ModeBanner = ({ mode }) => {
 
 // The mode shown as a small pill beside the title. The full sentence stays available to
 // screen readers and to tests.
+// Marks the sticky header as stuck (data-stuck) once a sentinel placed just above it scrolls
+// out of view, so the header can show its bottom edge only while content passes under it.
+// Works for any scroll container, including a host dialog.
+function observeStickyHeader(sentinel) {
+  if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+  const header = sentinel.nextElementSibling;
+  if (!header) return;
+  const top = parseFloat(getComputedStyle(header).top) || 0;
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      // React 18 does not run ref cleanups: stop once the sentinel has left the document.
+      if (!sentinel.isConnected) {
+        observer.disconnect();
+        return;
+      }
+      const stuck =
+        !entry.isIntersecting && entry.boundingClientRect.top < entry.rootBounds?.bottom;
+      header.dataset.stuck = stuck ? 'true' : 'false';
+    },
+    { rootMargin: `-${Math.round(top) + 1}px 0px 0px 0px` }
+  );
+  observer.observe(sentinel);
+  // Disconnect when React detaches the node (React 19 runs the returned cleanup).
+  return () => observer.disconnect();
+}
+
 const ModePill = ({ mode }) => {
   const isViewMode = mode === 'readonly';
   return (
@@ -3026,7 +3051,6 @@ function FormRendererContent({
     activeDrilldownSectionInfo?.type,
     isRepeatableFirstPage,
   ]);
-  const hasNavigableSections = sectionTree.length > 0;
   const showRootValidationList = submitCount > 0 && rootValidationSummary?.hasErrors;
   const rootValidationIssues = useMemo(
     () =>
@@ -3058,12 +3082,10 @@ function FormRendererContent({
       buildingPlanPresentation,
     ]
   );
-  const keepRootValidationNavigation = useValidationNavigation(
-    submitCount,
-    rootValidationSummary?.hasErrors
-  );
-  const showNavigationPanel =
-    forceShowNavigationPanel || hasNavigableSections || keepRootValidationNavigation;
+  // Always shown (review of 2026-11-17): sections and the issues tab stay reachable, and the
+  // layout does not change when the first error appears. Before, it needed sections,
+  // forceShowNavigationPanel or a failed submit.
+  const showNavigationPanel = true;
 
   const activeRepeatableListContext = useMemo(() => {
     // Standard RepeatableSection first page
@@ -3968,12 +3990,16 @@ function FormRendererContent({
   const recordSummaryNode = renderRecordSummary();
   const stickyHeaderContent =
     formNameNode || recordSummaryNode ? (
-      <div className={styles.stickyHeader} role="region" aria-label="Form summary">
-        <div className={`${styles.headerSection} ${themeClass}`}>
-          {formNameNode}
-          {recordSummaryNode}
+      <>
+        {/* Leaves the scroll area when the header below sticks; see observeStickyHeader. */}
+        <div ref={observeStickyHeader} aria-hidden="true" style={{ height: 1, marginBottom: -1 }} />
+        <div className={styles.stickyHeader} role="region" aria-label="Form summary">
+          <div className={`${styles.headerSection} ${themeClass}`}>
+            {formNameNode}
+            {recordSummaryNode}
+          </div>
         </div>
-      </div>
+      </>
     ) : null;
   const headerAccessoryNode =
     typeof headerAccessory === 'function'
@@ -4682,7 +4708,7 @@ function FormRendererContent({
               }
               validationEnabled={submitCount > 0}
               onSelectValidationIssue={handleValidationIssueSelect}
-              forceRender={forceShowNavigationPanel}
+              forceRender
             />
           )}
           <div className={styles.formColumn}>
@@ -6242,13 +6268,8 @@ function RepeatableEntryModal({
   const modalStatusBadgeA11yProps = modalStatusLabel
     ? { role: 'img', 'aria-label': modalStatusLabel }
     : { 'aria-hidden': 'true' };
-  const hasModalNavigation = modalSectionTree && modalSectionTree.length > 0;
-  const keepEntryValidationNavigation = useValidationNavigation(
-    entrySubmitCount,
-    entryValidationSummary?.hasErrors
-  );
-  const showModalNavigationPanel =
-    forceShowNavigationPanel || hasModalNavigation || keepEntryValidationNavigation;
+  // Always shown, as on the root (see showNavigationPanel).
+  const showModalNavigationPanel = true;
 
   const modalLeftAction = nestedListActive
     ? {
@@ -6563,7 +6584,7 @@ function RepeatableEntryModal({
                     validationIssues={modalValidationIssues}
                     validationEnabled={entrySubmitCount > 0}
                     onSelectValidationIssue={handleModalValidationIssueSelect}
-                    forceRender={forceShowNavigationPanel}
+                    forceRender
                   />
                 </div>
               )}
