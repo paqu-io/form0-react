@@ -1,8 +1,17 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { ChevronRight, ChevronsRight } from 'lucide-react';
 import * as styles from './navigation-tree.css.js';
 import { getValidationPage, VALIDATION_PAGE_SIZE } from './utils/validation-pagination.js';
 
 const NAVIGATION_INDENT_STEP = 14;
+
+// Sections that open separately get a mark; inline sections get none.
+function sectionKind(node) {
+  // One chevron: opens separately. Two: opens separately and holds several entries.
+  if (node.type === 'RepeatableSection') return { Icon: ChevronsRight, text: 'repeatable section' };
+  if (node.display === 'drilldown') return { Icon: ChevronRight, text: 'opens separately' };
+  return null;
+}
 
 function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavigate, level = 0 }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -52,6 +61,7 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
   const indentValue = level > 0 ? level * NAVIGATION_INDENT_STEP : 0;
   const indentStyle = indentValue > 0 ? { paddingLeft: `${indentValue}px` } : undefined;
   const nestedId = `${node.id}-children`;
+  const kind = sectionKind(node);
 
   return (
     <li className={styles.navigationItem}>
@@ -83,8 +93,15 @@ function NavigationTreeNode({ node, highlightedSections, activeSectionId, onNavi
           tabIndex={0}
           aria-current={isActive ? 'true' : undefined}
           title={node.label || undefined}
+          // A description, not part of the name: the link is still found by its label alone.
+          aria-description={kind ? kind.text : undefined}
         >
-          {truncatedLabel}
+          <span className={styles.navigationLinkLabel}>{truncatedLabel}</span>
+          {kind && (
+            <span className={styles.navigationLinkKind} title={kind.text} aria-hidden="true">
+              <kind.Icon size={14} strokeWidth={2} />
+            </span>
+          )}
         </a>
       </div>
       {hasChildren && isExpanded && (

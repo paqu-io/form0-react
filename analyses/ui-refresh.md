@@ -48,6 +48,18 @@ Tracks the default-styling refresh for `form0-react` and `form0-react-native`
 | Error row | Always reserved under each control, so an error never shifts the layout. Field spacing is tightened to make up for it |
 | Yes/No fields | Two or three options (`third_option_enabled`); long labels wrap inside their option |
 | Header button size | 36px, like every control. The header stays 48px high, as before |
+| Navigation panel height | It has no box of its own: panel and form share one tinted surface, so the panel cannot look cut short |
+| Empty repeatable list | Keeps growing with its entries; while empty it shows a fixed-height dashed area |
+| Form name and record row | Two separate rows, as today. The record row (status colour, record title) is unchanged |
+| Coloured left edge | Kept on drill-down rows and expanded drill-down sections, same colour for plain and repeatable. Also kept in the navigation panel for the current section and its parents |
+| Section kind in the navigation panel | An icon after the name: one chevron for a section that opens separately, a double chevron for a repeatable one, none for inline |
+| Mode indicator | A small EDITING / VIEWING pill beside the title replaces the full-width strip (the strip stays in simplified mode) |
+| Title position | Centred in the form: both sides reserve the width of the wider button group, so the title does not move when a button appears on one side |
+| Accent edge shape | An inset, straight, rounded bar instead of a border that bends with the corners |
+| Modal and spotlight | The form draws no outer frame; the host dialog is the container (trial, to review) |
+| Tooltips | One themed library tooltip, to be done with the building plan (step 5). No shadcn or new dependency |
+| Web on phone browsers | Not a target: mobile is the React Native app |
+| Navigation tab size | 14px, same as the section links |
 | Nested sections | Flat: only the top section is a card. Every nested level keeps a filled, full-width header band showing the path to it ("Structure › Roof › Covering"). A long path keeps the two nearest parents and collapses the rest into "…" |
 | Separation between inline sections | Stronger: tinted form background, filled header band, wider gap |
 | Dialog buttons | The first button is the primary one; schema order is kept |
@@ -84,7 +96,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 |---|---|---|---|
 | 1 | Tokens and palette: neutral defaults, dark mode, derived state colours; remove hardcoded colours in field, form and navigation styles | form0-react | done |
 | 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | done |
-| 3 | Form shell: header, mode indicator, section bands and gaps, navigation panel, repeatable list | form0-react | todo |
+| 3 | Form shell: header, section bands and gaps, navigation panel, drill-down rows, repeatable list and modal | form0-react | committed, **to review** |
 | 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | todo |
 | 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs | form0-react | todo |
 | 6 | Steps 1 to 5 mirrored on mobile, with 48px controls and the "Sections" header button | form0-react-native | todo |
@@ -93,7 +105,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 
 | # | Step | Repo | Status |
 |---|---|---|---|
-| 7 | Nested sections shown flat | both | todo |
+| 7 | Nested sections shown flat, with the path in nested headers. Web done in step 3 | both | web **to test**, mobile todo |
 | 8 | Inherited values, variant 1 | both | todo |
 | 9 | Mobile keyboard: one mechanism, whole field above the keyboard, dynamic bottom space | form0-react-native | todo |
 | 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | todo |
@@ -261,3 +273,63 @@ rows and the repeatable modal set their own font size (the modal is portalled ou
 and showed 16px text), and View / Remove are 8px apart.
 
 To revert step 2: `git revert` its commit.
+
+### Step 2 commit
+
+`02f3325` feat(controls): consistent control sizes, states and spacing.
+
+### Step 3: form shell (2026-11-16 and 17, committed, to review)
+
+Files:
+
+- `src/form-renderer.css.js`:
+  - Body: the navigation panel and the form now sit on one tinted surface with a border. The
+    form inside it has no background or border of its own (it keeps them in simplified mode).
+  - Header: the title row is no longer a bordered box inside the header card; title 18px.
+    Action slots align with the card's padding.
+  - Sections: white cards with 16px padding and a filled header band; 16px between cards.
+  - Nested sections: flat. Only the outermost section is a card; deeper levels keep a
+    full-width band and lose no width. Done with selectors only, no markup change.
+  - Drill-down rows: white card rows without the thick coloured left edge. The count is a pill,
+    tinted when there are entries.
+  - Repeatable list: white card, quieter description, 8px between rows. The empty state is a
+    dashed, tinted area with a minimum height.
+  - Repeatable modal: same header and section treatment as the form; tinted body.
+- `src/navigation-tree.css.js`: no background or padding of its own, 200px wide; the current
+  section is a white pill, sections on the path to it are darker text; hover and focus states;
+  tabs aligned left with a pill-shaped count.
+- `src/field-renderer.css.js`: field padding depends on label position. With the label on
+  top the wrapper was `display: block`, which dropped the gap between label and control; it is
+  now a flex column like the side layout, with more room above and below.
+
+After discussion (2026-11-17), still in this uncommitted step:
+
+- The accent left edge is back on drill-down rows and expanded drill-down sections (4px), and
+  in the navigation panel on the current section and its parents.
+- Navigation tabs are 14px.
+- Shortcut hints are hidden below 640px wide, where the header has no room for them.
+- Markup changes, none of which touch values, validation or the engine:
+  - `src/navigation-tree.jsx`: an icon after the name of sections that open separately. The
+    link's accessible name is unchanged; the kind is exposed as its description.
+  - `src/form-renderer.jsx`: `ModePill` beside the title in the form header and in the
+    repeatable modal header. It still contains the sentence "You are in Edit mode" / "You are
+    in View mode" for screen readers and tests. The old strip (`ModeBanner`) is now used only
+    in simplified mode.
+  - `src/form-renderer.jsx`: nested section headers show their parents (`SectionHeading`,
+    `inlineSectionTrail`). The path stops at the nearest drill-down ancestor, since that is a
+    page of its own. Repeatable entries pass the labels down through a new
+    `parentSectionLabels` prop of the internal `RepeatableEntryForm`.
+
+Not changed in this step: the wording of the "Navigation" and "Validation" tabs and the
+record summary row.
+
+Second round (2026-11-17): pill wording EDITING / VIEWING; title centred in the form; double
+chevron for repeatable sections in the navigation; accent edges drawn as inset bars; in modal
+and spotlight placement the header and body lose their border, radius and tint (the form root
+now carries `data-form0-presentation`, which the styles use).
+
+Checked with screenshots (light, dark, phone width with top labels, nested sections, empty
+repeatable list, repeatable modal, building plan root) and the sideways-scroll check. Tests
+against the local core: 259 of 266, the same failures as before.
+
+To revert step 3: `git revert` its commit.

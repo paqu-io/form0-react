@@ -70,28 +70,69 @@ export const formNameContainer = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: vars.spacing.sm,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.borderRadius,
-  background: vars.color.section,
+  minHeight: control.height,
   marginBottom: vars.spacing.md,
-  minHeight: '3rem',
 });
 
 export const formNameTitle = style({
-  fontSize: '1.3rem',
-  fontWeight: 600,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  fontSize: '1.125rem',
+  fontWeight: 650,
   lineHeight: vars.lineHeight.tight,
   color: vars.color.foreground,
-  wordWrap: 'break-word',
-  textAlign: 'center',
   paddingLeft: `var(--form-name-title-padding-left, calc(${vars.spacing.lg} * 2))`,
   paddingRight: `var(--form-name-title-padding-right, calc(${vars.spacing.lg} * 2))`,
   width: '100%',
-  boxSizing: 'border-box',
+  minWidth: 0,
+});
+
+export const formNameTitleText = style({
+  minWidth: 0,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+});
+
+// Edit or View mode, shown beside the title. Uses the banner colours of the theme.
+export const modePill = style({
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '0.1875rem 0.5rem',
+  borderRadius: '999px',
+  fontSize: '0.6875rem',
+  fontWeight: 600,
+  lineHeight: 1.2,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
+  selectors: {
+    '&[data-mode="edit"]': {
+      background: vars.color.bannerEditBg,
+      color: vars.color.bannerEditFg,
+      boxShadow: `inset 0 0 0 1px ${vars.color.bannerEditBorder}`,
+    },
+    '&[data-mode="readonly"]': {
+      background: vars.color.bannerViewBg,
+      color: vars.color.bannerViewFg,
+      boxShadow: `inset 0 0 0 1px ${vars.color.bannerViewBorder}`,
+    },
+  },
+});
+
+export const srOnly = style({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 });
 
 export const formNameActionSlot = style({
@@ -103,11 +144,11 @@ export const formNameActionSlot = style({
 });
 
 export const formNameActionSlotLeft = style({
-  left: vars.spacing.md,
+  left: 0,
 });
 
 export const formNameActionSlotRight = style({
-  right: vars.spacing.md,
+  right: 0,
   justifyContent: 'flex-end',
 });
 
@@ -189,6 +230,12 @@ export const shortcutBadge = style({
   fontSize: '0.66rem',
   fontWeight: 500,
   lineHeight: 1,
+  // Narrow screens have no room for the hints, and usually no keyboard.
+  '@media': {
+    '(max-width: 640px)': {
+      display: 'none',
+    },
+  },
 });
 
 export const formNameActionIcon = style({
@@ -241,19 +288,26 @@ export const headerAccessory = style({
   flexShrink: 0,
 });
 
+// The body is one tinted surface shared by the navigation panel and the form, so the panel
+// never reads as a box that stops short of the form's height.
 export const bodySection = style({
   display: 'flex',
-  gap: 'none',
+  gap: '1rem',
   width: '100%',
   alignItems: 'flex-start',
   minHeight: 0,
+  padding: '1rem',
+  background: derived.fill,
+  border: `1px solid ${vars.color.border}`,
+  borderTop: 'none',
+  borderRadius: `0 0 ${vars.borderRadius} ${vars.borderRadius}`,
 });
 
 export const formColumn = style({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.md,
+  gap: '1rem',
   minWidth: 0,
 });
 
@@ -319,8 +373,9 @@ export const section = style({
   background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.sm,
-  marginBottom: vars.spacing.sm,
+  // Less at the bottom: the last field's reserved error row already leaves space there.
+  padding: '1rem 1rem 0.5rem',
+  marginBottom: '1rem',
   width: '100%',
 });
 
@@ -331,6 +386,7 @@ export const recordMetadataSection = style([
   },
 ]);
 
+// A filled band across the top of the section card.
 export const sectionHeader = style({
   color: vars.color.sectionHeader,
   fontSize: vars.fontSize.section,
@@ -338,28 +394,40 @@ export const sectionHeader = style({
   lineHeight: vars.lineHeight.tight,
   display: 'flex',
   alignItems: 'center',
-  minHeight: '2.75rem',
-  marginBottom: vars.spacing.sm,
-  padding: vars.spacing.sm,
-  background: derived.fill,
-  marginLeft: `calc(-1 * ${vars.spacing.sm})`,
-  marginRight: `calc(-1 * ${vars.spacing.sm})`,
-  marginTop: `calc(-1 * ${vars.spacing.sm})`,
+  margin: '-1rem -1rem 0.75rem',
+  padding: '0.6875rem 1rem',
+  background: derived.fillHover,
+  borderBottom: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: `calc(${vars.borderRadius} - 1px) calc(${vars.borderRadius} - 1px) 0 0`,
 });
 
+// The accent bar marks a section that opens separately (drill-down or repeatable). It is an
+// inset bar, not a border, so it stays straight instead of bending with the corners.
 export const drilldownInactive = style({
-  background: vars.color.section,
+  position: 'relative',
+  background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
-  borderLeft: `5px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.sm,
-  marginBottom: vars.spacing.sm,
+  padding: '0.5rem 0.5rem 0.5rem 1.25rem',
+  marginBottom: '1rem',
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: vars.spacing.sm,
+  gap: '0.75rem',
   width: '100%',
+  selectors: {
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: '0.375rem',
+      top: '0.5rem',
+      bottom: '0.5rem',
+      width: '4px',
+      borderRadius: '2px',
+      background: vars.color.primary,
+    },
+  },
 });
 
 export const drilldownInfo = style({
@@ -371,14 +439,13 @@ export const drilldownInfo = style({
 });
 
 const repeatableCountPillBase = {
-  padding: '2px 10px',
-  borderRadius: '0.375rem',
+  padding: '0.125rem 0.5rem',
+  borderRadius: '999px',
   fontSize: '0.7rem',
   fontWeight: 600,
-  color: vars.color.background,
   lineHeight: 1.4,
   flexShrink: 0,
-  marginRight: vars.spacing.lg,
+  marginRight: '0.25rem',
 };
 
 export const repeatableCountPill = style({
@@ -386,20 +453,21 @@ export const repeatableCountPill = style({
 });
 
 export const repeatableCountPillEmpty = style({
-  background: derived.muted,
+  background: derived.fillPress,
+  color: derived.muted,
 });
 
 export const repeatableCountPillFilled = style({
-  background: vars.color.primary,
+  background: derived.primarySoft,
+  color: vars.color.primary,
 });
 
 export const drilldownActive = style({
-  background: vars.color.section,
+  background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
-  borderLeft: `5px solid ${vars.color.primary}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.sm,
-  marginBottom: vars.spacing.sm,
+  padding: '1rem',
+  marginBottom: '1rem',
   width: '100%',
 });
 
@@ -434,8 +502,8 @@ export const button = style({
 
 export const drilldownLabel = style({
   flex: 1,
-  fontSize: '1rem',
-  fontWeight: 600,
+  fontSize: vars.fontSize.section,
+  fontWeight: 700,
   color: vars.color.sectionHeader,
   minWidth: 0,
   wordBreak: 'break-word',
@@ -485,11 +553,11 @@ export const simplifiedButtonDisabled = style({
 
 // Repeatable section styles
 export const repeatableList = style({
-  background: vars.color.section,
+  background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.md,
-  marginBottom: vars.spacing.md,
+  padding: '1rem',
+  marginBottom: '1rem',
   transition: 'transform 0.2s ease, opacity 0.2s ease',
 });
 
@@ -500,9 +568,9 @@ export const repeatableListBlurred = style({
 export const repeatableListHeader = style({
   display: 'flex',
   justifyContent: 'space-between',
-  gap: vars.spacing.sm,
+  gap: '0.75rem',
   alignItems: 'center',
-  marginBottom: vars.spacing.sm,
+  marginBottom: '0.75rem',
 });
 
 export const repeatableListHeaderText = style({
@@ -514,16 +582,15 @@ export const repeatableListHeaderText = style({
 
 export const repeatableListTitle = style({
   margin: 0,
-  fontSize: '1.1rem',
-  fontWeight: 600,
+  fontSize: vars.fontSize.section,
+  fontWeight: 700,
   color: vars.color.sectionHeader,
 });
 
 export const repeatableListDescription = style({
   margin: 0,
-  fontSize: vars.fontSize.base,
-  color: vars.color.foreground,
-  opacity: 0.75,
+  fontSize: '0.8125rem',
+  color: derived.muted,
 });
 
 // A secondary action: the primary colour is kept for Submit and Save.
@@ -550,15 +617,15 @@ export const repeatableAddButton = style([
 export const repeatableEntryList = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
+  gap: '0.5rem',
 });
 
 export const repeatableEntryRow = style({
   display: 'flex',
   justifyContent: 'space-between',
-  gap: vars.spacing.sm,
+  gap: '0.75rem',
   alignItems: 'center',
-  padding: vars.spacing.sm,
+  padding: '0.5rem 0.5rem 0.5rem 0.875rem',
   borderRadius: vars.borderRadius,
   border: `1px solid ${vars.color.sectionBorder}`,
   background: vars.color.background,
@@ -596,16 +663,20 @@ export const repeatableDangerButton = style({
   },
 });
 
+// Grows with the list once entries exist; while empty it holds a clear, fixed-height place.
 export const repeatableEmptyState = style({
-  border: `1px dashed ${vars.color.sectionBorder}`,
+  border: `1px dashed ${derived.borderStrong}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.lg,
+  background: derived.fill,
+  padding: '1.5rem 1rem',
+  minHeight: '7rem',
   textAlign: 'center',
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.sm,
-  color: vars.color.foreground,
-  opacity: 0.8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.75rem',
+  color: derived.muted,
   fontSize: vars.fontSize.base,
 });
 
@@ -654,12 +725,8 @@ export const repeatableModalHeaderTopRow = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: vars.spacing.sm,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.borderRadius,
-  background: vars.color.section,
   marginBottom: vars.spacing.md,
-  minHeight: '3rem',
+  minHeight: control.height,
 });
 
 export const repeatableModalHeaderSlot = style({
@@ -675,21 +742,27 @@ export const repeatableModalHeaderSlotRight = style({
 
 export const repeatableModalTitle = style({
   flex: 1,
-  textAlign: 'center',
-  fontSize: '1.1rem',
-  fontWeight: 600,
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  fontSize: '1.125rem',
+  fontWeight: 650,
   color: vars.color.sectionHeader,
 });
 
 export const repeatableModalBody = style({
-  padding: vars.spacing.md,
+  padding: '1rem',
+  background: derived.fill,
+  borderRadius: `0 0 ${vars.borderRadius} ${vars.borderRadius}`,
   overflowY: 'auto',
   flex: 1,
   minHeight: 0,
   maxHeight: 'calc(97vh - 120px)',
   display: 'flex',
   flexDirection: 'column',
-  gap: vars.spacing.md,
+  gap: '1rem',
 });
 
 export const repeatableModalSummaryRow = style({
@@ -704,7 +777,7 @@ export const repeatableModalSummaryCard = style({
 
 export const repeatableModalContent = style({
   display: 'flex',
-  gap: vars.spacing.md,
+  gap: '1rem',
   flex: 1,
   minHeight: 0,
   width: '100%',
@@ -712,7 +785,7 @@ export const repeatableModalContent = style({
 });
 
 export const repeatableModalNavigation = style({
-  width: '220px',
+  width: '200px',
   flexShrink: 0,
   '@media': {
     '(max-width: 768px)': {
@@ -726,13 +799,15 @@ export const repeatableModalFormColumn = style({
   minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
+  // Fields are direct children here, so this gap is added to every field's own spacing.
   gap: vars.spacing.md,
 });
 
 export const repeatableModalSection = style({
+  background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
   borderRadius: vars.borderRadius,
-  padding: vars.spacing.sm,
+  padding: '1rem',
   display: 'flex',
   flexDirection: 'column',
   gap: vars.spacing.sm,
@@ -744,9 +819,13 @@ export const repeatableModalSectionHighlighted = style({
 });
 
 export const repeatableModalSectionTitle = style({
-  margin: 0,
-  fontSize: '0.95rem',
-  fontWeight: 600,
+  margin: '-1rem -1rem 0.5rem',
+  padding: '0.6875rem 1rem',
+  background: derived.fillHover,
+  borderBottom: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: `calc(${vars.borderRadius} - 1px) calc(${vars.borderRadius} - 1px) 0 0`,
+  fontSize: vars.fontSize.section,
+  fontWeight: 700,
   color: vars.color.sectionHeader,
 });
 
@@ -881,3 +960,91 @@ globalStyle(
     .join(', '),
   { boxSizing: 'border-box' }
 );
+
+// Inside the body the form sits on the shared tinted surface; on its own (simplified mode) it
+// keeps its own background and border.
+globalStyle(`${bodySection} ${form}`, {
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 0,
+  padding: 0,
+});
+
+// Nested sections are flat: only the outermost section is a card. Deeper levels keep a
+// full-width header band and lose no width.
+globalStyle(`${section} ${section}`, {
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 0,
+  padding: 0,
+  margin: '0.75rem 0 0',
+});
+globalStyle(`${section} ${section} > ${sectionHeader}`, {
+  margin: '0 -1rem 0.75rem',
+  padding: '0.5rem 1rem',
+  background: derived.fill,
+  borderTop: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: 0,
+  fontSize: vars.fontSize.base,
+});
+
+// The parents of a nested section, shown before its own name ("Structure › Roof").
+export const sectionHeaderPath = style({
+  marginRight: '0.375rem',
+  fontWeight: 500,
+  color: derived.muted,
+  whiteSpace: 'nowrap',
+});
+
+// Nested sections inside a repeatable entry are flat too.
+globalStyle(`${repeatableModalSection} ${repeatableModalSection}`, {
+  background: 'transparent',
+  border: 'none',
+  borderRadius: 0,
+  padding: 0,
+  marginTop: '0.5rem',
+});
+globalStyle(
+  `${repeatableModalSection} ${repeatableModalSection} > ${repeatableModalSectionTitle}`,
+  {
+    margin: '0 -1rem 0.5rem',
+    padding: '0.5rem 1rem',
+    background: derived.fill,
+    borderTop: `1px solid ${vars.color.sectionBorder}`,
+    borderRadius: 0,
+    fontSize: vars.fontSize.base,
+  }
+);
+
+// An expanded drill-down section carries the accent bar in its header band.
+globalStyle(`${drilldownActive} > ${sectionHeader}`, {
+  position: 'relative',
+  paddingLeft: '1.25rem',
+});
+globalStyle(`${drilldownActive} > ${sectionHeader}::before`, {
+  content: '""',
+  position: 'absolute',
+  left: '0.375rem',
+  top: '0.5rem',
+  bottom: '0.5rem',
+  width: '4px',
+  borderRadius: '2px',
+  background: vars.color.primary,
+});
+
+// In a host dialog (modal, spotlight) the form draws no frame of its own: the dialog is the
+// container. Header and body sit flush; section cards keep their borders.
+for (const presentation of ['modal', 'spotlight']) {
+  const root = `${formRendererRoot}[data-form0-presentation="${presentation}"]`;
+  globalStyle(`${root} ${headerSection}`, {
+    border: 'none',
+    borderRadius: 0,
+    padding: `0 0 ${vars.spacing.md}`,
+  });
+  globalStyle(`${root} ${bodySection}`, {
+    border: 'none',
+    borderRadius: 0,
+    background: 'transparent',
+    padding: `${vars.spacing.md} 0 0`,
+  });
+}

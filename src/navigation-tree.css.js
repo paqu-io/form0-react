@@ -6,15 +6,16 @@ import { derived } from './theme-derived.css.js';
 export const navigationContainer = style({
   position: 'sticky',
   top: 'var(--form0-sticky-top-offset, 0px)',
-  width: '220px',
+  width: '200px',
+  flexShrink: 0,
   maxHeight: 'calc(100vh - var(--form0-sticky-top-offset, 0px))',
   overflowY: 'auto',
   overflowX: 'hidden',
   boxSizing: 'border-box',
   minWidth: 0,
-  borderRight: 'none',
-  background: vars.color.background,
-  padding: vars.spacing.sm,
+  // No box of its own: it sits on the body's tinted surface.
+  background: 'transparent',
+  padding: 0,
   fontFamily: vars.fontFamily.base,
   '@media': {
     '(max-width: 768px)': {
@@ -47,8 +48,13 @@ export const navigationItem = style({
 });
 
 export const navigationLink = style({
-  display: 'block',
-  padding: `${vars.spacing.xs} ${vars.spacing.sm}`,
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.375rem',
+  position: 'relative',
+  padding: '0.375rem 0.5rem 0.375rem 0.875rem',
   fontSize: '0.875rem',
   fontWeight: 500,
   lineHeight: vars.lineHeight.tight,
@@ -56,24 +62,72 @@ export const navigationLink = style({
   textDecoration: 'none',
   cursor: 'pointer',
   borderRadius: vars.borderRadius,
-  transition: 'background 0.15s ease',
+  transition: 'background 0.12s ease, color 0.12s ease',
   selectors: {
     '&:hover': {
-      background: vars.color.section,
+      background: derived.fillPress,
       color: vars.color.foreground,
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '1px',
+    },
+    // Inset accent bar, shown on the current section and its parents.
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: '0.25rem',
+      top: '0.375rem',
+      bottom: '0.375rem',
+      width: '3px',
+      borderRadius: '2px',
+      background: 'transparent',
     },
   },
 });
 
-export const navigationLinkHighlight = style({
-  background: vars.color.section,
-  borderLeft: `4px solid ${vars.color.primary}`,
+export const navigationLinkLabel = style({
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+// Marks a section that opens separately: drill-down, repeatable or building plan.
+export const navigationLinkKind = style({
+  flexShrink: 0,
+  display: 'inline-flex',
   color: derived.muted,
 });
 
+// On the path to the current section.
+// On the path to the current section.
+// On the path to the current section.
+export const navigationLinkHighlight = style({
+  color: vars.color.foreground,
+  selectors: {
+    '&::before': {
+      background: vars.color.primary,
+    },
+  },
+});
+
+// The current section.
+// The current section.
+// The current section.
 export const navigationLinkActive = style({
-  color: vars.color.primary,
-  borderLeft: `4px solid ${vars.color.primary}`,
+  background: vars.color.background,
+  color: vars.color.foreground,
+  fontWeight: 650,
+  selectors: {
+    '&:hover': {
+      background: vars.color.background,
+    },
+    '&::before': {
+      background: vars.color.primary,
+    },
+  },
 });
 
 export const navigationNested = style({
@@ -104,9 +158,7 @@ export const navigationToggle = style({
       outline: 'none',
     },
     '&:hover': {
-      background: vars.color.primary,
-      color: vars.color.buttonFg,
-      borderColor: vars.color.primary,
+      background: derived.fillPress,
     },
     '&:focus-visible': {
       outline: `2px solid ${vars.color.primary}`,
@@ -155,19 +207,19 @@ export const visuallyHidden = style({
 
 export const navigationTabs = style({
   display: 'flex',
-  gap: vars.spacing.xl,
-  marginBottom: vars.spacing.md,
+  gap: '1rem',
+  marginBottom: '0.75rem',
   borderBottom: `1px solid ${vars.color.border}`,
-  justifyContent: 'center',
 });
 
 export const navigationTabButton = style({
   appearance: 'none',
   background: 'none',
   border: 'none',
-  padding: `${vars.spacing.xs} 0`,
+  padding: '0.375rem 0',
+  fontFamily: vars.fontFamily.base,
   fontWeight: 600,
-  fontSize: '0.9rem',
+  fontSize: '0.875rem',
   color: derived.muted,
   cursor: 'pointer',
   position: 'relative',
@@ -181,15 +233,11 @@ export const navigationTabButton = style({
       outline: 'none',
     },
     '&:focus-visible': {
-      outline: 'none',
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: '2px',
     },
     '&:hover:not(:disabled)': {
-      color: derived.muted,
-      background: derived.fill,
-    },
-    '&:hover:not(:disabled)[data-active="true"]': {
-      color: vars.color.primary,
-      background: derived.primarySoft,
+      color: vars.color.foreground,
     },
     '&:disabled': {
       cursor: 'not-allowed',
@@ -210,9 +258,6 @@ export const navigationTabButtonActive = style({
       height: '2px',
       background: vars.color.primary,
     },
-    '&:hover:not(:disabled)': {
-      color: vars.color.primary,
-    },
   },
 });
 
@@ -222,9 +267,9 @@ export const navigationTabBadge = style({
   justifyContent: 'center',
   marginLeft: vars.spacing.xs,
   fontSize: '0.7rem',
-  minWidth: '1.5rem',
-  padding: '0 0.3rem',
-  borderRadius: vars.borderRadius,
+  minWidth: '1.25rem',
+  padding: '0.0625rem 0.3rem',
+  borderRadius: '999px',
   background: derived.primarySoft,
   color: vars.color.primary,
 });

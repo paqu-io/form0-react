@@ -5,8 +5,8 @@ import { derived, control } from './theme-derived.css.js';
 
 export const fieldWrapper = style({
   // The error row below each control is always reserved, so it also spaces the fields.
-  paddingTop: '0.375rem',
-  paddingBottom: '0.375rem',
+  paddingTop: '0.125rem',
+  paddingBottom: '0.125rem',
   width: '100%',
   minWidth: 0,
   display: 'flex',
@@ -116,9 +116,11 @@ export const error = style({
   display: 'block',
 });
 
+// Label above the control: the wrapper stays a flex column (so the label, control and error
+// keep their gap) and gets more room above and below than the side layout needs.
 export const labelTop = style({
-  // Default: label above input
-  display: 'block',
+  paddingTop: '0.375rem',
+  paddingBottom: '0.375rem',
 });
 
 export const labelSide = style({

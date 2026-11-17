@@ -88,6 +88,39 @@ const ModeBanner = ({ mode }) => {
   );
 };
 
+// The mode shown as a small pill beside the title. The full sentence stays available to
+// screen readers and to tests.
+const ModePill = ({ mode }) => {
+  const isViewMode = mode === 'readonly';
+  return (
+    <span
+      className={styles.modePill}
+      data-mode={isViewMode ? 'readonly' : 'edit'}
+      role="status"
+      aria-live="polite"
+    >
+      <span className={styles.srOnly}>
+        {isViewMode ? 'You are in View mode' : 'You are in Edit mode'}
+      </span>
+      <span aria-hidden="true">{isViewMode ? 'Viewing' : 'Editing'}</span>
+    </span>
+  );
+};
+
+// A nested section's header: its parents first, then its own label. Long paths keep the two
+// nearest parents.
+const SectionHeading = ({ trail = [], children }) => (
+  <>
+    {trail.length > 0 && (
+      <span className={styles.sectionHeaderPath}>
+        {trail.length > 2 ? '… › ' : ''}
+        {trail.slice(-2).join(' › ')} ›
+      </span>
+    )}
+    <span>{children}</span>
+  </>
+);
+
 const cloneDeepSafe = (value) => {
   if (value == null) return value;
   if (typeof structuredClone === 'function') {
@@ -1050,6 +1083,18 @@ function buildSectionHierarchy(elements = [], resolveRepeatableKey, isVisible = 
 
   const sectionTree = traverse(elements);
   return { sectionTree, sectionMetadata: metadata, fieldToSectionPath: fieldPathMap };
+}
+
+// Labels of the inline sections that visibly enclose a section, outermost first. Stops at the
+// nearest drill-down ancestor, because that one is a page of its own, not an enclosing card.
+function inlineSectionTrail(parentSectionPath = [], sectionMetadata = {}) {
+  const trail = [];
+  for (let index = parentSectionPath.length - 1; index >= 0; index -= 1) {
+    const info = sectionMetadata[parentSectionPath[index]];
+    if (!info || info.type !== 'Section' || info.display === 'drilldown') break;
+    trail.unshift(info.label);
+  }
+  return trail;
 }
 
 function buildNavigationNodes(nodes = []) {
@@ -3688,8 +3733,11 @@ function FormRendererContent({
     }
 
     const { leftAction, rightAction } = headerActions;
-    const paddingLeft = Math.max(actionPadding.left + 12, MIN_TITLE_PADDING_PX);
-    const paddingRight = Math.max(actionPadding.right + 12, MIN_TITLE_PADDING_PX);
+    // Reserve the wider side on both sides, so the title is centred in the form and does not
+    // move when a button appears on one side only.
+    const widestSide = Math.max(actionPadding.left, actionPadding.right);
+    const paddingLeft = Math.max(widestSide + 12, MIN_TITLE_PADDING_PX);
+    const paddingRight = paddingLeft;
     const titlePaddingStyle = {
       '--form-name-title-padding-left': `${paddingLeft}px`,
       '--form-name-title-padding-right': `${paddingRight}px`,
@@ -3754,7 +3802,8 @@ function FormRendererContent({
           aria-label={formName}
           style={titlePaddingStyle}
         >
-          {formName}
+          <span className={styles.formNameTitleText}>{formName}</span>
+          <ModePill mode={interactionMode} />
         </div>
         {renderActionButtons(
           [headerActions.secondaryRightAction, rightAction],
@@ -3763,7 +3812,7 @@ function FormRendererContent({
         )}
       </div>
     );
-  }, [actionPadding, headerActions, schemaForRender]);
+  }, [actionPadding, headerActions, schemaForRender, interactionMode]);
 
   const renderRecordSummary = useCallback(() => {
     if (!recordTitleDisplay && !recordStatusInfo) {
@@ -4502,7 +4551,9 @@ function FormRendererContent({
             tabIndex={-1}
           >
             <h3 className={styles.sectionHeader}>
-              <BuildingPlanFieldLabel field={field} />
+              <SectionHeading trail={inlineSectionTrail(parentSectionPath, sectionMetadata)}>
+                <BuildingPlanFieldLabel field={field} />
+              </SectionHeading>
             </h3>
             {renderElements(
               field.elements || [],
@@ -4552,6 +4603,7 @@ function FormRendererContent({
       <div
         ref={formRendererRootRef}
         className={`${styles.formRendererRoot} ${themeClass}`}
+        data-form0-presentation={presentation}
         style={{ maxWidth: formWidth, width: '100%' }}
       >
         {rootEvents.issues?.length ? (
@@ -4567,7 +4619,6 @@ function FormRendererContent({
         {persistedFreshness?.status === 'pending' ? (
           <p role="status">{submissionOptions?.messages?.pending || submissionMessages.pending}</p>
         ) : null}
-        {modeBannerNode}
         {stickyHeaderContent}
         {headerAccessoryNode ? (
           <div className={styles.headerAccessory}>{headerAccessoryNode}</div>
@@ -6437,11 +6488,13 @@ function RepeatableEntryModal({
               {buildingPlanIssues.map((issue) => issue.message).join(' ')}
             </div>
           )}
-          <ModeBanner mode={isEntryReadOnly ? 'readonly' : 'edit'} />
           <div className={`${styles.repeatableModalHeader} ${styles.headerSection} ${themeClass}`}>
             <div className={styles.repeatableModalHeaderTopRow}>
               {renderHeaderActionButtons(modalLeftAction, 'left')}
-              <div className={styles.repeatableModalTitle}>{modalTitle}</div>
+              <div className={styles.repeatableModalTitle}>
+                <span className={styles.formNameTitleText}>{modalTitle}</span>
+                <ModePill mode={isEntryReadOnly ? 'readonly' : 'edit'} />
+              </div>
               {renderHeaderActionButtons([modalSecondaryRightAction, modalRightAction], 'right')}
             </div>
             {!nestedListActive && (
@@ -6688,6 +6741,7 @@ function RepeatableEntryForm({
   activateDrilldownSection = () => {},
   focusSection = () => {},
   parentSectionPath = [],
+  parentSectionLabels = [],
   submitCount = 0,
   registerFieldNode = () => {},
 }) {
@@ -6802,7 +6856,9 @@ function RepeatableEntryForm({
           >
             {field.label ? (
               <h4 className={styles.repeatableModalSectionTitle}>
-                <BuildingPlanFieldLabel field={field} />
+                <SectionHeading trail={parentSectionLabels}>
+                  <BuildingPlanFieldLabel field={field} />
+                </SectionHeading>
               </h4>
             ) : null}
             <RepeatableEntryForm
@@ -6830,6 +6886,9 @@ function RepeatableEntryForm({
               activateDrilldownSection={activateDrilldownSection}
               focusSection={focusSection}
               parentSectionPath={nextSectionPath}
+              parentSectionLabels={
+                field.label ? [...parentSectionLabels, field.label] : parentSectionLabels
+              }
               submitCount={submitCount}
               registerFieldNode={registerFieldNode}
             />
