@@ -606,3 +606,33 @@ imports `SignatureFieldComponent` directly).
 - Record row (title and status): to decide now that the sticky header is done. Preference so
   far: the status as a bar on the left; box or no box open.
 - Template signature override: none planned unless the mockup review asks for one.
+
+### Batch 4: follow-ups from testing (committed)
+
+- form0-react `d018f70`:
+  - `repeatableBackButton` restored. An earlier scripted style edit replaced the style before
+    it and removed it too (the build warning "import will always be undefined"). The other
+    style files were checked against the branch base: nothing else was lost.
+  - Date field: uncontrolled while typing (the browser reports intermediate years and an empty
+    value for incomplete segments; writing the last value back made digits disappear). Echoes
+    of typed values are ignored, external changes still replace the value. Checked: typing
+    "12252025" gives 2025-12-25.
+  - Navigation panel sticks below the sticky header (`--form0-sticky-header-height`, measured
+    with a ResizeObserver) instead of scrolling under it.
+  - Repeatable row dialog: 1.25rem padding and a frameless header, like the root form in a host
+    dialog.
+  - Time picker opens at the field's left edge, as the date picker does; "ƒ" lifted to the
+    value's centre line; the dropdown chevron is an SVG image (gradient triangles turned into a
+    thin line under browser zoom).
+- form0-react-native `b2bbc88`: a separator typed right after a complete group ("11" then ":")
+  is kept (unit test added).
+- Web template `b3c6e7d`: the Vite starter's `a` and `button` rules removed from `index.css`
+  (8px radius, padding and a #646cff hover border on every button that did not set them: the
+  Home page hover, the Yes/No segments and the picker buttons).
+- Separators ("-", ":") while typing are mobile only, by design: on web the date field is the
+  browser's segmented date input, and the time field keeps its tested text behaviour.
+
+### Next (new chat)
+
+Signature (mockup approved; no template override for now), record row (status bar on the left,
+box or no box), and mobile testing on devices (checklist under Manual testing).
