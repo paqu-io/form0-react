@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Clock } from 'lucide-react';
 import * as styles from '../field-renderer.css.js';
+import { formatMaskedEntry } from '../utils/masked-entry.js';
 
 const timeText = (value) => (typeof value === 'string' ? value : '');
 const completeTime = (value) => (/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? `${value}:00` : value);
@@ -24,7 +25,8 @@ export function TimeFieldComponent({ value, onChange, onKeyDown, readOnly, input
 
   const handleChange = (event) => {
     if (typeof onChange !== 'function' || readOnly) return;
-    const nextText = event.target.value;
+    // ":" is added while digits are typed ("1430" shows "14:30"); see utils/masked-entry.js.
+    const nextText = formatMaskedEntry(text, event.target.value, 'time');
     setText(nextText);
     const nextValue = nextText === '' ? null : completeTime(nextText);
     if (nextValue !== value) pendingValues.current.push(nextValue);
@@ -57,7 +59,7 @@ export function TimeFieldComponent({ value, onChange, onKeyDown, readOnly, input
     <div className={styles.pickerControl}>
       <input
         type="text"
-        placeholder="HH:MM[:SS]"
+        placeholder="HH:MM"
         spellCheck={false}
         value={text}
         onChange={handleChange}

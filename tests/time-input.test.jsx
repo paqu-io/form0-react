@@ -83,3 +83,19 @@ it('does not let delayed worker echoes overwrite more recent keystrokes', () => 
   rerender(<Time value="1" {...props} />);
   expect(input.value).toBe('1');
 });
+
+it('adds ":" while digits are typed and pads a single-digit hour', () => {
+  const changed = vi.fn();
+  render(<Editor onChange={changed} />);
+  const input = screen.getByLabelText('Time');
+  const type = (text) => {
+    for (const ch of text) fireEvent.change(input, { target: { value: input.value + ch } });
+  };
+  type('1430');
+  expect(input.value).toBe('14:30');
+  expect(changed).toHaveBeenLastCalledWith('14:30:00');
+  fireEvent.change(input, { target: { value: '' } });
+  type('9:30');
+  expect(input.value).toBe('09:30');
+  expect(changed).toHaveBeenLastCalledWith('09:30:00');
+});
