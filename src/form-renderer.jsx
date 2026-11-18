@@ -37,6 +37,7 @@ import { isRemoveEntryDialogEvent } from './remove-entry-dialog.jsx';
 import { isDropdownEvent, isOpenDropdownEvent } from './field-components/choice-dropdown.jsx';
 import { ManagedAlertDialog } from './managed-alert-dialog.jsx';
 import * as styles from './form-renderer.css.js';
+import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
@@ -768,6 +769,23 @@ function buildFieldLookup(elements) {
 
   collect(elements);
   return { byKey, byDataName };
+}
+
+/**
+ * The canvas element a plan entry is about, to mark it: a wall by its face, a door or window by
+ * its face and opening, a column or beam by its own id. Objects are not drawn.
+ * @returns {{ collection: string, id: string } | null}
+ */
+function buildingPlanEntryHighlight(nodeKey, selected) {
+  const id = selected?.model?.id;
+  if (!id) return null;
+  if (nodeKey === 'walls') return { collection: 'walls', id };
+  if (nodeKey === 'doors' || nodeKey === 'face_doors')
+    return selected.faceId ? { collection: 'doors', id: `${selected.faceId}:${id}` } : null;
+  if (nodeKey === 'windows' || nodeKey === 'face_windows')
+    return selected.faceId ? { collection: 'windows', id: `${selected.faceId}:${id}` } : null;
+  if (nodeKey === 'columns' || nodeKey === 'beams') return { collection: nodeKey, id };
+  return null;
 }
 
 function buildTitleDatasetIndex(schema) {
@@ -4657,6 +4675,10 @@ function RepeatableSectionList({
   readOnly,
   overlayActive = false,
   variant = 'drilldown',
+  // Building plan lists: hovered rows mark their element on the canvas, and the element
+  // selected on the canvas marks its row.
+  onHighlightRow,
+  markedRowId = null,
 }) {
   const showInlineAddButton = variant !== 'drilldown';
   const showInlineBackButton = variant !== 'drilldown' && typeof onBack === 'function';
@@ -4703,6 +4725,8 @@ function RepeatableSectionList({
           readOnly={readOnly}
           onOpen={onEdit}
           onRemove={onRemove}
+          onHighlight={onHighlightRow}
+          markedId={markedRowId}
         />
       )}
     </div>
@@ -5074,7 +5098,10 @@ function RepeatableEntryModal({
     if (modal.buildingPlan) {
       const { editor, meta, path, scopeId } = modal.buildingPlan;
       const selected = editor.resolveRow(path);
-      if (!['floors', 'rooms'].includes(selected.node.nodeKey)) return null;
+      // Floors and rooms edit on their canvas; any other plan entry (a wall, a door, a column…)
+      // shows its room's canvas view only, with its own element marked.
+      const nodeKey = selected.node.nodeKey;
+      const editsPlan = nodeKey === 'floors' || nodeKey === 'rooms';
       const floorNode = meta.repeatablesByNodeKey.floors;
       const roomNode = meta.repeatablesByNodeKey.rooms;
       return {
@@ -5095,6 +5122,14 @@ function RepeatableEntryModal({
               row = row.repeatable[part.key][part.index];
               return { key: part.key, id: row.id };
             });
+            // Only this entry's own rows open from its canvas (not a wall of another room).
+            const ownsRow = path.every(
+              (part, index) =>
+                idPath[index] &&
+                idPath[index].key === (part.key || part.repeatableKey) &&
+                idPath[index].id === (part.id || part.instanceId)
+            );
+            if (!ownsRow) return;
             const local = idPath.slice(path.length);
             if (!local.length) return;
             const target = local.at(-1);
@@ -5122,9 +5157,11 @@ function RepeatableEntryModal({
         },
         scope: {
           floorId: selected.floorId,
-          roomId: selected.node.nodeKey === 'rooms' ? selected.model.id : null,
+          roomId: nodeKey === 'rooms' ? selected.model.id : selected.roomId || null,
         },
-        mode: selected.node.nodeKey === 'rooms' ? 'room-modal' : 'floor-modal',
+        mode: nodeKey === 'floors' ? 'floor-modal' : 'room-modal',
+        viewOnly: !editsPlan,
+        highlight: editsPlan ? null : buildingPlanEntryHighlight(nodeKey, selected),
         floorsKey: floorNode.preferredKey,
         roomsKey: roomNode.preferredKey,
         wallsKey: meta.repeatablesByNodeKey.walls.preferredKey,
@@ -5595,6 +5632,72 @@ function RepeatableEntryModal({
 
   const [activeNestedRepeatable, setActiveNestedRepeatable] = useState(null);
 
+  // A plan entry's list (a floor's Rooms, a room's Walls) and its canvas mark each other: the
+  // hovered or focused row marks its element, the element selected on the canvas its row.
+  const planListKey =
+    buildingPlanModalContext && modal.buildingPlan && activeNestedRepeatable
+      ? activeNestedRepeatable.repeatableKey
+      : null;
+  const [planRowHighlight, setPlanRowHighlight] = useState(null);
+  const [planMarkedRowId, setPlanMarkedRowId] = useState(null);
+  useEffect(() => {
+    setPlanRowHighlight(null);
+    setPlanMarkedRowId(null);
+  }, [planListKey]);
+  const highlightPlanRow = useCallback(
+    (rowId) => {
+      const context = modal.buildingPlan;
+      if (!rowId || !context || !planListKey) {
+        setPlanRowHighlight(null);
+        return;
+      }
+      try {
+        const selected = context.editor.resolveRow([
+          ...context.path,
+          { key: planListKey, id: rowId },
+        ]);
+        const nodeKey = selected.node.nodeKey;
+        setPlanRowHighlight(
+          nodeKey === 'rooms'
+            ? { collection: 'rooms', id: selected.model.id }
+            : buildingPlanEntryHighlight(nodeKey, selected)
+        );
+      } catch {
+        setPlanRowHighlight(null);
+      }
+    },
+    [modal.buildingPlan, planListKey]
+  );
+  const markPlanRow = useCallback(
+    (selection) => {
+      const context = modal.buildingPlan;
+      const indexPath = selection?.entry?.path;
+      if (!context || !planListKey || !Array.isArray(indexPath)) {
+        setPlanMarkedRowId(null);
+        return;
+      }
+      let row = context.editor.getRecord();
+      const idPath = [];
+      for (const part of indexPath) {
+        row = row?.repeatable?.[part.key]?.[part.index];
+        if (!row) {
+          setPlanMarkedRowId(null);
+          return;
+        }
+        idPath.push({ key: part.key, id: row.id });
+      }
+      const inEntry = context.path.every(
+        (part, index) =>
+          idPath[index]?.key === (part.key || part.repeatableKey) &&
+          idPath[index]?.id === (part.id || part.instanceId)
+      );
+      const own =
+        inEntry && idPath.length === context.path.length + 1 && idPath.at(-1).key === planListKey;
+      setPlanMarkedRowId(own ? idPath.at(-1).id : null);
+    },
+    [modal.buildingPlan, planListKey]
+  );
+
   useEffect(() => {
     setActiveNestedRepeatable(null);
   }, [modal.modalId]);
@@ -5712,6 +5815,8 @@ function RepeatableEntryModal({
     [modal.modalId]
   );
 
+  // A plan entry's form sits in a narrow column beside the canvas (plan-entry-layout).
+  const planEntryLabels = buildingPlanModalContext ? 'top' : null;
   const repeatableMetadataSection = useMemo(() => {
     if (modalActiveDrilldownPath.length > 0) {
       return null;
@@ -5728,7 +5833,8 @@ function RepeatableEntryModal({
           required={false}
           error={null}
           showError={false}
-          labelPosition={labelPosition}
+          // Plan entries put the form in a narrow column: labels go on top there.
+          labelPosition={planEntryLabels || labelPosition}
           labelWidthPercent={labelWidthPercent}
         />
       );
@@ -5746,6 +5852,7 @@ function RepeatableEntryModal({
   }, [
     entryTimestamps,
     labelPosition,
+    planEntryLabels,
     labelWidthPercent,
     modalActiveDrilldownPath.length,
     repeatableMetadataFields,
@@ -6309,7 +6416,9 @@ function RepeatableEntryModal({
         style={{ zIndex: 60 + (modal.stackIndex || 0) * 2 }}
       >
         <div
-          className={`${styles.repeatableModal} ${themeClass}`}
+          className={`${styles.repeatableModal} ${
+            buildingPlanModalContext ? planEntry.dialog : ''
+          } ${themeClass}`}
           style={repeatableModalStyle}
           role="dialog"
           aria-modal={isTopModal ? 'true' : undefined}
@@ -6340,8 +6449,16 @@ function RepeatableEntryModal({
               </div>
             )}
           </div>
-          <div className={styles.repeatableModalBody}>
-            <div className={styles.repeatableModalContent}>
+          <div
+            className={`${styles.repeatableModalBody} ${
+              buildingPlanModalContext ? planEntry.body : ''
+            }`}
+          >
+            <div
+              className={`${styles.repeatableModalContent} ${
+                buildingPlanModalContext ? planEntry.content : ''
+              }`}
+            >
               {showModalNavigationPanel && (
                 <div className={styles.repeatableModalNavigation}>
                   <NavigationTree
@@ -6353,6 +6470,33 @@ function RepeatableEntryModal({
                     validationEnabled={entrySubmitCount > 0}
                     onSelectValidationIssue={handleModalValidationIssueSelect}
                     forceRender
+                  />
+                </div>
+              )}
+              {buildingPlanModalContext && (
+                // Plan entries: the canvas between navigation and the form (plan-entry-layout).
+                <div className={planEntry.canvasColumn}>
+                  <BuildingPlanCanvasHost
+                    section={
+                      buildingPlanModalContext.section || {
+                        data_name:
+                          buildingPlanModalContext.metaEntry?.dataName ||
+                          buildingPlanModalContext.metaEntry?.key,
+                        label: modal.label || 'Building Plan',
+                        elements: [],
+                      }
+                    }
+                    buildingPlanMeta={modal.buildingPlanMeta}
+                    repeatableState={buildingPlanModalContext.repeatableState}
+                    repeatableApi={buildingPlanModalContext.repeatableApi}
+                    mode={buildingPlanModalContext.mode}
+                    scope={buildingPlanModalContext.scope}
+                    toolbarState={buildingPlanModalController?.toolbarState}
+                    readOnly={readOnly}
+                    derivedCommands={modal.buildingPlanDerivedCommands === true}
+                    viewOnly={buildingPlanModalContext.viewOnly === true}
+                    highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
+                    onSelectElement={planListKey ? markPlanRow : undefined}
                   />
                 </div>
               )}
@@ -6379,81 +6523,47 @@ function RepeatableEntryModal({
                     onAdd={triggerNestedAdd}
                     onEdit={triggerNestedEdit}
                     onRemove={triggerNestedRemove}
+                    onHighlightRow={planListKey ? highlightPlanRow : undefined}
+                    markedRowId={planListKey ? planMarkedRowId : null}
                   />
                 ) : (
                   <>
                     {repeatableMetadataSection}
                     {buildingPlanModalContext ? (
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-                          gap: '16px',
-                        }}
-                      >
-                        <div
-                          style={{
-                            background: 'var(--form0-color-surface, #f8f8f9)',
-                            border: '1px solid var(--form0-color-border-subtle, #e5e7eb)',
-                            borderRadius: '8px',
-                            padding: '8px',
+                      <div className={styles.repeatableModalPlanFormColumn}>
+                        <RepeatableEntryForm
+                          elements={modal.repInfo?.field?.elements || []}
+                          contextPath={[]}
+                          state={{
+                            values: entryValues,
+                            visible: entryVisible,
+                            required: entryRequired,
+                            read_only: entryReadOnlyState,
+                            errors: entryErrors,
                           }}
-                        >
-                          <BuildingPlanCanvasHost
-                            section={
-                              buildingPlanModalContext.section || {
-                                data_name:
-                                  buildingPlanModalContext.metaEntry?.dataName ||
-                                  buildingPlanModalContext.metaEntry?.key,
-                                label: modal.label || 'Building Plan',
-                                elements: [],
-                              }
-                            }
-                            buildingPlanMeta={modal.buildingPlanMeta}
-                            repeatableState={buildingPlanModalContext.repeatableState}
-                            repeatableApi={buildingPlanModalContext.repeatableApi}
-                            mode={buildingPlanModalContext.mode}
-                            scope={buildingPlanModalContext.scope}
-                            toolbarState={buildingPlanModalController?.toolbarState}
-                            readOnly={readOnly}
-                            derivedCommands={modal.buildingPlanDerivedCommands === true}
-                          />
-                        </div>
-                        <div className={styles.repeatableModalPlanFormColumn}>
-                          <RepeatableEntryForm
-                            elements={modal.repInfo?.field?.elements || []}
-                            contextPath={[]}
-                            state={{
-                              values: entryValues,
-                              visible: entryVisible,
-                              required: entryRequired,
-                              read_only: entryReadOnlyState,
-                              errors: entryErrors,
-                            }}
-                            setValue={setEntryValue}
-                            engineStore={entryEngineStore}
-                            engineStoreMode={entryEngineStoreMode}
-                            labelPosition={labelPosition}
-                            labelWidthPercent={labelWidthPercent}
-                            controller={entryController}
-                            onAddRepeatable={handleNestedAdd}
-                            onEditRepeatable={handleNestedEdit}
-                            onRemoveRepeatable={handleNestedRemove}
-                            resolveRepeatableKey={resolveRepeatableKey}
-                            readOnly={readOnly}
-                            onEnterRepeatable={handleEnterNestedRepeatable}
-                            registerSectionNode={registerModalSectionNode}
-                            onFieldFocus={handleModalFieldFocus}
-                            highlightedSections={modalHighlightedSections}
-                            submitCount={entrySubmitCount}
-                            registerFieldNode={registerModalFieldNode}
-                            sectionMetadata={modalSectionMetadata}
-                            activeDrilldownPath={modalActiveDrilldownPath}
-                            activeDrilldownSectionId={modalActiveDrilldownSectionId}
-                            activateDrilldownSection={setModalActiveDrilldownForSection}
-                            focusSection={focusModalSectionAfterNavigation}
-                          />
-                        </div>
+                          setValue={setEntryValue}
+                          engineStore={entryEngineStore}
+                          engineStoreMode={entryEngineStoreMode}
+                          labelPosition={planEntryLabels}
+                          labelWidthPercent={labelWidthPercent}
+                          controller={entryController}
+                          onAddRepeatable={handleNestedAdd}
+                          onEditRepeatable={handleNestedEdit}
+                          onRemoveRepeatable={handleNestedRemove}
+                          resolveRepeatableKey={resolveRepeatableKey}
+                          readOnly={readOnly}
+                          onEnterRepeatable={handleEnterNestedRepeatable}
+                          registerSectionNode={registerModalSectionNode}
+                          onFieldFocus={handleModalFieldFocus}
+                          highlightedSections={modalHighlightedSections}
+                          submitCount={entrySubmitCount}
+                          registerFieldNode={registerModalFieldNode}
+                          sectionMetadata={modalSectionMetadata}
+                          activeDrilldownPath={modalActiveDrilldownPath}
+                          activeDrilldownSectionId={modalActiveDrilldownSectionId}
+                          activateDrilldownSection={setModalActiveDrilldownForSection}
+                          focusSection={focusModalSectionAfterNavigation}
+                        />
                       </div>
                     ) : (
                       <RepeatableEntryForm

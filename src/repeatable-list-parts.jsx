@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronRight, List, Plus, Trash2 } from 'lucide-react';
 import * as styles from './form-renderer.css.js';
 import { RemoveEntryDialog } from './remove-entry-dialog.jsx';
@@ -13,9 +13,20 @@ import { RemoveEntryDialog } from './remove-entry-dialog.jsx';
  *   readOnly?: boolean,
  *   onOpen: (id: string) => void,
  *   onRemove?: (id: string) => void,
- * }} props
+ *   onHighlight?: (id: string | null) => void,
+ *   markedId?: string | null,
+ * }} props `onHighlight` reports the row under the pointer or keyboard focus (a building plan
+ *   marks its element); `markedId` marks a row from outside (the element selected on the plan).
  */
-export function RepeatableEntryRows({ entries, label, readOnly, onOpen, onRemove }) {
+export function RepeatableEntryRows({
+  entries,
+  label,
+  readOnly,
+  onOpen,
+  onRemove,
+  onHighlight,
+  markedId = null,
+}) {
   const [pending, setPending] = useState(null);
   // The trash button that asked, to give it the focus back when the removal is cancelled.
   const askedFrom = useRef(null);
@@ -32,6 +43,8 @@ export function RepeatableEntryRows({ entries, label, readOnly, onOpen, onRemove
         label={label}
         readOnly={readOnly}
         onOpen={onOpen}
+        onHighlight={onHighlight}
+        markedId={markedId}
         onRemove={
           typeof onRemove === 'function'
             ? (entry, trigger) => {
@@ -56,13 +69,33 @@ export function RepeatableEntryRows({ entries, label, readOnly, onOpen, onRemove
   );
 }
 
-function RemovableEntryList({ entries, label, readOnly, onOpen, onRemove }) {
+function RemovableEntryList({ entries, label, readOnly, onOpen, onRemove, onHighlight, markedId }) {
+  const listRef = useRef(null);
+  // A row marked from outside comes into view.
+  useEffect(() => {
+    if (markedId == null) return;
+    const row = listRef.current?.querySelector('[data-plan-marked="true"]');
+    row?.scrollIntoView?.({ block: 'nearest' });
+  }, [markedId]);
+  const highlight = typeof onHighlight === 'function' ? onHighlight : null;
   return (
     // Named after its section, so assistive technology announces which list this is.
-    <ul className={styles.repeatableEntryList} aria-label={label || undefined}>
+    <ul ref={listRef} className={styles.repeatableEntryList} aria-label={label || undefined}>
       {entries.map(({ id, title }, index) => (
-        <li key={id ?? index} className={styles.repeatableEntryRow}>
-          <button type="button" className={styles.repeatableEntryOpen} onClick={() => onOpen(id)}>
+        <li
+          key={id ?? index}
+          className={styles.repeatableEntryRow}
+          data-plan-marked={markedId != null && id === markedId ? 'true' : undefined}
+          onPointerEnter={highlight ? () => highlight(id) : undefined}
+          onPointerLeave={highlight ? () => highlight(null) : undefined}
+        >
+          <button
+            type="button"
+            className={styles.repeatableEntryOpen}
+            onClick={() => onOpen(id)}
+            onFocus={highlight ? () => highlight(id) : undefined}
+            onBlur={highlight ? () => highlight(null) : undefined}
+          >
             <span className={styles.repeatableEntryTitle}>{title}</span>
             <ChevronRight
               className={styles.repeatableEntryChevron}
