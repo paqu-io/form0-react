@@ -953,6 +953,15 @@ export const alertOverlay = style({
   zIndex: 12000,
   padding: '1.5rem',
   pointerEvents: 'auto',
+  transition: 'opacity 0.2s ease',
+  selectors: {
+    // A closed ALERT or MESSAGEBOX: the backdrop fades instead of vanishing, so a dialog that
+    // follows at once keeps it (managed-alert-dialog.jsx).
+    '&[data-closing="true"]': {
+      opacity: 0,
+      pointerEvents: 'none',
+    },
+  },
 });
 
 export const alertDialog = style({

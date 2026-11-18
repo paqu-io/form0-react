@@ -34,6 +34,7 @@ import { NavigationTree } from './navigation-tree';
 import { ThemeProvider } from './theme-context';
 import { useFocusTrap } from './use-focus-trap.js';
 import { isRemoveEntryDialogEvent } from './remove-entry-dialog.jsx';
+import { ManagedAlertDialog } from './managed-alert-dialog.jsx';
 import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
@@ -1556,6 +1557,14 @@ function FormRendererContent({
     activeAlert?.resolve?.({ cancelled: true });
     setActiveAlert(null);
   }, [activeAlert]);
+
+  const answerAlert = useCallback(
+    (button) => {
+      activeAlert?.resolve?.({ value: button.id, input: messageBoxInput });
+      setActiveAlert(null);
+    },
+    [activeAlert, messageBoxInput]
+  );
 
   const {
     values,
@@ -4054,63 +4063,17 @@ function FormRendererContent({
           {debug && <pre className={styles.debugPanel}>{debugText}</pre>}
         </form>
 
-        {activeAlert &&
-          blockingPortalTarget &&
-          createPortal(
-            <div
-              className={styles.alertOverlay}
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="form0-react-alert-title"
-              aria-describedby="form0-react-alert-message"
-            >
-              <div
-                className={`${styles.alertDialog} ${themeClass}`}
-                ref={alertDialogRef}
-                tabIndex={-1}
-              >
-                <button
-                  type="button"
-                  className={styles.alertCloseButton}
-                  aria-label="Close alert"
-                  onClick={closeAlert}
-                >
-                  ×
-                </button>
-                <h3 id="form0-react-alert-title" className={styles.alertTitle}>
-                  {activeAlert.title}
-                </h3>
-                <div id="form0-react-alert-message" className={styles.alertMessage}>
-                  {activeAlert.message || ''}
-                  {activeAlert.input && (
-                    <input
-                      aria-label={activeAlert.placeholder || 'Response'}
-                      placeholder={activeAlert.placeholder}
-                      value={messageBoxInput}
-                      onChange={(event) => setMessageBoxInput(event.target.value)}
-                    />
-                  )}
-                </div>
-                <div className={styles.alertFooter}>
-                  {(activeAlert.buttons || [{ id: 'OK', label: 'OK' }]).map((button, index) => (
-                    <button
-                      key={button.id}
-                      type="button"
-                      ref={index === 0 ? alertOkButtonRef : undefined}
-                      className={styles.alertOkButton}
-                      onClick={() => {
-                        activeAlert.resolve?.({ value: button.id, input: messageBoxInput });
-                        setActiveAlert(null);
-                      }}
-                    >
-                      {button.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>,
-            blockingPortalTarget
-          )}
+        <ManagedAlertDialog
+          alert={activeAlert}
+          portalTarget={blockingPortalTarget}
+          themeClass={themeClass}
+          dialogRef={alertDialogRef}
+          firstButtonRef={alertOkButtonRef}
+          input={messageBoxInput}
+          onInputChange={setMessageBoxInput}
+          onClose={closeAlert}
+          onAnswer={answerAlert}
+        />
         {discardDialogNode}
       </ThemeProvider>
     );
@@ -4658,63 +4621,17 @@ function FormRendererContent({
           )
         : null}
 
-      {activeAlert &&
-        blockingPortalTarget &&
-        createPortal(
-          <div
-            className={styles.alertOverlay}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="form0-react-alert-title"
-            aria-describedby="form0-react-alert-message"
-          >
-            <div
-              className={`${styles.alertDialog} ${themeClass}`}
-              ref={alertDialogRef}
-              tabIndex={-1}
-            >
-              <button
-                type="button"
-                className={styles.alertCloseButton}
-                aria-label="Close alert"
-                onClick={closeAlert}
-              >
-                ×
-              </button>
-              <h3 id="form0-react-alert-title" className={styles.alertTitle}>
-                {activeAlert.title}
-              </h3>
-              <div id="form0-react-alert-message" className={styles.alertMessage}>
-                {activeAlert.message || ''}
-                {activeAlert.input && (
-                  <input
-                    aria-label={activeAlert.placeholder || 'Response'}
-                    placeholder={activeAlert.placeholder}
-                    value={messageBoxInput}
-                    onChange={(event) => setMessageBoxInput(event.target.value)}
-                  />
-                )}
-              </div>
-              <div className={styles.alertFooter}>
-                {(activeAlert.buttons || [{ id: 'OK', label: 'OK' }]).map((button, index) => (
-                  <button
-                    key={button.id}
-                    type="button"
-                    ref={index === 0 ? alertOkButtonRef : undefined}
-                    className={styles.alertOkButton}
-                    onClick={() => {
-                      activeAlert.resolve?.({ value: button.id, input: messageBoxInput });
-                      setActiveAlert(null);
-                    }}
-                  >
-                    {button.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>,
-          blockingPortalTarget
-        )}
+      <ManagedAlertDialog
+        alert={activeAlert}
+        portalTarget={blockingPortalTarget}
+        themeClass={themeClass}
+        dialogRef={alertDialogRef}
+        firstButtonRef={alertOkButtonRef}
+        input={messageBoxInput}
+        onInputChange={setMessageBoxInput}
+        onClose={closeAlert}
+        onAnswer={answerAlert}
+      />
       {discardDialogNode}
     </ThemeProvider>
   );
