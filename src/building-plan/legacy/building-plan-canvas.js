@@ -3,6 +3,15 @@ import {
   buildingPlanLabelPlacement,
   createBuildingPlanPresentation,
 } from 'form0-core';
+import { DEFAULT_PLAN_THEME } from '../draw/plan-theme.js';
+import { drawGrid as drawPlanGrid } from '../draw/grid.js';
+import {
+  drawBeamSymbol,
+  drawColumnSymbol,
+  drawDoorSymbol,
+  drawPlanLabel,
+  drawWindowSymbol,
+} from '../draw/symbols.js';
 const MODE_SELECT = 'select';
 const MODE_DRAW_ROOM = 'draw-room';
 const MODE_DRAW_WALL = 'draw-wall';
@@ -21,19 +30,10 @@ const OPENING_HIT_TOLERANCE = 12;
 const OPENING_HANDLE_RADIUS = 10;
 const DOOR_LINE_WIDTH = 6;
 const WINDOW_LINE_WIDTH = 6;
-const DOOR_COLOR = '#2b8a3e';
-const WINDOW_COLOR = '#1c7ed6';
-const COLUMN_COLOR = '#f59f00';
-const BEAM_COLOR = '#7048e8';
-const LABEL_BACKGROUND = '#ffffff';
-const LABEL_BORDER = '#2f3640';
-const LABEL_TEXT_COLOR = '#2f3640';
 const LABEL_FONT_SIZE = 12;
-const labelFont = (scale = 1) => `${LABEL_FONT_SIZE * scale}px Inter, sans-serif`;
+const labelFont = (scale = 1) => `600 ${LABEL_FONT_SIZE * scale}px Inter, system-ui, sans-serif`;
 const LABEL_PADDING_X = 6;
 const LABEL_PADDING_Y = 4;
-const OPENING_SELECTED_COLOR = '#d12d2d';
-const STRUCTURAL_SELECTED_COLOR = '#d12d2d';
 const STRUCTURAL_SNAP_TOLERANCE = 14;
 const DEFAULT_DOOR_WIDTH_M = 0.9;
 const DEFAULT_DOOR_HEIGHT_M = 2;
@@ -323,6 +323,8 @@ export class BuildingPlanCanvas {
     this.canvas?.removeEventListener('lostpointercapture', this.boundLostCapture);
     window.removeEventListener('keydown', this.boundGestureKey, true);
     window.removeEventListener('resize', this.boundResizeHandler);
+    this.pixelRatioQuery?.removeEventListener?.('change', this.boundPixelRatioChange);
+    this.pixelRatioQuery = null;
     if (this.resizeObserver) {
       try {
         this.resizeObserver.disconnect();
@@ -343,6 +345,20 @@ export class BuildingPlanCanvas {
       this.unsubscribe();
       this.unsubscribe = null;
     }
+  }
+
+  /**
+   * Colours from the form theme, resolved by the host (`draw/plan-theme.js`).
+   * @param {typeof DEFAULT_PLAN_THEME} theme
+   */
+  setTheme(theme) {
+    this.theme = theme || null;
+    this.render();
+  }
+
+  /** The colours in use: the host's theme, or the light defaults until it arrives. */
+  get planTheme() {
+    return this.theme || DEFAULT_PLAN_THEME;
   }
 
   setLabelSettings(settings = {}) {
@@ -422,10 +438,8 @@ export class BuildingPlanCanvas {
    * Get the center point of the canvas in screen coordinates.
    */
   getCanvasCenter() {
-    return {
-      x: this.canvas.width / 2,
-      y: this.canvas.height / 2,
-    };
+    const { width, height } = this.getViewSize();
+    return { x: width / 2, y: height / 2 };
   }
 
   /**
@@ -537,6 +551,7 @@ export class BuildingPlanCanvas {
       this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
       this.resizeObserver.observe(this.canvasContainer);
     }
+    this.watchPixelRatio();
 
     this.resizeCanvas();
     this.updateCursor();
@@ -686,14 +701,14 @@ export class BuildingPlanCanvas {
         if (corner.roomId !== roomId) continue;
         ctx.beginPath();
         ctx.arc(corner.point.x, corner.point.y, 4 / this.zoomLevel, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = this.planTheme.handle;
         ctx.fill();
-        ctx.strokeStyle = '#2563eb';
+        ctx.strokeStyle = this.planTheme.accent;
         ctx.lineWidth = 1.5 / this.zoomLevel;
         ctx.stroke();
       }
     ctx.font = `${11 / this.zoomLevel}px sans-serif`;
-    ctx.fillStyle = '#2563eb';
+    ctx.fillStyle = this.planTheme.accent;
     for (const wall of view.walls.filter((wall) => wall.pinned)) {
       const a = wall.points[0],
         b = wall.points.at(-1);
@@ -830,8 +845,8 @@ export class BuildingPlanCanvas {
     if (this.cutDraft) nodes.push(this.cutDraft);
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#0369a1';
+    ctx.fillStyle = this.planTheme.handle;
+    ctx.strokeStyle = this.planTheme.accent;
     ctx.lineWidth = 1.5 / this.zoomLevel;
     for (const node of nodes) {
       ctx.beginPath();
@@ -856,7 +871,7 @@ export class BuildingPlanCanvas {
       const origin = this.cutTarget.start;
       ctx.setLineDash([]);
       ctx.font = `${11 / this.zoomLevel}px sans-serif`;
-      ctx.fillStyle = '#0369a1';
+      ctx.fillStyle = this.planTheme.accent;
       ctx.fillText('0', origin.x + 6 / this.zoomLevel, origin.y - 6 / this.zoomLevel);
     }
     ctx.restore();
@@ -884,7 +899,7 @@ export class BuildingPlanCanvas {
     if (!guides.length) return;
     const ctx = this.ctx;
     ctx.save();
-    ctx.strokeStyle = '#0284c7';
+    ctx.strokeStyle = this.planTheme.accent;
     ctx.lineWidth = 1.5 / this.zoomLevel;
     ctx.setLineDash([5 / this.zoomLevel, 4 / this.zoomLevel]);
     for (const guide of guides) {
@@ -1224,11 +1239,40 @@ export class BuildingPlanCanvas {
     this.canvas.style.cursor = 'grab';
   }
 
+  /**
+   * Sizes the canvas to its box. The bitmap has one pixel per screen pixel
+   * (devicePixelRatio), so lines and text stay sharp on high-density screens; positions, pan
+   * and zoom stay in CSS pixels.
+   */
   resizeCanvas() {
     const rect = this.canvasContainer.getBoundingClientRect();
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
+    const ratio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    this.pixelRatio = ratio;
+    this.viewWidth = rect.width;
+    this.viewHeight = rect.height;
+    this.canvas.width = Math.round(rect.width * ratio);
+    this.canvas.height = Math.round(rect.height * ratio);
     this.render();
+  }
+
+  /** The canvas box in CSS pixels (the bitmap is larger on high-density screens). */
+  getViewSize() {
+    return {
+      width: this.viewWidth ?? this.canvas.width,
+      height: this.viewHeight ?? this.canvas.height,
+    };
+  }
+
+  /** Re-sizes the bitmap when the screen density changes (another monitor, browser zoom). */
+  watchPixelRatio() {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    this.pixelRatioQuery?.removeEventListener?.('change', this.boundPixelRatioChange);
+    this.boundPixelRatioChange ??= () => {
+      this.resizeCanvas();
+      this.watchPixelRatio();
+    };
+    this.pixelRatioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    this.pixelRatioQuery.addEventListener?.('change', this.boundPixelRatioChange);
   }
 
   clearSelection() {
@@ -3016,18 +3060,20 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const { width, height } = this.canvas;
 
-    // Clear at native resolution (no transform)
+    // Clear the whole bitmap (no transform)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    // Apply zoom and pan transform
-    ctx.setTransform(this.zoomLevel, 0, 0, this.zoomLevel, this.panOffset.x, this.panOffset.y);
+    // Zoom and pan are in CSS pixels; the pixel ratio maps them onto the bitmap.
+    const ratio = this.pixelRatio || 1;
+    const scale = this.zoomLevel * ratio;
+    ctx.setTransform(scale, 0, 0, scale, this.panOffset.x * ratio, this.panOffset.y * ratio);
 
     this.drawGrid();
 
     if (!this.hasFloors) {
-      // Draw overlay without transform to cover full canvas
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // The overlay covers the canvas in CSS pixels
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       this.drawNoFloorOverlay();
       return;
     }
@@ -3094,25 +3140,26 @@ export class BuildingPlanCanvas {
     return { x, y, width, height };
   }
 
+  /**
+   * A name on the plan as plain text with a halo; its rectangle is returned for hit testing.
+   * Room names (`strong`) use the label colour, the others the muted one.
+   */
   drawLabelBadge(text, anchor, options = {}) {
     if (!this.ctx || !text) return null;
-    const ctx = this.ctx;
     const rect = this.computeLabelRect(text, anchor, options);
     if (!rect) return null;
-    ctx.save();
-    ctx.font = labelFont(options.scale);
-    ctx.fillStyle = LABEL_BACKGROUND;
-    ctx.strokeStyle = LABEL_BORDER;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.rect(rect.x, rect.y, rect.width, rect.height);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = LABEL_TEXT_COLOR;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, rect.x + rect.width / 2, rect.y + rect.height / 2);
-    ctx.restore();
+    const theme = this.planTheme;
+    drawPlanLabel(
+      this.ctx,
+      text,
+      { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+      {
+        font: labelFont(options.scale),
+        color: options.strong ? theme.label : theme.labelMuted,
+        halo: theme.room,
+        haloWidth: 3 * (options.scale || 1),
+      }
+    );
     return rect;
   }
 
@@ -3177,15 +3224,11 @@ export class BuildingPlanCanvas {
     if (column.isDimmed) {
       ctx.globalAlpha = 0.35;
     }
-    ctx.fillStyle = COLUMN_COLOR;
-    ctx.beginPath();
-    ctx.rect(info.rect.x, info.rect.y, info.rect.width, info.rect.height);
-    ctx.fill();
-    if (isSelected) {
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = STRUCTURAL_SELECTED_COLOR;
-      ctx.stroke();
-    }
+    drawColumnSymbol(ctx, info.rect, {
+      theme: this.planTheme,
+      selected: isSelected,
+      pixel: 1 / this.zoomLevel,
+    });
     ctx.restore();
 
     if (this.shouldShowLabel('columns') && info.label) {
@@ -3237,8 +3280,9 @@ export class BuildingPlanCanvas {
     const labelAnchor = { x: centerPoint.x, y: centerPoint.y - lineWidth - 6 };
     beam._renderStart = startPoint;
     beam._renderEnd = endPoint;
+    const widthPx = Math.max(4, metersToLength(widthMeters || DEFAULT_BEAM_WIDTH_M, this.gridSize));
 
-    return { startPoint, endPoint, centerPoint, lineWidth, label, labelAnchor };
+    return { startPoint, endPoint, centerPoint, lineWidth, widthPx, label, labelAnchor };
   }
 
   drawBeam(beam) {
@@ -3251,16 +3295,14 @@ export class BuildingPlanCanvas {
     if (beam.isDimmed) {
       ctx.globalAlpha = 0.35;
     }
-    ctx.strokeStyle = isSelected ? STRUCTURAL_SELECTED_COLOR : BEAM_COLOR;
-    ctx.lineWidth = info.lineWidth;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(info.startPoint.x, info.startPoint.y);
-    ctx.lineTo(info.endPoint.x, info.endPoint.y);
-    ctx.stroke();
+    drawBeamSymbol(ctx, info.startPoint, info.endPoint, info.widthPx, {
+      theme: this.planTheme,
+      selected: isSelected,
+      pixel: 1 / this.zoomLevel,
+    });
 
     if (isSelected) {
-      ctx.fillStyle = STRUCTURAL_SELECTED_COLOR;
+      ctx.fillStyle = this.planTheme.accent;
       ctx.beginPath();
       ctx.arc(info.startPoint.x, info.startPoint.y, OPENING_HANDLE_RADIUS, 0, Math.PI * 2);
       ctx.fill();
@@ -3286,7 +3328,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     ctx.save();
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = BEAM_COLOR;
+    ctx.strokeStyle = this.planTheme.symbol;
     ctx.lineWidth = Math.max(4, metersToLength(DEFAULT_BEAM_HEIGHT_M, this.gridSize));
     ctx.beginPath();
     ctx.moveTo(preview.startPoint.x, preview.startPoint.y);
@@ -3418,18 +3460,15 @@ export class BuildingPlanCanvas {
   drawNoFloorOverlay() {
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    const view = this.getViewSize();
+    ctx.fillStyle = this.planTheme.overlay;
+    ctx.fillRect(0, 0, view.width, view.height);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '16px sans-serif';
+    ctx.fillStyle = this.planTheme.labelMuted;
+    ctx.font = '600 15px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(
-      'Add a floor to enable the canvas tools',
-      this.canvas.width / 2,
-      this.canvas.height / 2
-    );
+    ctx.fillText('Add a floor to enable the canvas tools', view.width / 2, view.height / 2);
     ctx.restore();
   }
 
@@ -3437,7 +3476,7 @@ export class BuildingPlanCanvas {
    * Calculate the visible world bounds based on canvas size, zoom, and pan.
    */
   getVisibleWorldBounds() {
-    const { width, height } = this.canvas;
+    const { width, height } = this.getViewSize();
     return {
       minX: -this.panOffset.x / this.zoomLevel,
       minY: -this.panOffset.y / this.zoomLevel,
@@ -3447,148 +3486,13 @@ export class BuildingPlanCanvas {
   }
 
   drawGrid() {
-    const ctx = this.ctx;
-    const bounds = this.getVisibleWorldBounds();
-
-    // Add padding to ensure grid covers edges
-    const padding = this.gridSize * 2;
-
-    // Adjust line width to remain consistent regardless of zoom
-    const baseLineWidth = 1 / this.zoomLevel;
-
-    // Determine grid configuration based on zoom level
-    const showFineGrid = this.zoomLevel >= 1.5;
-    const showCoarseGrid = this.zoomLevel <= 0.5;
-    const fineGridSize = this.gridSize / 10; // 10cm subdivisions
-    const coarseGridSize = this.gridSize * 5; // 5m major lines
-
-    // Calculate primary grid bounds (1m)
-    const startX = Math.floor((bounds.minX - padding) / this.gridSize) * this.gridSize;
-    const startY = Math.floor((bounds.minY - padding) / this.gridSize) * this.gridSize;
-    const endX = Math.ceil((bounds.maxX + padding) / this.gridSize) * this.gridSize;
-    const endY = Math.ceil((bounds.maxY + padding) / this.gridSize) * this.gridSize;
-
-    // Draw fine grid first (behind primary grid) - only when zoomed in
-    if (showFineGrid) {
-      ctx.save();
-      ctx.strokeStyle = '#f0f0f0';
-      ctx.lineWidth = 0.5 / this.zoomLevel;
-
-      const fineStartX = Math.floor((bounds.minX - padding) / fineGridSize) * fineGridSize;
-      const fineStartY = Math.floor((bounds.minY - padding) / fineGridSize) * fineGridSize;
-      const fineEndX = Math.ceil((bounds.maxX + padding) / fineGridSize) * fineGridSize;
-      const fineEndY = Math.ceil((bounds.maxY + padding) / fineGridSize) * fineGridSize;
-
-      // Draw fine vertical lines (skip primary grid lines)
-      for (let x = fineStartX; x <= fineEndX; x += fineGridSize) {
-        if (Math.abs(x % this.gridSize) < 0.001) continue;
-        ctx.beginPath();
-        ctx.moveTo(x, fineStartY);
-        ctx.lineTo(x, fineEndY);
-        ctx.stroke();
-      }
-
-      // Draw fine horizontal lines (skip primary grid lines)
-      for (let y = fineStartY; y <= fineEndY; y += fineGridSize) {
-        if (Math.abs(y % this.gridSize) < 0.001) continue;
-        ctx.beginPath();
-        ctx.moveTo(fineStartX, y);
-        ctx.lineTo(fineEndX, y);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    // Draw primary grid (1m lines)
-    // When zoomed out, make these lighter as they become secondary
-    ctx.save();
-    ctx.strokeStyle = showCoarseGrid ? '#ebebeb' : '#e6e6e6';
-    ctx.lineWidth = showCoarseGrid ? 0.5 / this.zoomLevel : baseLineWidth;
-
-    for (let x = startX; x <= endX; x += this.gridSize) {
-      // When showing coarse grid, skip lines that aren't on 5m boundaries
-      if (showCoarseGrid && Math.abs(x % coarseGridSize) >= 0.001) {
-        ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x, endY);
-        ctx.stroke();
-      } else if (!showCoarseGrid) {
-        ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x, endY);
-        ctx.stroke();
-      }
-    }
-
-    for (let y = startY; y <= endY; y += this.gridSize) {
-      if (showCoarseGrid && Math.abs(y % coarseGridSize) >= 0.001) {
-        ctx.beginPath();
-        ctx.moveTo(startX, y);
-        ctx.lineTo(endX, y);
-        ctx.stroke();
-      } else if (!showCoarseGrid) {
-        ctx.beginPath();
-        ctx.moveTo(startX, y);
-        ctx.lineTo(endX, y);
-        ctx.stroke();
-      }
-    }
-
-    ctx.restore();
-
-    // Draw coarse grid (5m lines) when zoomed out - these are the prominent lines
-    if (showCoarseGrid) {
-      ctx.save();
-      ctx.strokeStyle = '#d0d0d0';
-      ctx.lineWidth = 1.5 / this.zoomLevel;
-
-      const coarseStartX = Math.floor((bounds.minX - padding) / coarseGridSize) * coarseGridSize;
-      const coarseStartY = Math.floor((bounds.minY - padding) / coarseGridSize) * coarseGridSize;
-      const coarseEndX = Math.ceil((bounds.maxX + padding) / coarseGridSize) * coarseGridSize;
-      const coarseEndY = Math.ceil((bounds.maxY + padding) / coarseGridSize) * coarseGridSize;
-
-      for (let x = coarseStartX; x <= coarseEndX; x += coarseGridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, coarseStartY);
-        ctx.lineTo(x, coarseEndY);
-        ctx.stroke();
-      }
-
-      for (let y = coarseStartY; y <= coarseEndY; y += coarseGridSize) {
-        ctx.beginPath();
-        ctx.moveTo(coarseStartX, y);
-        ctx.lineTo(coarseEndX, y);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    // Draw origin axes (thicker, different color)
-    ctx.save();
-    ctx.strokeStyle = '#9fb3d9';
-    ctx.lineWidth = 1.5 / this.zoomLevel;
-    ctx.beginPath();
-    // Y axis (at x=0)
-    if (0 >= startX && 0 <= endX) {
-      ctx.moveTo(0, startY);
-      ctx.lineTo(0, endY);
-    }
-    // X axis (at y=0)
-    if (0 >= startY && 0 <= endY) {
-      ctx.moveTo(startX, 0);
-      ctx.lineTo(endX, 0);
-    }
-    ctx.stroke();
-
-    // Draw origin label
-    ctx.fillStyle = '#55607a';
-    ctx.font = `${11 / this.zoomLevel}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText('0,0', 6 / this.zoomLevel, 4 / this.zoomLevel);
-    ctx.restore();
+    drawPlanGrid(this.ctx, {
+      bounds: this.getVisibleWorldBounds(),
+      metre: this.gridSize,
+      zoom: this.zoomLevel,
+      pixelRatio: this.pixelRatio || 1,
+      theme: this.planTheme,
+    });
   }
 
   drawRoom(room) {
@@ -3601,9 +3505,8 @@ export class BuildingPlanCanvas {
     const isSelected = this.selectedRoomId === room.id;
     const isDimmed = Boolean(room.isDimmed);
 
+    const theme = this.planTheme;
     ctx.save();
-    ctx.fillStyle = room.color || '#79b8ff';
-    ctx.globalAlpha = isDimmed ? 0.18 : isSelected ? 0.55 : 0.35;
     const vertices = room.previewRect ? null : room.vertices;
     ctx.beginPath();
     if (vertices?.length) {
@@ -3611,12 +3514,24 @@ export class BuildingPlanCanvas {
       for (const vertex of vertices.slice(1)) ctx.lineTo(vertex.x, vertex.y);
       ctx.closePath();
     } else ctx.rect(rect.x, rect.y, rect.width, rect.height);
+    ctx.fillStyle = theme.room;
+    ctx.globalAlpha = isDimmed ? 0.55 : 1;
     ctx.fill();
+    if (isSelected) {
+      ctx.fillStyle = theme.accent;
+      ctx.globalAlpha = 0.1;
+      ctx.fill();
+    } else if (room.color && !isDimmed) {
+      ctx.fillStyle = room.color;
+      ctx.globalAlpha = 0.06;
+      ctx.fill();
+    }
 
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = isSelected ? 4 : 2;
-    ctx.strokeStyle = isSelected ? '#1b4b91' : isDimmed ? 'rgba(58, 111, 176, 0.45)' : '#3a6fb0';
+    ctx.globalAlpha = isDimmed ? 0.45 : 1;
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.strokeStyle = isSelected ? theme.accent : theme.wall;
     ctx.stroke();
+    ctx.globalAlpha = 1;
 
     if (isSelected && !this.controller?.getCornerPlacement) {
       const handleSize = ROOM_HANDLE_SIZE;
@@ -3628,8 +3543,8 @@ export class BuildingPlanCanvas {
         { x: rect.x, y: rect.y + rect.height },
       ];
 
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#1b4b91';
+      ctx.fillStyle = theme.handle;
+      ctx.strokeStyle = theme.accent;
       ctx.lineWidth = 1;
       corners.forEach((corner) => {
         ctx.beginPath();
@@ -3669,6 +3584,7 @@ export class BuildingPlanCanvas {
         const labelRect = this.drawLabelBadge(labelText, placement, {
           position: 'center',
           scale: placement.scale,
+          strong: true,
         });
         if (labelRect) {
           room._labelRect = labelRect;
@@ -3683,7 +3599,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     ctx.save();
     ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = '#333';
+    ctx.strokeStyle = this.planTheme.symbol;
     ctx.lineWidth = 1;
     ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
     ctx.restore();
@@ -3693,8 +3609,8 @@ export class BuildingPlanCanvas {
     if (!this.wallFootprints) return;
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = '#444';
-    ctx.strokeStyle = '#444';
+    ctx.fillStyle = this.planTheme.wall;
+    ctx.strokeStyle = this.planTheme.wall;
     ctx.beginPath();
     for (const wall of this.wallFootprints) {
       // Opaque fills compose valid junctions without double-stroked interior seams.
@@ -3757,7 +3673,7 @@ export class BuildingPlanCanvas {
     wall._labelRect = null;
 
     ctx.save();
-    ctx.strokeStyle = this.selectedWallId === wall.id ? '#d12d2d' : '#444';
+    ctx.strokeStyle = this.selectedWallId === wall.id ? this.planTheme.accent : this.planTheme.wall;
     ctx.lineWidth = this.selectedWallId === wall.id ? 4 : 3;
     if (isDimmed) {
       ctx.globalAlpha = 0.35;
@@ -3774,8 +3690,8 @@ export class BuildingPlanCanvas {
       const handleSize = ROOM_HANDLE_SIZE;
       const half = handleSize / 2;
       ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#d12d2d';
+      ctx.fillStyle = this.planTheme.handle;
+      ctx.strokeStyle = this.planTheme.accent;
       ctx.lineWidth = 1;
       [start, end].forEach((point) => {
         ctx.beginPath();
@@ -3921,7 +3837,6 @@ export class BuildingPlanCanvas {
     const isSelected = isDoor
       ? this.selectedDoorId === opening.id
       : this.selectedWindowId === opening.id;
-    const strokeColor = isSelected ? OPENING_SELECTED_COLOR : isDoor ? DOOR_COLOR : WINDOW_COLOR;
     const lineWidth = isDoor ? DOOR_LINE_WIDTH : WINDOW_LINE_WIDTH;
     const isDimmed = Boolean(opening.isDimmed);
 
@@ -3929,17 +3844,15 @@ export class BuildingPlanCanvas {
     if (isDimmed) {
       ctx.globalAlpha = 0.4;
     }
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = opening.physical ? 'butt' : 'round';
-    if (opening.physical?.thickness > 0) {
-      // The opening occupies the full host band; keep the existing door/window colours.
-      ctx.lineWidth = opening.physical.thickness * this.gridSize;
-    }
-    ctx.beginPath();
-    ctx.moveTo(geometry.startPoint.x, geometry.startPoint.y);
-    ctx.lineTo(geometry.endPoint.x, geometry.endPoint.y);
-    ctx.stroke();
+    // The opening occupies its host's full band when the wall is physical.
+    const thickness =
+      opening.physical?.thickness > 0 ? opening.physical.thickness * this.gridSize : lineWidth;
+    (isDoor ? drawDoorSymbol : drawWindowSymbol)(ctx, geometry, {
+      thickness,
+      theme: this.planTheme,
+      selected: isSelected,
+      pixel: 1 / this.zoomLevel,
+    });
     ctx.restore();
 
     const labelType = isDoor ? 'doors' : 'windows';
@@ -3976,8 +3889,8 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const handles = [geometry.startPoint, geometry.endPoint];
     ctx.save();
-    ctx.fillStyle = OPENING_SELECTED_COLOR;
-    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle = this.planTheme.accent;
+    ctx.strokeStyle = this.planTheme.handle;
     ctx.lineWidth = 2;
     handles.forEach((handlePoint) => {
       ctx.beginPath();
@@ -3986,8 +3899,8 @@ export class BuildingPlanCanvas {
       ctx.stroke();
     });
     const center = geometry.centerPoint;
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = OPENING_SELECTED_COLOR;
+    ctx.fillStyle = this.planTheme.handle;
+    ctx.strokeStyle = this.planTheme.accent;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(center.x, center.y, OPENING_HANDLE_RADIUS - 2, 0, Math.PI * 2);
@@ -4175,7 +4088,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     ctx.save();
     ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = '#d12d2d';
+    ctx.strokeStyle = this.planTheme.accent;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);

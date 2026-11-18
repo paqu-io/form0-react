@@ -7,6 +7,9 @@ import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
 import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import { PlanTooltip } from './plan-tooltip.jsx';
+import { resolvePlanTheme } from './draw/plan-theme.js';
+import { planTokens, planVars } from './plan-tokens.css.js';
+import { useThemeClass } from '../theme-context.jsx';
 import './canvas-host.css.js';
 
 // Magnetic alignment and edge auto-pan are always on (no toggle until the UI revamp).
@@ -306,6 +309,11 @@ export function BuildingPlanCanvasHost({
     canvasRef.current?.setPresentation(presentation);
   }, [presentation]);
   const hostRef = useRef(null);
+  // The canvas draws with the form theme's colours, resolved again when the theme changes.
+  const themeClass = useThemeClass();
+  useEffect(() => {
+    canvasRef.current?.setTheme?.(resolvePlanTheme(hostRef.current, planVars));
+  }, [themeClass]);
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const controllerRef = useRef(null);
@@ -432,6 +440,7 @@ export function BuildingPlanCanvasHost({
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
       readOnly, // Disable canvas interactions in view mode
     });
+    canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
     const changeMode = canvas.setMode.bind(canvas);
     canvas.setMode = (nextMode) => {
       changeMode(nextMode);
@@ -553,7 +562,7 @@ export function BuildingPlanCanvasHost({
   }, [readOnly]);
 
   return (
-    <div ref={hostRef} className="building-plan-canvas-host">
+    <div ref={hostRef} className={`building-plan-canvas-host ${planTokens}`}>
       {repeatableApi.editor && (
         <div className="building-plan-toolbar">
           <button
