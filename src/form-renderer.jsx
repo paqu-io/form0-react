@@ -6850,31 +6850,31 @@ function RepeatableEntryForm({
         nestedCount === 0
           ? `${styles.repeatableCountPill} ${styles.repeatableCountPillEmpty}`
           : `${styles.repeatableCountPill} ${styles.repeatableCountPillFilled}`;
+      // One card, as at the root: the nested list is not a section of the entry (review of
+      // 2026-11-18; it was a card inside a section card).
       return (
-        <div key={sectionId} className={styles.repeatableModalSection}>
-          <div className={styles.drilldownInactive}>
-            <div className={styles.drilldownInfo}>
-              <span className={styles.drilldownLabel}>{label}</span>
-              <span className={nestedPillClass}>{nestedLabel}</span>
-            </div>
-            <button
-              type="button"
-              className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
-              onClick={() =>
-                onEnterRepeatable?.({
-                  field,
-                  repeatableKey,
-                  contextPath,
-                  sectionId,
-                })
-              }
-            >
-              <span>View</span>
-              <span className={styles.formNameActionIcon} aria-hidden="true">
-                <ChevronRight size={16} strokeWidth={1.8} />
-              </span>
-            </button>
+        <div key={sectionId} className={styles.drilldownInactive}>
+          <div className={styles.drilldownInfo}>
+            <span className={styles.drilldownLabel}>{label}</span>
+            <span className={nestedPillClass}>{nestedLabel}</span>
           </div>
+          <button
+            type="button"
+            className={`${styles.formNameActionButton} ${styles.drilldownActionButton}`}
+            onClick={() =>
+              onEnterRepeatable?.({
+                field,
+                repeatableKey,
+                contextPath,
+                sectionId,
+              })
+            }
+          >
+            <span>View</span>
+            <span className={styles.formNameActionIcon} aria-hidden="true">
+              <ChevronRight size={16} strokeWidth={1.8} />
+            </span>
+          </button>
         </div>
       );
     }

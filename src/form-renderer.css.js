@@ -1260,11 +1260,12 @@ globalStyle(`${repeatableModalFormColumn}`, { gap: 0 });
 // section, then "Notes").
 const entryColumns = `:is(${repeatableModalFormColumn}, ${repeatableModalPlanFormColumn})`;
 globalStyle(`${entryColumns} > ${repeatableModalSection}`, { marginBottom: '1rem' });
-// A field right after a card (a section, or Record Metadata) starts 1.5rem below it: with only
-// the card's margin, or none beside the plan, it read as squeezed against the card (review of
-// step 3, 2026-11-18). Card after card keeps 1rem.
+// A field right after a card (a section, Record Metadata or a nested list's row) starts 1.5rem
+// below it: with only the card's margin, or none beside the plan, it read as squeezed against the
+// card (review of step 3, 2026-11-18). Card after card keeps 1rem.
+const entryCards = `:is(${repeatableModalSection}, ${recordMetadataSection}, ${drilldownInactive})`;
 globalStyle(
-  `${entryColumns} > :is(${repeatableModalSection}, ${recordMetadataSection}) + :not(${repeatableModalSection})`,
+  `${entryColumns} > ${entryCards} + :not(${repeatableModalSection}, ${drilldownInactive})`,
   { marginTop: '0.5rem' }
 );
 
