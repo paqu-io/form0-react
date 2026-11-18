@@ -10,6 +10,14 @@ import {
 } from 'form0-core';
 
 afterEach(cleanup);
+
+/** The rows of the last list named `label` (on the dialog on top), without their trash buttons. */
+async function listRows(label) {
+  const lists = await screen.findAllByRole('list', { name: label });
+  return within(lists.at(-1))
+    .getAllByRole('button')
+    .filter((button) => !/^Remove /.test(button.getAttribute('aria-label') || ''));
+}
 beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     () =>
@@ -99,10 +107,11 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
     />
   );
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  const floorView = await screen.findByText('Ground Floor');
+  const [floorView] = await screen.findAllByText('Ground Floor');
   const floorRow = floorView.closest('[class]')?.parentElement;
-  const views = screen.getAllByRole('button', { name: 'View', exact: true });
-  fireEvent.click(views.at(-1));
+  // Rows carry the plan's own names, as the canvas tabs do.
+  expect((await listRows('Floors')).map((row) => row.textContent)).toEqual(['Ground Floor']);
+  fireEvent.click((await listRows('Floors'))[0]);
   const dialog = within(await screen.findByRole('dialog'));
   expect(dialog.getByRole('button', { name: /Cancel/ })).toBeTruthy();
   expect(dialog.queryByRole('button', { name: 'Apply', exact: true })).toBeNull();
@@ -112,8 +121,8 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   expect(dialog.queryByText('Observations', { exact: true })).toBeNull();
   const rooms = dialog.getAllByText('Rooms', { exact: true }).at(-1).parentElement.parentElement;
   fireEvent.click(within(rooms).getByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Rooms 1');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  expect((await listRows('Rooms')).map((row) => row.textContent)).toEqual(['Bedroom']);
+  fireEvent.click((await listRows('Rooms'))[0]);
   await waitFor(() =>
     expect(screen.getAllByText('Walls', { exact: true }).length).toBeGreaterThan(0)
   );
@@ -122,8 +131,7 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const wallCollection = screen.getAllByText('Walls', { exact: true }).at(-1)
     .parentElement.parentElement;
   fireEvent.click(within(wallCollection).getByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Walls 1');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  fireEvent.click((await listRows('Walls'))[0]);
   await waitFor(() =>
     expect(screen.getAllByText('Doors', { exact: true }).length).toBeGreaterThan(0)
   );
@@ -143,8 +151,7 @@ it('updates system labels and choices from a dynamic locale without losing an op
   };
   const view = render(<FormRenderer {...props} locale="en" />);
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Ground Floor');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  fireEvent.click((await listRows('Floors'))[0]);
   const input = await screen.findByLabelText(/Structural clear height/);
   fireEvent.change(input, { target: { value: '3.75' } });
   fireEvent.blur(input);
@@ -177,7 +184,7 @@ it('the BuildingPlanSection page goes Back and adds floors, and never submits', 
   );
   expect(await screen.findByRole('button', { name: /^Submit/ })).toBeTruthy();
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Ground Floor');
+  await screen.findAllByText('Ground Floor');
   expect(screen.getByRole('button', { name: /^Back/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /^Add Floor/ })).toBeTruthy();
   expect(screen.queryByRole('button', { name: /^(Save|Submit|Cancel)/ })).toBeNull();
@@ -206,14 +213,12 @@ it('opens a room from an editable floor whose saved row carries container keys',
     />
   );
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Ground Floor');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  fireEvent.click((await listRows('Floors'))[0]);
   const dialog = within(await screen.findByRole('dialog'));
   await dialog.findByText(/Structural clear height/i);
   const rooms = dialog.getAllByText('Rooms', { exact: true }).at(-1).parentElement.parentElement;
   fireEvent.click(within(rooms).getByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Rooms 1');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  fireEvent.click((await listRows('Rooms'))[0]);
   await waitFor(() =>
     expect(screen.getAllByText('Walls', { exact: true }).length).toBeGreaterThan(0)
   );

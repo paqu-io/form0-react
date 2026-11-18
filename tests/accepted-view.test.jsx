@@ -97,7 +97,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
       ])
     );
     fireEvent.click(screen.getByRole('button', { name: 'View', exact: true }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'lines 1', exact: true }));
     const row = within(await screen.findByRole('dialog'));
     expect(await row.findByDisplayValue('110')).toBeTruthy();
     expect(row.getByLabelText('amount').readOnly).toBe(true);

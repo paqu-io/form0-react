@@ -140,7 +140,7 @@ export function runEventReportingTests(FormRenderer, field, repeatable, platform
       if (platform === 'form0-react-native') fireEvent.click(await screen.findByText('rows'));
       fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
       await act(async () => {});
-      fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true })[0]);
+      fireEvent.click(screen.getByRole('button', { name: 'rows 1', exact: true }));
       const rowInput = await screen.findByDisplayValue('10');
       await act(async () => fireEvent.change(rowInput, { target: { value: '11' } }));
       await waitFor(() => expect(reports()).toHaveLength(1));

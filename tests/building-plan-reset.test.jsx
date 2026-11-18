@@ -13,6 +13,14 @@ import {
 // did nothing. The reset asks which room's value applies; the host showed no question.
 
 afterEach(cleanup);
+
+/** The rows of the last list named `label` (on the dialog on top), without their trash buttons. */
+async function listRows(label) {
+  const lists = await screen.findAllByRole('list', { name: label });
+  return within(lists.at(-1))
+    .getAllByRole('button')
+    .filter((button) => !/^Remove /.test(button.getAttribute('aria-label') || ''));
+}
 beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     () =>
@@ -114,23 +122,19 @@ async function openSharedWall() {
     />
   );
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Ground Floor');
-  fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+  fireEvent.click((await listRows('Floors'))[0]);
   const floor = within(await screen.findByRole('dialog'));
   await floor.findByText(/Structural clear height/i);
-  const top = () => within(screen.getAllByRole('dialog').at(-1));
   const section = (label) =>
     screen.getAllByText(label, { exact: true }).at(-1).parentElement.parentElement;
-  // A section's View lists its rows; each row has its own View.
+  // A section's View lists its rows; each row opens by its title.
   fireEvent.click(within(section('Rooms')).getByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Rooms 1');
-  fireEvent.click(top().getAllByRole('button', { name: 'View', exact: true })[0]);
+  fireEvent.click((await listRows('Rooms'))[0]);
   await waitFor(() =>
     expect(screen.getAllByText('Walls', { exact: true }).length).toBeGreaterThan(0)
   );
   fireEvent.click(within(section('Walls')).getByRole('button', { name: 'View', exact: true }));
-  await screen.findByText('Walls 2');
-  fireEvent.click(top().getAllByRole('button', { name: 'View', exact: true })[1]);
+  fireEvent.click((await listRows('Walls'))[1]);
   return screen.findByRole('button', { name: 'Reset to inheritance' });
 }
 

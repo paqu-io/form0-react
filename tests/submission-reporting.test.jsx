@@ -133,7 +133,8 @@ for (const lifecycle of [true, false]) {
 it('applies the validation preference to nested row Save buttons', async () => {
   await mount({ submissionDiagnostics: { validationBlocks: true } });
   fireEvent.click(screen.getByRole('button', { name: 'rows', exact: true }));
-  fireEvent.click(await screen.findByRole('button', { name: /Add/i }));
+  // The header's Add (the empty list also offers "Add the first entry").
+  fireEvent.click(await screen.findByRole('button', { name: /^Add(?! the first entry)/i }));
   const dialog = within(await screen.findByRole('dialog'));
   await act(async () => fireEvent.click(dialog.getByRole('button', { name: 'Save', exact: true })));
   await waitFor(() =>

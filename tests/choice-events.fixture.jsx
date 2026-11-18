@@ -93,7 +93,7 @@ export function runChoiceEventRendererTests(FormRenderer, field, repeatable, pla
           if (nested) {
             if (platform === 'Native') fireEvent.click(await screen.findByText('rows'));
             fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-            fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true })[0]);
+            fireEvent.click(screen.getByRole('button', { name: 'rows 1', exact: true }));
           }
           const prefix = nested ? 'row_' : '';
           fireEvent.change(await screen.findByDisplayValue(nested ? '10' : '0'), {

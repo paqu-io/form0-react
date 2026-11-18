@@ -148,7 +148,7 @@ export function NavigationTree({
   const [activeTab, setActiveTab] = useState(hasSections ? 'navigation' : 'validation');
 
   useEffect(() => {
-    if (!hasSections && validationEnabled) {
+    if (!hasSections) {
       setActiveTab('validation');
     } else if (activeTab === 'validation' && !validationEnabled && hasSections) {
       setActiveTab('navigation');
@@ -242,18 +242,18 @@ export function NavigationTree({
   return (
     <nav className={styles.navigationContainer} aria-label="Form sidebar">
       <div className={styles.navigationTabs}>
-        {hasSections && (
-          <button
-            type="button"
-            className={`${styles.navigationTabButton} ${
-              activeTab === 'navigation' ? styles.navigationTabButtonActive : ''
-            }`}
-            onClick={() => setActiveTab('navigation')}
-            data-active={activeTab === 'navigation' ? 'true' : 'false'}
-          >
-            <span>Navigation</span>
-          </button>
-        )}
+        {/* Disabled without sections, like Validation before validation (was hidden). */}
+        <button
+          type="button"
+          className={`${styles.navigationTabButton} ${
+            activeTab === 'navigation' ? styles.navigationTabButtonActive : ''
+          }`}
+          onClick={() => setActiveTab('navigation')}
+          disabled={!hasSections}
+          data-active={activeTab === 'navigation' ? 'true' : 'false'}
+        >
+          <span>Navigation</span>
+        </button>
         <button
           type="button"
           className={`${styles.navigationTabButton} ${

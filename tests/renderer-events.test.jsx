@@ -325,7 +325,7 @@ it('root preparation preserves closed row and media metadata while open row prep
   expect(prepared.payload.repeatable.rows[0].attachment.media_id).toBe('media-A');
   expect(prepared.payload.repeatable.rows[0].repeatable.children[0].id).toBe(0);
   fireEvent.click(screen.getByRole('button', { name: 'View' }));
-  fireEvent.click(screen.getByRole('button', { name: 'View' }));
+  fireEvent.click(screen.getByRole('button', { name: 'rows 1' }));
   await waitFor(() => expect(reports.some((meta) => meta.instancePath.length)).toBe(true));
   fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
   const row = reports.find(

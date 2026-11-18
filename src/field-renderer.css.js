@@ -118,11 +118,12 @@ export const error = style({
   display: 'block',
 });
 
-// Label above the control: the wrapper stays a flex column (so the label, control and error
-// keep their gap) and gets more room above and below than the side layout needs.
+// Label above the control: the wrapper stays a flex column, so the label, control and error
+// keep their gap. Same padding as the side layout, so fields sit about as far apart as on
+// mobile.
 export const labelTop = style({
-  paddingTop: '0.375rem',
-  paddingBottom: '0.375rem',
+  paddingTop: '0.125rem',
+  paddingBottom: '0.125rem',
 });
 
 export const labelSide = style({

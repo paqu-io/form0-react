@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { FormRenderer } from '../dist/index.js';
 import {
@@ -28,6 +28,14 @@ vi.mock('form0-core', async (importOriginal) => {
 });
 
 afterEach(cleanup);
+
+/** The rows of the last list named `label` (on the dialog on top), without their trash buttons. */
+async function listRows(label) {
+  const lists = await screen.findAllByRole('list', { name: label });
+  return within(lists.at(-1))
+    .getAllByRole('button')
+    .filter((button) => !/^Remove /.test(button.getAttribute('aria-label') || ''));
+}
 beforeEach(() => {
   controllers.length = 0;
   editors.length = 0;
@@ -105,11 +113,11 @@ for (const derived of [false, true])
     );
     // Opening the floor shows its canvas.
     fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-    await screen.findByText('Ground Floor');
+    await screen.findAllByText('Ground Floor');
     await waitFor(() => expect(controllers.length).toBeGreaterThan(0));
     expect(controllers.every((options) => options.derivedCommands === derived)).toBe(true);
     // Opening the floor row's dialog opens its record editor.
-    fireEvent.click(screen.getAllByRole('button', { name: 'View', exact: true }).at(-1));
+    fireEvent.click((await listRows('Floors'))[0]);
     await screen.findByRole('dialog');
     expect(editors.length).toBeGreaterThan(0);
     expect(editors.every((options) => options.derivedCommands === derived)).toBe(true);

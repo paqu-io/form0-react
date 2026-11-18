@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { buildingPlanRowTitle } from 'form0-core';
 
 const NODE_KEYS = {
   floors: 'floors',
@@ -88,13 +89,18 @@ export function useBuildingPlanController({
       const isActiveFloor = scope.floorId ? floor.id === scope.floorId : false;
       return {
         id: floor.id,
-        label: floor.values?.floor_name || null,
+        // The floor's own name (its Floor name choice), as on the canvas tabs.
+        label: buildingPlanRowTitle({ metadata: [metaEntry], repeatableKey: floorKey, row: floor }),
         values: floor.values || {},
         rooms: rooms.map((room) => {
           const isActiveRoom = scope.roomId ? room.id === scope.roomId : false;
           return {
             id: room.id,
-            label: room.values?.room_name || null,
+            label: buildingPlanRowTitle({
+              metadata: [metaEntry],
+              repeatableKey: roomKey,
+              row: room,
+            }),
             values: room.values || {},
             repeatable: room.repeatable || {},
             isActive: isActiveRoom,

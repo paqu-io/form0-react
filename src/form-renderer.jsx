@@ -6,6 +6,7 @@ import {
 import {
   buildingPlanIssueFocus,
   buildingPlanRowTitle,
+  getBuildingPlanMetadata,
   settleBuildingPlanQuestions,
 } from 'form0-core';
 import { createSubmissionReporter } from './utils/submission-diagnostics.js';
@@ -16,6 +17,11 @@ import { useContext } from 'react';
 import { RecordCoordinatorContext } from './record-context.jsx';
 import { RecordCoordinatorProvider } from './record-context.jsx';
 import { RecordSummary } from './record-summary.jsx';
+import {
+  RepeatableCount,
+  RepeatableEmptyState,
+  RepeatableEntryRows,
+} from './repeatable-list-parts.jsx';
 import { buildStructuredSubmission, buildStructuredSubmissionAsync } from './utils/submission.js';
 import { useEventSession, useManagedEventScope } from './use-managed-events.js';
 import { mergeCustomValidation, repeatableChangeMetadata } from './utils/managed-events.js';
@@ -26,6 +32,8 @@ import { useFormEngine } from './use-form-engine';
 import { FieldRenderer } from './field-renderer';
 import { NavigationTree } from './navigation-tree';
 import { ThemeProvider } from './theme-context';
+import { useFocusTrap } from './use-focus-trap.js';
+import { isRemoveEntryDialogEvent } from './remove-entry-dialog.jsx';
 import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
@@ -653,118 +661,6 @@ const isPathPrefix = (candidate = [], target = []) => {
   }
   return candidate.every((id, idx) => target[idx] === id);
 };
-
-function useFocusTrap(active = false, containerRef, { initialFocusRef } = {}) {
-  useEffect(() => {
-    if (!active || typeof document === 'undefined') {
-      return undefined;
-    }
-    const container = containerRef?.current;
-    if (!container) {
-      return undefined;
-    }
-
-    const redirectingRef = { current: false };
-
-    const focusElement = (node) => {
-      if (!node || typeof node.focus !== 'function') {
-        return;
-      }
-      if (redirectingRef.current) {
-        return;
-      }
-      redirectingRef.current = true;
-      try {
-        node.focus({ preventScroll: true });
-      } catch {
-        node.focus();
-      }
-      setTimeout(() => {
-        redirectingRef.current = false;
-      }, 0);
-    };
-
-    const getFocusableElements = () => {
-      if (!containerRef.current) {
-        return [];
-      }
-      const selectors = [
-        'a[href]',
-        'button:not([disabled])',
-        'textarea:not([disabled])',
-        'input:not([disabled])',
-        'select:not([disabled])',
-        '[tabindex]:not([tabindex="-1"])',
-      ];
-      return Array.from(containerRef.current.querySelectorAll(selectors.join(','))).filter((el) => {
-        if (el.hasAttribute('disabled')) {
-          return false;
-        }
-        if (el.getAttribute('tabindex') === '-1') {
-          return false;
-        }
-        const rects = el.getClientRects();
-        return rects.length > 0 || el.offsetParent !== null;
-      });
-    };
-
-    const focusFirstElement = () => {
-      const focusable = getFocusableElements();
-      const target =
-        (initialFocusRef && initialFocusRef.current) || focusable[0] || containerRef.current;
-      focusElement(target);
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key !== 'Tab') {
-        return;
-      }
-      const focusable = getFocusableElements();
-      const activeElement = document.activeElement;
-      if (focusable.length === 0) {
-        event.preventDefault();
-        focusElement(containerRef.current);
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const isInside = containerRef.current.contains(activeElement);
-
-      if (event.shiftKey) {
-        if (!isInside || activeElement === first) {
-          event.preventDefault();
-          focusElement(last);
-        }
-        return;
-      }
-
-      if (!isInside || activeElement === last) {
-        event.preventDefault();
-        focusElement(first);
-      }
-    };
-
-    const handleFocusIn = (event) => {
-      if (!containerRef.current) {
-        return;
-      }
-      if (redirectingRef.current) {
-        return;
-      }
-      if (!containerRef.current.contains(event.target)) {
-        focusFirstElement();
-      }
-    };
-
-    focusFirstElement();
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('focusin', handleFocusIn, true);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
-      document.removeEventListener('focusin', handleFocusIn, true);
-    };
-  }, [active, containerRef, initialFocusRef]);
-}
 
 function collectValidatableFields(elements, { includeRepeatableChildren = false } = {}, acc = []) {
   if (!Array.isArray(elements)) {
@@ -3676,7 +3572,7 @@ function FormRendererContent({
     };
 
     const handleKeyDown = (event) => {
-      if (event.defaultPrevented) {
+      if (event.defaultPrevented || isRemoveEntryDialogEvent(event)) {
         return;
       }
 
@@ -4296,6 +4192,9 @@ function FormRendererContent({
           key={sectionId}
           field={field}
           titleDescriptor={titleDatasets.byRepeatableKey.get(repeatableKey) || null}
+          rowTitle={(row) =>
+            buildingPlanRowTitle({ metadata: buildingPlanMeta, repeatableKey, row })
+          }
           instances={instances}
           readOnly={isReadOnlyMode}
           overlayActive={overlayActive}
@@ -4824,6 +4723,8 @@ function FormRendererContent({
 function RepeatableSectionList({
   field,
   titleDescriptor,
+  // A row's own name, when it has one (BuildingPlan rows: floor and room names, wall labels).
+  rowTitle = null,
   instances = [],
   onAdd,
   onEdit,
@@ -4850,7 +4751,9 @@ function RepeatableSectionList({
               Back
             </button>
           )}
-          <h3 className={styles.repeatableListTitle}>{field?.label || 'Repeatable Section'}</h3>
+          <h3 className={styles.repeatableListTitle}>
+            {field?.label || 'Repeatable Section'} <RepeatableCount count={instances.length} />
+          </h3>
           {field?.description ? (
             <p className={styles.repeatableListDescription}>{field.description}</p>
           ) : null}
@@ -4862,52 +4765,22 @@ function RepeatableSectionList({
           </button>
         )}
       </div>
-      <div className={styles.repeatableEntryList}>
-        {instances.length === 0 ? (
-          <div className={styles.repeatableEmptyState}>
-            <span>No entries yet.</span>
-            {/* {!readOnly && (
-              <button
-                type="button"
-                className={styles.repeatableEmptyStateButton}
-                onClick={onAdd}
-              >
-                Add the first entry
-              </button>
-            )} */}
-          </div>
-        ) : (
-          instances.map((instance, index) => (
-            <div key={instance.id || index} className={styles.repeatableEntryRow}>
-              <div className={styles.repeatableEntryInfo}>
-                <div className={styles.repeatableEntryTitle}>
-                  {getRepeatableEntryTitle(field, instance, index, titleDescriptor)}
-                </div>
-              </div>
-              <div className={styles.repeatableEntryActions}>
-                <button
-                  type="button"
-                  className={styles.repeatableActionButton}
-                  onClick={() => onEdit(instance.id)}
-                >
-                  View
-                  <ChevronRight size={14} strokeWidth={1.8} />
-                </button>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    className={`${styles.repeatableActionButton} ${styles.repeatableDangerButton}`}
-                    onClick={() => onRemove(instance.id)}
-                  >
-                    <Trash2 size={14} strokeWidth={1.8} />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {instances.length === 0 ? (
+        <RepeatableEmptyState readOnly={readOnly} onAdd={onAdd} />
+      ) : (
+        <RepeatableEntryRows
+          label={field?.label || undefined}
+          entries={instances.map((instance, index) => ({
+            id: instance.id,
+            title:
+              rowTitle?.(instance) ||
+              getRepeatableEntryTitle(field, instance, index, titleDescriptor),
+          }))}
+          readOnly={readOnly}
+          onOpen={onEdit}
+          onRemove={onRemove}
+        />
+      )}
     </div>
   );
 }
@@ -4964,6 +4837,7 @@ function RepeatableEntryModal({
     diagnosticsActive: modal.diagnosticsActive,
   });
   const modalTitleDatasets = useMemo(() => buildTitleDatasetIndex(modal.schema), [modal.schema]);
+  const modalPlanMetadata = useMemo(() => getBuildingPlanMetadata(modal.schema), [modal.schema]);
 
   const entryInitialTimestampValues = useMemo(
     () => ({
@@ -6343,7 +6217,7 @@ function RepeatableEntryModal({
     };
 
     const handleKeyDown = (event) => {
-      if (event.defaultPrevented) {
+      if (event.defaultPrevented || isRemoveEntryDialogEvent(event)) {
         return;
       }
 
@@ -6566,6 +6440,13 @@ function RepeatableEntryModal({
                       modalTitleDatasets.byRepeatableKey.get(
                         activeNestedRepeatable.repeatableKey
                       ) || null
+                    }
+                    rowTitle={(row) =>
+                      buildingPlanRowTitle({
+                        metadata: modalPlanMetadata,
+                        repeatableKey: activeNestedRepeatable.repeatableKey,
+                        row,
+                      })
                     }
                     instances={nestedRepeatableInstances || []}
                     readOnly={readOnly}

@@ -639,21 +639,75 @@ export const repeatableBackButton = style({
   padding: 0,
 });
 
+// Entries as one list: each row is a button that opens the entry, with a trash button at its
+// end while editing (repeatable-list-parts.jsx).
 export const repeatableEntryList = style({
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.5rem',
+  border: `1px solid ${vars.color.sectionBorder}`,
+  borderRadius: vars.borderRadius,
+  overflow: 'hidden',
+  background: vars.color.background,
 });
 
 export const repeatableEntryRow = style({
   display: 'flex',
-  justifyContent: 'space-between',
-  gap: '0.75rem',
   alignItems: 'center',
+  gap: '0.25rem',
+  paddingRight: '0.375rem',
+  selectors: {
+    '&:not(:last-child)': { borderBottom: `1px solid ${vars.color.sectionBorder}` },
+  },
+});
+
+export const repeatableEntryOpen = style({
+  appearance: 'none',
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  minHeight: '2.75rem',
   padding: '0.5rem 0.5rem 0.5rem 0.875rem',
+  border: 'none',
+  background: 'transparent',
+  color: vars.color.foreground,
+  fontFamily: vars.fontFamily.base,
+  textAlign: 'left',
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': { background: derived.fillHover },
+    '&:active': { background: derived.fillPress },
+    '&:focus-visible': { outline: control.focusOutline, outlineOffset: '-2px' },
+  },
+});
+
+export const repeatableEntryChevron = style({
+  flexShrink: 0,
+  color: derived.muted,
+});
+
+export const repeatableEntryRemove = style({
+  appearance: 'none',
+  flexShrink: 0,
+  width: control.height,
+  height: control.height,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: 'none',
   borderRadius: vars.borderRadius,
-  border: `1px solid ${vars.color.sectionBorder}`,
-  background: vars.color.background,
+  background: 'transparent',
+  color: vars.color.error,
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': { background: derived.errorSoft },
+    '&:active': { background: derived.errorSoft },
+    '&:focus-visible': { outline: control.focusOutline, outlineOffset: '1px' },
+  },
 });
 
 export const repeatableEntryInfo = style({
@@ -662,8 +716,10 @@ export const repeatableEntryInfo = style({
 });
 
 export const repeatableEntryTitle = style({
+  flex: 1,
+  minWidth: 0,
   fontWeight: 600,
-  fontSize: '0.95rem',
+  fontSize: '0.9375rem',
   color: vars.color.foreground,
   wordBreak: 'break-word',
 });
@@ -688,11 +744,12 @@ export const repeatableDangerButton = style({
   },
 });
 
-// Grows with the list once entries exist; while empty it holds a clear, fixed-height place.
+// Grows with the list once entries exist; while empty it says what goes here and, while
+// editing, offers the first Add.
 export const repeatableEmptyState = style({
-  border: `1px dashed ${derived.borderStrong}`,
+  border: `1.5px dashed ${derived.borderStrong}`,
   borderRadius: vars.borderRadius,
-  background: derived.fill,
+  background: vars.color.background,
   padding: '1.5rem 1rem',
   minHeight: '7rem',
   textAlign: 'center',
@@ -700,10 +757,18 @@ export const repeatableEmptyState = style({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '0.75rem',
-  color: derived.muted,
+  gap: '0.375rem',
+  color: vars.color.foreground,
   fontSize: vars.fontSize.base,
 });
+
+export const repeatableEmptyIcon = style({ color: derived.muted });
+
+export const repeatableEmptyTitle = style({ fontWeight: 600 });
+
+export const repeatableEmptyHint = style({ fontSize: '0.8125rem', color: derived.muted });
+
+export const repeatableEmptyAdd = style([formNameActionButton, { marginTop: '0.375rem' }]);
 
 export const repeatableModalOverlay = style({
   position: 'fixed',

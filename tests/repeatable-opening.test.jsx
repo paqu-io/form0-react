@@ -49,7 +49,7 @@ const options = (security) => ({
 });
 const openRow = async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  fireEvent.click(await screen.findByRole('button', { name: 'rows 1', exact: true }));
   return within(await screen.findByRole('dialog'));
 };
 const locked = (input) => input.readOnly || input.disabled;
@@ -106,7 +106,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
       );
       fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
       fireEvent.click(
-        screen.getByRole('button', { name: create ? /Add/ : 'View', exact: !create })
+        screen.getByRole('button', { name: create ? /Add/ : 'rows 1', exact: !create })
       );
       const row = within(await screen.findByRole('dialog'));
       await waitFor(() =>
@@ -135,7 +135,7 @@ for (const security of [undefined, { mode: 'safe' }]) {
       fireEvent.click(row.getByRole('button', { name: 'View', exact: true }));
       row = within(screen.getByRole('dialog'));
       expect(row.queryByRole('button', { name: /Remove/ })).toBeNull();
-      fireEvent.click(row.getByRole('button', { name: 'View', exact: true }));
+      fireEvent.click(row.getByRole('button', { name: 'children 1', exact: true }));
       await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
       const child = within(screen.getAllByRole('dialog').at(-1));
       expect(locked(child.getByLabelText('detail'))).toBe(true);

@@ -2,7 +2,11 @@ import React, { useMemo } from 'react';
 import { useBuildingPlanController } from './controller.js';
 import { BuildingPlanCanvasHost } from './canvas-host.jsx';
 import * as styles from '../form-renderer.css.js';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import {
+  RepeatableCount,
+  RepeatableEmptyState,
+  RepeatableEntryRows,
+} from '../repeatable-list-parts.jsx';
 
 /**
  * Parent-level BuildingPlanSection renderer (standard page view).
@@ -74,7 +78,8 @@ export function BuildingPlanSectionView({
               )}
               <div className={styles.repeatableListHeaderText}>
                 <h3 className={styles.repeatableListTitle}>
-                  {controller?.floorField?.label || 'Floors'}
+                  {controller?.floorField?.label || 'Floors'}{' '}
+                  <RepeatableCount count={controller?.floors?.length || 0} />
                 </h3>
                 <p className={styles.repeatableListDescription}>
                   {controller?.floorField?.description ||
@@ -82,43 +87,21 @@ export function BuildingPlanSectionView({
                 </p>
               </div>
             </div>
-            <div className={styles.repeatableEntryList}>
-              {(controller?.floors?.length || 0) === 0 ? (
-                <div className={styles.repeatableEmptyState}>No entries yet.</div>
-              ) : (
-                controller.floors.map((floor, idx) => (
-                  <div key={floor.id} className={styles.repeatableEntryRow}>
-                    <div className={styles.repeatableEntryInfo}>
-                      <div className={styles.repeatableEntryTitle}>
-                        {floor.label || `Floor #${idx + 1}`}
-                      </div>
-                    </div>
-                    <div className={styles.repeatableEntryActions}>
-                      <button
-                        type="button"
-                        className={styles.formNameActionButton}
-                        onClick={() => controller.onViewFloor?.(floor.id)}
-                      >
-                        <span>View</span>
-                        <span className={styles.formNameActionIcon} aria-hidden="true">
-                          <ChevronRight size={14} strokeWidth={1.8} />
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.formNameActionButton} ${styles.repeatableDangerButton}`}
-                        onClick={() => controller.onRemoveFloor?.(floor.id)}
-                      >
-                        <span className={styles.formNameActionIcon} aria-hidden="true">
-                          <Trash2 size={14} strokeWidth={1.8} />
-                        </span>
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            {(controller?.floors?.length || 0) === 0 ? (
+              <RepeatableEmptyState readOnly={readOnly} onAdd={repeatableApi.addFloor} />
+            ) : (
+              <RepeatableEntryRows
+                label={controller?.floorField?.label || 'Floors'}
+                entries={controller.floors.map((floor, idx) => ({
+                  id: floor.id,
+                  // Unnamed floors fall back to the title any entry gets ("Floors 1").
+                  title: floor.label || `${controller?.floorField?.label || 'Floors'} ${idx + 1}`,
+                }))}
+                readOnly={readOnly}
+                onOpen={(id) => controller.onViewFloor?.(id)}
+                onRemove={(id) => controller.onRemoveFloor?.(id)}
+              />
+            )}
           </div>
         </div>
       </div>
