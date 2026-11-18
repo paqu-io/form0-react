@@ -7,6 +7,8 @@ import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
 import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import { PlanTooltip } from './plan-tooltip.jsx';
+import { FloorTabs } from './floor-tabs.jsx';
+import { isPlanShortcutEvent, planShortcutKey } from './plan-shortcuts.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
 import { useThemeClass } from '../theme-context.jsx';
@@ -326,6 +328,8 @@ export function BuildingPlanCanvasHost({
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
   const [issues, setIssues] = useState([]);
+  // The floors the canvas shows, reported by the canvas for the tab row.
+  const [floorTabs, setFloorTabs] = useState([]);
 
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
@@ -439,6 +443,7 @@ export function BuildingPlanCanvasHost({
       labelSettings: LABEL_SETTINGS,
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
       readOnly, // Disable canvas interactions in view mode
+      onFloorTabs: ({ tabs }) => setFloorTabs(tabs),
     });
     canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
     const changeMode = canvas.setMode.bind(canvas);
@@ -553,6 +558,32 @@ export function BuildingPlanCanvasHost({
     }
   }, [scope]);
 
+  // Undo / Redo of the entry's plan edits (floor and room entries carry an editor).
+  const editor = repeatableApi.editor || null;
+  const undo = useCallback(() => {
+    const api = repeatableApiRef.current;
+    const result = api?.editor?.undo({ scopeId: api.scopeId });
+    if (result) setIssues(result.issues);
+  }, []);
+  const redo = useCallback(() => {
+    const api = repeatableApiRef.current;
+    const result = api?.editor?.redo({ scopeId: api.scopeId });
+    if (result) setIssues(result.issues);
+  }, []);
+  useEffect(() => {
+    if (!editor || readOnly || typeof window === 'undefined') return undefined;
+    const onKeyDown = (event) => {
+      if (!isPlanShortcutEvent(event)) return;
+      const key = planShortcutKey(event);
+      if (key !== 'Z' && key !== 'Y') return;
+      event.preventDefault();
+      event.stopPropagation();
+      (key === 'Z' ? undo : redo)();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [editor, readOnly, undo, redo]);
+
   // Sync readOnly state to canvas when it changes
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -563,30 +594,6 @@ export function BuildingPlanCanvasHost({
 
   return (
     <div ref={hostRef} className={`building-plan-canvas-host ${planTokens}`}>
-      {repeatableApi.editor && (
-        <div className="building-plan-toolbar">
-          <button
-            type="button"
-            disabled={readOnly || !repeatableApi.editor.getState().canUndo}
-            onClick={() => {
-              const result = repeatableApi.editor.undo({ scopeId: repeatableApi.scopeId });
-              setIssues(result.issues);
-            }}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            disabled={readOnly || !repeatableApi.editor.getState().canRedo}
-            onClick={() => {
-              const result = repeatableApi.editor.redo({ scopeId: repeatableApi.scopeId });
-              setIssues(result.issues);
-            }}
-          >
-            Redo
-          </button>
-        </div>
-      )}
       <BuildingPlanToolbar
         canvasMode={mode}
         activeToolMode={activeToolMode}
@@ -595,6 +602,25 @@ export function BuildingPlanCanvasHost({
         disabled={readOnly}
       />
       <div className="building-plan-canvas-panel-wrapper">
+        <FloorTabs
+          tabs={floorTabs}
+          onSelect={(index) => canvasRef.current?.handleFloorTabClick(index)}
+          onAdd={
+            mode === 'parent' && !readOnly && typeof repeatableApi.addFloor === 'function'
+              ? repeatableApi.addFloor
+              : null
+          }
+          history={
+            editor
+              ? {
+                  canUndo: !readOnly && editor.getState().canUndo,
+                  canRedo: !readOnly && editor.getState().canRedo,
+                  onUndo: undo,
+                  onRedo: redo,
+                }
+              : null
+          }
+        />
         <div ref={containerRef} className="building-plan-canvas-panel" />
         <ZoomControls
           zoomLevel={zoomLevel}

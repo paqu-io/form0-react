@@ -21,6 +21,7 @@ export const TOOL_MODES = {
   DRAW_BEAM: 'draw-beam',
   SPLIT: 'split',
   REJOIN: 'rejoin',
+  PIN: 'pin',
   CLEAR: 'clear', // Special action, not a mode
 };
 
@@ -62,35 +63,21 @@ const BUTTON_STATES = {
  * Toolbar button definitions.
  * Each button has an id, label, icon name (Lucide), shortcut key, and per-mode state.
  */
+const enabledIn = (...modes) =>
+  Object.fromEntries(
+    Object.values(CANVAS_MODES).map((mode) => [
+      mode,
+      modes.includes(mode) ? BUTTON_STATES.ENABLED : BUTTON_STATES.DISABLED,
+    ])
+  );
+
+/**
+ * Toolbar button definitions, in the rail's order: selection, drawing, openings, then the
+ * editing tools that act on walls (split, rejoin, pin). Each has an id, label, icon name (a
+ * lucide icon or one of `plan-icons.jsx`), Alt+Shift shortcut key and per-mode state.
+ */
 export const TOOLBAR_BUTTONS = [
-  ...[
-    { id: 'split', label: 'Split', icon: 'Scissors', shortcutKey: 'P', mode: TOOL_MODES.SPLIT },
-    { id: 'rejoin', label: 'Rejoin', icon: 'Combine', shortcutKey: 'J', mode: TOOL_MODES.REJOIN },
-  ].map((button) => ({
-    ...button,
-    isAction: false,
-    group: 'structural',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
-  })),
-  {
-    id: 'room',
-    label: 'Draw Room',
-    icon: 'Square',
-    shortcutKey: 'R',
-    mode: TOOL_MODES.DRAW_ROOM,
-    isAction: false,
-    group: 'structural',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.ENABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.DISABLED,
-    },
-  },
-  // Primary actions (top section)
+  // Selection
   {
     id: 'select',
     label: 'Select',
@@ -99,70 +86,60 @@ export const TOOLBAR_BUTTONS = [
     mode: TOOL_MODES.SELECT,
     isAction: false,
     group: 'primary',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.ENABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.ENABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.PARENT, CANVAS_MODES.FLOOR, CANVAS_MODES.ROOM),
   },
   {
     id: 'clear',
-    label: 'Clear',
+    label: 'Clear selection',
     icon: 'X',
     shortcutKey: 'X',
     mode: TOOL_MODES.CLEAR,
     isAction: true, // This triggers an action, not a mode change
     group: 'primary',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.ENABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.ENABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.PARENT, CANVAS_MODES.FLOOR, CANVAS_MODES.ROOM),
   },
-  // Structural elements (below separator)
+  // Drawing
   {
-    id: 'column',
-    label: 'Column',
+    id: 'room',
+    label: 'Draw room',
     icon: 'Square',
-    shortcutKey: 'O',
-    mode: TOOL_MODES.DRAW_COLUMN,
+    shortcutKey: 'R',
+    mode: TOOL_MODES.DRAW_ROOM,
     isAction: false,
     group: 'structural',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
-  },
-  {
-    id: 'beam',
-    label: 'Beam',
-    icon: 'GripHorizontal',
-    shortcutKey: 'E',
-    mode: TOOL_MODES.DRAW_BEAM,
-    isAction: false,
-    group: 'structural',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.FLOOR),
   },
   {
     id: 'wall',
     label: 'Wall',
-    icon: 'Minus',
+    icon: 'Wall',
     shortcutKey: 'W',
     mode: TOOL_MODES.DRAW_WALL,
     isAction: false,
     group: 'structural',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
-  // Openings (below separator)
+  {
+    id: 'column',
+    label: 'Column',
+    icon: 'Column',
+    shortcutKey: 'O',
+    mode: TOOL_MODES.DRAW_COLUMN,
+    isAction: false,
+    group: 'structural',
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
+  },
+  {
+    id: 'beam',
+    label: 'Beam',
+    icon: 'Beam',
+    shortcutKey: 'E',
+    mode: TOOL_MODES.DRAW_BEAM,
+    isAction: false,
+    group: 'structural',
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
+  },
+  // Openings
   {
     id: 'door',
     label: 'Door',
@@ -171,11 +148,7 @@ export const TOOLBAR_BUTTONS = [
     mode: TOOL_MODES.DRAW_DOOR,
     isAction: false,
     group: 'openings',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
   {
     id: 'window',
@@ -185,11 +158,39 @@ export const TOOLBAR_BUTTONS = [
     mode: TOOL_MODES.DRAW_WINDOW,
     isAction: false,
     group: 'openings',
-    stateByCanvasMode: {
-      [CANVAS_MODES.PARENT]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.FLOOR]: BUTTON_STATES.DISABLED,
-      [CANVAS_MODES.ROOM]: BUTTON_STATES.ENABLED,
-    },
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
+  },
+  // Editing walls
+  {
+    id: 'split',
+    label: 'Split',
+    icon: 'Scissors',
+    shortcutKey: 'P',
+    mode: TOOL_MODES.SPLIT,
+    isAction: false,
+    group: 'editing',
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
+  },
+  {
+    id: 'rejoin',
+    label: 'Rejoin',
+    icon: 'Rejoin',
+    shortcutKey: 'J',
+    mode: TOOL_MODES.REJOIN,
+    isAction: false,
+    group: 'editing',
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
+  },
+  {
+    // Pinned walls stay put while others are dragged (until the scope closes).
+    id: 'pin',
+    label: 'Pin walls',
+    icon: 'Pin',
+    shortcutKey: 'N',
+    mode: TOOL_MODES.PIN,
+    isAction: false,
+    group: 'editing',
+    stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
 ];
 

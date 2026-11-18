@@ -4,6 +4,8 @@ import {
   createBuildingPlanPresentation,
 } from 'form0-core';
 import { DEFAULT_PLAN_THEME } from '../draw/plan-theme.js';
+import { planTextParts } from '../plan-text.js';
+import { isMacPlatform } from '../plan-shortcuts.js';
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import {
   drawBeamSymbol,
@@ -257,8 +259,11 @@ export class BuildingPlanCanvas {
     presentation,
     externalToolbar = false,
     readOnly = false,
+    onFloorTabs = null,
   }) {
     this.container = container;
+    // With an external toolbar the host draws the floor tabs from this report.
+    this.onFloorTabs = typeof onFloorTabs === 'function' ? onFloorTabs : null;
     this.controller = controller;
     this.presentation = presentation || createBuildingPlanPresentation();
     this.labelSettings = { ...DEFAULT_LABEL_SETTINGS, ...labelSettings };
@@ -531,9 +536,11 @@ export class BuildingPlanCanvas {
     this.ctx = this.canvas.getContext('2d');
     this.canvasContainer.appendChild(this.canvas);
 
-    this.floorTabsContainer = document.createElement('div');
-    this.floorTabsContainer.className = 'building-plan-floor-tabs';
-    this.container.appendChild(this.floorTabsContainer);
+    if (!this.onFloorTabs) {
+      this.floorTabsContainer = document.createElement('div');
+      this.floorTabsContainer.className = 'building-plan-floor-tabs';
+      this.container.appendChild(this.floorTabsContainer);
+    }
 
     // Only append toolbar if it was created
     if (this.toolbar) {
@@ -657,6 +664,11 @@ export class BuildingPlanCanvas {
 
   buildCornerControls() {
     if (!this.controller?.getCornerPlacement) return;
+    if (this.externalToolbar) {
+      // Pin is a tool of the external rail; the hints live in a status line on the canvas.
+      this.buildStatusLine();
+      return;
+    }
     this.cornerToolbar = document.createElement('div');
     this.cornerToolbar.className = 'building-plan-toolbar';
     this.pinWallButton = document.createElement('button');
@@ -672,6 +684,43 @@ export class BuildingPlanCanvas {
     this.cornerHint = hint;
     this.cornerToolbar.append(this.pinWallButton, hint);
     this.container.appendChild(this.cornerToolbar);
+  }
+
+  /** A quiet line over the canvas's bottom-left corner saying what the current tool does. */
+  buildStatusLine() {
+    this.statusLine = document.createElement('div');
+    this.statusLine.className = 'building-plan-status';
+    this.statusLine.setAttribute('aria-live', 'polite');
+    this.statusKey = undefined;
+    this.canvasContainer.appendChild(this.statusLine);
+  }
+
+  /** The status text for the current tool, or null for drawing tools (they say nothing yet). */
+  statusTextKey() {
+    if (this.mode === 'split') return 'plan.status.split';
+    if (this.mode === 'rejoin') return 'plan.status.rejoin';
+    if (this.mode === 'pin') return 'plan.status.pin';
+    if (this.mode !== MODE_SELECT) return null;
+    return this.cutAllowed() ? 'plan.status.select' : 'plan.status.view';
+  }
+
+  updateStatusLine() {
+    if (!this.statusLine) return;
+    const key = this.statusTextKey();
+    if (key === this.statusKey) return;
+    this.statusKey = key;
+    this.statusLine.hidden = !key;
+    this.statusLine.replaceChildren();
+    if (!key) return;
+    const mac = isMacPlatform();
+    const keyCaps = { alt: mac ? '⌥' : 'Alt', shift: mac ? '⇧' : 'Shift' };
+    for (const part of planTextParts(key)) {
+      if (part.key) {
+        const cap = document.createElement('kbd');
+        cap.textContent = keyCaps[part.key] || part.key;
+        this.statusLine.appendChild(cap);
+      } else this.statusLine.appendChild(document.createTextNode(part.text));
+    }
   }
 
   cornerAt(point) {
@@ -735,7 +784,10 @@ export class BuildingPlanCanvas {
       this.toolbar.append(this.splitButton, this.rejoinButton);
     }
     this.cutToolbar = document.createElement('div');
-    this.cutToolbar.className = 'building-plan-toolbar';
+    // With the external toolbar the distance is a small bar floating on the canvas.
+    this.cutToolbar.className = this.externalToolbar
+      ? 'building-plan-cut-bar'
+      : 'building-plan-toolbar';
     const label = document.createElement('label');
     this.cutDistanceLabel = label;
     label.textContent = `${this.presentation.t('Split distance')} [${this.presentation.unitFor()}] `;
@@ -776,10 +828,16 @@ export class BuildingPlanCanvas {
       this.cutTarget = this.cutDraft = null;
       this.render();
     });
-    const hint = document.createElement('span');
-    hint.textContent = 'Point at a wall, then click or enter a distance from its marked 0 end.';
-    this.cutToolbar.append(label, this.cutDistanceButton, hint);
-    this.container.appendChild(this.cutToolbar);
+    if (this.externalToolbar) {
+      // The hint is in the status line.
+      this.cutToolbar.append(label, this.cutDistanceButton);
+      this.canvasContainer.appendChild(this.cutToolbar);
+    } else {
+      const hint = document.createElement('span');
+      hint.textContent = 'Point at a wall, then click or enter a distance from its marked 0 end.';
+      this.cutToolbar.append(label, this.cutDistanceButton, hint);
+      this.container.appendChild(this.cutToolbar);
+    }
     this.buildCornerControls();
   }
 
@@ -810,6 +868,7 @@ export class BuildingPlanCanvas {
       button.classList.toggle('active', this.mode === mode);
       button.setAttribute('aria-pressed', String(this.mode === mode));
     }
+    this.updateStatusLine();
     if (!this.cutToolbar) return;
     this.cutToolbar.style.display = this.mode === 'split' ? 'flex' : 'none';
     const disabled = !this.cutAllowed() || !this.cutTarget;
@@ -3337,6 +3396,19 @@ export class BuildingPlanCanvas {
     ctx.restore();
   }
   renderFloorTabs() {
+    if (this.onFloorTabs) {
+      this.onFloorTabs({
+        tabs: (this.floors || []).map((floor) => ({
+          index: floor.index,
+          label:
+            floor.label ||
+            'Floor #' +
+              ((typeof floor.displayIndex === 'number' ? floor.displayIndex : floor.index) + 1),
+          active: floor.index === this.activeFloorIndex,
+        })),
+      });
+      return;
+    }
     if (!this.floorTabsContainer) return;
     this.floorTabsContainer.innerHTML = '';
 

@@ -111,12 +111,26 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const floorRow = floorView.closest('[class]')?.parentElement;
   // Rows carry the plan's own names, as the canvas tabs do.
   expect((await listRows('Floors')).map((row) => row.textContent)).toEqual(['Ground Floor']);
+  // Above the canvas: the floors as tabs and "+" to add one; Pin is a tool of the rail.
+  expect(screen.getByRole('tab', { name: 'Ground Floor' }).getAttribute('aria-selected')).toBe(
+    'true'
+  );
+  expect(screen.getByRole('button', { name: 'Add floor' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Pin walls' })).toBeTruthy();
   // The list panel adds nothing of its own: the header keeps "Add Floor", the empty list its Add.
   expect(screen.queryByRole('button', { name: 'Add', exact: true })).toBeNull();
   expect(screen.queryByText('Each floor created from the canvas is stored here.')).toBeNull();
   fireEvent.click((await listRows('Floors'))[0]);
   const dialog = within(await screen.findByRole('dialog'));
   expect(dialog.getByRole('button', { name: /Cancel/ })).toBeTruthy();
+  // The entry is titled by the floor's name (the plan's title_field), not "Floors 1".
+  expect(dialog.queryByText('Floors 1')).toBeNull();
+  // Where the canvas edits: Undo and Redo beside the tabs, no "+", the tool's hint on the canvas.
+  expect(dialog.getByRole('button', { name: 'Undo' })).toBeTruthy();
+  expect(dialog.getByRole('button', { name: 'Redo' })).toBeTruthy();
+  expect(dialog.queryByRole('button', { name: 'Add floor' })).toBeNull();
+  expect(dialog.getByText(/Double-click an element to open it/)).toBeTruthy();
+  expect(dialog.queryByRole('button', { name: 'Apply', exact: true })).toBeNull();
   expect(await dialog.findByText(/Structural clear height/i)).toBeTruthy();
   expect(dialog.queryByText('Building plan model')).toBeNull();
   expect(dialog.queryByText('Physical walls', { exact: true })).toBeNull();

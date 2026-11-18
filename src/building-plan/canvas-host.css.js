@@ -25,14 +25,26 @@ globalStyle(
 
 globalStyle('.building-plan-conflict', { color: vars.color.error, fontSize: '13px' });
 
+// The card around the floor tab row and the canvas.
 globalStyle('.building-plan-canvas-panel-wrapper', {
   position: 'relative',
   flex: 1,
   minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
+  boxSizing: 'border-box',
+  background: vars.color.background,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: '12px',
+  padding: '10px',
   // Isolate the stacking context so the zoom pill doesn't rise above overlay dialogs.
   isolation: 'isolate',
+});
+
+// The zoom pill sits inside the canvas's corner, past the card's padding.
+globalStyle('.building-plan-canvas-panel-wrapper > .building-plan-zoom-controls', {
+  right: '19px',
+  bottom: '19px',
 });
 
 globalStyle('.building-plan-canvas-panel', {
@@ -41,10 +53,6 @@ globalStyle('.building-plan-canvas-panel', {
   width: '100%',
   boxSizing: 'border-box',
   minWidth: 0,
-  background: vars.color.background,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: '12px',
-  padding: '10px',
   display: 'flex',
   flexDirection: 'column',
 });
@@ -203,3 +211,78 @@ globalStyle('.building-plan-floor-placeholder', {
 });
 
 globalStyle('.building-plan-floor-placeholder::before', { content: '"+"', fontWeight: 600 });
+
+// What the current tool does, over the canvas's bottom-left corner.
+globalStyle('.building-plan-status', {
+  position: 'absolute',
+  left: '8px',
+  bottom: '8px',
+  maxWidth: 'calc(100% - 200px)',
+  padding: '5px 9px',
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: '8px',
+  background: `color-mix(in srgb, ${vars.color.background} 88%, transparent)`,
+  color: derived.muted,
+  fontSize: '12px',
+  lineHeight: 1.35,
+  pointerEvents: 'none',
+});
+
+globalStyle('.building-plan-status[hidden]', { display: 'none' });
+
+globalStyle('.building-plan-status kbd', {
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+  fontSize: '10.5px',
+  padding: '1px 4px',
+  borderRadius: '4px',
+  border: `1px solid ${derived.borderStrong}`,
+  background: derived.fill,
+  color: vars.color.foreground,
+});
+
+// The split distance while Split is the tool, floating over the canvas's top-left corner.
+globalStyle('.building-plan-cut-bar', {
+  position: 'absolute',
+  left: '8px',
+  top: '8px',
+  zIndex: 2,
+  alignItems: 'center',
+  gap: '8px',
+  padding: '6px 8px',
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: '10px',
+  background: vars.color.background,
+  boxShadow: '0 4px 14px rgb(0 0 0 / 0.1)',
+  color: derived.muted,
+  fontSize: '12.5px',
+});
+
+globalStyle('.building-plan-cut-bar label', {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+});
+
+globalStyle('.building-plan-cut-bar input', {
+  width: '90px',
+  height: '28px',
+  padding: '0 8px',
+  border: `1px solid ${derived.borderStrong}`,
+  borderRadius: '7px',
+  background: vars.color.background,
+  color: vars.color.foreground,
+  fontSize: '13px',
+});
+
+globalStyle('.building-plan-cut-bar input:focus', {
+  outline: 'none',
+  borderColor: vars.color.primary,
+  boxShadow: control.focusRing,
+});
+
+globalStyle('.building-plan-cut-bar button', smallButton);
+globalStyle('.building-plan-cut-bar button:disabled', {
+  color: derived.disabledFg,
+  borderColor: vars.color.border,
+  cursor: 'not-allowed',
+});

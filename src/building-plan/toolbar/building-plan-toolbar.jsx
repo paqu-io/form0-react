@@ -1,15 +1,6 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
-import {
-  MousePointer2,
-  X,
-  Minus,
-  Square,
-  GripHorizontal,
-  DoorOpen,
-  Grid2x2,
-  Scissors,
-  Combine,
-} from 'lucide-react';
+import { MousePointer2, X, Square, DoorOpen, Grid2x2, Scissors, Pin } from 'lucide-react';
+import { BeamIcon, ColumnIcon, RejoinIcon, WallIcon } from './plan-icons.jsx';
 import { TOOL_MODES, getButtonsForMode } from './toolbar-config.js';
 import { isPlanShortcutEvent, planShortcut, planShortcutKey } from '../plan-shortcuts.js';
 import './toolbar.css.js';
@@ -18,16 +9,21 @@ import './toolbar.css.js';
  * Icon component lookup by name.
  */
 const ICON_MAP = {
-  Scissors,
-  Combine,
   MousePointer2,
   X,
-  Minus,
   Square,
-  GripHorizontal,
+  Wall: WallIcon,
+  Column: ColumnIcon,
+  Beam: BeamIcon,
   DoorOpen,
   Grid2x2,
+  Scissors,
+  Rejoin: RejoinIcon,
+  Pin,
 };
+
+/** The rail's groups, top to bottom, with a separator between two that have buttons. */
+const GROUPS = ['primary', 'structural', 'openings', 'editing'];
 
 /**
  * Get the icon component for a button.
@@ -56,14 +52,11 @@ export function BuildingPlanToolbar({
   // Get buttons configured for this canvas mode
   const buttons = useMemo(() => getButtonsForMode(canvasMode), [canvasMode]);
 
-  // Split buttons into groups
-  const primaryButtons = useMemo(() => buttons.filter((btn) => btn.group === 'primary'), [buttons]);
-  const structuralButtons = useMemo(
-    () => buttons.filter((btn) => btn.group === 'structural'),
-    [buttons]
-  );
-  const openingsButtons = useMemo(
-    () => buttons.filter((btn) => btn.group === 'openings'),
+  const groups = useMemo(
+    () =>
+      GROUPS.map((group) => buttons.filter((btn) => btn.group === group)).filter(
+        (group) => group.length > 0
+      ),
     [buttons]
   );
 
@@ -143,30 +136,12 @@ export function BuildingPlanToolbar({
 
   return (
     <div className="building-plan-toolbar-float" role="toolbar" aria-label="Canvas tools">
-      {/* Primary actions */}
-      {primaryButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">{primaryButtons.map(renderButton)}</div>
-      )}
-
-      {/* Separator before structural */}
-      {primaryButtons.length > 0 && structuralButtons.length > 0 && (
-        <div className="building-plan-toolbar-separator" role="separator" />
-      )}
-
-      {/* Structural tools (column, beam, wall) */}
-      {structuralButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">{structuralButtons.map(renderButton)}</div>
-      )}
-
-      {/* Separator before openings */}
-      {structuralButtons.length > 0 && openingsButtons.length > 0 && (
-        <div className="building-plan-toolbar-separator" role="separator" />
-      )}
-
-      {/* Openings (door, window) */}
-      {openingsButtons.length > 0 && (
-        <div className="building-plan-toolbar-group">{openingsButtons.map(renderButton)}</div>
-      )}
+      {groups.map((group, index) => (
+        <React.Fragment key={group[0].group}>
+          {index > 0 && <div className="building-plan-toolbar-separator" role="separator" />}
+          <div className="building-plan-toolbar-group">{group.map(renderButton)}</div>
+        </React.Fragment>
+      ))}
     </div>
   );
 }
