@@ -10,13 +10,9 @@ import {
   Scissors,
   Combine,
 } from 'lucide-react';
-import {
-  TOOL_MODES,
-  TOOLBAR_BUTTONS,
-  getButtonsForMode,
-  formatCompactShortcut,
-} from './toolbar-config.js';
-import './toolbar.css';
+import { TOOL_MODES, getButtonsForMode } from './toolbar-config.js';
+import { isPlanShortcutEvent, planShortcut, planShortcutKey } from '../plan-shortcuts.js';
+import './toolbar.css.js';
 
 /**
  * Icon component lookup by name.
@@ -91,18 +87,17 @@ export function BuildingPlanToolbar({
     [disabled, onModeChange, onClearSelection]
   );
 
-  // Keyboard shortcut handler (ALT+SHIFT+letter)
+  // Keyboard shortcut handler (Alt+Shift+letter, matched on the physical key)
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const handleKeyDown = (event) => {
-      // Check for ALT+SHIFT modifier
-      if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) {
+      if (!isPlanShortcutEvent(event)) {
         return;
       }
 
-      // Get the key pressed
-      const key = event.key.toUpperCase();
+      const key = planShortcutKey(event);
+      if (!key) return;
 
       // Find matching button
       const button = buttons.find((btn) => btn.shortcutKey === key && btn.enabled && !disabled);
@@ -120,12 +115,12 @@ export function BuildingPlanToolbar({
     };
   }, [buttons, disabled, handleButtonClick]);
 
-  // Render a single button with shortcut label below
+  // One button; its name and shortcut show in the plan tooltip.
   const renderButton = (button) => {
     const IconComponent = getIconComponent(button.icon);
     const isActive = !button.isAction && button.mode === activeToolMode;
     const isDisabled = disabled || !button.enabled;
-    const shortcutLabel = formatCompactShortcut(button.shortcutKey);
+    const shortcut = planShortcut(button.shortcutKey);
 
     return (
       <div key={button.id} className="building-plan-toolbar-item">
@@ -135,12 +130,13 @@ export function BuildingPlanToolbar({
           disabled={isDisabled}
           onClick={() => handleButtonClick(button)}
           data-tooltip={button.label}
+          data-shortcut={shortcut || undefined}
           aria-label={button.label}
+          aria-keyshortcuts={shortcut || undefined}
           aria-pressed={isActive}
         >
           {IconComponent && <IconComponent />}
         </button>
-        {shortcutLabel && <span className="building-plan-toolbar-shortcut">{shortcutLabel}</span>}
       </div>
     );
   };

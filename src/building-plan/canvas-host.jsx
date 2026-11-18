@@ -6,7 +6,8 @@ import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/buildin
 import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
 import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
-import './canvas.css';
+import { PlanTooltip } from './plan-tooltip.jsx';
+import './canvas-host.css.js';
 
 // Magnetic alignment and edge auto-pan are always on (no toggle until the UI revamp).
 const EDITING_POLICY = Object.freeze({
@@ -304,6 +305,7 @@ export function BuildingPlanCanvasHost({
   useEffect(() => {
     canvasRef.current?.setPresentation(presentation);
   }, [presentation]);
+  const hostRef = useRef(null);
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const controllerRef = useRef(null);
@@ -551,7 +553,7 @@ export function BuildingPlanCanvasHost({
   }, [readOnly]);
 
   return (
-    <div className="building-plan-canvas-host">
+    <div ref={hostRef} className="building-plan-canvas-host">
       {repeatableApi.editor && (
         <div className="building-plan-toolbar">
           <button
@@ -602,6 +604,7 @@ export function BuildingPlanCanvasHost({
           {issues[0].message}
         </div>
       )}
+      <PlanTooltip hostRef={hostRef} />
     </div>
   );
 }

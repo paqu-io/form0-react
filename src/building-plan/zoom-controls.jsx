@@ -1,7 +1,8 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { BUILDING_PLAN_ZOOM_LIMITS } from 'form0-core';
-import './zoom-controls.css';
+import { planText } from './plan-text.js';
+import './zoom-controls.css.js';
 
 const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
 
@@ -13,7 +14,8 @@ function formatZoomLevel(zoom) {
 }
 
 /**
- * ZoomControls - Floating zoom controls for the BuildingPlan canvas.
+ * ZoomControls - one horizontal pill over the canvas: zoom out, level, zoom in, reset. Names
+ * show in the plan tooltip; the level's tooltip says how to pan.
  *
  * @param {Object} props
  * @param {number} props.zoomLevel - Current zoom level (1 = 100%)
@@ -32,17 +34,18 @@ export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disa
       <button
         type="button"
         className="building-plan-zoom-btn"
-        onClick={onZoomIn}
-        disabled={!canZoomIn}
-        data-tooltip="Zoom in"
-        aria-label="Zoom in"
+        onClick={onZoomOut}
+        disabled={!canZoomOut}
+        data-tooltip="Zoom out"
+        aria-label="Zoom out"
       >
-        <ZoomIn />
+        <ZoomOut />
       </button>
 
       <div
         className="building-plan-zoom-level"
-        data-tooltip={`Current zoom: ${formatZoomLevel(zoomLevel)}`}
+        data-tooltip={planText('plan.zoom.panHint')}
+        aria-live="polite"
       >
         {formatZoomLevel(zoomLevel)}
       </div>
@@ -50,12 +53,12 @@ export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disa
       <button
         type="button"
         className="building-plan-zoom-btn"
-        onClick={onZoomOut}
-        disabled={!canZoomOut}
-        data-tooltip="Zoom out"
-        aria-label="Zoom out"
+        onClick={onZoomIn}
+        disabled={!canZoomIn}
+        data-tooltip="Zoom in"
+        aria-label="Zoom in"
       >
-        <ZoomOut />
+        <ZoomIn />
       </button>
 
       <div className="building-plan-zoom-separator" role="separator" />
@@ -65,30 +68,11 @@ export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disa
         className="building-plan-zoom-btn"
         onClick={onReset}
         disabled={!canReset}
-        data-tooltip="Reset zoom"
+        data-tooltip="Reset zoom to 100%"
         aria-label="Reset zoom to 100%"
       >
         <Maximize2 />
       </button>
-
-      <div className="building-plan-zoom-separator" role="separator" />
-
-      <div className="building-plan-zoom-hint">
-        <div
-          className="building-plan-zoom-btn building-plan-zoom-btn-static"
-          data-tooltip="Pan: shift+drag or middle mouse"
-          aria-label="Pan hint"
-        >
-          <Move />
-        </div>
-        <span className="building-plan-zoom-hint-text">
-          shift
-          <br />
-          +
-          <br />
-          drag
-        </span>
-      </div>
     </div>
   );
 }
