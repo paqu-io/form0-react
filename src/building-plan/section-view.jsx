@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useBuildingPlanController } from './controller.js';
 import { BuildingPlanCanvasHost } from './canvas-host.jsx';
 import * as styles from '../form-renderer.css.js';
+import * as layoutStyles from './section-view.css.js';
 import {
   RepeatableCount,
   RepeatableEmptyState,
@@ -45,14 +46,8 @@ export function BuildingPlanSectionView({
 
   return (
     <div className={styles.section} data-type="building-plan-section">
-      <div style={{ padding: 0 }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(320px, 1fr) minmax(280px, 360px)',
-            gap: '16px',
-          }}
-        >
+      <div className={layoutStyles.frame}>
+        <div className={layoutStyles.layout}>
           <BuildingPlanCanvasHost
             section={section}
             buildingPlanMeta={buildingPlanMeta}
