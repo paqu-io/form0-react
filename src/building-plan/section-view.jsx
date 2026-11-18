@@ -65,26 +65,20 @@ export function BuildingPlanSectionView({
             derivedCommands={derivedCommands}
           />
 
+          {/* The floors' list panel, as every repeatable list: adding stays in the page header
+              ("Add Floor") and in the empty state. */}
           <div className={styles.repeatableList}>
             <div className={styles.repeatableListHeader}>
-              {!readOnly && (
-                <button
-                  type="button"
-                  className={styles.formNameActionButton}
-                  onClick={repeatableApi.addFloor}
-                >
-                  Add
-                </button>
-              )}
               <div className={styles.repeatableListHeaderText}>
                 <h3 className={styles.repeatableListTitle}>
                   {controller?.floorField?.label || 'Floors'}{' '}
                   <RepeatableCount count={controller?.floors?.length || 0} />
                 </h3>
-                <p className={styles.repeatableListDescription}>
-                  {controller?.floorField?.description ||
-                    'Each floor created from the canvas is stored here.'}
-                </p>
+                {controller?.floorField?.description ? (
+                  <p className={styles.repeatableListDescription}>
+                    {controller.floorField.description}
+                  </p>
+                ) : null}
               </div>
             </div>
             {(controller?.floors?.length || 0) === 0 ? (

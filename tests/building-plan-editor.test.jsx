@@ -111,10 +111,12 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const floorRow = floorView.closest('[class]')?.parentElement;
   // Rows carry the plan's own names, as the canvas tabs do.
   expect((await listRows('Floors')).map((row) => row.textContent)).toEqual(['Ground Floor']);
+  // The list panel adds nothing of its own: the header keeps "Add Floor", the empty list its Add.
+  expect(screen.queryByRole('button', { name: 'Add', exact: true })).toBeNull();
+  expect(screen.queryByText('Each floor created from the canvas is stored here.')).toBeNull();
   fireEvent.click((await listRows('Floors'))[0]);
   const dialog = within(await screen.findByRole('dialog'));
   expect(dialog.getByRole('button', { name: /Cancel/ })).toBeTruthy();
-  expect(dialog.queryByRole('button', { name: 'Apply', exact: true })).toBeNull();
   expect(await dialog.findByText(/Structural clear height/i)).toBeTruthy();
   expect(dialog.queryByText('Building plan model')).toBeNull();
   expect(dialog.queryByText('Physical walls', { exact: true })).toBeNull();
