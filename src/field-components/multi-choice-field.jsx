@@ -1,8 +1,10 @@
 import { useBuildingPlanPresentation } from '../building-plan/presentation.jsx';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as styles from '../field-renderer.css.js';
+import { stack } from '../choice-dropdown.css.js';
+import { ChoiceDropdown, OTHER_VALUE } from './choice-dropdown.jsx';
 
-const OTHER_OPTION_VALUE = '__other__';
+const OTHER_OPTION_VALUE = OTHER_VALUE;
 
 function mapChoice(field, value) {
   const choice = field.choices?.find((c) => c.value === value);
@@ -71,13 +73,24 @@ export function MultiChoiceFieldComponent({
     emitChange(new Set(selectedValues), event.target.value, true);
   };
 
-  const handleSelectChange = (event) => {
-    const selectedOptions = Array.from(event.target.selectedOptions).map((option) => option.value);
-    const choiceValues = selectedOptions.filter((val) => val !== OTHER_OPTION_VALUE);
-    const nextChoices = new Set(choiceValues);
-    const includesOther = field.allow_other && selectedOptions.includes(OTHER_OPTION_VALUE);
-    const nextOther = includesOther ? otherValue : '';
-    emitChange(nextChoices, nextOther, includesOther);
+  // The dropdown toggles one option at a time; "Other" keeps its text while it stays chosen.
+  // Toggles start from the selection just sent until the engine's value comes back, so quick
+  // clicks on a slow engine (a worker, a large form) do not undo each other.
+  const pending = useRef(null);
+  useEffect(() => {
+    pending.current = null;
+  }, [value]);
+  const handleToggle = (choiceValue) => {
+    const current = pending.current || {
+      choices: new Set(selectedValues),
+      other: hasOtherSelection,
+    };
+    const next = { choices: new Set(current.choices), other: current.other };
+    if (choiceValue === OTHER_OPTION_VALUE) next.other = !current.other;
+    else if (next.choices.has(choiceValue)) next.choices.delete(choiceValue);
+    else next.choices.add(choiceValue);
+    pending.current = next;
+    emitChange(next.choices, next.other ? otherValue : '', next.other);
   };
 
   if (field.display === 'checkbox') {
@@ -155,29 +168,31 @@ export function MultiChoiceFieldComponent({
 
   const showOtherInput =
     field.allow_other && (selectValues.includes(OTHER_OPTION_VALUE) || otherValue.length > 0);
+  const otherLabel = field.allow_other ? presentation.t('Other') : null;
 
+  // Every dropdown, searchable or not, uses ChoiceDropdown (review of 2026-11-18).
   return (
-    <div>
-      <select
-        {...inputProps}
+    <div className={stack}>
+      <ChoiceDropdown
         id={inputProps.id}
-        name={inputProps.name || `${field.data_name}_choices`}
+        labelledBy={inputProps['aria-labelledby']}
+        options={choices.map((choice) => ({
+          value: choice.value,
+          label: choice.label || choice.value,
+        }))}
+        otherOption={otherLabel ? { value: OTHER_OPTION_VALUE, label: otherLabel } : null}
+        selected={selectValues}
         multiple
-        value={selectValues}
-        onChange={handleSelectChange}
-        onKeyDown={onKeyDown}
+        searchable={field.is_searchable === true && field.is_searchable_mode === 'default'}
+        placeholder="Select options..."
         disabled={readOnly}
-        required={required && selectValues.length === 0}
-        className={styles.input}
+        required={required}
+        invalid={inputProps['aria-invalid'] === true}
+        onPick={handleToggle}
+        onClear={() => emitChange(new Set(), '', false)}
         onFocus={inputOnFocus}
-      >
-        {choices.map((choice) => (
-          <option key={choice.value} value={choice.value}>
-            {choice.label || choice.value}
-          </option>
-        ))}
-        {field.allow_other && <option value={OTHER_OPTION_VALUE}>{presentation.t('Other')}</option>}
-      </select>
+        onKeyDown={onKeyDown}
+      />
       {field.allow_other && showOtherInput && (
         <input
           type="text"
@@ -188,6 +203,7 @@ export function MultiChoiceFieldComponent({
           disabled={readOnly}
           className={`${styles.input} ${styles.multiChoiceOtherInput}`}
           placeholder="Please specify..."
+          aria-label={`${field.label || field.data_name}: ${otherLabel}`}
           onFocus={inputOnFocus}
         />
       )}

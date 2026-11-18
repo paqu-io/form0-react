@@ -34,6 +34,7 @@ import { NavigationTree } from './navigation-tree';
 import { ThemeProvider } from './theme-context';
 import { useFocusTrap } from './use-focus-trap.js';
 import { isRemoveEntryDialogEvent } from './remove-entry-dialog.jsx';
+import { isDropdownEvent, isOpenDropdownEvent } from './field-components/choice-dropdown.jsx';
 import { ManagedAlertDialog } from './managed-alert-dialog.jsx';
 import * as styles from './form-renderer.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
@@ -2838,7 +2839,12 @@ function FormRendererContent({
   useEffect(() => {
     if (simplifiedMode) {
       const handleGlobalKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.target.matches('input, textarea, select')) {
+        // A dropdown opens on Enter (it was a <select> before).
+        if (
+          e.key === 'Enter' &&
+          !e.target.matches('input, textarea, select') &&
+          !isDropdownEvent(e)
+        ) {
           e.preventDefault();
           if (isCurrentFieldValid && !hasCurrentFieldError) {
             if (currentFieldIndex === flattenedElementsLength - 1) {
@@ -3581,7 +3587,8 @@ function FormRendererContent({
     };
 
     const handleKeyDown = (event) => {
-      if (event.defaultPrevented || isRemoveEntryDialogEvent(event)) {
+      // An open dropdown handles its own keys (Escape closes it, not the form).
+      if (event.defaultPrevented || isRemoveEntryDialogEvent(event) || isOpenDropdownEvent(event)) {
         return;
       }
 
@@ -6134,7 +6141,8 @@ function RepeatableEntryModal({
     };
 
     const handleKeyDown = (event) => {
-      if (event.defaultPrevented || isRemoveEntryDialogEvent(event)) {
+      // An open dropdown handles its own keys (Escape closes it, not the form).
+      if (event.defaultPrevented || isRemoveEntryDialogEvent(event) || isOpenDropdownEvent(event)) {
         return;
       }
 

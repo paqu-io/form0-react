@@ -160,7 +160,10 @@ it('updates system labels and choices from a dynamic locale without losing an op
   const translated = await screen.findByLabelText(/Hauteur libre sous structure/);
   expect(translated).toBe(input);
   expect(translated.value).toBe('3.75');
-  expect(screen.getByRole('option', { name: 'Rez-de-chaussée' }).value).toBe('ground_floor');
+  // The floor's name (ground_floor) shows its translated label in the dropdown.
+  expect(screen.getByRole('button', { name: /Rez-de-chaussée/ }).textContent).toContain(
+    'Rez-de-chaussée'
+  );
   const thickness = screen.getByLabelText(/Épaisseur prédominante des murs extérieurs/);
   expect(thickness.value).toBe('200');
   view.rerender(<FormRenderer {...props} locale="it" />);

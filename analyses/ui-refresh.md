@@ -1508,3 +1508,51 @@ mobile adjustments (proposed): the picker on `BottomSheet` with the field's labe
 Done in the header instead of its own Modal titled "Select an option" with Clear / Done at the
 bottom, the same × on the field, labels then "+n" for multiple choice, accent-insensitive search;
 radio circles and checkboxes stay.
+
+All of version 2 agreed on 2026-11-18. Also committed that day after hand testing: the
+MESSAGEBOX → ALERT backdrop (`b3c947e`) and the nested list row as one card (`97e183b`).
+
+**Dropdowns implemented (2026-11-18, tested by hand, committed):**
+
+- form0-react: `src/field-components/choice-dropdown.jsx` (`ChoiceDropdown`: the field is a
+  button with the field's id, named by the label and the value; × clear; chevron; keys; outside
+  press closes), `choice-dropdown-panel.jsx` (search box, options, "Other" after a separator,
+  footer), `choice-dropdown-layout.js` (`OTHER_VALUE`, `isOpenDropdownEvent`,
+  `isDropdownEvent`, panel placement, the "+n" count measured with a hidden span),
+  `src/choice-dropdown.css.js`, `src/utils/choice-search.js` (`foldText`, `filterOptions`,
+  `typeAheadIndex`). Every SingleChoiceField / MultiChoiceField with display "default" uses it;
+  radio and checkbox displays are unchanged. The panel renders in place (absolute, under the
+  field, above it when there is less room below within the viewport and the nearest clipping
+  container), not in a portal, so it also works inside a host's native `<dialog>`. Picking
+  "Other" in single choice moves the focus to its text input. Multiple choice keeps the
+  selection it has just sent until the engine's value comes back, so quick clicks do not undo
+  each other (the old `<select multiple>` had the same weakness). The form's global shortcuts
+  (capture phase on window) skip events from an open dropdown, and simplified mode's "Enter goes
+  to the next field" skips dropdowns.
+- Tests: `tests/choice-dropdown.test.jsx` (7: search ignoring accents, keyboard pick, ×, no
+  results with "Other" and its focused input, type-to-jump and Space, multiple choice with
+  "Other" and clear, quick toggles, Escape closes the panel and not a form-modal, read-only).
+  Migrated: `building-plan-editor.test.jsx` (the translated floor name read from the field,
+  not an `<option>`), `consumer-compatibility.fixture.jsx` (web picks "Other" through the
+  dropdown). Web 285 of 291 (the six worker tests).
+- form0-react-native: `src/field-components/choice-trigger.jsx` (`ChoiceTrigger`: value, "+n",
+  × with a 44pt touch area, chevron; the "+n" count from hidden copies of the label prefixes
+  that report their widths, rendered only once the field has a size), `choice-picker.jsx`
+  (`ChoicePickerSheet` on `BottomSheet` with `BottomSheetHeader`: the label as title on up to two
+  lines, Done, drag; search box when searchable; radio circles or checkboxes; "No results";
+  "Other" after a separator), `src/utils/choice-search.js`. The old picker (its own Modal
+  titled "Select an option", Clear and Done at the bottom) is gone; both choice files lost about
+  200 lines each. Same quick-toggle fix as web.
+- Tests: `tests/choice-picker.fixture.jsx` (3) through the harness's
+  `native-choice-picker.test.jsx`; fixtures 69 of 69; unit 153 of 155 (the two known). Harness:
+  `native-icons.jsx` gained `Check`, `ChevronDown`, `Search`; `native-web-preview.mjs` has
+  `?form=dropdowns`; the web UI gallery has a "Dropdowns" section (searchable single and
+  multiple with "Other", not searchable single and multiple).
+- Checked in screenshots: web light and dark, side and top labels, phone width ("+4" with
+  "Other" and its input); mobile through react-native-web (sheet with search, "+3", ×).
+- After the hand test: on web the "Other" input sat right against the dropdown (no gap; the old
+  `<select>` had none either). The dropdown and the input are now in a column 8px apart
+  (`stack` in `choice-dropdown.css.js`), as on mobile (`marginTop: 8`); measured 8px at the root
+  and in an entry dialog, single and multiple choice (the harness gallery's entries got two
+  dropdowns with "Other" for this). The panel styles moved to `src/choice-dropdown-panel.css.js`
+  to keep both stylesheets under 300 lines. Web 285 of 291 (the six worker tests).

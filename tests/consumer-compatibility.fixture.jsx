@@ -156,10 +156,10 @@ export function runConsumerCompatibility(FormRenderer, platform) {
           if (platform === 'Native') {
             fireEvent.click(screen.getByRole('button', { name: 'Red', exact: true }));
             fireEvent.click(await screen.findByRole('button', { name: 'Other', exact: true }));
-          } else
-            fireEvent.change(screen.getByLabelText(/^single\b/), {
-              target: { value: '__other__' },
-            });
+          } else {
+            fireEvent.click(screen.getByRole('button', { name: /^single\b/ }));
+            fireEvent.click(await screen.findByRole('option', { name: 'Other' }));
+          }
           const other = await screen.findByPlaceholderText('Please specify...');
           fireEvent.change(other, { target: { value: 'Teal' } });
           await waitFor(() => expect(latest.values.single.other[0]?.label).toBe('Teal'));

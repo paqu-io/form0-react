@@ -1,8 +1,10 @@
 import { useBuildingPlanPresentation } from '../building-plan/presentation.jsx';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as styles from '../field-renderer.css.js';
+import { stack } from '../choice-dropdown.css.js';
+import { ChoiceDropdown, OTHER_VALUE } from './choice-dropdown.jsx';
 
-const OTHER_OPTION_VALUE = '__other__';
+const OTHER_OPTION_VALUE = OTHER_VALUE;
 
 function mapChoice(field, value) {
   const choice = field.choices?.find((c) => c.value === value);
@@ -147,40 +149,89 @@ export function SingleChoiceFieldComponent({
   }
 
   const showOtherInput = field.allow_other && selectValue === OTHER_OPTION_VALUE;
+  const options = choices.map((choice) => ({
+    value: choice.value,
+    label: choice.label || choice.value,
+  }));
 
   return (
-    <div>
-      <select
-        {...inputProps}
+    <SingleChoiceDropdown
+      field={field}
+      inputProps={inputProps}
+      options={options}
+      otherLabel={field.allow_other ? presentation.t('Other') : null}
+      selectValue={selectValue}
+      showOtherInput={showOtherInput}
+      otherValue={otherValue}
+      readOnly={readOnly}
+      required={required}
+      onPick={(next) => emitChange(next, next === OTHER_OPTION_VALUE ? otherValue || '' : '')}
+      onClear={() => emitChange('', '')}
+      onOtherChange={handleOtherChange}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
+// Every dropdown, searchable or not, uses ChoiceDropdown (review of 2026-11-18). "Other" opens
+// the text input under the field and moves the focus into it.
+function SingleChoiceDropdown({
+  field,
+  inputProps,
+  options,
+  otherLabel,
+  selectValue,
+  showOtherInput,
+  otherValue,
+  readOnly,
+  required,
+  onPick,
+  onClear,
+  onOtherChange,
+  onKeyDown,
+}) {
+  const otherInputRef = useRef(null);
+  const focusOther = useRef(false);
+  useEffect(() => {
+    if (showOtherInput && focusOther.current) otherInputRef.current?.focus();
+    focusOther.current = false;
+  }, [showOtherInput]);
+  const searchable = field.is_searchable === true && field.is_searchable_mode === 'default';
+
+  return (
+    <div className={stack}>
+      <ChoiceDropdown
         id={inputProps.id}
-        name={inputProps.name || `${field.data_name}_choice`}
-        value={selectValue}
-        onChange={handleSelectChange}
-        onKeyDown={onKeyDown}
+        labelledBy={inputProps['aria-labelledby']}
+        options={options}
+        otherOption={otherLabel ? { value: OTHER_OPTION_VALUE, label: otherLabel } : null}
+        selected={selectValue ? [selectValue] : []}
+        searchable={searchable}
+        placeholder="Select an option..."
         disabled={readOnly}
         required={required}
-        className={styles.input}
-        onFocus={inputOnFocus}
-      >
-        <option value="">Select an option...</option>
-        {choices.map((choice) => (
-          <option key={choice.value} value={choice.value}>
-            {choice.label || choice.value}
-          </option>
-        ))}
-        {field.allow_other && <option value={OTHER_OPTION_VALUE}>{presentation.t('Other')}</option>}
-      </select>
-      {field.allow_other && showOtherInput && (
+        invalid={inputProps['aria-invalid'] === true}
+        onPick={(next) => {
+          if (next === OTHER_OPTION_VALUE) focusOther.current = true;
+          onPick(next);
+        }}
+        onClear={onClear}
+        onFocus={inputProps.onFocus}
+        onKeyDown={onKeyDown}
+      />
+      {showOtherInput && (
         <input
+          ref={otherInputRef}
           type="text"
           value={otherValue}
-          onChange={handleOtherChange}
+          onChange={onOtherChange}
           onKeyDown={onKeyDown}
           readOnly={readOnly}
           className={`${styles.input} ${styles.choiceOtherInput}`}
           placeholder="Please specify..."
+          aria-label={`${field.label || field.data_name}: ${otherLabel}`}
           disabled={readOnly}
-          onFocus={inputOnFocus}
+          onFocus={inputProps.onFocus}
         />
       )}
     </div>
