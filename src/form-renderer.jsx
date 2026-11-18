@@ -6494,7 +6494,7 @@ function RepeatableEntryModal({
                             derivedCommands={modal.buildingPlanDerivedCommands === true}
                           />
                         </div>
-                        <div>
+                        <div className={styles.repeatableModalPlanFormColumn}>
                           <RepeatableEntryForm
                             elements={modal.repInfo?.field?.elements || []}
                             contextPath={[]}

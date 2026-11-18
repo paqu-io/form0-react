@@ -893,6 +893,13 @@ export const repeatableModalFormColumn = style({
   gap: vars.spacing.md,
 });
 
+// The entry form beside the plan canvas (a floor, a room): a column like the one above.
+export const repeatableModalPlanFormColumn = style({
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+});
+
 export const repeatableModalSection = style({
   background: vars.color.background,
   border: `1px solid ${vars.color.sectionBorder}`,
@@ -1240,7 +1247,17 @@ for (const presentation of ['modal', 'spotlight']) {
 // Inside a repeatable entry the fields are direct children of the column: no extra gap on top
 // of each field's own spacing. Sections keep their distance through their margin.
 globalStyle(`${repeatableModalFormColumn}`, { gap: 0 });
-globalStyle(`${repeatableModalFormColumn} > ${repeatableModalSection}`, { marginBottom: '1rem' });
+// Both entry columns: the dialog's, and the one beside the plan canvas (a floor's "System fields"
+// section, then "Notes").
+const entryColumns = `:is(${repeatableModalFormColumn}, ${repeatableModalPlanFormColumn})`;
+globalStyle(`${entryColumns} > ${repeatableModalSection}`, { marginBottom: '1rem' });
+// A field right after a card (a section, or Record Metadata) starts 1.5rem below it: with only
+// the card's margin, or none beside the plan, it read as squeezed against the card (review of
+// step 3, 2026-11-18). Card after card keeps 1rem.
+globalStyle(
+  `${entryColumns} > :is(${repeatableModalSection}, ${recordMetadataSection}) + :not(${repeatableModalSection})`,
+  { marginTop: '0.5rem' }
+);
 
 // The repeatable row dialog is the container, as a host dialog is for the root form: padding
 // around its content, and the header without a frame of its own.
