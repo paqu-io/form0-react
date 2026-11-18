@@ -5,6 +5,8 @@
  */
 const TEXT = {
   'plan.zoom.panHint': 'Pan: Shift-drag or the middle mouse button',
+  'plan.zoom.fit': 'Fit plan',
+  'plan.viewOnly': 'View only',
   'plan.floor.add': 'Add floor',
   'plan.floor.none': 'No floors yet',
   'plan.floor.tabs': 'Floors',

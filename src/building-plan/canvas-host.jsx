@@ -303,7 +303,19 @@ export function BuildingPlanCanvasHost({
   readOnly = false,
   // Geometry engine: the derived core when true (redesign step 3, under test until the switch).
   derivedCommands = false,
+  // A view-only canvas (an entry about one element): no tools, no undo; pan, zoom and
+  // double-click to open still work.
+  viewOnly = false,
+  // An element to mark, { collection, id } (the entry's own, or a hovered list row's).
+  highlight = null,
+  // Told the element selected on the canvas, { collection, entry } or null (to mark its row).
+  onSelectElement,
 }) {
+  const onSelectRef = useRef(onSelectElement);
+  onSelectRef.current = onSelectElement;
+  const locked = readOnly || viewOnly;
+  const highlightRef = useRef(highlight);
+  highlightRef.current = highlight;
   const presentation = useBuildingPlanPresentation();
   const presentationRef = useRef(presentation);
   presentationRef.current = presentation;
@@ -363,11 +375,11 @@ export function BuildingPlanCanvasHost({
     }
   }, []);
 
+  // The pill's last button fits the plan (the floor, or the room in scope).
   const handleZoomReset = useCallback(() => {
     const canvas = canvasRef.current;
-    if (canvas && typeof canvas.resetZoom === 'function') {
-      canvas.resetZoom();
-    }
+    if (!canvas) return;
+    if (!canvas.fitToContent?.()) canvas.resetZoom?.();
   }, []);
 
   useEffect(() => {
@@ -442,10 +454,12 @@ export function BuildingPlanCanvasHost({
       controller,
       labelSettings: LABEL_SETTINGS,
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
-      readOnly, // Disable canvas interactions in view mode
+      readOnly: locked, // Disable canvas interactions in view mode and in view-only entries
       onFloorTabs: ({ tabs }) => setFloorTabs(tabs),
     });
     canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
+    canvas.setHighlight(highlightRef.current || null);
+    canvas.onSelect = (selection) => onSelectRef.current?.(selection);
     const changeMode = canvas.setMode.bind(canvas);
     canvas.setMode = (nextMode) => {
       changeMode(nextMode);
@@ -502,6 +516,8 @@ export function BuildingPlanCanvasHost({
     canvas.onZoomChange = (level) => {
       setZoomLevel(level);
     };
+    // The view may have been fitted before this listener existed.
+    setZoomLevel(canvas.getZoom());
 
     controllerRef.current = controller;
     canvasRef.current = canvas;
@@ -571,7 +587,7 @@ export function BuildingPlanCanvasHost({
     if (result) setIssues(result.issues);
   }, []);
   useEffect(() => {
-    if (!editor || readOnly || typeof window === 'undefined') return undefined;
+    if (!editor || locked || typeof window === 'undefined') return undefined;
     const onKeyDown = (event) => {
       if (!isPlanShortcutEvent(event)) return;
       const key = planShortcutKey(event);
@@ -582,25 +598,35 @@ export function BuildingPlanCanvasHost({
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [editor, readOnly, undo, redo]);
+  }, [editor, locked, undo, redo]);
+
+  // The marked element follows the prop (and survives the canvas's data refreshes).
+  useEffect(() => {
+    canvasRef.current?.setHighlight?.(highlight || null);
+  }, [highlight?.collection, highlight?.id]);
 
   // Sync readOnly state to canvas when it changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
-      canvas.readOnly = readOnly;
+      canvas.readOnly = locked;
     }
-  }, [readOnly]);
+  }, [locked]);
 
   return (
-    <div ref={hostRef} className={`building-plan-canvas-host ${planTokens}`}>
-      <BuildingPlanToolbar
-        canvasMode={mode}
-        activeToolMode={activeToolMode}
-        onModeChange={handleModeChange}
-        onClearSelection={handleClearSelection}
-        disabled={readOnly}
-      />
+    <div
+      ref={hostRef}
+      className={`building-plan-canvas-host ${viewOnly ? 'building-plan-canvas-host--view' : ''} ${planTokens}`}
+    >
+      {!viewOnly && (
+        <BuildingPlanToolbar
+          canvasMode={mode}
+          activeToolMode={activeToolMode}
+          onModeChange={handleModeChange}
+          onClearSelection={handleClearSelection}
+          disabled={locked}
+        />
+      )}
       <div className="building-plan-canvas-panel-wrapper">
         <FloorTabs
           tabs={floorTabs}
@@ -610,8 +636,9 @@ export function BuildingPlanCanvasHost({
               ? repeatableApi.addFloor
               : null
           }
+          viewOnly={viewOnly}
           history={
-            editor
+            editor && !viewOnly
               ? {
                   canUndo: !readOnly && editor.getState().canUndo,
                   canRedo: !readOnly && editor.getState().canRedo,
@@ -627,7 +654,6 @@ export function BuildingPlanCanvasHost({
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onReset={handleZoomReset}
-          disabled={readOnly}
         />
       </div>
       {issues.length > 0 && (

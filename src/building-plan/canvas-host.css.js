@@ -18,6 +18,9 @@ globalStyle('.building-plan-canvas-host', {
   minHeight: '360px',
 });
 
+// A view-only canvas has no tool rail.
+globalStyle('.building-plan-canvas-host--view', { gridTemplateColumns: 'minmax(0, 1fr)' });
+
 globalStyle(
   '.building-plan-canvas-host > .building-plan-toolbar, .building-plan-canvas-host > .building-plan-conflict',
   { gridColumn: '1 / -1', minWidth: 0, overflowWrap: 'anywhere' }

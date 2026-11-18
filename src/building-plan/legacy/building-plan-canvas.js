@@ -22,7 +22,13 @@ const MODE_DRAW_WINDOW = 'draw-window';
 const MODE_DRAW_COLUMN = 'draw-column';
 const MODE_DRAW_BEAM = 'draw-beam';
 
-const DEFAULT_GRID_SIZE = 20;
+// Canvas units per metre: at 100% zoom a metre is 100 px, so a 1,000 to 1,500 px canvas shows 10
+// to 15 m, a usual floor plan. Labels, handles and pointer tolerances are in canvas units, so
+// they keep their screen size at 100%; geometry is in metres throughout.
+const DEFAULT_GRID_SIZE = 100;
+// The furthest fitting zooms in (250%: a small room doesn't fill the canvas with its walls).
+const FIT_MAX_ZOOM = 2.5;
+const FIT_MARGIN_PX = 48;
 const SNAP_RADIUS = 10;
 const WALL_HIT_TOLERANCE = 6;
 const ROOM_HANDLE_SIZE = 6;
@@ -33,7 +39,10 @@ const OPENING_HANDLE_RADIUS = 10;
 const DOOR_LINE_WIDTH = 6;
 const WINDOW_LINE_WIDTH = 6;
 const LABEL_FONT_SIZE = 12;
-const labelFont = (scale = 1) => `600 ${LABEL_FONT_SIZE * scale}px Inter, system-ui, sans-serif`;
+// Room names are the plan's main labels: a little larger than wall, opening and element names.
+const ROOM_LABEL_FONT_SIZE = 14;
+const labelFont = (scale = 1, size = LABEL_FONT_SIZE) =>
+  `600 ${size * scale}px Inter, system-ui, sans-serif`;
 const LABEL_PADDING_X = 6;
 const LABEL_PADDING_Y = 4;
 const STRUCTURAL_SNAP_TOLERANCE = 14;
@@ -55,6 +64,16 @@ const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
 // Multiplicative, so each click is proportionate across the whole zoom range.
 const ZOOM_STEP = 1.25;
 const ZOOM_WHEEL_SENSITIVITY = 0.002;
+
+// The selection field each highlighted collection sets.
+const HIGHLIGHT_FIELDS = {
+  rooms: 'selectedRoomId',
+  walls: 'selectedWallId',
+  doors: 'selectedDoorId',
+  windows: 'selectedWindowId',
+  columns: 'selectedColumnId',
+  beams: 'selectedBeamId',
+};
 
 const DEFAULT_LABEL_SETTINGS = {
   rooms: true,
@@ -271,6 +290,10 @@ export class BuildingPlanCanvas {
     this.readOnly = readOnly;
 
     this.mode = MODE_SELECT;
+    // An element marked from outside (a view-only entry, a hovered list row): { collection, id }.
+    this.highlight = null;
+    // The view fits the plan once it has rooms and a size (on open, after a floor switch).
+    this.fitPending = true;
     this.rooms = [];
     this.walls = [];
     this.doors = [];
@@ -890,9 +913,10 @@ export class BuildingPlanCanvas {
         : this.controller.getJoinPlacement(point, options);
     if (this.mode === 'split' && this.cutDraft) {
       this.cutTarget = this.cutDraft;
+      // Shown to the centimetre (two decimals of the plan's unit); typed values keep their own.
       if (document.activeElement !== this.cutDistanceInput)
         this.cutDistanceInput.value = String(
-          this.presentation.toDisplayLength(this.cutDraft.offset)
+          Math.round(this.presentation.toDisplayLength(this.cutDraft.offset) * 100) / 100
         );
     }
     this.render();
@@ -1157,6 +1181,7 @@ export class BuildingPlanCanvas {
       this.activeFloorIndex =
         typeof snapshot.activeFloorIndex === 'number' ? snapshot.activeFloorIndex : 0;
       this.hasFloors = this.floors.length > 0;
+      if (prevActiveFloor !== this.activeFloorIndex) this.fitPending = true;
       if (prevFloorCount === 0 && this.hasFloors && this.wallFootprints?.length) {
         // Initial framing includes material outside room faces at the floor origin.
         // Later previews and completed gestures never recenter the viewport.
@@ -1210,11 +1235,98 @@ export class BuildingPlanCanvas {
         }
       }
 
+      this.applyHighlight();
+      if (this.fitPending && this.fitToContent({ render: false })) this.fitPending = false;
       this.renderFloorTabs();
       this.updateCursor();
       this.updateButtonStates();
       this.render();
     });
+  }
+
+  /** Tells `onSelect` which element is selected, when that changes (doors before walls before rooms). */
+  reportSelection() {
+    if (typeof this.onSelect !== 'function') return;
+    const pick = [
+      ['doors', 'selectedDoorId'],
+      ['windows', 'selectedWindowId'],
+      ['columns', 'selectedColumnId'],
+      ['beams', 'selectedBeamId'],
+      ['walls', 'selectedWallId'],
+      ['rooms', 'selectedRoomId'],
+    ].find(([, field]) => this[field]);
+    const key = pick ? `${pick[0]}:${this[pick[1]]}` : '';
+    if (key === this.reportedSelection) return;
+    this.reportedSelection = key;
+    const entry = pick ? (this[pick[0]] || []).find((item) => item.id === this[pick[1]]) : null;
+    this.onSelect(entry ? { collection: pick[0], entry } : null);
+  }
+
+  /**
+   * Marks one element as selected from outside the canvas (a view-only entry shows its element,
+   * a hovered list row its own). It is applied again after every data refresh; null clears it.
+   * @param {{ collection: 'walls'|'doors'|'windows'|'columns'|'beams'|'rooms', id: string } | null} highlight
+   */
+  setHighlight(highlight) {
+    const previous = this.highlight;
+    this.highlight = highlight || null;
+    if (!this.highlight && previous) {
+      const field = HIGHLIGHT_FIELDS[previous.collection];
+      if (field && this[field] === previous.id) this[field] = null;
+    }
+    this.applyHighlight();
+    this.render();
+  }
+
+  applyHighlight() {
+    const highlight = this.highlight;
+    const field = highlight && HIGHLIGHT_FIELDS[highlight.collection];
+    if (!field || !(this[highlight.collection] || []).some((entry) => entry.id === highlight.id))
+      return;
+    for (const other of Object.values(HIGHLIGHT_FIELDS))
+      if (other !== 'selectedRoomId') this[other] = null;
+    this[field] = highlight.id;
+  }
+
+  /**
+   * Fits the view to the rooms in scope (the floor's rooms, or the room an entry is about), with
+   * a margin, zooming in no further than FIT_MAX_ZOOM.
+   * @returns {boolean} false when there is nothing to fit or the canvas has no size yet
+   */
+  fitToContent({ render = true } = {}) {
+    const inScope = (this.rooms || []).filter((room) => room && !room.isDimmed);
+    const rooms = inScope.length ? inScope : this.rooms || [];
+    const points = rooms.flatMap((room) => {
+      if (room.vertices?.length) return room.vertices;
+      const rect = room.rect;
+      return rect
+        ? [
+            { x: rect.x, y: rect.y },
+            { x: rect.x + rect.width, y: rect.y + rect.height },
+          ]
+        : [];
+    });
+    const { width, height } = this.getViewSize();
+    if (!points.length || !(width > 0) || !(height > 0)) return false;
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const spanX = Math.max(Math.max(...xs) - minX, 1);
+    const spanY = Math.max(Math.max(...ys) - minY, 1);
+    const zoom = clamp(
+      Math.min((width - 2 * FIT_MARGIN_PX) / spanX, (height - 2 * FIT_MARGIN_PX) / spanY),
+      MIN_ZOOM,
+      Math.min(FIT_MAX_ZOOM, MAX_ZOOM)
+    );
+    this.zoomLevel = zoom;
+    this.panOffset = {
+      x: width / 2 - (minX + spanX / 2) * zoom,
+      y: height / 2 - (minY + spanY / 2) * zoom,
+    };
+    this.notifyZoomChange();
+    if (render) this.render();
+    return true;
   }
 
   updateCursor() {
@@ -1311,6 +1423,7 @@ export class BuildingPlanCanvas {
     this.viewHeight = rect.height;
     this.canvas.width = Math.round(rect.width * ratio);
     this.canvas.height = Math.round(rect.height * ratio);
+    if (this.fitPending && this.fitToContent({ render: false })) this.fitPending = false;
     this.render();
   }
 
@@ -3115,6 +3228,7 @@ export class BuildingPlanCanvas {
   render() {
     if (!this.ctx) return;
     this.updateCutControls();
+    this.reportSelection();
 
     const ctx = this.ctx;
     const { width, height } = this.canvas;
@@ -3176,12 +3290,20 @@ export class BuildingPlanCanvas {
   computeLabelRect(
     text,
     anchor,
-    { position = 'top', paddingX = LABEL_PADDING_X, paddingY = LABEL_PADDING_Y, scale = 1 } = {}
+    {
+      position = 'top',
+      paddingX = LABEL_PADDING_X,
+      paddingY = LABEL_PADDING_Y,
+      scale = 1,
+      strong = false,
+    } = {}
   ) {
     if (!this.ctx || !text) return null;
     const ctx = this.ctx;
+    // Names keep their size on screen at any zoom (canvas units shrink as the view zooms in).
+    scale /= this.zoomLevel || 1;
     ctx.save();
-    ctx.font = labelFont(scale);
+    ctx.font = labelFont(scale, strong ? ROOM_LABEL_FONT_SIZE : LABEL_FONT_SIZE);
     const metrics = ctx.measureText(text);
     const textHeight =
       (metrics.actualBoundingBoxAscent || 8 * scale) +
@@ -3208,15 +3330,16 @@ export class BuildingPlanCanvas {
     const rect = this.computeLabelRect(text, anchor, options);
     if (!rect) return null;
     const theme = this.planTheme;
+    const scale = (options.scale || 1) / (this.zoomLevel || 1);
     drawPlanLabel(
       this.ctx,
       text,
       { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
       {
-        font: labelFont(options.scale),
+        font: labelFont(scale, options.strong ? ROOM_LABEL_FONT_SIZE : LABEL_FONT_SIZE),
         color: options.strong ? theme.label : theme.labelMuted,
         halo: theme.room,
-        haloWidth: 3 * (options.scale || 1),
+        haloWidth: 3 * scale,
       }
     );
     return rect;
@@ -3574,7 +3697,10 @@ export class BuildingPlanCanvas {
 
     room._labelRect = null;
 
-    const isSelected = this.selectedRoomId === room.id;
+    // While another element is marked (a wall, a door…), its room doesn't draw as selected, so
+    // the mark stands out.
+    const marksElement = Boolean(this.highlight && this.highlight.collection !== 'rooms');
+    const isSelected = this.selectedRoomId === room.id && !marksElement;
     const isDimmed = Boolean(room.isDimmed);
 
     const theme = this.planTheme;
@@ -3647,7 +3773,11 @@ export class BuildingPlanCanvas {
               { x: rect.x + rect.width, y: rect.y + rect.height },
               { x: rect.x, y: rect.y + rect.height },
             ];
-        const badge = this.computeLabelRect(labelText, { x: 0, y: 0 }, { position: 'center' });
+        const badge = this.computeLabelRect(
+          labelText,
+          { x: 0, y: 0 },
+          { position: 'center', strong: true }
+        );
         const placement = buildingPlanLabelPlacement(outline, badge) || {
           x: rect.x + rect.width / 2,
           y: rect.y + rect.height / 2,
@@ -3746,7 +3876,7 @@ export class BuildingPlanCanvas {
 
     ctx.save();
     ctx.strokeStyle = this.selectedWallId === wall.id ? this.planTheme.accent : this.planTheme.wall;
-    ctx.lineWidth = this.selectedWallId === wall.id ? 4 : 3;
+    ctx.lineWidth = this.selectedWallId === wall.id ? 6 : 3;
     if (isDimmed) {
       ctx.globalAlpha = 0.35;
     }

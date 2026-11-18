@@ -13,9 +13,10 @@ import * as styles from './floor-tabs.css.js';
  *   onSelect: (index: number) => void,
  *   onAdd?: (() => void) | null,
  *   history?: { canUndo: boolean, canRedo: boolean, onUndo: () => void, onRedo: () => void } | null,
+ *   viewOnly?: boolean,
  * }} props
  */
-export function FloorTabs({ tabs, onSelect, onAdd = null, history = null }) {
+export function FloorTabs({ tabs, onSelect, onAdd = null, history = null, viewOnly = false }) {
   return (
     <div className={styles.row}>
       <div className={styles.tabs} role="tablist" aria-label={planText('plan.floor.tabs')}>
@@ -44,6 +45,7 @@ export function FloorTabs({ tabs, onSelect, onAdd = null, history = null }) {
           </button>
         )}
       </div>
+      {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
       {history && (
         <div className={styles.history}>
           <button

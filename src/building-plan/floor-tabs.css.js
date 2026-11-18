@@ -75,3 +75,15 @@ export const iconButton = style({
 });
 
 export const history = style({ display: 'inline-flex', gap: '2px' });
+
+export const viewOnly = style({
+  padding: '3px 9px',
+  borderRadius: '999px',
+  border: `1px solid ${vars.color.border}`,
+  color: derived.muted,
+  fontSize: '11px',
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
+});

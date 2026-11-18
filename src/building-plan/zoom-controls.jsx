@@ -14,20 +14,20 @@ function formatZoomLevel(zoom) {
 }
 
 /**
- * ZoomControls - one horizontal pill over the canvas: zoom out, level, zoom in, reset. Names
+ * ZoomControls - one horizontal pill over the canvas: zoom out, level, zoom in, fit. Names
  * show in the plan tooltip; the level's tooltip says how to pan.
  *
  * @param {Object} props
  * @param {number} props.zoomLevel - Current zoom level (1 = 100%)
  * @param {Function} props.onZoomIn - Callback to zoom in
  * @param {Function} props.onZoomOut - Callback to zoom out
- * @param {Function} props.onReset - Callback to reset zoom to 100%
+ * @param {Function} props.onReset - Callback that fits the plan in the view
  * @param {boolean} props.disabled - Whether controls are disabled
  */
 export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disabled = false }) {
   const canZoomIn = !disabled && zoomLevel < MAX_ZOOM;
   const canZoomOut = !disabled && zoomLevel > MIN_ZOOM;
-  const canReset = !disabled && zoomLevel !== 1;
+  const canFit = !disabled;
 
   return (
     <div className="building-plan-zoom-controls">
@@ -67,9 +67,9 @@ export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disa
         type="button"
         className="building-plan-zoom-btn"
         onClick={onReset}
-        disabled={!canReset}
-        data-tooltip="Reset zoom to 100%"
-        aria-label="Reset zoom to 100%"
+        disabled={!canFit}
+        data-tooltip={planText('plan.zoom.fit')}
+        aria-label={planText('plan.zoom.fit')}
       >
         <Maximize2 />
       </button>
