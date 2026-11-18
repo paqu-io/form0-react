@@ -1006,17 +1006,6 @@ export const subtext = style({
   lineHeight: 1.35,
 });
 
-export const supportingImage = style({
-  display: 'block',
-  marginLeft: 'auto',
-  marginRight: 'auto',
-  marginTop: vars.spacing.sm,
-  marginBottom: vars.spacing.sm,
-  maxWidth: '100%',
-  height: '250px',
-  objectFit: 'contain',
-});
-
 const dialogBase = style({
   position: 'fixed',
   top: '50%',
@@ -1044,14 +1033,6 @@ const dialogBase = style({
 export const descriptionDialog = style([dialogBase]);
 
 export const descriptionDialogContent = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: vars.spacing.sm,
-});
-
-export const supportingImageDialog = style([dialogBase]);
-
-export const supportingImageDialogContent = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.spacing.sm,

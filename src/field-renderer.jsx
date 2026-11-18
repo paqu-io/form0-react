@@ -1,7 +1,14 @@
 import { useBuildingPlanPresentation } from './building-plan/presentation.jsx';
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Info, Image, AlertTriangle, Lock, Link2, RotateCcw } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
+import {
+  DescriptionDialog,
+  ImageViewerDialog,
+  SupportingImageFigure,
+  supportingImageSrc,
+  useModalDialog,
+} from './field-help.jsx';
 import { useFieldRegistry } from './field-registry-context.jsx';
 import { useEngineField } from './engine-store.js';
 
@@ -145,73 +152,10 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
 
   const hasDialogImage = supportingImage && supportingImage.displayMode === 'dialog';
   const showInlineImage = supportingImage && supportingImage.displayMode !== 'dialog';
+  const supportingImageUrl = supportingImage ? supportingImageSrc(supportingImage.path) : null;
+  const helpTitle = field.label || field.data_name;
 
-  const descriptionDialogRef = useRef(null);
-  const imageDialogRef = useRef(null);
-  const formLinkDialogRef = useRef(null);
-
-  useEffect(() => {
-    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
-    const dialog = descriptionDialogRef.current;
-    if (dialog && isDescriptionOpen) {
-      dialog.showModal();
-      dialog.addEventListener(
-        'close',
-        () => {
-          setDescriptionOpen(false);
-          previousActiveElement?.focus?.();
-        },
-        { once: true }
-      );
-    }
-    return () => {
-      if (dialog && dialog.open) {
-        dialog.close();
-      }
-    };
-  }, [isDescriptionOpen]);
-
-  useEffect(() => {
-    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
-    const dialog = imageDialogRef.current;
-    if (dialog && isImageOpen) {
-      dialog.showModal();
-      dialog.addEventListener(
-        'close',
-        () => {
-          setImageOpen(false);
-          previousActiveElement?.focus?.();
-        },
-        { once: true }
-      );
-    }
-    return () => {
-      if (dialog && dialog.open) {
-        dialog.close();
-      }
-    };
-  }, [isImageOpen]);
-
-  useEffect(() => {
-    const previousActiveElement = typeof document !== 'undefined' ? document.activeElement : null;
-    const dialog = formLinkDialogRef.current;
-    if (dialog && isFormLinkOpen) {
-      dialog.showModal();
-      dialog.addEventListener(
-        'close',
-        () => {
-          setFormLinkOpen(false);
-          previousActiveElement?.focus?.();
-        },
-        { once: true }
-      );
-    }
-    return () => {
-      if (dialog && dialog.open) {
-        dialog.close();
-      }
-    };
-  }, [isFormLinkOpen]);
+  const { dialogRef: formLinkDialogRef } = useModalDialog(isFormLinkOpen, setFormLinkOpen);
 
   const [isFormLinkTooltipOpen, setIsFormLinkTooltipOpen] = useState(false);
 
@@ -392,6 +336,15 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     </legend>
   ) : null;
 
+  const inlineImage = showInlineImage ? (
+    <SupportingImageFigure
+      src={supportingImageUrl}
+      label={helpTitle}
+      expanded={isImageOpen}
+      onOpen={() => setImageOpen(true)}
+    />
+  ) : null;
+
   const content = isLabelField ? (
     <div className={styles.labelOnly}>
       <div className={styles.labelRow}>
@@ -399,17 +352,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         {renderLabelControls()}
       </div>
       {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
-      {showInlineImage && (
-        <img
-          src={
-            supportingImage.path.startsWith('http')
-              ? supportingImage.path
-              : `/supporting-images/${supportingImage.path}`
-          }
-          alt={field.label || field.data_name}
-          className={styles.supportingImage}
-        />
-      )}
+      {inlineImage}
     </div>
   ) : effectiveLabelPosition === LABEL_SIDE ? (
     <div className={styles.labelInputRow}>
@@ -421,17 +364,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
       </div>
       <div className={styles.inputWrapper}>
-        {showInlineImage && (
-          <img
-            src={
-              supportingImage.path.startsWith('http')
-                ? supportingImage.path
-                : `/supporting-images/${supportingImage.path}`
-            }
-            alt={field.label || field.data_name}
-            className={styles.supportingImage}
-          />
-        )}
+        {inlineImage}
         {fieldControl}
         {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
       </div>
@@ -443,17 +376,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         {renderLabelControls()}
       </div>
       {hasSubtextDescription && <div className={styles.subtext}>{field.description}</div>}
-      {showInlineImage && (
-        <img
-          src={
-            supportingImage.path.startsWith('http')
-              ? supportingImage.path
-              : `/supporting-images/${supportingImage.path}`
-          }
-          alt={field.label || field.data_name}
-          className={styles.supportingImage}
-        />
-      )}
+      {inlineImage}
       {fieldControl}
       {showError ? <div className={styles.error}>{currentError || '\u00A0'}</div> : null}
     </>
@@ -462,35 +385,13 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
   const dialogs = (
     <>
       {hasDialogDescription && (
-        <dialog
-          ref={descriptionDialogRef}
-          className={styles.descriptionDialog}
-          aria-labelledby={`${labelId}-desc-title`}
-        >
-          <div className={styles.descriptionDialogContent}>
-            <div className={styles.dialogHeader}>
-              <h3 id={`${labelId}-desc-title`} className={styles.dialogTitle}>
-                <span className={styles.dialogTitleIcon}>
-                  <Info size={18} />
-                </span>
-                Field information
-              </h3>
-              <button
-                type="button"
-                className={styles.dialogCloseButton}
-                onClick={() => descriptionDialogRef.current?.close()}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <p>
-              <strong>{field.label || field.data_name}</strong>
-              <br />
-              {field.description}
-            </p>
-          </div>
-        </dialog>
+        <DescriptionDialog
+          open={isDescriptionOpen}
+          setOpen={setDescriptionOpen}
+          titleId={`${labelId}-desc-title`}
+          title={helpTitle}
+          description={field.description}
+        />
       )}
 
       {field.type === 'FormLinkField' && (
@@ -535,45 +436,14 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
         </dialog>
       )}
 
-      {hasDialogImage && (
-        <dialog
-          ref={imageDialogRef}
-          className={styles.supportingImageDialog}
-          aria-labelledby={`${labelId}-img-title`}
-        >
-          <div className={styles.supportingImageDialogContent}>
-            <div className={styles.dialogHeader}>
-              <h3 id={`${labelId}-img-title`} className={styles.dialogTitle}>
-                <span className={styles.dialogTitleIcon}>
-                  <Image size={18} />
-                </span>
-                Supporting image
-              </h3>
-              <button
-                type="button"
-                className={styles.dialogCloseButton}
-                onClick={() => imageDialogRef.current?.close()}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <p>
-              <strong>{field.label || field.data_name}</strong>
-              <br />
-              <img
-                src={
-                  supportingImage.path.startsWith('http')
-                    ? supportingImage.path
-                    : `/supporting-images/${supportingImage.path}`
-                }
-                alt={field.label || field.data_name}
-                className={styles.supportingImage}
-                style={{ height: 'auto' }}
-              />
-            </p>
-          </div>
-        </dialog>
+      {supportingImage && (
+        <ImageViewerDialog
+          open={isImageOpen}
+          setOpen={setImageOpen}
+          titleId={`${labelId}-img-title`}
+          title={helpTitle}
+          src={supportingImageUrl}
+        />
       )}
     </>
   );
