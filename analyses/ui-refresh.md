@@ -114,12 +114,13 @@ Status: `todo`, `in progress`, `to test`, `done`.
 
 ## Needs a decision
 
-- Search for dropdowns on web (new feature).
+- Search for dropdowns on web (new feature). Open, still under discussion (2026-11-18).
 - ~~A date picker on mobile~~: covered by the mobile template's native pickers (field overrides
   with `@react-native-community/datetimepicker`, round B, `976dc50`); typing still works and the
   library keeps typed entry only. Nothing to replace; a picker inside the library is not planned.
 - Dimensions drawn on the canvas and edited in place (new logic; second phase, see below).
-- Section counts (new derived state).
+  Moved into the building plan round with steps 5 and 10 (2026-11-18).
+- ~~Section counts (new derived state)~~: not wanted (2026-11-18).
 - Mobile date typed in the device's locale order (a display/value conversion layer; the
   library field's text is the stored YYYY-MM-DD value today).
 
@@ -1183,13 +1184,31 @@ mobile asserts the floor row.
    dependency needing a development build). To check: a jump to a choice field now ends typing.
    **Update (2026-11-18, fourth chat):** everything above confirmed by hand, including the jump
    to a choice field; `react-native-keyboard-controller` parked for now.
-2. Round 5 (new chat): framed inline image that opens larger (web and mobile), dialogs titled
-   with the field's label, mobile description and image as bottom sheets (on `BottomSheet`),
-   pinch to zoom on mobile (1x to 4x, pan while zoomed, reset on close, no double tap).
-3. Then commit round C (form0-react, form0-react-native, both templates) and continue device
-   testing (iOS when available).
-4. After that: review of the committed steps marked "to review" (3, 4, 6, 7, 8, 12); steps 5 and
-   10 to discuss; the "Needs a decision" list; the second phase (dimensions); the Reform upgrade.
+2. ~~Round 5~~ and ~~round C commit~~: done (see "Round 5" below).
+3. ~~Sheet drag and pinch area~~: tested by hand and committed (`a1bc827`); the temporary
+   gallery is removed from the mobile template.
+4. Remaining work, order agreed on 2026-11-18:
+   1. Close the refresh, in this chat: review of the steps marked "to review" (checklist under
+      "Review of steps 3, 4, 6, 7, 8 and 12" below) and the clipped label icon with side labels
+      on a phone.
+   2. Building plan round, in a new chat (research, mockups and discussion first): step 5
+      (building plan on theme tokens, one themed tooltip), step 10 (mobile plan editor in a
+      bottom sheet) and the second phase (dimensions on the building plan). Before
+      localization, since it adds and changes the building plan's texts.
+   3. Localization, phases 1 to 3, in a new chat (`analyses/localization.md`).
+   4. iOS pass: postponed until an iOS device is available (keyboard steps 9 and 11, sheets,
+      pinch, pickers), with the keyboard bar timing decision (a release build check first).
+   5. Release, handled by the maintainer: merge `feat/ui-refresh` into
+      `experiment/building-plan-model` (a fast-forward in both libraries: 24 and 11 commits
+      ahead, none behind), finish the building plan work there, publish form0-core, then the
+      bindings, then update the templates. The mobile template's npm links are replaced by the
+      published packages on the next `npm install` after its versions are bumped (the lockfile
+      records registry versions, not the links).
+   6. Reform upgrade: tracked in
+      `reform-frontend-tanstack/analyses/FORM0_PRODUCTION_ADOPTION_HANDOFF.md` (section "UI
+      refresh, building plan and localization", 2026-11-18).
+   7. Decided 2026-11-18: no section counts. Still open: mobile dates typed in the locale's
+      order (undecided) and dropdown search on web (to keep discussing).
 
 ### Round 5: supporting images and descriptions (2026-11-18, fourth chat, reading only)
 
@@ -1310,6 +1329,55 @@ Device checklist (round 5):
    description dialog titled with the label; Escape, X and a backdrop click close; focus returns
    to the button.
 
+Round 5 tested by hand (2026-11-18) and committed: form0-react `4dde915` (code) and `c3ab878`
+(notes), form0-react-native `033d936`. The temporary gallery stays in the mobile template for
+the next change.
+
+### Round 5 follow-up: sheet drag and pinch area (2026-11-18, tested by hand, committed `a1bc827`)
+
+Reported: pinching is hard when the sheet is short. The pinch area was the image's own shown
+size (about 360×215pt for a landscape image), so a taller sheet alone would not have helped.
+Decided: both A and B.
+
+- **A. Pinch area fills the image sheet.** The image sheet opens at 75% of the screen
+  (`openShare`); `ZoomableImage` fills the sheet's body, measures itself, fits the image inside,
+  centred, and pinches anywhere in the area. Zoomed, the image moves until its edges reach the
+  area's edges; along an axis where it still fits, it stays centred (`clampView` and
+  `moveGesture` take the image and the area). When the area changes size, the image is fitted
+  again and the zoom kept within the new edges.
+- **B. Every sheet drags by its handle and header.** Up to just below the status bar (safe-area
+  top inset, 32pt without a SafeAreaProvider, plus 8); letting go settles on the nearer stop or
+  the one a flick points to; below the opening height the sheet moves down instead of shrinking,
+  and letting go more than 30% of that height down (or flicking down) closes it. Applies to the
+  sections and issues sheet, the description sheet and the image sheet. Vertical moves are taken
+  even from Done; scrolling lists inside sheets are not affected (the drag lives on the header).
+  The height animates on the JavaScript thread (it is a layout property); the slide stays
+  native. The drag is not exposed to screen readers (Done remains).
+- Files (form0-react-native): new `src/sheet-drag.js` (pure: `dragFrame`, `dragEnd`) and
+  `src/use-sheet-drag.js` (`useSheetDrag`, `useSheetDragHandlers`, the context);
+  `src/bottom-sheet.jsx` (two nested views: the outer slides with the native driver and holds
+  the limits, the inner takes the dragged height; `openShare`; the closing slide clears an
+  expanded sheet); `src/zoomable-image.jsx`; `src/pinch-zoom.js`; `src/field-help-sheets.jsx`.
+- Tests: `tests/sheet-drag.test.mjs` (7), `tests/pinch-zoom.test.mjs` (11); mobile unit 153 of
+  155 (the two known), fixtures 66 of 66. In the react-native-web preview: opening at 75%, drag
+  up to full height, back to the opening height, and down to close all work. Two preview-only
+  effects: the browser hands a mouse drag to text selection, and react-native-web decides a
+  move's target from where the pointer is, so a first step that leaves the header is lost.
+  Neither applies to touch on a device.
+
+Device checklist:
+
+1. Image sheet opens at about three quarters of the screen; pinching works anywhere in the grey
+   area, including above and below a landscape image.
+2. Zoomed in, a landscape image pans sideways to its edges and stays centred vertically until it
+   is taller than the area.
+3. Drag the header up: the sheet follows the finger and settles at the top (below the status
+   bar); the image is fitted again (a tall image grows), the zoom stays within the edges.
+4. Drag it back down: it settles where it opened; further down (or a flick down) closes it, and
+   the next tap on a field or button works at once.
+5. Description sheet with the long text, and the sections sheet: drag up, scroll the list or
+   text inside, drag back; Done still works with a plain tap.
+
 ### WSL crashes (2026-11-17)
 
 Four WSL crashes (Nov 15, and Nov 17 at 10:53, 13:30, 13:36) left kernel-panic reports in
@@ -1328,3 +1396,50 @@ Vitest with `--maxWorkers=2`, `node --test --test-concurrency=2`, screenshots wi
 `chrome-headless-shell` and `--disable-gpu --renderer-process-limit=1`, one browser launch per
 batch, and the preview servers stopped before tests. No crash since (signature, tests, template
 screenshots and the mockup render all ran this way).
+
+### Review of steps 3, 4, 6, 7, 8 and 12 (2026-11-18, in progress)
+
+Most of these were exercised while testing later rounds; the points below are the ones worth a
+deliberate look. Record the outcome of each here.
+
+Web, in the harness (`node preview.mjs`, http://127.0.0.1:4180; the bar switches form, colour,
+labels, width and "Show as"):
+
+1. Step 3, form shell (Building Condition Survey, light and dark, Wide and Phone, Page and
+   Modal): title centred with the EDITING / VIEWING pill and the record row; navigation panel
+   (current section as a pill with the accent bar, one chevron for drill-down sections, two for
+   repeatable ones, 14px tabs); section cards with a filled header band; drill-down rows with the
+   accent bar and a count pill; the repeatable entry modal's header and body.
+2. Step 7, nested sections (UI gallery, "Structure" four levels deep): only the top section is a
+   card; each nested level has a full-width band with its path, long paths shortened with "…".
+3. Step 4, dialogs and marks (UI gallery): answering "Protected species (three options)" opens a
+   MESSAGEBOX (input, three buttons, the first primary), then an ALERT; Cancel after a change
+   opens the discard dialog (Cancel secondary, "Yes, discard" in the error colour; never seen
+   rendered in screenshots); the lock on "Survey reference (read-only attribute)" (also shown on
+   the Record Metadata fields); the "Calculated" mark on a calculated field.
+4. Step 8, inherited values (Building plan fixture, a room, then a wall): position tag after the
+   label; inherited value dashed and muted with its source inside; after a change, "Reset" in
+   the same place; for dropdowns and choices the tag or button sits under the control.
+
+Mobile, on the device with the mobile template:
+
+5. Step 6, controls and chrome: most were covered in round C; still to look at: ALERT and
+   MESSAGEBOX buttons stacked at full width (first primary), calculated fields (filled, bold,
+   "Calculated"), nested inline sections with the path band (Building Condition Survey), the
+   navigation sheet's entries (48pt, current one with the accent bar, chevrons).
+6. Step 8 on mobile: the same inherited and overridden states as 4, in the building survey's
+   plan.
+
+Templates:
+
+7. Step 12, web template (`node template-web-preview.mjs`, http://127.0.0.1:5174): the date
+   picker on the form's palette with a Today button; `custom-example.css.js` as a complete brand
+   theme (enable it to see it).
+8. Step 12, mobile template: `src/themes/brand-example.js` (light and dark), switched on from
+   `form0.config.js`.
+
+Clipped label icon (Next, 4.1): with side labels on a phone the label column is 30% wide (about
+107pt). React Native text does not break inside a word, so when a label's longest word plus its
+two 24pt icons (image and info) is wider than that, the second icon is pushed out of the column.
+Seen on "Moisture reading (%)" (description and image both in dialog mode) in the round 5
+gallery. Older than this work. To decide.
