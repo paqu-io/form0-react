@@ -147,10 +147,15 @@ it('opens a BuildingPlan floor through its existing repeatable view and keeps st
   const wallCollection = screen.getAllByText('Walls', { exact: true }).at(-1)
     .parentElement.parentElement;
   fireEvent.click(within(wallCollection).getByRole('button', { name: 'View', exact: true }));
-  fireEvent.click((await listRows('Walls'))[0]);
+  const [firstWall] = await listRows('Walls');
+  const wallName = firstWall.textContent;
+  fireEvent.click(firstWall);
   await waitFor(() =>
     expect(screen.getAllByText('Doors', { exact: true }).length).toBeGreaterThan(0)
   );
+  // A wall entry is titled by its label (projected from its physical wall), as its list row is.
+  expect(screen.queryByText(/^Walls \d+$/)).toBeNull();
+  expect(screen.getAllByText(wallName).length).toBeGreaterThan(0);
   expect(screen.getAllByText('Windows', { exact: true }).length).toBeGreaterThan(0);
   expect(screen.queryByText('Observations', { exact: true })).toBeNull();
   expect(floorRow).toBeTruthy();
@@ -291,8 +296,12 @@ it('a wall issue from the Validation list opens the wall through its floor', asy
   // The entry names where it is (floor, room, wall) and hides the generated data name.
   expect(issue.textContent).toMatch(/Ground Floor \/ Bedroom \/ W\d+/);
   expect(issue.textContent).not.toMatch(/wall_note_/);
+  const [wallName] = issue.textContent.match(/W\d+/);
   fireEvent.click(issue);
-  expect(await screen.findByText('Walls 1')).toBeTruthy();
+  // The wall opens, titled by its label (the same name the issue gives it).
+  const dialog = within((await screen.findAllByRole('dialog')).at(-1));
+  expect(await dialog.findByText(wallName)).toBeTruthy();
+  expect(dialog.queryByText(/^Walls \d+$/)).toBeNull();
   expect(onSubmit).not.toHaveBeenCalled();
   expect(errors.filter((error) => /does not belong/.test(error))).toEqual([]);
 });
