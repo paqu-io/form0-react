@@ -1696,3 +1696,18 @@ icons, floor tabs in React with "+" and Undo / Redo icons, the hints as a status
 split distance as a floating bar on the canvas. Web 297 of 303 (the six worker tests), core
 suite green. Details in `analyses/building-plan-ui.md`.
 
+### Step 1d, first part (2026-11-18, done, to test by hand, not committed)
+
+Decisions taken on the mockups. Done: wall entries titled by their label (form0-core reads
+projected fields for titles), the wide three-column plan entry dialog with its stacked fallback,
+top labels in plan entries, the split distance to the centimetre. Next in 1d: the canvas in leaf
+entries and the list ↔ canvas link. Details in `analyses/building-plan-ui.md`.
+
+### Step 1d, second part (2026-11-18, done, to test by hand, not committed)
+
+Exported records back to exactly what they were (plan rows titled for display only), 100% = 100
+px per metre, fit on open and a Fit plan button, names a fixed size on screen, the canvas in
+every plan entry (view only for walls, doors, windows, columns, beams), list rows and canvas
+marking each other, the plan page laid out like the dialogs, and a fix for double-click opening
+another room's element. Details in `analyses/building-plan-ui.md`.
+

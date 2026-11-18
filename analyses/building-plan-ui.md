@@ -172,14 +172,91 @@ in a room); floor tabs and "+" on the plan page; Undo / Redo icons and Alt+Shift
 floor or room entry; the status line changing with the tool; Split showing its floating bar;
 the floor dialog's header "Ground floor"; the grid's dots.
 
-Noticed, not changed: the split distance shows the raw number (2.058621); rounding it is a
-small follow-up.
+Committed after the hand test (2026-11-18): form0-core `7babcdf`; form0-react `7694985`
+(chrome, tooltip, shortcuts), `5d647da` (canvas drawing, sharp canvas, grid), `f611cc3` (floors
+panel), `c8f114a` (1c), `f124f3b` (docs). Each form0-react commit was built and passed the plan
+tests on its own.
 
-**1d, to do, after mockups.** Plan dialogs wider, with navigation | canvas | form; the canvas
-stays in view while the form scrolls; stacked only on small screens, measured at 1920×1080,
-1536×864 (125%), 1440×900, 1366×768 and 1280×800 (1920×1200 at 150%). With it, mockups for
-showing the canvas in wall, door, window, column and beam entries and their lists (read-only,
-the element highlighted).
+After the commits (not committed, to test by hand): the split distance is shown to the
+centimetre (`Math.round(... * 100) / 100`). Known problem, to revisit with dimensions on the
+canvas: typing a distance and pressing "Split at distance" doesn't split; only clicking the wall
+does.
+
+**1d, decided 2026-11-18** (mockups page, "Dialogs (1d)"): plan entry dialogs wide, with the
+canvas between navigation and the whole form, considered up to 2,560 px screens; stacked only on
+small screens; the canvas fills its column; every plan entry and list shows the canvas (floor and
+room edit as today, dimension quotes to come; wall, door, window, column, beam and object entries
+only highlight); in lists, a row and its element mark each other, and a double-click on the canvas
+opens that wall's, door's, window's, column's or beam's own entry; top labels in the plan
+dialogs' form column only (the form-level `labelPosition` stays for everything else); wall
+entries titled by their label (core).
+
+Done, to test by hand (not committed):
+
+- **Wall titles (form0-core).** Dataset descriptors keep a BuildingPlan projection as
+  `projected_fields` (not a dataset field, so exports don't change); `resolveDatasetRowTitle`
+  and the schema validator's title check read them; the expander no longer skips projected
+  names. Wall faces are titled by their label ("W4"), in the dialog header, lists and stored
+  records. Files: `src/utilities/dataset-descriptors.js`, `src/schema/schema-validator.js`,
+  `src/schema/building-plan-expander.js`, `tests/building-plan-title-fields.test.js`. Core suite
+  green.
+- **Layout (form0-react).** `src/plan-entry-layout.css.js` and the dialog body in
+  `form-renderer.jsx`: plan entries (floor, room) are `min(96vw, 2460px)` wide; from a 1,105 px
+  viewport (dialog ≥ 1,060 px) three columns, navigation 200 px, canvas ≥ 420 px filling its
+  column (the rail scrolls if taller), form `clamp(380px, 26%, 560px)`, each column scrolling on
+  its own (the navigation's sticky offset reset inside); below that the body scrolls as one
+  column with the canvas 360 px high above the form; under 768 px navigation hides as before.
+  The canvas column stays for the entry's list pages (a floor's Rooms, a room's Walls). Record
+  Metadata and the entry form use top labels in plan entries. Measured: 2560×1300 → dialog
+  2,458, canvas 1,514×1,038, form 560; 1536×740 → 1,475 / 711×495 / 380; 1366×650 → 1,311 /
+  547×408 / 380; 1024×650 → stacked, canvas 615×358.
+- **Split distance** shown to the centimetre.
+- Tests: `building-plan-editor.test.jsx` (wall entries titled by their label, also when opened
+  from a validation issue). Web 295 of 303 in a full run: the six worker tests plus one worker
+  test that passes alone (timing under load).
+
+Second part (2026-11-18, done, to test by hand, not committed):
+
+- **Exported records unchanged (form0-core).** The committed title change (`7babcdf`) had made
+  stored records carry an `@title` on 23 plan rows of the example (values untouched). Plan
+  datasets are now marked (`building_plan: true`, from `getBuildingPlanProjectionNames().rows`)
+  and the three places that write `@title` (two in `record-transformer.js`, one in
+  `structured-record.js`) give plan rows what they had before (no key, or `null`). Checked by
+  diffing the example's stored record, its normalized form and its snapshot against the previous
+  core: identical apart from timestamps. The titles stay for display (dialog headers, lists).
+  Regression test in `tests/building-plan-title-fields.test.js`; core 611 of 611. Projected
+  fields exist only inside BuildingPlanSection (`getBuildingPlanProjectionNames` reads the plan
+  metadata), so other forms' descriptors are untouched.
+- **Scale.** 100% is now 100 px per metre (was 20): a 1,000 to 1,500 px canvas shows 10 to 15 m.
+  It is the canvas's units per metre (`DEFAULT_GRID_SIZE`, passed to the controller with
+  `setGridSize`), so geometry stays in metres and handles and pointer tolerances keep their
+  screen size at 100%.
+- **Fit.** The view fits the rooms in scope on open and after a floor switch (`fitToContent`,
+  margin 48 px, at most 250%); the zoom pill's last button is "Fit plan" (was "Reset zoom to
+  100%"). Zoom is usable in read-only forms too (it was disabled).
+- **Names keep their screen size** at any zoom; room names 14 px, other names 12 px.
+- **Canvas in every plan entry.** Wall, door, window, column, beam and object entries show their
+  room's canvas view only (no rail, no undo, a "View only" chip), their element marked (walls by
+  face, openings by face and opening, columns and beams by their own id), the view fitted to
+  the room; while an element is marked its room doesn't draw as selected. Double-click opens the
+  element's own entry, as before.
+- **Lists and canvas.** In a plan entry's list (a floor's Rooms, a room's Walls…) hovering or
+  focusing a row marks its element; clicking an element on the canvas marks its row (accent bar)
+  and scrolls it into view (`RepeatableEntryRows` `onHighlight` / `markedId`, generic).
+- **Fix.** A double-click on the canvas opened the element as if it belonged to the current
+  entry even when it didn't (a wall of another room from a room entry); `focusRow` now opens
+  only the entry's own rows.
+- **Plan page.** `section-view.css.js`: the canvas as the wide column, as tall as the screen
+  allows, the Floors list 320 to 520 px beside it; stacked when the section is under 820 px
+  (container query).
+- Tests: web 297 of 303 (the six worker tests); plan tests and list tests green.
+
+Hand test: the plan page and floor / room entries at a few widths (fit on open, 100% showing 10
+to 15 m, Fit plan, names readable when zoomed out); a room's Walls list (hover a row, click a
+wall); a wall, a door and a column entry (view only, marked, double-click a door from its wall);
+read-only form (zoom works).
+
+Not in 1d (later steps): handles, dimension quotes and typed values on the canvas; mobile.
 
 ## Data proposals (step 6, to agree before any core work)
 
@@ -224,9 +301,6 @@ one combined core operation is the clean way.
 
 ## Open questions
 
-0. Wall entries: their label is projected from the physical wall, so the generic title can't
-   reach it (see 1b). Options: let dataset titles read projected fields (a core change in
-   `dataset-descriptors.js` and the validator), or accept "Walls 1" for faces.
 1. Beams: wall beams under Wall (proposed) or under Room with a wall reference. Whether "over
    an opening" / "under a window" / "top of the wall" keep the beam's height in step with that
    element (the window's head changes, the beam moves; core derives the height) or only set it
