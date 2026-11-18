@@ -115,7 +115,9 @@ Status: `todo`, `in progress`, `to test`, `done`.
 ## Needs a decision
 
 - Search for dropdowns on web (new feature).
-- A date picker on mobile (new feature, probably a dependency).
+- ~~A date picker on mobile~~: covered by the mobile template's native pickers (field overrides
+  with `@react-native-community/datetimepicker`, round B, `976dc50`); typing still works and the
+  library keeps typed entry only. Nothing to replace; a picker inside the library is not planned.
 - Dimensions drawn on the canvas and edited in place (new logic; second phase, see below).
 - Section counts (new derived state).
 - Mobile date typed in the device's locale order (a display/value conversion layer; the
@@ -186,6 +188,16 @@ alias, and one building plan reset test that passes when run alone. So moving th
 the new core should clear most failures; the last 7 are likely the same cause but that is not
 proven.
 
+How the suites are run now (one at a time, as in "WSL crashes"):
+
+- Web: the tests import `../dist/index.js`, so build first (`npx tsup`), then
+  `npx vitest run --config ../.local-test-harnesses/form0-ui-refresh-20261116/vitest.local-core.config.mjs --maxWorkers=2`.
+  Known failures: the six worker tests.
+- Mobile fixtures: `node native-build.mjs` in the harness folder, then the three `native-*.test.jsx`
+  files (see Manual testing). Mobile unit: `node --test --test-concurrency=2 --test-timeout=20000
+  $(ls tests/*.test.mjs | grep -v managed-events)`; known failures: consumer audit manifest and
+  `building-plan-touch` (installed core).
+
 ## Manual testing
 
 Web: `node preview.mjs` in `.local-test-harnesses/form0-ui-refresh-20261116/`, then open
@@ -210,7 +222,13 @@ Mobile, in the same folder (nothing installed; reads react-native-web from
   shims of the building plan harness (read only).
 
 On devices (needed for steps 9 and 11): the Expo template as in
-`reform-backend-nestjs/docs/building-plan-retest-2026-11-16.md`, on iOS and Android. Checklist:
+`reform-backend-nestjs/docs/building-plan-retest-2026-11-16.md`, on iOS and Android. The template
+must use the local libraries, linked from `form0-mobile-tmpl-react-native-expo` with
+`npm link ../form0-core ../form0-react-native` (its `metro.config.cjs` watches those folders).
+Any `npm install` or `npx expo install` there replaces the links with the published packages
+(this happened on 2026-11-17 when the date picker package was added, so the device test showed
+no keyboard toolbar): check `ls -l node_modules/form0-react-native node_modules/form0-core`
+shows links to `../../form0-react-native` and `../../form0-core` before testing. Checklist:
 
 1. Tap the first text field: the keyboard opens, nothing jumps, the toolbar sits on the
    keyboard.
@@ -883,6 +901,328 @@ Round C: device testing (checklist under Manual testing); it now also covers the
 signature, the native pickers in the mobile template, and typing a separator on a hardware
 keyboard. Steps 5 (building plan on theme tokens) and 10 (mobile plan editor) still need
 discussion.
+
+### Round C: device testing (Android, 2026-11-17, in progress)
+
+Checklist (Manual testing): 1 and 4 not testable yet (no toolbar, see below); 2, 3, 5 ok; 6 and
+7 ok with the notes below; 8 ok for now.
+
+Found and changed (not committed yet):
+
+- **Field spacing (mobile)** was looser than before the refresh: the space between fields was
+  about the same (34pt, 33pt before), but a 6pt gap under the label was new, controls are 48pt
+  and section padding went from 8 to 14pt. Field padding 6 → 2pt and the label gap 6 → 4pt
+  (`src/field-renderer.jsx`): about 10pt less per field, about 26pt between fields. To check on
+  the device that it is not too compact.
+- **Header buttons (mobile)** went from about 36pt to 44pt. Back to 36pt to the eye
+  (`src/form-action-button.jsx`); their existing hit slop (12pt on every side) keeps the touch
+  target above 44pt.
+- **Yes/No (mobile)** was separate buttons with an 8pt gap; now one joined control with
+  dividers, full width, as in the mockup and on web (`src/control-styles.js`
+  `joinedSegmentsStyle` / `joinedSegmentStyle`, `src/field-components/boolean-field.js`). Long
+  labels wrap inside their option.
+- **Sections and issues sheet (mobile)**: the Modal slid in with its dim backdrop, so the grey
+  layer moved up the screen. Now the backdrop fades and only the sheet slides up (Animated,
+  started on the Modal's `onShow`). The issue cards had no space between them (the list's gap
+  did not reach them through their wrapper): 8pt now (`src/form-renderer.jsx`).
+- **Mobile template date picker**: `onChange` is deprecated in
+  `@react-native-community/datetimepicker` 9; Android uses `onValueChange` / `onDismiss`, the
+  iOS spinner `onValueChange`. The iOS sheet gets the same fade-and-slide as above
+  (`src/field-renderers/date-time-pickers.js`).
+- Harness: `native-rn.jsx` adds `Animated` and `Easing` stubs to the building plan harness's
+  react-native stubs for `native-build.mjs`.
+
+Answers recorded: supporting images and descriptions were restyled on web only (dialogs in step
+4, label icon buttons in step 2; inline images and subtext only changed colour and size), not on
+mobile. The repeatable list screen on mobile (View and Remove pills about 30pt high, Remove in
+hardcoded pinks) was not part of the refresh; it goes into the repeatable page mockup (next).
+
+Mockup "Review round 4 · repeatable list page" published (top of the mockups page): today's
+web and mobile empty states as screenshots; proposed rows that open on tap with a chevron and a
+trash icon instead of View / Remove, an empty state with its own "Add the first entry", the
+count beside the title; on mobile, Add in the header (A) or a full-width bar at the bottom (B).
+Labels stay generic: today's attempt to make the section label singular
+(`replace(/s\\b/i, '')` in form0-react) never matches, and singular forms are not reliable
+across languages.
+
+Round 4 decisions (2026-11-17): rows open on tap or click with a chevron, Remove as a trash
+icon (same confirmation); the empty state gets its own "Add the first entry", a secondary
+button on web and mobile alike (the header keeps the primary Add); on mobile Add stays in the
+header (A). Applies to the shared lists (web `RepeatableSectionList`, mobile
+`RepeatableListScreen`, so also the lists inside the building plan) and to the web building
+plan's own floor list (`building-plan/section-view.jsx`, same styles, its own markup). The line
+under the title is the section's `description` from the schema, as today.
+
+After the second device pass:
+
+- Field spacing ok on mobile. Compared with web: web side labels are about 26px apart (6px gap
+  plus a reserved error row of about 16px plus 2px padding), the same as mobile now; web top
+  labels have 6px more padding (about 34px apart). Option: the same 2px padding for top labels
+  on web.
+- Header buttons: web is 36px, mobile 36pt again: consistent, no web change needed.
+- Issues tab (mobile) before validation: tapping it switched the tab and a rule in the sheet
+  switched it straight back to Sections (the flash). It is disabled until validation has run,
+  as web's Validation tab already is (`src/form-renderer.jsx`).
+- Date picker warning gone; Yes/No ok.
+
+**Keyboard toolbar not shown on Android: found and fixed (to confirm on the device).** The
+debug log (second run, with timestamps) showed the bar laid out at y 506–550 in window
+coordinates while the keyboard's `screenY` was 549: Android reports `screenY` from the top of
+the screen, but the window starts below the status bar (screen 914, window 844: status bar 46,
+gesture bar 24), so the keyboard really started at 503 in the window and the bar sat entirely
+behind it. The overlap was also 46 too small (178 instead of 224), so the bottom padding and
+the scrolling were slightly short. Fix (form0-react-native): `keyboardTopInWindow` in
+`src/keyboard-layout.js`: on Android the top is the window height minus the keyboard's height;
+iOS keeps `screenY` (window coordinates there). Two unit tests with the device's numbers
+(`tests/keyboard-layout.test.mjs`, 12 of 12). The "hide" line in the first log was the keyboard
+being closed. The debug log stays until the fix is confirmed, then is removed before the commit.
+
+Web top labels: their padding goes from 6px to 2px above and below, the same as side labels,
+so fields sit about 26px apart on both platforms (`labelTop` in `src/field-renderer.css.js`).
+
+Mockup "Review round 5 · supporting images and descriptions" published: inline image as a
+framed figure at the field's width (at most 200px web, 180pt mobile) that opens larger on click
+or tap; dialogs titled with the field's label (mobile says "Field Information" today); on mobile
+the description and the image open as a bottom sheet. Today's look, from the code: web inline
+image unframed, centred, 250px; mobile inline image 150pt; subtext under the label on both.
+
+Tests: mobile unit 133 of 135 (known failures), fixtures 63 of 63.
+
+### Round C, third device pass and round 4 in progress (2026-11-17, nothing committed)
+
+Confirmed on Android: the keyboard toolbar now sits on the keyboard (Previous / Next walk the
+text fields only, as wanted); the debug log for it is removed. Open question: make the toolbar
+slightly more visible (for example a stronger top line), without making it loud.
+
+Fixed after this pass (uncommitted):
+
+- **Sheet flash** (sections and issues sheet; also the mobile template's iOS picker sheet): the
+  slide offset was never reset on close, so the next opening drew the sheet fully open for a
+  frame, then jumped away when the slide started on the Modal's `onShow` (most visible with the
+  keyboard open, since closing it delays `onShow`). The slide now starts in a layout effect
+  when the sheet opens, before its first frame (`src/form-renderer.jsx`,
+  `src/field-renderers/date-time-pickers.js` in the mobile template).
+- **Issue cards showed data names** (labels came back after reopening the sheet a few times):
+  the issue list prefers the summary prepared by the managed events (`rootEvents.summary`,
+  older than this work: `48f50d1`), whose issues carry names but no field objects; the in-form
+  summary has them. `buildNavigationIssues` now looks the field up by name
+  (`validatableRootFields`) when an issue comes without one.
+- **Picking an issue did not scroll to its field**: cause not found yet (names match, so the
+  lookup should work). A temporary log is in `navigateToRootValidationIssue`
+  (`[form0 nav] issue`, marked "do not commit"): run it on the device, pick an issue, read the
+  line (hidden flag, instance path, section, whether the input and container refs exist).
+
+Answers recorded:
+
+- **Remove confirmation**: web never asked (`handleRepeatableRemove` removes at once, no
+  confirmation in its history); mobile has its own dialog ("Remove this entry?"). Round 4's note
+  "same confirmation as today" was wrong for web. To decide: add the same confirmation on web.
+- **"Existing damage notes" has no asterisk**: in the starter schema it is `required: false`
+  with only `visible_conditions` (`item_condition` equal to `damaged`); the error comes from an
+  event, `ON('validate-repeatable', 'equipment_items', …)` calling `INVALID(...)`. The engine
+  does not know the field is required, so no asterisk. With `required: true` (the visibility
+  condition already limits it to when it shows) the asterisk appears when the field does and
+  the engine's own check covers it. To decide: change the starter schemas (web and mobile
+  templates), keeping or dropping the event.
+- Round 5 decisions: 1, 2, 3 ok; **plus pinch to zoom in the mobile image sheet** (no
+  dependency: PanResponder with two touches and Animated, pan while zoomed, reset on close);
+  the inline description stays under the label on both platforms and in both label layouts,
+  which is already the case (the mockup text that said otherwise is corrected).
+
+**Round 4 implemented, tests not yet updated:**
+
+- form0-react: `src/repeatable-list-parts.jsx` (new: `RepeatableEntryRows`,
+  `RepeatableEmptyState`, `RepeatableCount`), used by `RepeatableSectionList`
+  (`src/form-renderer.jsx`) and the building plan's floor list
+  (`src/building-plan/section-view.jsx`); styles in `src/form-renderer.css.js` (one bordered
+  list with dividers, 44px rows that open the entry, 36px trash button, dashed empty state with
+  "Add the first entry", count pill beside the title).
+- form0-react-native: `RepeatableListScreen` in `src/form-renderer.jsx` (count and description
+  line, dashed empty state with a secondary "+ Add the first entry", one bordered list, 56pt
+  rows that open the entry, 44pt trash button through the existing confirmation dialog, no
+  hardcoded colours).
+- Each row's accessible name is now the entry's title (before: a button named "View"); the
+  trash button is "Remove <title>".
+- **Tests to migrate**: web suite 240 of 276 (30 new failures besides the six worker tests) and
+  mobile fixtures (`native-editor`, and probably `native-reset`) open entries and floors through
+  buttons named "View". Drill-down section rows still say "View"; entry and floor rows must now
+  be found by their title (for example `getByRole('button', { name: 'Rooms 1' })`). Harness:
+  `native-icons.jsx` gained `List` and `Trash2`.
+
+### Round C, fourth device pass (2026-11-17, third chat, nothing committed)
+
+Reported on Android: picking an issue could leave its field behind the keyboard; opening the
+sheet with the keyboard up flashed; no issue count in an entry's header after a failed Save
+(tapping the title listed the issues); the Sections tab stayed active without sections; the first
+saved entry kept a dashed border until the page was opened again.
+
+Decisions: Sections tab disabled without sections on web and mobile (3b); keyboard closed before
+the sheet opens (5); remove confirmation on web as on mobile (6); `required: true` for "Existing
+damage notes" and its `validate-repeatable` event dropped (7); stronger toolbar top line (8);
+round 5 as proposed, with a shared mobile bottom sheet (9).
+
+Changed:
+
+- **Issue navigation (mobile).** The `[form0 nav]` log showed the lookup works (field,
+  container and section found; choice fields have no input). Likely cause, not proven on the
+  device: navigation ran two frames after the sheet was told to close, while the Modal was
+  still fading out and held the window's focus, and it started two scrolls (one before focus,
+  the keyboard's after it) that could overlap. Now the sheet slides down and the pick runs once
+  the Modal is gone; a text field is only focused and placed by the keyboard's own reveal; a
+  field without an input is scrolled to; when no reveal happens within 800 ms (no keyboard, or
+  the field was already focused) it scrolls anyway. `focusField` in
+  `src/keyboard-aware-scroll.jsx`, used by the root and the entry editor
+  (`src/form-renderer.jsx`). The debug log is removed.
+- **Sheet (mobile).** New `src/bottom-sheet.jsx`: `BottomSheet` (backdrop fade and sheet slide,
+  both ways; `onClosed` after the Modal is gone) and `afterKeyboardCloses` (dismisses the
+  keyboard and opens on `keyboardDidHide`, 400 ms fallback). `FormNavigationSheet` uses it;
+  `useNavigationSheetActions` in `src/form-renderer.jsx` opens it and runs the picked section or
+  issue on close, for the root and the entry editor.
+- **Entry header count (mobile).** The entry editor's `FormHeader` now gets `issueCount`.
+- **Sections tab.** Mobile: disabled (0.45 opacity) without sections, and the sheet then opens
+  on Issues (`src/form-renderer.jsx`). Web: "Navigation" is shown disabled instead of hidden
+  (`src/navigation-tree.jsx`).
+- **Dashed border (mobile).** The empty state and the list were the same `View` in a ternary;
+  Android kept the removed dashed border when it was reused. Separate keys and an explicit
+  `borderStyle: 'solid'` (`RepeatableListScreen`). Same pattern fixed on the inherited-value
+  input of the building plan (`src/field-renderer.jsx`), which kept its dashed border after an
+  override.
+- **Toolbar.** Top line uses `borderStrong` (`src/keyboard-aware-scroll.jsx`).
+- **Remove confirmation (web).** New `src/remove-entry-dialog.jsx` ("Remove this entry?", the
+  entry's title, "This cannot be undone.", Cancel focused, Escape cancels, focus kept inside,
+  focus back on the trash button after Cancel). `RepeatableEntryRows` asks before calling
+  `onRemove`, so root lists, nested lists and the floor list all confirm. The form's global
+  shortcut handlers skip key events from the dialog (`isRemoveEntryDialogEvent`).
+  `useFocusTrap` moved unchanged from `src/form-renderer.jsx` to `src/use-focus-trap.js` so the
+  dialog can use it. Test: `tests/repeatable-remove.test.jsx` (3).
+- **Starter schemas** (web and mobile templates, identical): `damage_notes` `required: true`;
+  the `validate-repeatable` event on `equipment_items` removed (building-condition-survey still
+  shows one); `tests/starter-schemas.test.mjs` and `docs/starter-schema-review.md` updated.
+
+Tests migrated (round 4 rows are named by their title): web accepted-view,
+building-plan-derived-engine, building-plan-editor, building-plan-reset, choice-events fixture,
+engine-options-diagnostics, event-reporting fixture, record-renderer, renderer-events,
+repeatable-opening, submission-reporting (the header Add, since an empty list also offers "Add
+the first entry"); mobile record-renderer, building-plan-editor and building-plan-reset fixtures,
+the identical choice-events and event-reporting fixture copies, and the source check in
+`tests/field-registry.test.mjs`.
+
+Results: web 273 of 279 (the six worker tests, as before); mobile fixtures 63 of 63; mobile unit
+145 of 151, all six failing at HEAD too, because form0-react-native resolves its installed
+`form0-core` (Nov 1): consumer audit manifest, `building-plan-touch` (no
+`BUILDING_PLAN_ZOOM_LIMITS`), and four managed question tests in `managed-events` (two of which
+hang without `--test-timeout`); mobile template schemas 8 of 8; web template schemas 5 of 8 (its
+installed core rejects the building survey's `building_plan` attributes; unrelated).
+
+Found while migrating, not changed: a floor row is titled "Floor #1" on web
+(`section-view.jsx`: `floor.label || 'Floor #n'`, and `floor.label` is empty) and "Floors 1" on
+mobile (generic entry title), while the canvas tab says "Ground Floor".
+
+### Round C, fifth pass (2026-11-18, third chat, nothing committed)
+
+The fourth pass was confirmed on the device (issue navigation for typed fields, sheet with the
+keyboard up, entry header count, Sections disabled, first saved entry, toolbar line, remove
+confirmation, damage notes). Reported: the bar appears just after the keyboard; picking a
+choice while a text field is focused leaves it focused and the bar gone; issue navigation does
+not bring choice (and other untyped) fields into view; on web the remove dialog had a double gap
+above "This cannot be undone" and an empty space in Remove, and mobile's confirmation buttons
+differed from web's; floor rows were titled "Floor #1" / "Floors 1".
+
+Changed:
+
+- **Bar timing (mobile).** Android reports the keyboard only once it is fully open. When a text
+  field gets focus, the bar now slides up with the keyboard (280 ms) to where that kind of
+  keyboard ended last time (remembered per field type, so the number pad keeps its own height);
+  the report then corrects it. The first keyboard after launch keeps the short delay; without a
+  keyboard (hardware keyboard) the bar is withdrawn after 700 ms. On the report the bar is placed
+  from the last measured viewport at once, then re-measured (`src/keyboard-aware-scroll.jsx`;
+  `src/field-renderer.jsx` passes the field type on focus).
+- **Bar lost after a Modal (mobile).** A picker or an alert made Android report the keyboard
+  hidden and the controller forgot the focused field; the keyboard came back with no focus
+  event. A hide now keeps the field while its input still has the focus (`isFocused()` or
+  `TextInput.State.currentlyFocusedInput()`).
+- **Choices end typing (mobile).** Picking an option in a single or multiple choice, or Yes/No,
+  closes the keyboard; their pickers open once it has closed. New `src/keyboard-dismiss.js`
+  (`endTyping`, and `afterKeyboardCloses` moved there from `bottom-sheet.jsx`). The mobile
+  template's date and time pickers also open after the keyboard closes
+  (`src/field-renderers/date-time-pickers.js`).
+- **Untyped fields on issue navigation (mobile).** Typed fields worked because focusing them
+  makes Android scroll them into view; untyped fields rely on one scroll. A temporary log showed
+  the reported scroll position always equal to a measured one, and the untyped jumps either
+  scrolling (78pt) or not needing to (already visible): with nothing to show the jump, a field
+  already on screen looked like a miss. So the field jumped to is now highlighted briefly
+  (primarySoft, 1.5 s): new `src/field-highlight.jsx`, used by `renderElements` for every field
+  container, with a provider for the form and one per entry editor. Jumping to such a field also
+  ends typing in another field, as picking a choice does, and scrolls once the keyboard has
+  closed (`focusField`). The measured position and the log were removed again.
+- **Remove dialog (web).** Title and sentence as two lines with one gap; Remove has a trash icon;
+  Alt+Q / Alt+Y badges and shortcuts as in the discard dialog (`src/remove-entry-dialog.jsx`).
+- **Confirmation dialogs (mobile).** New `src/confirm-dialog.jsx` (outlined Cancel, solid confirm
+  in the error colour, 44pt, theme colours only; the hardcoded pinks are gone), used by the
+  remove dialog (with a trash icon; a BuildingPlan removal warning goes in the message, not in
+  the bold title) and the discard dialog.
+- **Row names.** BuildingPlan rows in lists show their own name through form0-core's
+  `buildingPlanRowTitle` (floor name, room name, wall label), falling back to "<section> <n>".
+  Web: `controller.js` (floor and room labels; it read `floor_name`, which no longer exists under
+  that name and is a choice), `section-view.jsx`, and a `rowTitle` for `RepeatableSectionList`
+  at the root and in entry dialogs. Mobile: `getRepeatableEntryTitle`. Entry screen headers keep
+  their position title ("Rooms 2"). Entry lists are now named after their section
+  (`aria-label` on web, `accessibilityRole="list"` + label on mobile).
+
+Tests: web 273 of 279 (the six worker tests); mobile fixtures 63 of 63 (building plan fixtures
+find rows through the named list); mobile unit 135 of 137 without `managed-events` (the two
+known). Web building plan tests assert the floor row "Ground Floor" and the room row "Bedroom";
+mobile asserts the floor row.
+
+### Next
+
+1. Fifth pass on the device (2026-11-18): choices ending typing, issue navigation with the
+   highlight, both dialogs and row names work. Open: the bar still appears slightly after the
+   keyboard (to decide: accept, check in a release build, where JavaScript runs faster than in
+   development, or frame-synced bar with `react-native-keyboard-controller`, a native
+   dependency needing a development build). To check: a jump to a choice field now ends typing.
+   **Update (2026-11-18, fourth chat):** everything above confirmed by hand, including the jump
+   to a choice field; `react-native-keyboard-controller` parked for now.
+2. Round 5 (new chat): framed inline image that opens larger (web and mobile), dialogs titled
+   with the field's label, mobile description and image as bottom sheets (on `BottomSheet`),
+   pinch to zoom on mobile (1x to 4x, pan while zoomed, reset on close, no double tap).
+3. Then commit round C (form0-react, form0-react-native, both templates) and continue device
+   testing (iOS when available).
+4. After that: review of the committed steps marked "to review" (3, 4, 6, 7, 8, 12); steps 5 and
+   10 to discuss; the "Needs a decision" list; the second phase (dimensions); the Reform upgrade.
+
+### Round 5: supporting images and descriptions (2026-11-18, fourth chat, reading only)
+
+Scope (decided): framed inline image at the field's width (at most 200px tall on web, 180pt on
+mobile; today 250px and 150pt) that opens larger on click or tap; dialogs titled with the
+field's label; on mobile the description and the image open as a bottom sheet on `BottomSheet`;
+pinch to zoom in the mobile image sheet (1x to 4x, pan while zoomed, reset on close, no double
+tap, PanResponder and Animated, no new dependency). Inline descriptions stay under the label.
+
+How it works today (both platforms read `description_mode` and `supporting_image_display` the
+same way: `subtext` / anything else, `dialog` / anything else):
+
+- **Web** (`src/field-renderer.jsx`, styles in `src/field-renderer.css.js`): subtext under the
+  label in every layout (in the label column for side labels). The inline `<img>` is centred,
+  unframed, 250px tall with `object-fit: contain`, above the control (in the control column for
+  side labels), not clickable. Dialog mode: 24px icon buttons after the label open native
+  `<dialog>`s (480px max) titled **"Field information"** and **"Supporting image"** with an icon,
+  the label repeated in bold in the body. Escape closes, focus returns to the button, a backdrop
+  click does not close. The three dialog effects (description, image, FormLinkField warning) are
+  the same code three times. Local paths load from `/supporting-images/<path>`.
+- **Mobile** (form0-react-native `src/field-renderer.jsx`): same placement. The inline image is
+  150pt tall at full width, `contain`, not tappable; it shows only when the app's image resolver
+  returns a source (the template's generated registry). Dialog mode: centred fading Modals
+  titled **"Field Information"** / **"Supporting Image"**, the label again in the body, a
+  footer button ("Got it" / "Close"), backdrop tap closes; the image is 250pt tall with the
+  label as a caption.
+- The mockup said web dialogs were already titled with the label "since step 4"; they are not.
+  Item 2 therefore applies to web too.
+- No test covers these dialogs or the inline image on either platform.
+- The starter schemas have no inline image and no dialog description: every image is in
+  `dialog` mode (the 900×540 `evidence-photo-guide.png`), every description is `subtext`.
+
+Open decisions: listed in the chat of 2026-11-18; recorded here once answered.
 
 ### WSL crashes (2026-11-17)
 
