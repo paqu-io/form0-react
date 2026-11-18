@@ -4,6 +4,8 @@ Tracks the default-styling refresh for `form0-react` and `form0-react-native`
 (issues form0-react#77 and form0-react-native#45), and later the two starter templates.
 
 - Mockups: https://claude.ai/artifact/JgvW22r7DGSLXaNPux7WeB (private)
+- Building plan round mockups: https://claude.ai/artifact/GPW3m7Tiq9XvEERPMoxYVB (private;
+  steps 5 and 10, door swing, dimensions, open decisions)
 - Branch: `feat/ui-refresh`, from `experiment/building-plan-model`
 - Chosen base: proposal **A (Refined)**. Parts of B may be added later, one at a time.
 
@@ -98,7 +100,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | 2 | Controls: input, textarea, select, choice lists, yes/no, buttons, `kbd`; all states; error row | form0-react | done |
 | 3 | Form shell: header, section bands and gaps, navigation panel, drill-down rows, repeatable list and modal | form0-react | committed, **to review** |
 | 4 | Dialogs (ALERT, MESSAGEBOX, discard, description, supporting image); calculated vs read-only | form0-react | committed, **to review** |
-| 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs; one themed tooltip | form0-react | todo (skipped, needs discussion) |
+| 5 | Building plan on theme tokens: canvas, toolbar, zoom, floor tabs; one themed tooltip | form0-react | mockups done, **decisions pending** (see "Building plan round") |
 | 6 | Steps 1 to 4 mirrored on mobile, with 48pt controls (step 5 skipped) | form0-react-native | committed, **to review** |
 
 ### Structural (each needs a go-ahead)
@@ -108,7 +110,7 @@ Status: `todo`, `in progress`, `to test`, `done`.
 | 7 | Nested sections shown flat, with the path in nested headers | both | committed, **to review** |
 | 8 | Inherited values, variant 1 | both | committed, **to review** |
 | 9 | Mobile keyboard: one mechanism, whole field above the keyboard, dynamic bottom space | form0-react-native | committed, **to test on devices** |
-| 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | todo (skipped, needs discussion) |
+| 10 | Mobile plan: still preview in the form, full-screen editor with bottom sheet | form0-react-native | mockups done, **decisions pending** (see "Building plan round") |
 | 11 | Keyboard bar | form0-react-native | committed, **to test on devices** |
 | 12 | Templates: brand theme example, date picker on the form's palette, remove workaround CSS | both templates | committed, **to review** |
 
@@ -1191,7 +1193,7 @@ mobile asserts the floor row.
    1. Close the refresh, in this chat: review of the steps marked "to review" (checklist under
       "Review of steps 3, 4, 6, 7, 8 and 12" below) and the clipped label icon with side labels
       on a phone.
-   2. Building plan round, in a new chat (research, mockups and discussion first): step 5
+   2. **In progress (2026-11-18, fifth chat: mockups and decisions, see "Building plan round").** Building plan round, in a new chat (research, mockups and discussion first): step 5
       (building plan on theme tokens, one themed tooltip), step 10 (mobile plan editor in a
       bottom sheet) and the second phase (dimensions on the building plan). Before
       localization, since it adds and changes the building plan's texts.
@@ -1556,3 +1558,141 @@ MESSAGEBOX → ALERT backdrop (`b3c947e`) and the nested list row as one card (`
   and in an entry dialog, single and multiple choice (the harness gallery's entries got two
   dropdowns with "Other" for this). The panel styles moved to `src/choice-dropdown-panel.css.js`
   to keep both stylesheets under 300 lines. Web 285 of 291 (the six worker tests).
+
+## Building plan round (2026-11-18, fifth chat: reading, research, mockups; no code)
+
+Branches checked: form0-react and form0-react-native on `feat/ui-refresh` (clean, not yet
+merged into `experiment/building-plan-model`), form0-core on `experiment/building-plan-model`.
+Mockups: https://claude.ai/artifact/GPW3m7Tiq9XvEERPMoxYVB (today's screenshots next to A ·
+Aligned and B · Studio; working demos for door flipping and length editing; decisions D1 to D14).
+Screenshots were taken one browser launch at a time, pinned and lowered; no crash.
+
+### How it looks and works today
+
+Web (`section-view.jsx`, `canvas-host.jsx`, `toolbar/`, `zoom-controls.*`, `canvas.css`,
+`legacy/building-plan-canvas.js`):
+
+- Plan page: three columns. Vertical tool rail (Select, Clear | Split, Rejoin, Draw Room, Column,
+  Beam, Wall | Door, Window) with an "alt+shift+x" caption under every icon; per-mode enabled
+  state from `toolbar-config.js`. Then the canvas panel: floor tab (legacy blue button), "Pin /
+  unpin" and a hint line, then a 16:9 canvas; Split adds a row ("Split distance [m]", "Split at
+  distance", hint). Right: the Floors panel with its own "Add" button and the fixed description
+  "Each floor created from the canvas is stored here.", although the header has "Add Floor" and
+  the empty list "Add the first entry".
+- Floor and room entries (dialog): Record Metadata, then grey Undo / Redo, then the same canvas.
+- Colours are hardcoded everywhere: rail, zoom, tabs, canvas (`#fafafa`), grid (1 m `#e6e6e6`,
+  10 cm from 150% zoom, 5 m at 50% and below), origin axes and a "0,0" label, rooms in their own
+  colour at 35% with a blue outline, walls `#444`, selection red, doors green bars, windows blue
+  bars, columns orange, beams purple, names in boxed badges. Dark mode: canvas and rail stay
+  white and the hint line is light grey on white.
+- Tooltips: three CSS `::after` tooltips (rail to the right, zoom to the left, floor placeholder
+  above) plus native titles on the legacy canvas buttons; elsewhere in the form, native `title`.
+- The view opens at the origin, not fitted, so a small plan sits in the top-left corner. No
+  lengths are drawn; no door hinge or swing exists in the data.
+
+Mobile (`canvas.jsx`, `touch-controller.js`, `form-renderer.jsx`):
+
+- At the root the plan is a drilldown row ("Building layout · View"). Its page puts the canvas
+  first in the page's scroll view: 18 wrapped text buttons (Add floor, Select, Pan, Resize, Room,
+  Wall, Split, Rejoin, Pin / unpin, Door, Window, Column, Beam, Zoom in, Zoom out, Reset view,
+  Free drag), floor buttons only with two or more floors, a 320 pt canvas without a grid or an
+  empty state, then the Floors row. Floor and room editors also show the canvas first, with Undo
+  and Redo, then the fields.
+- Theme colours are used (dark works) except doors and windows (fixed green and blue). A
+  selected room shows width and height inputs with "Set dimensions"; a selected wall shows
+  "Split at distance". Pan is a tool because a drag on the canvas competes with the page scroll.
+
+form0-core facts that matter here: a wall's parallel move exists (`resize_face`), as do
+`move_corner`, `resize_room` and session-only wall pins (`toggleWallPin`); doors store label,
+width, height, segment index, start and end ratios and a wall reference (`building-plan-blueprint.js`),
+nothing about hinge or swing.
+
+### Research (sources in the mockups page)
+
+- magicplan help centre: wall length by room, wall, then tapping the blue measurement;
+  "Change Measurement" pop-up with Apply, Units, laser; same from the details panel (swipe up on
+  a phone); typed lengths lock automatically (lock icon), unlock by dragging and confirming or
+  "Unlock"; without locks, lengths win over angles; angled walls come from dragging corners;
+  "Set Diagonal" adds a corner-to-corner measurement. No documented door swing control
+  ("Mirror Object" is for asymmetrical objects). Drawing style is not documented.
+- BIMCraft (Rust/egui desktop, Revit-like, no touch): door swings drawn in plan, placement with
+  `flip_facing` and `flip_hand`, door kinds; dimensions editable by typing, the far reference
+  stays; wall poché and hatches; main and sub grid.
+- Revit "Flip Hand" / "Flip Facing" as two on-canvas flip controls; Chief Architect "Change
+  Opening/Hinge Side" and "Change Swing Side" or a handle dragged along or across the wall.
+- Apple HIG sheets (nonmodal sheet, medium and large detents, grabber, one sheet at a time);
+  Android BottomSheetBehavior (peek, half-expanded, draggable).
+
+### Proposals and open decisions (waiting for the go-ahead)
+
+Proposed order: 1) step 5 web on tokens (canvas tokens derived with `color-mix`, neutral
+architectural symbols, quieter grid with a scale bar and no origin axes, fit on open, icon rail
+without captions, one themed tooltip, floor tabs with "+", horizontal zoom pill, status line,
+the Floors panel's "Add" and fixed description removed); 2) step 10 mobile (still preview in the
+form, full-screen editor with bottom bar and a sheet on selection); 3) door swing (two system
+fields on Door, `door_hinge_side` left/right and `door_swing` inward/outward as seen from the
+row's room, twin rows mirrored by core; two flip handles); 4) dimensions shown (selected room's
+inside lengths, Dimensions switch); 5) dimensions edited (popover on web, length sheet on
+mobile, end that stays chosen, the far wall moves parallel; diagonal walls by length or run and
+rise); locks later. The decisions, with options and recommendations, are D1 to D14 in the
+mockups page. New UI texts: one module per library (`building-plan/plan-text.js`) with future
+catalog keys, English only, listed on the page.
+
+### Alignment on step 5 (2026-11-18, same chat; mockups version 2, no code)
+
+Decided by the maintainer:
+
+- **Web layout A** (D2). The right panel stays the RepeatableSection list panel: title with the
+  count pill, rows that open and delete like every list, plus a per-floor pill such as
+  "5 rooms" (wording open, D21). The panel's extra "Add" and its fixed description go.
+- **Grid** (D4): magicplan-like coarse crosses with finer dots. Proposed spacing by zoom: crosses
+  every 1, 5 or 10 m, dots every 10 cm, 25 cm or 1 m, keeping crosses at least about 48 px apart
+  and dots about 12 px; no origin axes; a 1 m scale bar.
+- **Shortcuts**: plan actions stay Alt+Shift so they never meet the form's plain Alt (Q, Y, B,
+  S, A, M). Proposed new ones: N pin, = − 0 zoom, L dimensions, Z / Y undo and redo, H / F door
+  flips. Found: the plan toolbar matches `event.key`, the form `event.code`; with Option held
+  macOS types another character, so the plan shortcuts probably don't fire on a Mac (not tested).
+- **Handles** on web and mobile for every existing drag: room corners and wall grips, opening
+  start, end and slide, column corners and body, beam ends and body; the lengths that change
+  are drawn while dragging, and clicking one types it. Facts checked: web already has these
+  drags (room and wall handles, opening start/end/centre, beam start/end, column body); mobile
+  has no handles and uses a Resize mode instead; `updateDoor` / `updateWindow` take start and
+  width, columns and beams take their values, so typed values need no core change. A wall's
+  typed length is the existing parallel move (`resize_face`) of the neighbouring wall, one
+  operation; run and rise on a diagonal would be two (corner move and parallel move), so a
+  combined core operation is the clean way for that one.
+- **Plaster** shown on the canvas, read only. In form0-core it is a wall-face value
+  (`wall_plaster`, `wall_plaster_thickness`, plus `_outside` for the outer face), inheriting the
+  floor's interior and exterior defaults (`building-plan-floors.js`); `fieldState()` returns the
+  resolved value. Proposed: a tone band on the plastered face, to scale with a 2 px minimum, a
+  Plaster switch next to Dimensions.
+- **Beams at any height**: beams store width, depth (vertical), length and ends, no height. Proposed:
+  one new system field, the underside height from the finished floor, with references that only
+  fill the number (top of the wall, over the window, under the window, custom); a dashed beam with
+  a height tag on the plan; a read-only front view of the wall (openings from existing data) with
+  the beam band. Open: what "place over a beam" means.
+
+Proposed order now (mockups page, top): 1 look only, 2 read-only layers (plaster, dimensions),
+3 handles and live lengths, 4 typed values, 5 mobile, 6 new data (door swing, beam height, wall
+elevation, run and rise). New decisions D15 to D21 (mobile handles, plaster style, beam height
+data, front view, refactor of the 4,204-line legacy canvas, `event.code`, row count wording).
+
+### Step 1 of the building plan round (2026-11-18, done, to test by hand, not committed)
+
+Plan, approach and status now live in `analyses/building-plan-ui.md`. Agreed that day: grid with
+a cross on every metre at every zoom (magicplan), plaster thickness drawn, doors as a plain cut
+for now, only the legacy canvas's drawing moves into modules, one commit per unit. Step 1 (web,
+look only) is in three units: chrome on tokens with one tooltip and shortcut matching; canvas
+drawing on the theme (`draw/` modules, every colour literal gone from the legacy canvas); the
+floors list panel (no extra "Add", rooms pill per row). Web 294 of 300 with the local core (the
+six worker tests). Hand-test checklist and file lists in `building-plan-ui.md`.
+
+### Steps 1b and 1c (2026-11-18, done, to test by hand, not committed)
+
+Sharp canvas (bitmap by `devicePixelRatio`), finer grid, rooms pill dropped; plan entries titled
+by their name through a generic `title_field` the form0-core expander now adds (wall faces
+excepted: their label is projected); rail in the mockup's groups with Pin as a tool and new
+icons, floor tabs in React with "+" and Undo / Redo icons, the hints as a status line and the
+split distance as a floating bar on the canvas. Web 297 of 303 (the six worker tests), core
+suite green. Details in `analyses/building-plan-ui.md`.
+
