@@ -1222,7 +1222,93 @@ same way: `subtext` / anything else, `dialog` / anything else):
 - The starter schemas have no inline image and no dialog description: every image is in
   `dialog` mode (the 900×540 `evidence-photo-guide.png`), every description is `subtext`.
 
-Open decisions: listed in the chat of 2026-11-18; recorded here once answered.
+Round C committed first (2026-11-18): form0-react `e7d4728` (code) and `c539fdc` (notes),
+form0-react-native `0208522`, web template `2c190bc`, mobile template `45e135a` (starter schema)
+and `6fd9c4b` (pickers). The mobile template's local `buildingPlanDerivedCommands` line in
+`Form0Form.js` stays uncommitted, as marked.
+
+Decisions (2026-11-18, all as recommended):
+
+1. Web dialogs: the label is the title; no title icon, no bold label repeated in the body.
+2. Web image viewer: up to about 960px / 92vw wide, image up to about 80vh; the description
+   dialog stays at 480px.
+3. Web: a backdrop click closes the description and image dialogs (not the confirmations).
+4. Mobile sheets: grab handle (visual only), label as title on up to 2 lines, Done in the
+   header, no footer button; the header shared with the sections sheet in `bottom-sheet.jsx`.
+5. Pinch to zoom: around the fingers' midpoint; hard stops at 1x and 4x, no bounce, no glide;
+   pan clamped to the image edges; one finger pans only while zoomed; zoom stays inside the
+   sheet's image area. Runs in JavaScript, so it may stutter in a development build.
+6. Mobile inline frame: height follows the image's shape, at most 180pt (size read with
+   `Image.resolveAssetSource` for bundled images, `Image.getSize` for URLs).
+7. Test material: temporary only, removed before the commit.
+8. Files: web `src/field-help.jsx` (figure, dialogs, one dialog hook for the three copies);
+   mobile `src/field-help-sheets.jsx`, `src/zoomable-image.jsx`, `src/pinch-zoom.js` (pure
+   limits, Node unit tests).
+9. Kept as today: the inline image in the control column for side labels; UI texts in English
+   in the components (the libraries have no translation layer).
+
+**Implemented (2026-11-18, nothing committed, to test by hand):**
+
+- form0-react: new `src/field-help.jsx` (`SupportingImageFigure`, `DescriptionDialog`,
+  `ImageViewerDialog`, `useModalDialog`, `supportingImageSrc`) and `src/field-help.css.js`.
+  The figure is a button named "View supporting image for <label>", like the image button, with
+  a corner expand mark; the image keeps its shape, never enlarged, at most 200px tall. Dialogs:
+  the label as title, an X close button, backdrop press-and-release closes; description text keeps
+  its line breaks (`pre-line`, as on mobile); the viewer is up to 960px / 92vw, image up to 90vh
+  minus the header. The FormLinkField warning keeps its markup and uses `useModalDialog`. Unused
+  styles removed (`supportingImage`, `supportingImageDialog*`). `src/field-renderer.jsx` 649 →
+  519 lines.
+- form0-react-native: `src/bottom-sheet.jsx` gains `BottomSheetHeader` (handle, title on
+  `titleLines` lines, Done) and `bottomSheetSurface`, now also used by the sections sheet. New
+  `src/field-help-sheets.jsx` (`SupportingImageFigure`, `DescriptionSheet`, `ImageSheet`,
+  `useImageSize`: `Image.resolveAssetSource` for bundled images, `Image.getSize` for URLs, a
+  fixed 180pt frame when the size cannot be known), `src/zoomable-image.jsx` (PanResponder and
+  Animated; the box's centre is measured when a gesture starts, since the sheet slides in after
+  layout), `src/pinch-zoom.js` (`fitImage`, `clampScale`, `clampView`, `startGesture`,
+  `moveGesture`). The image sheet is up to 85% of the window; the description sheet 72%, scrolling.
+  `src/field-renderer.jsx` 678 → 420 lines.
+- Tests: web `tests/field-help.test.jsx` (4; jsdom has no `showModal`, the test stubs it);
+  mobile `tests/pinch-zoom.test.mjs` (9) and `tests/field-help.fixture.jsx` (3, run through the
+  harness's `native-field-help.test.jsx`). Results: web 277 of 283 (the six worker tests);
+  mobile fixtures 66 of 66; mobile unit 144 of 146 without `managed-events` (the two known);
+  mobile template 11 of 11 with the gallery in place.
+- Checked in screenshots (web harness, react-native-web preview): frames follow the image's
+  shape in both layouts and themes; sheet titles wrap to two lines; the description sheet
+  scrolls.
+
+**Temporary, remove before the commit** (mobile template only):
+
+- `src/forms/ui-gallery/` (untracked) and the two lines marked TEMPORARY in
+  `src/forms/registry.js`.
+- `assets/supporting-images/gallery-wide.png` and `gallery-tall.png` (untracked), then
+  `npm run generate-images` again to restore `src/supporting-images/index.js`.
+- Unchanged: the `buildingPlanDerivedCommands` line in `Form0Form.js` (local, never committed).
+- Side labels on the device: `layout.labelPosition: 'side'` in `form0.config.js`, then back.
+
+Harness (local, not a repository): the UI gallery has a "Supporting images and descriptions"
+section (inline with subtext, wide and tall grid images, both dialogs with a long description,
+a long label, a LabelField); `make-gallery-images.mjs` writes the grid images to
+`gallery-images/`, served at `/supporting-images/gallery-*.png`; `native-web-preview.mjs`
+shows the mobile gallery (`?form=gallery`, `&labels=side`) with an image resolver;
+`native-rn.jsx` has `Animated.Image`, `native-icons.jsx` `Maximize2`.
+
+Found, not changed: with side labels on a phone the label column (30%) is too narrow for a label
+with two icons; the second icon is clipped ("Moisture reading (%)" in the gallery). Older than
+this round.
+
+Device checklist (round 5):
+
+1. Inline figure: frame at the field's width; wide image shorter than 180pt; tall image 180pt,
+   centred; tap opens the image sheet titled with the label.
+2. Image button (dialog mode) opens the same sheet; Done, backdrop and Android back close it.
+3. Pinch: zooms around the fingers, stops at 1x and 4x; one finger pans only while zoomed and
+   stops at the edges; lifting one finger of a pinch continues as a pan without a jump;
+   reopening starts at 1x.
+4. Description sheet: label as title (long label on two lines, then cut), long text scrolls.
+5. Sections sheet looks as before (now on the shared header).
+6. Web (harness, UI gallery): figure click and the image button open the wide viewer; the
+   description dialog titled with the label; Escape, X and a backdrop click close; focus returns
+   to the button.
 
 ### WSL crashes (2026-11-17)
 
