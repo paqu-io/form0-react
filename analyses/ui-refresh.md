@@ -1397,7 +1397,7 @@ Vitest with `--maxWorkers=2`, `node --test --test-concurrency=2`, screenshots wi
 batch, and the preview servers stopped before tests. No crash since (signature, tests, template
 screenshots and the mockup render all ran this way).
 
-### Review of steps 3, 4, 6, 7, 8 and 12 (2026-11-18, in progress)
+### Review of steps 3, 4, 6, 7, 8 and 12 (2026-11-18, reviewed; fixes to test)
 
 Most of these were exercised while testing later rounds; the points below are the ones worth a
 deliberate look. Record the outcome of each here.
@@ -1439,7 +1439,72 @@ Templates:
    `form0.config.js`.
 
 Clipped label icon (Next, 4.1): with side labels on a phone the label column is 30% wide (about
-107pt). React Native text does not break inside a word, so when a label's longest word plus its
-two 24pt icons (image and info) is wider than that, the second icon is pushed out of the column.
-Seen on "Moisture reading (%)" (description and image both in dialog mode) in the round 5
-gallery. Older than this work. To decide.
+107pt). When a label's longest word plus its two 24pt icons (image and info) is wider than that,
+the row is too cramped: in the react-native-web preview the second icon was pushed out of the
+column (the browser does not shrink text below its longest word); on a device the text is
+squeezed instead and the native text layout breaks the word. Seen on "Moisture reading (%)".
+Older than this work.
+
+Outcome (2026-11-18): steps 3, 4, 6, 7, 8 and 12 approved, with three small fixes asked for in
+this pass; step 8 gets more work in the building plan round. Changed (nothing committed, to test
+by hand):
+
+- **Entry dialog spacing (step 3).** The case reported: "Notes" right under the "System
+  fields" section in a floor entry. Beside the plan canvas the entry form sat in a plain `<div>`,
+  so sections had no margin at all and "Notes" touched the card. That column now has a class
+  (`repeatableModalPlanFormColumn`) and shares the dialog column's rules: sections keep 1rem below
+  them, and a field right after a card (a section or Record Metadata) starts 1.5rem below it
+  (card after card keeps 1rem). In the plain entry dialog the same rule moves the first field
+  8px further from Record Metadata (about 19px before). The root has the same pattern if a schema
+  puts a field right after a section; not changed there. Tested by hand and committed
+  (`96ff0fe`).
+- **Nested list rows in entries.** A floor's "Rooms" showed as a card inside a section card
+  (16px above, about 33px below). form0-core puts it beside "System fields" and "Notes", not in a
+  section (`building-plan-expander.js`: system section, extra fields, then children); the
+  wrapper came from form0-react's `RepeatableEntryForm`, which put every nested repeatable's row
+  in a `repeatableModalSection` div. The row is now one `drilldownInactive` card, as at the root,
+  and counts as a card for the spacing rule above. Mobile already drew one card. Not committed.
+- **Flash between MESSAGEBOX and ALERT (step 4).** Answering a MESSAGEBOX cleared the dialog at
+  once and the ALERT from its callback was queued a moment later, so for a frame no overlay was
+  mounted and the page showed through. New `src/managed-alert-dialog.jsx` (`ManagedAlertDialog`,
+  replacing the two identical copies in `form-renderer.jsx`): a closed dialog's backdrop stays
+  for 200ms and fades (`data-closing`, no pointer events); a dialog that follows reuses the same
+  element. Measured in the harness frame by frame: the answer is followed by one frame of the
+  closing backdrop, then the ALERT, never a frame without a backdrop. Test:
+  `tests/managed-alert-dialog.test.jsx`.
+- **Today's dot (step 12, web template; tested by hand, committed `c0932e9`).** First moved to 1px from the bottom, which put it
+  against the edge of the filled or tinted day. Now every day number sits 2px above the centre
+  (4px bottom padding on all day buttons, so numbers stay aligned along a row) and the dot is
+  back at 3px from the bottom, with room above and below it (`src/styles/form0-overrides.css`).
+- **Label icons with side labels (4.1, option a; tested, committed `f4faede`).** The mobile label row wraps: the label keeps
+  at least 96pt beside its tag and icons, and when that does not fit they move under the label.
+  Wide rows (top labels) are unchanged, long labels still wrap beside the icons. Spacing between
+  label, tag and icons is now the row's `columnGap` (`src/field-renderer.jsx`). A single word
+  wider than the whole column (for example "Measurement" in a 104pt column) still breaks; only a
+  wider column or smaller text avoids that.
+- Harness: the UI gallery has "Spacing after sections" (the same fields at the root and in a
+  repeatable entry); `native-web-preview.mjs` has `?form=label-icons` (`&labels=side`).
+
+Tests: web 278 of 284 (the six worker tests, after the plan column change too); mobile fixtures
+66 of 66; mobile unit 153 of 155 (the two known).
+
+**Dropdown search on web (decided 2026-11-18: in form0-react).** form0-core allows
+`is_searchable: true` only for `display: 'default'` (SingleChoiceField rejects it with
+`radio`, MultiChoiceField with `checkbox`), and then requires `is_searchable_mode: 'default'`.
+Web ignores the attribute and shows a native `<select>`; mobile filters by a case-insensitive
+"contains" on the label ("Search...", "No results"), keeps "Other" at the end of the list
+unfiltered, and clears the search when the picker closes. Design agreed on 2026-11-18: the field
+looks like today's dropdown and opens a panel with the search box focused; matches anywhere in
+the label ignoring case and accents (mobile gets accent folding too); ↑ ↓ Enter Escape Tab;
+single choice closes on pick, multiple stays open with checkboxes; "Other" at the end, never
+filtered; an × clears a choice when the field is not required; multiple choice shows the chosen
+labels, then "+n" for the ones that do not fit; non-searchable dropdowns keep the native list.
+Mockup (its own page, with a working demo): https://claude.ai/artifact/FKV6Dm3fn72LjNP2r3bzz6.
+Version 2 (after review): "Other" in multiple choice checks and shows its text input; the × also
+on required fields and in multiple choice (proposed); every web dropdown on the same field and
+panel, without the search box when not searchable, typing jumps to the first match (proposed;
+tests set choices through events and snapshots, so few tests depend on the native select);
+mobile adjustments (proposed): the picker on `BottomSheet` with the field's label as title and
+Done in the header instead of its own Modal titled "Select an option" with Clear / Done at the
+bottom, the same × on the field, labels then "+n" for multiple choice, accent-insensitive search;
+radio circles and checkboxes stay.
