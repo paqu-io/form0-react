@@ -30,12 +30,18 @@ const DEFAULT_GRID_SIZE = 100;
 const FIT_MAX_ZOOM = 2.5;
 const FIT_MARGIN_PX = 48;
 const SNAP_RADIUS = 10;
+// Handle sizes and hit distances are screen pixels: `px()` turns them into canvas units, so they
+// keep their size at any zoom.
 const WALL_HIT_TOLERANCE = 6;
-const ROOM_HANDLE_SIZE = 6;
-const ROOM_HANDLE_HIT_SIZE = 12;
+const ROOM_HANDLE_SIZE = 8;
+const ROOM_HANDLE_HIT_SIZE = 16;
 const WALL_HANDLE_HIT_RADIUS = 8;
 const OPENING_HIT_TOLERANCE = 12;
 const OPENING_HANDLE_RADIUS = 10;
+// An opening is hit anywhere on its band through the wall, or this close to it.
+const OPENING_REACH = 6;
+// The grip on a selected wall's middle.
+const WALL_GRIP_RADIUS = 14;
 const DOOR_LINE_WIDTH = 6;
 const WINDOW_LINE_WIDTH = 6;
 const LABEL_FONT_SIZE = 12;
@@ -1073,6 +1079,17 @@ export class BuildingPlanCanvas {
           this.wallDragState.previewPoints
         )
           this.controller.previewWall(this.wallDragState.wallId, this.wallDragState.previewPoints);
+        // The wall closes behind a dragged opening and opens under it while it moves.
+        if (this.openingDragState?.moved && this.controller?.previewOpening) {
+          const state = this.openingDragState;
+          const updates = this.openingDragUpdates(state);
+          if (updates)
+            this.controller.previewOpening(
+              state.type === 'door' ? 'doors' : 'windows',
+              state.openingId,
+              updates
+            );
+        }
       }
     };
     this.flushPointerMove = flushMove;
@@ -1386,6 +1403,11 @@ export class BuildingPlanCanvas {
       this.canvas.style.cursor = 'crosshair';
       return;
     }
+    if (hover && hover.type === 'wall-grip') {
+      const grip = this.wallGrip();
+      this.canvas.style.cursor = grip ? this.gripCursor(grip) : 'grab';
+      return;
+    }
     if (hover && hover.type === 'opening-handle') {
       this.canvas.style.cursor = hover.handle === 'center' ? 'grab' : 'ew-resize';
       return;
@@ -1425,6 +1447,11 @@ export class BuildingPlanCanvas {
     this.canvas.height = Math.round(rect.height * ratio);
     if (this.fitPending && this.fitToContent({ render: false })) this.fitPending = false;
     this.render();
+  }
+
+  /** Screen pixels in canvas units: handles and hit distances keep their size at any zoom. */
+  px(value) {
+    return value / (this.zoomLevel || 1);
   }
 
   /** The canvas box in CSS pixels (the bitmap is larger on high-density screens). */
@@ -1692,6 +1719,13 @@ export class BuildingPlanCanvas {
         return;
       }
 
+      // The selected wall's grip sits over whatever is under it (an opening in the middle).
+      const gripWall = this.findWallGrip(point);
+      if (gripWall) {
+        this.startWallMove(gripWall, point);
+        return;
+      }
+
       const columnHit = this.findColumnHit(point);
       if (columnHit) {
         if (!caps.canMoveStructural) return;
@@ -1803,62 +1837,18 @@ export class BuildingPlanCanvas {
       const openingHandleHit = this.findOpeningHandle(point);
       if (openingHandleHit) {
         if (!caps.canResize) return;
-        const { type, openingId, handle, geometry } = openingHandleHit;
-        if (type === 'door') {
-          this.selectedDoorId = openingId;
-          this.selectedWindowId = null;
-        } else {
-          this.selectedWindowId = openingId;
-          this.selectedDoorId = null;
-        }
-        this.selectedWallId = geometry.wall?.id || null;
-        const dragHandle = handle === 'center' ? 'move' : handle;
-        this.openingDragState = {
-          type,
-          handle: dragHandle,
-          openingId,
-          pointerStart: point,
-          originalStart: geometry.startRatio,
-          originalEnd: geometry.endRatio,
-          originalSegmentIndex: geometry.segmentIndex,
-          spanRatio: geometry.spanRatio,
-          moved: false,
-        };
-        this.setHoverState(null);
-        const focusFn = type === 'door' ? this.controller?.focusDoor : this.controller?.focusWindow;
-        if (typeof focusFn === 'function') {
-          this.pendingFocus = () => focusFn.call(this.controller, openingId);
-        }
-        this.updateButtonStates();
-        this.updateCursor();
-        this.render();
+        const { handle } = openingHandleHit;
+        this.grabOpening(openingHandleHit, handle === 'center' ? 'move' : handle, point);
         return;
       }
 
+      // Anywhere else on an opening selects it and moves it, as its centre handle does (before,
+      // only the centre selected an opening that wasn't selected yet).
       const openingHit = this.findOpeningNearPoint(point);
       if (openingHit) {
         if (!caps.canMove) return;
-        const { type, openingId, geometry } = openingHit;
-        const isSelected =
-          (type === 'door' && this.selectedDoorId === openingId) ||
-          (type === 'window' && this.selectedWindowId === openingId);
-        if (isSelected) {
-          this.openingDragState = {
-            type,
-            handle: 'move',
-            openingId,
-            pointerStart: point,
-            originalStart: geometry.startRatio,
-            originalEnd: geometry.endRatio,
-            originalSegmentIndex: geometry.segmentIndex,
-            spanRatio: geometry.spanRatio,
-            moved: false,
-          };
-          this.setHoverState(null);
-          this.updateCursor();
-          this.render();
-          return;
-        }
+        this.grabOpening(openingHit, 'move', point);
+        return;
       }
     }
 
@@ -1903,25 +1893,7 @@ export class BuildingPlanCanvas {
         this.pendingFocus = () => this.controller?.focusWall?.(wall.id);
         return;
       }
-      const basePoints =
-        wall.previewPoints && wall.previewPoints.length > 0
-          ? clonePoints(wall.previewPoints)
-          : clonePoints(wall.points);
-      this.selectedRoomId = wall.roomId;
-      this.selectedWallId = wall.id;
-      this.wallDragState = {
-        type: 'move',
-        wallId: wall.id,
-        physicalWallId: wall.physicalWallId,
-        pointerStart: point,
-        originalPoints: basePoints,
-        moved: false,
-      };
-      this.setHoverState(null);
-      this.pendingFocus = () => this.controller?.focusWall(wall.id);
-      this.updateButtonStates();
-      this.updateCursor();
-      this.render();
+      this.startWallMove(wall, point);
       return;
     }
 
@@ -1995,12 +1967,15 @@ export class BuildingPlanCanvas {
         });
       } else {
         const wallHandle = this.findWallHandle(point);
+        const gripWall = wallHandle ? null : this.findWallGrip(point);
         if (wallHandle) {
           this.setHoverState({
             type: 'wall-handle',
             handle: wallHandle.index === 0 ? 'start' : 'end',
             wallId: wallHandle.wall.id,
           });
+        } else if (gripWall) {
+          this.setHoverState({ type: 'wall-grip', wallId: gripWall.id });
         } else {
           const columnHit = this.findColumnHit(point);
           if (columnHit) {
@@ -2248,6 +2223,9 @@ export class BuildingPlanCanvas {
       if (!Array.isArray(renderedPoints) || renderedPoints.length < 2) return;
 
       if (state.handle === 'move') {
+        // A click doesn't move the opening; a drag keeps the point where it was grabbed under
+        // the pointer (it can be grabbed anywhere on its band, not only at its centre).
+        if (!state.moved && distance(point, state.pointerStart) < this.px(3)) return;
         let segmentIndex = state.originalSegmentIndex;
         let centerRatio;
         const wallHit = this.findWallNearPoint(point);
@@ -2259,6 +2237,15 @@ export class BuildingPlanCanvas {
           if (!segment) return;
           centerRatio = clamp(projectScalarToSegment(point, segment.start, segment.end), 0, 1);
         }
+        if (state.grabOffset === undefined) {
+          const segment = getSegmentPoints(renderedPoints, state.originalSegmentIndex);
+          state.grabOffset =
+            segment && state.grabCenter
+              ? projectScalarToSegment(state.pointerStart, segment.start, segment.end) -
+                projectScalarToSegment(state.grabCenter, segment.start, segment.end)
+              : 0;
+        }
+        centerRatio -= state.grabOffset;
         const minCenter = state.spanRatio / 2;
         const maxCenter = 1 - state.spanRatio / 2;
         const clampedCenter = clamp(centerRatio, minCenter, maxCenter);
@@ -2549,26 +2536,10 @@ export class BuildingPlanCanvas {
 
     if (this.mode === MODE_SELECT && this.openingDragState) {
       const state = this.openingDragState;
-      const opening = this.getOpeningById(state.type, state.openingId);
-      if (opening && state.preview && state.moved) {
-        const geometry = this.getOpeningGeometry(opening, state.preview);
-        if (geometry) {
-          const widthMeters = roundCoordinate(geometry.computedWidthMeters);
-          const updates = {
-            segmentIndex: geometry.segmentIndex,
-            startRatio: geometry.startRatio,
-            endRatio: geometry.endRatio,
-            width: widthMeters,
-          };
-          if (state.type === 'door') {
-            updates.height = opening.height;
-            await this.controller?.updateDoor?.(opening.id, updates);
-          } else {
-            updates.height = opening.height;
-            updates.distanceFromFloor = opening.distanceFromFloor;
-            await this.controller?.updateWindow?.(opening.id, updates);
-          }
-        }
+      const updates = state.moved ? this.openingDragUpdates(state) : null;
+      if (updates) {
+        if (state.type === 'door') await this.controller?.updateDoor?.(state.openingId, updates);
+        else await this.controller?.updateWindow?.(state.openingId, updates);
       }
       this.openingDragState = null;
       this.updateCursor();
@@ -2928,7 +2899,7 @@ export class BuildingPlanCanvas {
   }
 
   findColumnHit(point) {
-    const tolerance = OPENING_HIT_TOLERANCE;
+    const tolerance = this.px(OPENING_HIT_TOLERANCE);
     for (let i = this.columns.length - 1; i >= 0; i -= 1) {
       const column = this.columns[i];
       if (!column) continue;
@@ -2946,7 +2917,7 @@ export class BuildingPlanCanvas {
   }
 
   findBeamHandle(point) {
-    const tolerance = OPENING_HANDLE_RADIUS + 2;
+    const tolerance = this.px(OPENING_HANDLE_RADIUS + 2);
     if (!Array.isArray(this.beams)) return null;
     for (let i = 0; i < this.beams.length; i += 1) {
       const beam = this.beams[i];
@@ -2965,7 +2936,7 @@ export class BuildingPlanCanvas {
   }
 
   findBeamHit(point) {
-    const tolerance = OPENING_HIT_TOLERANCE;
+    const tolerance = this.px(OPENING_HIT_TOLERANCE);
     if (!Array.isArray(this.beams)) return null;
     for (let i = this.beams.length - 1; i >= 0; i -= 1) {
       const beam = this.beams[i];
@@ -3000,7 +2971,7 @@ export class BuildingPlanCanvas {
   findRoomHandle(point) {
     if (this.controller?.getCornerPlacement) return null;
     if (!point) return null;
-    const hitOffset = ROOM_HANDLE_HIT_SIZE / 2;
+    const hitOffset = this.px(ROOM_HANDLE_HIT_SIZE) / 2;
     for (let i = this.rooms.length - 1; i >= 0; i -= 1) {
       const room = this.rooms[i];
       if (room && room.isDimmed) continue;
@@ -3023,7 +2994,7 @@ export class BuildingPlanCanvas {
 
   findWallNearPoint(point, roomId = null) {
     let bestMatch = null;
-    let bestDistance = WALL_HIT_TOLERANCE;
+    let bestDistance = this.px(WALL_HIT_TOLERANCE);
 
     this.walls.forEach((wall) => {
       if (wall && wall.isDimmed) return;
@@ -3086,6 +3057,125 @@ export class BuildingPlanCanvas {
     return bestMatch;
   }
 
+  startWallMove(wall, point) {
+    const basePoints =
+      wall.previewPoints && wall.previewPoints.length > 0
+        ? clonePoints(wall.previewPoints)
+        : clonePoints(wall.points);
+    this.selectedRoomId = wall.roomId;
+    this.selectedWallId = wall.id;
+    // The wall becomes the selection (an opening, column or beam selected before is not).
+    this.selectedDoorId = null;
+    this.selectedWindowId = null;
+    this.selectedColumnId = null;
+    this.selectedBeamId = null;
+    this.wallDragState = {
+      type: 'move',
+      wallId: wall.id,
+      physicalWallId: wall.physicalWallId,
+      pointerStart: point,
+      originalPoints: basePoints,
+      moved: false,
+    };
+    this.setHoverState(null);
+    this.pendingFocus = () => this.controller?.focusWall(wall.id);
+    this.updateButtonStates();
+    this.updateCursor();
+    this.render();
+  }
+
+  /**
+   * The grip on the selected wall's middle, where the wall can move: core moves a room wall at
+   * right angles to its first segment (the grip's arrows), a partition drawn with the wall tool
+   * any way (four arrows).
+   */
+  wallGrip() {
+    if (this.mode !== MODE_SELECT || this.readOnly || !this.selectedWallId) return null;
+    // Only for the wall itself: an opening, column or beam selected on it keeps its own handles.
+    if (
+      this.selectedDoorId ||
+      this.selectedWindowId ||
+      this.selectedColumnId ||
+      this.selectedBeamId
+    )
+      return null;
+    if (!getCapabilities(this.controller).canMoveStructural) return null;
+    const wall = this.walls.find((entry) => entry.id === this.selectedWallId);
+    if (!wall || wall.isDimmed) return null;
+    const points =
+      wall.axisPoints?.length >= 2 ? wall.axisPoints : this.getRenderedWallPoints(wall);
+    if (!Array.isArray(points) || points.length < 2) return null;
+    const lengths = points.slice(1).map((point, index) => distance(points[index], point));
+    let rest = lengths.reduce((sum, length) => sum + length, 0) / 2;
+    let index = 0;
+    while (index < lengths.length - 1 && rest > lengths[index]) {
+      rest -= lengths[index];
+      index += 1;
+    }
+    const t = lengths[index] ? rest / lengths[index] : 0.5;
+    const from = points[index];
+    const to = points[index + 1];
+    const [a, b] = points;
+    const length = distance(a, b) || 1;
+    return {
+      wall,
+      center: { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t },
+      normal: { x: -(b.y - a.y) / length, y: (b.x - a.x) / length },
+      free: !wall.isBoundary,
+    };
+  }
+
+  findWallGrip(point) {
+    const grip = point && this.wallGrip();
+    return grip && distance(point, grip.center) <= this.px(WALL_GRIP_RADIUS + 2) ? grip.wall : null;
+  }
+
+  /** The cursor over the grip: the arrows' direction, or "move" for a free partition. */
+  gripCursor(grip) {
+    if (grip.free) return 'move';
+    const angle = ((Math.atan2(grip.normal.y, grip.normal.x) * 180) / Math.PI + 180) % 180;
+    if (angle < 22.5 || angle >= 157.5) return 'ew-resize';
+    if (angle < 67.5) return 'nwse-resize';
+    if (angle < 112.5) return 'ns-resize';
+    return 'nesw-resize';
+  }
+
+  drawWallGrip() {
+    const grip = this.wallGrip();
+    if (!grip) return;
+    const ctx = this.ctx;
+    const { center: c, normal: n } = grip;
+    const radius = this.px(WALL_GRIP_RADIUS);
+    ctx.save();
+    ctx.fillStyle = this.planTheme.handle;
+    ctx.strokeStyle = this.planTheme.accent;
+    ctx.lineWidth = this.px(2);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Double arrows: along the wall's normal; a free partition also along the wall.
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const reach = radius * 0.6;
+    const head = radius * 0.3;
+    for (const axis of grip.free ? [n, { x: -n.y, y: n.x }] : [n]) {
+      const side = { x: -axis.y, y: axis.x };
+      ctx.beginPath();
+      ctx.moveTo(c.x - axis.x * reach, c.y - axis.y * reach);
+      ctx.lineTo(c.x + axis.x * reach, c.y + axis.y * reach);
+      for (const sign of [-1, 1]) {
+        const tip = { x: c.x + axis.x * reach * sign, y: c.y + axis.y * reach * sign };
+        const back = { x: tip.x - axis.x * head * sign, y: tip.y - axis.y * head * sign };
+        ctx.moveTo(back.x + side.x * head, back.y + side.y * head);
+        ctx.lineTo(tip.x, tip.y);
+        ctx.lineTo(back.x - side.x * head, back.y - side.y * head);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   findWallHandle(point) {
     if (!point) return null;
     const testWalls = [];
@@ -3109,7 +3199,7 @@ export class BuildingPlanCanvas {
       for (let index = 0; index < 2; index += 1) {
         const handlePoint = points[index];
         const dist = distance(point, handlePoint);
-        if (dist <= WALL_HANDLE_HIT_RADIUS) {
+        if (dist <= this.px(WALL_HANDLE_HIT_RADIUS)) {
           return { wall, index, handlePoint };
         }
       }
@@ -3263,6 +3353,7 @@ export class BuildingPlanCanvas {
     this.drawOpenings();
     this.drawEditingCuts();
     this.drawCornerControls();
+    this.drawWallGrip();
 
     if (this.wallDraft && this.wallDraft.start && this.wallDraft.end) {
       this.drawDraftWall(this.wallDraft.start, this.wallDraft.end);
@@ -3486,10 +3577,10 @@ export class BuildingPlanCanvas {
     if (isSelected) {
       ctx.fillStyle = this.planTheme.accent;
       ctx.beginPath();
-      ctx.arc(info.startPoint.x, info.startPoint.y, OPENING_HANDLE_RADIUS, 0, Math.PI * 2);
+      ctx.arc(info.startPoint.x, info.startPoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(info.endPoint.x, info.endPoint.y, OPENING_HANDLE_RADIUS, 0, Math.PI * 2);
+      ctx.arc(info.endPoint.x, info.endPoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -3732,7 +3823,7 @@ export class BuildingPlanCanvas {
     ctx.globalAlpha = 1;
 
     if (isSelected && !this.controller?.getCornerPlacement) {
-      const handleSize = ROOM_HANDLE_SIZE;
+      const handleSize = this.px(ROOM_HANDLE_SIZE);
       const half = handleSize / 2;
       const corners = [
         { x: rect.x, y: rect.y },
@@ -3889,12 +3980,12 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     if (this.selectedWallId === wall.id) {
-      const handleSize = ROOM_HANDLE_SIZE;
+      const handleSize = this.px(ROOM_HANDLE_SIZE);
       const half = handleSize / 2;
       ctx.save();
       ctx.fillStyle = this.planTheme.handle;
       ctx.strokeStyle = this.planTheme.accent;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = this.px(1);
       [start, end].forEach((point) => {
         ctx.beginPath();
         ctx.rect(point.x - half, point.y - half, handleSize, handleSize);
@@ -4096,7 +4187,7 @@ export class BuildingPlanCanvas {
     ctx.lineWidth = 2;
     handles.forEach((handlePoint) => {
       ctx.beginPath();
-      ctx.arc(handlePoint.x, handlePoint.y, OPENING_HANDLE_RADIUS, 0, Math.PI * 2);
+      ctx.arc(handlePoint.x, handlePoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     });
@@ -4105,7 +4196,7 @@ export class BuildingPlanCanvas {
     ctx.strokeStyle = this.planTheme.accent;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(center.x, center.y, OPENING_HANDLE_RADIUS - 2, 0, Math.PI * 2);
+    ctx.arc(center.x, center.y, this.px(OPENING_HANDLE_RADIUS - 2), 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -4113,7 +4204,7 @@ export class BuildingPlanCanvas {
 
   snapPointToWall(point, roomId = null) {
     const hit = this.findWallNearPoint(point, roomId);
-    if (!hit || hit.distance > STRUCTURAL_SNAP_TOLERANCE) {
+    if (!hit || hit.distance > this.px(STRUCTURAL_SNAP_TOLERANCE)) {
       return null;
     }
     return {
@@ -4155,20 +4246,64 @@ export class BuildingPlanCanvas {
       const geometry = this.getOpeningGeometry(opening);
       if (!geometry) continue;
       const startDist = distance(point, geometry.startPoint);
-      if (startDist <= OPENING_HANDLE_RADIUS) {
+      if (startDist <= this.px(OPENING_HANDLE_RADIUS)) {
         return { type, openingId: opening.id, handle: 'start', geometry };
       }
       const endDist = distance(point, geometry.endPoint);
-      if (endDist <= OPENING_HANDLE_RADIUS) {
+      if (endDist <= this.px(OPENING_HANDLE_RADIUS)) {
         return { type, openingId: opening.id, handle: 'end', geometry };
       }
       const centerDist = distance(point, geometry.centerPoint);
-      if (centerDist <= OPENING_HANDLE_RADIUS) {
+      if (centerDist <= this.px(OPENING_HANDLE_RADIUS)) {
         return { type, openingId: opening.id, handle: 'center', geometry };
       }
     }
 
     return null;
+  }
+
+  /** Selects an opening and starts dragging it: `handle` is move, start or end. */
+  grabOpening({ type, openingId, geometry }, handle, point) {
+    this.selectedDoorId = type === 'door' ? openingId : null;
+    this.selectedWindowId = type === 'door' ? null : openingId;
+    this.selectedWallId = geometry.wall?.id || null;
+    this.openingDragState = {
+      type,
+      handle,
+      openingId,
+      pointerStart: point,
+      originalStart: geometry.startRatio,
+      originalEnd: geometry.endRatio,
+      originalSegmentIndex: geometry.segmentIndex,
+      spanRatio: geometry.spanRatio,
+      grabCenter: geometry.centerPoint,
+      moved: false,
+    };
+    this.setHoverState(null);
+    const focusFn = type === 'door' ? this.controller?.focusDoor : this.controller?.focusWindow;
+    if (typeof focusFn === 'function') {
+      this.pendingFocus = () => focusFn.call(this.controller, openingId);
+    }
+    this.updateButtonStates();
+    this.updateCursor();
+    this.render();
+  }
+
+  /** What a dragged opening's row becomes: the live preview and the drop send the same. */
+  openingDragUpdates(state) {
+    const opening = this.getOpeningById(state.type, state.openingId);
+    if (!opening || !state.preview) return null;
+    const geometry = this.getOpeningGeometry(opening, state.preview);
+    if (!geometry) return null;
+    const updates = {
+      segmentIndex: geometry.segmentIndex,
+      startRatio: geometry.startRatio,
+      endRatio: geometry.endRatio,
+      width: roundCoordinate(geometry.computedWidthMeters),
+      height: opening.height,
+    };
+    if (state.type === 'window') updates.distanceFromFloor = opening.distanceFromFloor;
+    return updates;
   }
 
   findOpeningNearPoint(point) {
@@ -4195,19 +4330,24 @@ export class BuildingPlanCanvas {
     });
 
     let bestMatch = null;
-    let bestDistance = OPENING_HIT_TOLERANCE;
+    let bestDistance = Infinity;
+    const reach = this.px(OPENING_REACH);
 
     candidates.forEach(({ type, opening }) => {
       if (opening?.isDimmed) return;
       const geometry = this.getOpeningGeometry(opening);
       if (!geometry || geometry.segmentLength === 0) return;
       if (opening._labelRect && pointInRect(point, opening._labelRect)) {
-        bestDistance = 0;
+        bestDistance = -Infinity;
         bestMatch = { type, openingId: opening.id, geometry };
         return;
       }
-      const dist = pointToSegmentDistance(point, geometry.startPoint, geometry.endPoint);
-      if (dist < bestDistance) {
+      // The opening's band runs along its axis, as thick as the wall (drawOpening): anywhere on
+      // it, or a few pixels around it, is a hit; inside, the nearest axis wins.
+      const halfBand =
+        opening.physical?.thickness > 0 ? (opening.physical.thickness * this.gridSize) / 2 : 0;
+      const dist = pointToSegmentDistance(point, geometry.startPoint, geometry.endPoint) - halfBand;
+      if (dist <= reach && dist < bestDistance) {
         bestDistance = dist;
         bestMatch = { type, openingId: opening.id, geometry };
       }
