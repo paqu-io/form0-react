@@ -515,13 +515,67 @@ V1 and the label fix work. Raised during the test, to align on:
    would show metres. (b) Opening drags don't snap, so a position is whatever the pointer gave.
    `ROUND()` doesn't apply: it is a calculation builtin, and these are stored values.
 2. **W3 can't be moved** ("The wall does not reach the changed room corner…", then it goes
-   back). In the fixture W3 is the wall the two bedrooms share. Moving it moves a corner of the
-   first bedroom past the end of its side wall (W2), and core requires every edge of a changed
-   room to be covered by walls (`capturedBoundaryIssues`, `incomplete_boundary_binding`). It
-   doesn't extend W2 by itself, since the extension would be a new piece of wall between the
-   two bedrooms. A rule as designed today, not a canvas bug.
+   back). The refusal is core's `capturedBoundaryIssues` (`incomplete_boundary_binding`): after
+   a room's outline changes, each of its edges must be covered by the walls bound to it. The
+   first reading (the fixture's shared W3) was wrong: replayed in core, that move is accepted.
+   The hand test's plan was another one (R#1 with R#3 and R#2 against its right wall, R#2
+   reaching lower; R#1's bottom wall moved down to R#2's), and a rebuild of it from the
+   screenshot is accepted too, also past R#2's bottom. The cause lies in that plan's history,
+   so it needs the plan itself: see "Capturing a plan" below. Not decided until then. The
+   hand tester couldn't reproduce it afterwards; the "Save state" button stays for next time.
 3. **Name the selected element.** Only room names show on the canvas (since 1d); a selected
    wall, door, window, column or beam should show its name.
+
+Agreed 2026-11-19: a 1 cm step; the order below; W3 decided once its cause is known.
+
+### The selected element's name (hand-tested 2026-11-19, committed)
+
+- A selected wall, door, window, column or beam shows its name in the selection colour, while
+  names other than rooms' stay hidden. A wall's or opening's name goes beside the middle of its
+  line, on the room's side, clear of the wall (`draw/selection-name.js`); a column's and a
+  beam's above it, as before. A selected wall isn't named while one of its openings is the
+  selection. In an entry, the element is selected, so it is named too.
+- Tests: `tests/building-plan-selection-name.test.js`. Checked in headless Chromium: a wall
+  entry names its wall, a dragged door is named.
+
+### Openings on a 1 cm step (hand-tested 2026-11-19, committed)
+
+- form0-core, a bug: a door or window entry opened from a wall edits the face's copy of the
+  opening (`face_doors`, `face_windows`), which the presentation now treats as the field it
+  copies (the same unit, label and conversion; `presentation.js`). The entry shows
+  "Width [m]" and 0.9, not "Width (m)" and 0.9000000000000001, and imperial converts.
+- form0-react: a dragged, resized or placed opening keeps its distance from the wall start and
+  its width in whole centimetres (`opening-snap.js`), in the preview and on the drop alike. The
+  step is taken in metres along the physical wall, where the values are stored.
+- form0-core: the canvas controller stores an opening's width and distance from the wall start
+  to the millimetre (ratios times the wall's span carry float noise), kept within the room
+  side's portion of the wall.
+- Existing values aren't changed until the opening is moved or resized.
+- Tests: `tests/building-plan-opening-snap.test.js` (both directions along the wall, a move
+  keeps the width, a resize, the ends of the room side); core
+  `tests/building-plan-measures.test.js` (the face copies, millimetres). Core's building plan
+  tests 613 of 613; web 344 of 350 (the six worker tests). Checked in headless Chromium: a
+  dragged door reads width 0.9 and distance 1.1 in its entry.
+
+Hand test (form "Building plan fixture"):
+
+1. Select a wall, a door, a window, a column and a beam on the plan page or in a floor entry:
+   each shows its name in blue; clicking elsewhere hides it. Wall and door entries name their
+   element.
+2. Drag a door along its wall, resize it from an end, add a new window: in their entries,
+   "Width [m]" and "Distance from wall start [m]" show whole centimetres.
+3. Dark mode reads well.
+
+### Capturing a plan (harness, for W3)
+
+The test page now has a small "Save state" button (top right). It writes the live form state to
+`../.local-test-harnesses/form0-ui-refresh-20261116/captured/`. `replay-wall.mjs` there lists a
+saved plan's rooms and walls and replays a wall move through the canvas controller, as the canvas
+sends it:
+
+    cd form0-core
+    node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json>
+    node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json> "R#1" W3 0.4
 
 ### Opening entries by double-click (noted for later)
 
@@ -582,7 +636,11 @@ one combined core operation is the clean way.
 | 1e: M2 (issue markers and list) | Done and committed |
 | 1e: V1 (scope levels), with a larger "!" | Done and committed |
 | Same label on both faces of a wall field (form0-react, core example) | Done and committed |
-| After V1: opening decimals, moving a shared wall, the selected element's name | To align |
+| The selected element's name | Done and committed |
+| Openings on a 1 cm step (form0-react, form0-core) | Done and committed |
+| W3: a wall that can't be moved | Not reproduced; "Save state" kept for next time |
+| Free walls (snapping, selection), columns | To align |
+| `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
 | Step 6 | Proposals |

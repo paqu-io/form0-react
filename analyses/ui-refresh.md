@@ -1751,3 +1751,11 @@ core's example labels its field "Finish". Web 337 of 344 (the six worker tests a
 setters flake). Details in `building-plan-ui.md`. Raised at the hand test, to align on: long
 decimals in opening values (core shows the face copies of openings unpresented; drags don't
 snap), a shared wall that can't be moved (core's boundary rule), the selected element's name.
+
+### After the V1 hand test (2026-11-19, hand-tested, committed)
+
+The selected wall, door, window, column or beam is named on the canvas in the selection colour.
+Doors and windows move, resize and are placed on a 1 cm step; core stores their width and
+distance to the millimetre, and presents an opening entry's fields (the face's copy) like the
+opening's own (units, no float noise). The W3 refusal needs the plan it happened on: the test
+page has a "Save state" button and a replay script. Details in `building-plan-ui.md`.
