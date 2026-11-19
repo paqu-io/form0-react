@@ -40,7 +40,7 @@ import * as styles from './form-renderer.css.js';
 import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
-import { buildingPlanFindings } from './building-plan/plan-findings.js';
+import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
@@ -813,7 +813,7 @@ function formatValidationIssues(
   fieldLookup,
   fieldToSectionPath,
   pathLabeler,
-  { presentField, planFields } = {}
+  { presentField, planFields, fieldTag } = {}
 ) {
   if (!summary || !summary.hasErrors) {
     return [];
@@ -857,11 +857,12 @@ function formatValidationIssues(
         (fieldDef && presentField ? presentField(fieldDef)?.label : fieldDef?.label) ||
         dataName ||
         'Field';
+      const tag = fieldTag?.(dataName, issue.instancePath || []);
       entry = {
         id: key,
         fieldName: dataName,
         instancePath: issue.instancePath || [],
-        label: truncateLabel(label),
+        label: tag ? `${truncateLabel(label)} · ${tag}` : truncateLabel(label),
         recordPathLabel: pathLabeler?.(issue.instancePath || []),
         planField: planFields?.has(dataName) === true,
         messages: new Set(),
@@ -1052,11 +1053,9 @@ const PLAN_SOURCE_LABELS = {
   schema: 'Form default',
 };
 
-// How a building plan field presents its position and the source of its value: a tag after
-// the label, and inside the control either the source or the reset button.
-function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
-  if (!propertyState) return null;
-  const labelTag = propertyState.outside
+// The tag after a building plan field's label: where its value sits.
+function buildingPlanFieldTag(propertyState) {
+  return propertyState.outside
     ? 'Exterior'
     : propertyState.opposite
       ? 'Opposite face'
@@ -1065,6 +1064,32 @@ function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
         : propertyState.scope === 'physical_wall'
           ? 'Shared physical wall'
           : 'Room side';
+}
+
+// In the validation lists, only the outside copy of a wall field is tagged ("Finish ·
+// Exterior"): it has the same label as the face's own field, and the lists show no other tag.
+function buildingPlanSideTag(propertyState) {
+  return propertyState?.outside || propertyState?.opposite
+    ? buildingPlanFieldTag(propertyState)
+    : null;
+}
+
+// The side tags of the root form's findings, read through an editor of each plan.
+function buildingPlanFindingTags(metadata, record, locale) {
+  const states = planSideStates({
+    metadata,
+    record,
+    createEditor: (meta, repeatable) =>
+      createBuildingPlanEditor({ meta, locale, record: { values: {}, repeatable } }),
+  });
+  return (dataName, instancePath) => buildingPlanSideTag(states(dataName, instancePath));
+}
+
+// How a building plan field presents its position and the source of its value: a tag after
+// the label, and inside the control either the source or the reset button.
+function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
+  if (!propertyState) return null;
+  const labelTag = buildingPlanFieldTag(propertyState);
   if (!propertyState.source) return labelTag ? { labelTag } : null;
   const { mode, scope } = propertyState.source;
   const canReset = propertyState.inheritable && mode === 'override' && !readOnly;
@@ -3022,6 +3047,11 @@ function FormRendererContent({
                 buildingPlanMeta.flatMap((meta) =>
                   meta.repeatables.flatMap((node) => node.fields.map((entry) => entry.dataName))
                 )
+              ),
+              fieldTag: buildingPlanFindingTags(
+                buildingPlanMeta,
+                recordCoordinator?.capture(),
+                buildingPlanPresentation.locale
               ),
             }
           )
@@ -5477,6 +5507,16 @@ function RepeatableEntryModal({
                   node.fields.map((entry) => entry.dataName)
                 )
               ),
+              // The entry's own fields: the dialog's editor knows their row.
+              fieldTag: (dataName, instancePath) => {
+                const context = modal.buildingPlan;
+                if (!context || instancePath.length) return null;
+                try {
+                  return buildingPlanSideTag(context.editor.fieldState(context.path, dataName));
+                } catch {
+                  return null;
+                }
+              },
             }
           )
         : [],

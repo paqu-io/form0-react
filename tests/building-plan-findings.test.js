@@ -4,7 +4,9 @@ import {
   findingsInScope,
   indexPathOf,
   isFindingFixed,
+  locatePlanRow,
   planIssueView,
+  planSideStates,
 } from '../src/building-plan/plan-findings.js';
 import {
   drawFindingMarkers,
@@ -72,9 +74,9 @@ const issues = [
   { id: 'd', hidden: true, instancePath: [part('floors', 'f1', 0)], messages: ['x'] },
 ];
 
-describe('findings', () => {
-  const findings = buildingPlanFindings({ metadata, record, issues });
+const findings = buildingPlanFindings({ metadata, record, issues });
 
+describe('findings', () => {
   it('keeps the plan rows, as id paths from the floor, with one name per row', () => {
     expect(findings.map((finding) => finding.id)).toEqual(['a', 'b']);
     expect(findings[1].idPath).toEqual([
@@ -163,6 +165,56 @@ describe('findings', () => {
       )
     ).toBe(false);
     expect(isFindingFixed(finding, draft(null))).toBe(true);
+  });
+});
+
+describe('outside copies', () => {
+  const sided = [
+    {
+      ...metadata[0],
+      repeatables: [
+        {
+          fields: [
+            { dataName: 'finish', binding: { scope: 'wall_face' } },
+            { dataName: 'finish_outside', binding: { scope: 'wall_face', outside: true } },
+          ],
+        },
+      ],
+    },
+  ];
+  const wallPath = issues[1].instancePath;
+
+  it('finds the row of a finding from the floor, and the floors holding it', () => {
+    expect(locatePlanRow(record, wallPath, new Set(['floors']))).toEqual({
+      idPath: findings[1].idPath,
+      floorDepth: 0,
+      floors: record.repeatable.floors,
+    });
+    expect(locatePlanRow(record, wallPath, new Set(['other']))).toBeNull();
+  });
+
+  it('reads the state of an outside copy through one editor per plan, nothing for the rest', () => {
+    const made = [];
+    const states = planSideStates({
+      metadata: sided,
+      record,
+      createEditor: (meta, repeatable) => {
+        made.push(repeatable);
+        return { fieldState: (path, dataName) => ({ path, dataName, outside: true }) };
+      },
+    });
+    expect(states('finish', wallPath)).toBeNull();
+    expect(states('finish_outside', wallPath)).toEqual({
+      path: findings[1].idPath,
+      dataName: 'finish_outside',
+      outside: true,
+    });
+    states('finish_outside', wallPath);
+    expect(made).toEqual([{ floors: record.repeatable.floors }]);
+    // A plan without outside copies makes no editor.
+    const plain = planSideStates({ metadata, record, createEditor: () => made.push('plain') });
+    expect(plain('finish_outside', wallPath)).toBeNull();
+    expect(made).toHaveLength(1);
   });
 });
 

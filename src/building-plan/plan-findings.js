@@ -34,20 +34,9 @@ export function buildingPlanFindings({ metadata = [], record, issues = [] }) {
   for (const issue of issues || []) {
     if (!issue || issue.hidden) continue;
     const path = issue.instancePath || [];
-    const floorDepth = path.findIndex((part) => floorKeys.has(part.repeatableKey));
-    if (floorDepth < 0) continue;
-    let row = record;
-    const idPath = [];
-    for (const [depth, part] of path.entries()) {
-      const rows = row?.repeatable?.[part.repeatableKey] || [];
-      row =
-        part.identity === 'id'
-          ? rows.find((item) => rowId(item) === part.instanceId)
-          : rows[part.index];
-      if (!row) break;
-      if (depth >= floorDepth) idPath.push({ key: part.repeatableKey, id: rowId(row) });
-    }
-    if (idPath.length !== path.length - floorDepth) continue;
+    const located = locatePlanRow(record, path, floorKeys);
+    if (!located) continue;
+    const { idPath, floorDepth } = located;
     // The record path label has one title per row ("Ground Floor / Bedroom / W2").
     const titles = String(issue.recordPathLabel || '').split(' / ');
     findings.push({
@@ -60,6 +49,69 @@ export function buildingPlanFindings({ metadata = [], record, issues = [] }) {
     });
   }
   return findings;
+}
+
+/**
+ * The plan row a validation finding names (its instance path, from the record's root): its id
+ * path from the floor, the floor's depth in the instance path, and the floors that hold it.
+ * @param {object} record
+ * @param {Array<{ repeatableKey: string, instanceId?: string, identity: 'id' | 'index',
+ *   index?: number }>} instancePath
+ * @param {Set<string>} floorKeys the plans' floors keys
+ * @returns {{ idPath: RowRef[], floorDepth: number, floors: object[] } | null}
+ */
+export function locatePlanRow(record, instancePath, floorKeys) {
+  const floorDepth = instancePath.findIndex((part) => floorKeys.has(part.repeatableKey));
+  if (floorDepth < 0) return null;
+  let row = record;
+  let floors = null;
+  const idPath = [];
+  for (const [depth, part] of instancePath.entries()) {
+    const rows = row?.repeatable?.[part.repeatableKey] || [];
+    if (depth === floorDepth) floors = rows;
+    row =
+      part.identity === 'id'
+        ? rows.find((item) => rowId(item) === part.instanceId)
+        : rows[part.index];
+    if (!row) return null;
+    if (depth >= floorDepth) idPath.push({ key: part.repeatableKey, id: rowId(row) });
+  }
+  return { idPath, floorDepth, floors };
+}
+
+/**
+ * For a finding on the outside copy of a wall field (`finish_outside` next to `finish`: both
+ * have the same label), the field state that says which face the copy is on, the exterior or
+ * the room across, as the form tags it. Read through an editor of the plan, made once per plan
+ * and only when such a finding comes. Other findings: null.
+ * @param {{
+ *   metadata: object[],
+ *   record: object,
+ *   createEditor: (meta: object, repeatable: object) => { fieldState: Function },
+ * }} input `createEditor` gets the plan's metadata and `{ [floorsKey]: floors }`
+ * @returns {(dataName: string, instancePath: object[]) => object | null}
+ */
+export function planSideStates({ metadata = [], record, createEditor }) {
+  const plans = new Map();
+  for (const meta of metadata)
+    for (const node of meta.repeatables || [])
+      for (const field of node.fields || [])
+        if (field.binding?.outside) plans.set(field.dataName, meta);
+  if (!plans.size) return () => null;
+  const editors = new Map();
+  return (dataName, instancePath = []) => {
+    const meta = plans.get(dataName);
+    const floorsKey = meta?.repeatablesByNodeKey?.floors?.preferredKey;
+    const located = floorsKey && locatePlanRow(record, instancePath, new Set([floorsKey]));
+    if (!located) return null;
+    try {
+      if (!editors.has(located.floors))
+        editors.set(located.floors, createEditor(meta, { [floorsKey]: located.floors }));
+      return editors.get(located.floors).fieldState(located.idPath, dataName) || null;
+    } catch {
+      return null;
+    }
+  };
 }
 
 /**

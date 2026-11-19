@@ -352,6 +352,10 @@ it('lists the plan issues of a floor after a Save attempt and marks the row of t
   expect(items).toHaveLength(count);
   expect(items[0].textContent).toMatch(/Bedroom · W\d+|W\d+ · Bedroom/);
   expect(items[0].textContent).toMatch(/Wall note/);
+  // The note's outside copy has the same label: the face it is on tells it apart.
+  const texts = items.map((item) => item.textContent);
+  expect(texts.some((text) => /Wall note: /.test(text))).toBe(true);
+  expect(texts.some((text) => /Wall note · Exterior: /.test(text))).toBe(true);
   fireEvent.click(items[0]);
   // A wall, one level below the Rooms list: its room's row is marked.
   const [bedroom] = await listRows('Rooms');
