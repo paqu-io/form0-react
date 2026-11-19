@@ -9,7 +9,11 @@
 import { planIssueTargets } from '../plan-messages.js';
 
 /** @typedef {{ x: number, y: number }} Point */
-/** @typedef {{ points: Point[], closed: boolean, from?: Point, to?: Point }} Shape */
+/**
+ * `from` and `to` are the arrow's ends where the shape has one; `anchor` names the element, so the
+ * arrow can start where it is shown now (`refusalArrowStart`).
+ * @typedef {{ points: Point[], closed: boolean, from?: Point, to?: Point, anchor?: object }} Shape
+ */
 
 const rectPoints = (rect) => [
   { x: rect.x, y: rect.y },
@@ -77,6 +81,7 @@ export function refusalGhost(plan) {
         closed: true,
         from: rectCentre(start.rect),
         to: rectCentre(rect),
+        anchor: { kind: 'room', id: dragState.roomId },
       };
     }
     return { points: rectPoints(rect), closed: true };
@@ -95,16 +100,18 @@ export function refusalGhost(plan) {
       closed: false,
       from: point,
       to: previewPoint,
+      anchor: { kind: 'corner', roomId, index },
     };
   }
   if (wallDragState?.moved && wallDragState.previewPoints?.length > 1) {
-    const { previewPoints, originalPoints } = wallDragState;
+    const { wallId, physicalWallId, previewPoints, originalPoints } = wallDragState;
+    const roomId = plan.walls?.find((entry) => entry.id === wallId)?.roomId;
     return {
       points: previewPoints,
       closed: false,
-      ...(originalPoints?.length > 1
-        ? { from: middle(originalPoints), to: middle(previewPoints) }
-        : {}),
+      ...(originalPoints?.length > 1 ? { from: middle(originalPoints) } : {}),
+      to: middle(previewPoints),
+      anchor: { kind: 'wall', id: wallId, physicalWallId, roomId },
     };
   }
   if (openingDragState?.moved && openingDragState.preview) {
@@ -113,9 +120,47 @@ export function refusalGhost(plan) {
     if (!geometry) return null;
     const thickness = opening.physical?.thickness || geometry.wall?.thickness || 0;
     const half = Math.max((thickness * (plan.gridSize || 1)) / 2, 3 / zoom);
-    return { points: band(geometry.startPoint, geometry.endPoint, half), closed: true };
+    return {
+      points: band(geometry.startPoint, geometry.endPoint, half),
+      closed: true,
+      from: plan.getOpeningGeometry(opening)?.centerPoint,
+      to: geometry.centerPoint,
+      anchor: { kind: 'opening', type: openingDragState.type, id: openingDragState.openingId },
+    };
   }
   return null;
+}
+
+/**
+ * Where the arrow starts: the element as the canvas shows it now, so where it stopped while the
+ * drag goes on and where it went back after the drop (the drawn walls and cuts; a dragged room's
+ * fill and a dragged opening's symbol follow the pointer). Where the drag began when the element
+ * can't be found.
+ * @param {Shape} ghost
+ * @returns {Point | undefined}
+ */
+export function refusalArrowStart(plan, ghost) {
+  const anchor = ghost?.anchor;
+  if (anchor?.kind === 'room') {
+    const room = plan.rooms?.find((entry) => entry.id === anchor.id);
+    if (room?.rect) return rectCentre(room.rect);
+  } else if (anchor?.kind === 'corner') {
+    const room = plan.rooms?.find((entry) => entry.id === anchor.roomId);
+    const vertex = room?.vertices?.[anchor.index];
+    if (vertex) return { x: vertex.x, y: vertex.y };
+  } else if (anchor?.kind === 'wall') {
+    const wall =
+      plan.walls?.find((entry) => entry.id === anchor.id) ||
+      plan.walls?.find(
+        (entry) => entry.physicalWallId === anchor.physicalWallId && entry.roomId === anchor.roomId
+      );
+    if (wall?.points?.length > 1) return middle(wall.points);
+  } else if (anchor?.kind === 'opening') {
+    const opening = plan.getOpeningById?.(anchor.type, anchor.id);
+    const geometry = opening && plan.getOpeningGeometry?.(opening);
+    if (geometry) return geometry.centerPoint;
+  }
+  return ghost?.from;
 }
 
 /**

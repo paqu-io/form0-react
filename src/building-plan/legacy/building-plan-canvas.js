@@ -5,7 +5,12 @@ import {
 } from 'form0-core';
 import { DEFAULT_PLAN_THEME } from '../draw/plan-theme.js';
 import { groupPlanMessages } from '../plan-messages.js';
-import { drawRefusalMarks, refusalGhost, refusalOutlines } from '../draw/refusal-marks.js';
+import {
+  drawRefusalMarks,
+  refusalArrowStart,
+  refusalGhost,
+  refusalOutlines,
+} from '../draw/refusal-marks.js';
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import {
   drawBeamSymbol,
@@ -799,8 +804,10 @@ export class BuildingPlanCanvas {
   /** The ghost, and the outline of the elements the message shown names, over everything. */
   drawRefusal() {
     if (!this.messages.length) return;
+    const ghost = this.messageGhost;
     drawRefusalMarks(this.ctx, {
-      ghost: this.messageGhost,
+      // The arrow starts where the element is shown now: where it stopped, or where it went back.
+      ghost: ghost && { ...ghost, from: refusalArrowStart(this, ghost) },
       outlines: refusalOutlines(this, this.messages[this.messageIndex]?.issues),
       color: this.planTheme.error,
       zoom: this.zoomLevel,

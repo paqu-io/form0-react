@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { groupPlanMessages, planIssueTargets } from '../src/building-plan/plan-messages.js';
 import {
   drawRefusalMarks,
+  refusalArrowStart,
   refusalGhost,
   refusalOutlines,
 } from '../src/building-plan/draw/refusal-marks.js';
@@ -245,5 +246,73 @@ describe('canvas', () => {
     const { c } = canvas();
     c.receiveIssues([refusal('Undo refused.')]);
     expect(c.messageGhost).toBeNull();
+  });
+});
+
+describe('arrow', () => {
+  const ghost = {
+    points: square(200, 0, 100),
+    closed: true,
+    from: { x: 50, y: 50 },
+    to: { x: 250, y: 50 },
+    anchor: { kind: 'room', id: 'r' },
+  };
+
+  it('starts where the room is shown now: where it stopped, then where it went back', () => {
+    const stopped = { rooms: [{ id: 'r', rect: { x: 80, y: 0, width: 100, height: 100 } }] };
+    expect(refusalArrowStart(stopped, ghost)).toEqual({ x: 130, y: 50 });
+    const back = { rooms: [{ id: 'r', rect: { x: 0, y: 0, width: 100, height: 100 } }] };
+    expect(refusalArrowStart(back, ghost)).toEqual({ x: 50, y: 50 });
+  });
+
+  it('starts at the corner and the wall as they are shown now', () => {
+    const plan = {
+      rooms: [{ id: 'r', vertices: square(0, 0, 120) }],
+      walls: [
+        {
+          id: 'f2',
+          physicalWallId: 'w',
+          roomId: 'r',
+          points: [
+            { x: 30, y: 0 },
+            { x: 30, y: 100 },
+          ],
+        },
+      ],
+    };
+    expect(refusalArrowStart(plan, { anchor: { kind: 'corner', roomId: 'r', index: 1 } })).toEqual({
+      x: 120,
+      y: 0,
+    });
+    // A preview can give the dragged face a new id: the same wall of the same room is used.
+    expect(
+      refusalArrowStart(plan, {
+        anchor: { kind: 'wall', id: 'f1', physicalWallId: 'w', roomId: 'r' },
+      })
+    ).toEqual({ x: 30, y: 50 });
+  });
+
+  it('falls back to where the drag began when the element is gone', () => {
+    expect(refusalArrowStart({ rooms: [] }, ghost)).toEqual({ x: 50, y: 50 });
+  });
+
+  it('gives a dragged opening an arrow along its wall', () => {
+    const opening = { physical: { thickness: 0.2 } };
+    const ghostOf = refusalGhost({
+      gridSize: 100,
+      openingDragState: { moved: true, type: 'door', openingId: 'o', preview: { startRatio: 0.5 } },
+      getOpeningById: () => opening,
+      getOpeningGeometry: (_opening, overrides) =>
+        overrides
+          ? {
+              startPoint: { x: 50, y: 0 },
+              endPoint: { x: 150, y: 0 },
+              centerPoint: { x: 100, y: 0 },
+            }
+          : { startPoint: { x: 0, y: 0 }, endPoint: { x: 40, y: 0 }, centerPoint: { x: 20, y: 0 } },
+    });
+    expect(ghostOf.from).toEqual({ x: 20, y: 0 });
+    expect(ghostOf.to).toEqual({ x: 100, y: 0 });
+    expect(ghostOf.anchor).toEqual({ kind: 'opening', type: 'door', id: 'o' });
   });
 });
