@@ -1064,14 +1064,14 @@ function isFreeWallRow(planContext) {
 }
 
 // The tag after a building plan field's label: where its value sits. Both sides of a free wall
-// face its room: "This side" (the row's) and "Other side". `isFreeWall` is asked only then.
+// face its room: "This side" (the row's) and "Other side"; nothing shares a free wall, so its own
+// fields (its thickness) carry no tag. `isFreeWall` is asked only for a tagged field.
 function buildingPlanFieldTag(propertyState, isFreeWall = () => false) {
   const otherSide = propertyState.outside || propertyState.opposite;
-  if (
-    (otherSide || (propertyState.source && propertyState.scope !== 'physical_wall')) &&
-    isFreeWall()
-  )
-    return planText(otherSide ? 'plan.side.other' : 'plan.side.this');
+  if ((otherSide || propertyState.source) && isFreeWall()) {
+    if (otherSide) return planText('plan.side.other');
+    return propertyState.scope === 'physical_wall' ? null : planText('plan.side.this');
+  }
   return propertyState.outside
     ? 'Exterior'
     : propertyState.opposite
