@@ -1759,3 +1759,18 @@ Doors and windows move, resize and are placed on a 1 cm step; core stores their 
 distance to the millimetre, and presents an opening entry's fields (the face's copy) like the
 opening's own (units, no float noise). The W3 refusal needs the plan it happened on: the test
 page has a "Save state" button and a replay script. Details in `building-plan-ui.md`.
+
+### Free walls: selection, fixes and snapping (2026-11-19, hand-tested, committed)
+
+Room contents rules agreed (free walls, columns and beams belong to their room and stay inside
+it; what touches a wall follows it; core work in the derived engine, before the switch). A free
+wall is selected as a whole, its sides tagged "This side" and "Other side", with no tag on its
+thickness. Two fixes: free walls no longer faded in their own room, and the remove confirmation
+takes its shortcuts wherever focus is. The test page runs the derived engine by default
+(`engine=current` to compare). Unit 2: free walls snap through core (`free-wall-targets.js`,
+`free-wall-snapping.js`, exposed by the interaction helper): horizontal and vertical with a
+guide, pulls to corners, ends and lines in the room, lining up across the floor, else 1 cm; they
+never leave the room. Web 349 of 355 (the six worker tests), core 620 of 620. Raised at the hand
+test, for later units: walls touching a moved room wall following it (4b), columns (unit 3),
+diagonal ends cut along the face and drawing by the centreline (4a). Details in
+`building-plan-ui.md`.

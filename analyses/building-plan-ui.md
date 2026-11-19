@@ -621,6 +621,8 @@ step, kept inside the room's outline while dragging; core's interaction helper a
 (3) columns, the same. Then the derived engine: (4a) free walls drawn by their centreline and
 kept inside their room (rule 1, room edits included); (4b) attached contents follow their wall
 (rules 2 and 3). Attachment relies on exact contact, which (2) and (3) give, so they come first.
+Added after the unit 2 hand test, for 4a: a free wall's end on a room face, or on another free
+wall's side, is cut along it (no triangle at an angle).
 
 ### A free wall selected as a whole (hand-tested 2026-11-19, committed)
 
@@ -632,9 +634,9 @@ kept inside their room (rule 1, room edits included); (4b) attached contents fol
   keep "Room side", "Opposite face" and "Exterior". The row is told by its model's free path
   (`editor.resolveRow`); the findings get it from `planSideStates` (`freeWall`). New texts in
   `plan-text.js` (`plan.side.this`, `plan.side.other`).
-- Unchanged: a free wall's physical-wall fields (its thickness) still read "Shared physical
-  wall", though nothing shares it. Proposed: no tag on a free wall's physical-wall fields; not
-  answered yet.
+- A free wall's physical-wall fields (its thickness) read "Shared physical wall", though
+  nothing shares it. Agreed 2026-11-19: no tag there (hand-tested 2026-11-19, committed;
+  `buildingPlanFieldTag` in `form-renderer.jsx`).
 - Tests: `tests/building-plan-selection-name.test.js` (a selected free wall),
   `tests/building-plan-findings.test.js` (`freeWall`). Web 346 of 353 (the six worker tests and
   the numeric setters flake). Checked in headless Chromium, light and dark: a wall drawn in a
@@ -643,6 +645,66 @@ kept inside their room (rule 1, room edits included); (4b) attached contents fol
 Hand test (form "Building plan fixture"): in a room entry, draw a free wall and select it (the
 whole wall outlined, the drawn side heavier, the name on that side); select a room wall (as
 before); open the free wall's entry ("This side", "Other side" on the plaster fields).
+
+### Unit 2: free wall snapping (hand-tested 2026-11-19, committed)
+
+Agreed 2026-11-19: on a locked line the lock wins (a corner off the line doesn't bend the wall);
+a whole free wall is pulled by its ends only (not laid flat against a parallel room wall); the
+snapping lives in core so every host shares it; no mockups.
+
+- form0-core: `free-wall-targets.js` (what a free wall is pulled to, from the canvas snapshot:
+  the room's outline; corners and ends, and lines, in its room: the room's corners and faces,
+  other free walls' bodies and ends, columns; corners and ends anywhere on the floor to line up
+  with) and `free-wall-snapping.js`:
+  - an end (drawing, or dragging one): horizontal or vertical with the other end within reach
+    (8 px, held to 13 px, as the other pulls); locked, it slides along the line, stops on a line
+    it reaches, else lines up with a corner or end (a guide), else takes the 1 cm step; unlocked,
+    a corner or end, else a line, else lining up per axis, else 1 cm; it never leaves the room's
+    outline (it stops where it would, on the step along that face when the face is straight);
+  - a whole free wall: keeps its direction; an end meets a corner or end, else a line, else its
+    ends line up, else its first end takes the 1 cm step; it stops where it would leave the room.
+  - Alt, or snapping off: only the 1 cm step and the room.
+  - `createBuildingPlanInteraction` gains `snapFreeWallEnd` and `snapFreeWallTranslation`, with
+    the same hold and guides as the other pulls.
+- form0-react: the canvas draws, drags an end of and moves a free wall through them
+  (`snapFreeWallPoint`); the guides show as for rooms. Room walls and Split portions are as
+  before.
+- Tests: core `tests/building-plan-free-wall-snapping.test.js` (7; in the test script), web
+  `tests/building-plan-free-wall-snapping.test.js` (2). Core 620 of 620; web 349 of 355 (the six
+  worker tests). Checked in headless Chromium on the derived engine: a wall drawn 6 px off level
+  stays level with a guide along it and stops on the room's face (3 m).
+
+Hand test (form "Building plan fixture", a room entry):
+
+1. Draw a free wall nearly level or plumb: it locks, with a guide; pass the room's face: it stops
+   on it; stop short of nothing: whole centimetres (its entry).
+2. Draw towards another free wall or a column: the end meets its side or corner.
+3. Unlocked (diagonal): an end near a corner takes it, near a face lands on it; near a corner of
+   another room it lines up (guide).
+4. Drag an end, then move the whole wall: the same pulls; it can't leave the room.
+5. Alt while drawing or moving: no pulls, still whole centimetres and inside.
+6. The free wall entry: "Thickness [mm]" has no tag.
+
+**Columns (raised 2026-11-19, for unit 3).** A column against a wall can sit in several ways:
+its centre on the wall's centre line, or one of its sides flush with either face of the wall.
+Open: a single-choice system field on the column row for this, and whether the canvas offers a
+way to choose it.
+
+**After the unit 2 hand test (2026-11-19).** Works. Raised, none of it for this unit:
+
+- Moving one of the room's walls leaves a free wall where it is. By rule 3, a free wall touching
+  the moved wall follows it (its end moves, so the wall gets longer or shorter): that is 4b. One
+  that doesn't touch it keeps its place. Moving the whole room moves it (checked on both
+  engines).
+- A column snaps by its centre: unit 3, with the placement options above.
+- A diagonal free wall ending on a face leaves a triangle with no wall: core builds a free wall's
+  body with square ends, so at an angle one corner touches the face and the other stops short of
+  it (or goes into the room's wall). Snapping makes it visible, since ends now land exactly on
+  faces. For 4a, where the body changes anyway: an end on a room face, or on another free wall's
+  side, is cut along it. To check then: whether that changes an exported value (the two sides of
+  a diagonal wall would have different lengths).
+- The wall is drawn along one of its faces, with its body to one side, not centred on the line
+  drawn: drawing by the centreline is 4a, as agreed.
 
 ### Free walls fading in their own room (hand-tested 2026-11-19, committed)
 
@@ -746,7 +808,8 @@ one combined core operation is the clean way.
 | W3: a wall that can't be moved | Not reproduced; "Save state" kept for next time |
 | Free walls fading in their own room; remove confirmation shortcuts | Done and committed |
 | A free wall selected as a whole, "This side" and "Other side" | Done and committed |
-| Free wall snapping; columns; then in the derived engine centreline, rule 1, attachments | To build, in that order |
+| Unit 2: free wall snapping; a free wall's thickness without a tag | Done and committed |
+| Unit 3 columns (placement options to align); then in the derived engine 4a (centreline, ends cut along faces, rule 1) and 4b (attachments) | To do, in that order |
 | `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
