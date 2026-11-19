@@ -28,6 +28,8 @@ export const form = style({
 
 export const formRendererRoot = style({
   width: '100%',
+  // Centred in a wider host container (a BuildingPlanSection page is wider than the form).
+  marginInline: 'auto',
   display: 'flex',
   flexDirection: 'column',
   gap: 'none',

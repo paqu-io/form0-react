@@ -39,6 +39,7 @@ import { ManagedAlertDialog } from './managed-alert-dialog.jsx';
 import * as styles from './form-renderer.css.js';
 import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
+import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
 import { pickOwnedValues } from './utils/value-updates.js';
@@ -1200,6 +1201,8 @@ function FormRendererContent({
   readOnlyEditToggleDisabledReason = null,
   fieldKeyMode = 'prefer-key',
   buildingPlanModalWidthOverride = null,
+  // The BuildingPlanSection page's width; by default as wide as the plan dialogs (PLAN_WIDE_WIDTH).
+  buildingPlanPageWidthOverride = null,
   // BuildingPlan geometry engine: the derived core when true (under test until the switch).
   buildingPlanDerivedCommands = false,
   ...rest
@@ -2961,6 +2964,11 @@ function FormRendererContent({
     : null;
   const isSpecialSectionActive =
     activeDrilldownSectionInfo && SPECIAL_SECTION_TYPES.has(activeDrilldownSectionInfo.type);
+  // A BuildingPlanSection page is as wide as the plan dialogs: the host's form width is for forms.
+  const pageWidth =
+    activeDrilldownSectionInfo?.type === 'BuildingPlanSection'
+      ? buildingPlanPageWidthOverride || PLAN_WIDE_WIDTH
+      : formWidth;
   const drilldownDepth = activeDrilldownPath.length;
   const isRootPage = drilldownDepth === 0;
   const isFirstSpecialPage = drilldownDepth === 1 && isSpecialSectionActive;
@@ -4546,7 +4554,7 @@ function FormRendererContent({
         ref={formRendererRootRef}
         className={`${styles.formRendererRoot} ${themeClass}`}
         data-form0-presentation={presentation}
-        style={{ maxWidth: formWidth, width: '100%' }}
+        style={{ maxWidth: pageWidth, width: '100%' }}
       >
         {rootEvents.issues?.length ? (
           <p role="alert">{rootEvents.issues.map((issue) => issue.message).join('\n')}</p>

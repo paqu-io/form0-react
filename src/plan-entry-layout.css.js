@@ -7,12 +7,12 @@
 import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from './theme.css.js';
 import { derived } from './theme-derived.css.js';
+import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 
 const THREE_COLUMNS = '(min-width: 1105px)';
 const NO_NAVIGATION = '(max-width: 768px)';
 
-/** Up to 2,460 px: a 2,560 px screen is used too. */
-export const dialog = style({ width: 'min(96vw, 2460px)' });
+export const dialog = style({ width: PLAN_WIDE_WIDTH });
 
 export const body = style({
   '@media': { [THREE_COLUMNS]: { overflowY: 'hidden' } },
