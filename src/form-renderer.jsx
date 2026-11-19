@@ -41,6 +41,7 @@ import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
 import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
+import { planText } from './building-plan/plan-text.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
@@ -1053,8 +1054,24 @@ const PLAN_SOURCE_LABELS = {
   schema: 'Form default',
 };
 
-// The tag after a building plan field's label: where its value sits.
-function buildingPlanFieldTag(propertyState) {
+// Whether a plan entry's row is a free wall, one standing in its room (its model has a free path).
+function isFreeWallRow(planContext) {
+  try {
+    return Array.isArray(planContext?.editor.resolveRow(planContext.path)?.model?.freePath);
+  } catch {
+    return false;
+  }
+}
+
+// The tag after a building plan field's label: where its value sits. Both sides of a free wall
+// face its room: "This side" (the row's) and "Other side". `isFreeWall` is asked only then.
+function buildingPlanFieldTag(propertyState, isFreeWall = () => false) {
+  const otherSide = propertyState.outside || propertyState.opposite;
+  if (
+    (otherSide || (propertyState.source && propertyState.scope !== 'physical_wall')) &&
+    isFreeWall()
+  )
+    return planText(otherSide ? 'plan.side.other' : 'plan.side.this');
   return propertyState.outside
     ? 'Exterior'
     : propertyState.opposite
@@ -1068,9 +1085,9 @@ function buildingPlanFieldTag(propertyState) {
 
 // In the validation lists, only the outside copy of a wall field is tagged ("Finish ·
 // Exterior"): it has the same label as the face's own field, and the lists show no other tag.
-function buildingPlanSideTag(propertyState) {
+function buildingPlanSideTag(propertyState, isFreeWall) {
   return propertyState?.outside || propertyState?.opposite
-    ? buildingPlanFieldTag(propertyState)
+    ? buildingPlanFieldTag(propertyState, isFreeWall)
     : null;
 }
 
@@ -1082,14 +1099,19 @@ function buildingPlanFindingTags(metadata, record, locale) {
     createEditor: (meta, repeatable) =>
       createBuildingPlanEditor({ meta, locale, record: { values: {}, repeatable } }),
   });
-  return (dataName, instancePath) => buildingPlanSideTag(states(dataName, instancePath));
+  return (dataName, instancePath) => {
+    const state = states(dataName, instancePath);
+    return buildingPlanSideTag(state, () => state?.freeWall === true);
+  };
 }
 
 // How a building plan field presents its position and the source of its value: a tag after
 // the label, and inside the control either the source or the reset button.
 function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
   if (!propertyState) return null;
-  const labelTag = buildingPlanFieldTag(propertyState);
+  const labelTag = buildingPlanFieldTag(propertyState, () =>
+    isFreeWallRow(controller?.buildingPlan)
+  );
   if (!propertyState.source) return labelTag ? { labelTag } : null;
   const { mode, scope } = propertyState.source;
   const canReset = propertyState.inheritable && mode === 'override' && !readOnly;
@@ -5512,7 +5534,10 @@ function RepeatableEntryModal({
                 const context = modal.buildingPlan;
                 if (!context || instancePath.length) return null;
                 try {
-                  return buildingPlanSideTag(context.editor.fieldState(context.path, dataName));
+                  return buildingPlanSideTag(
+                    context.editor.fieldState(context.path, dataName),
+                    () => isFreeWallRow(context)
+                  );
                 } catch {
                   return null;
                 }

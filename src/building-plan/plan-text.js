@@ -26,6 +26,9 @@ const TEXT = {
   'plan.issues.other': '{count} issues',
   'plan.issues.list': 'Issues',
   'plan.issues.open': 'Double-click to open',
+  // After a free wall's field label: a free wall stands in its room, so both sides face it.
+  'plan.side.this': 'This side',
+  'plan.side.other': 'Other side',
 };
 
 /**

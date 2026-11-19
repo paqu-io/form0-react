@@ -208,9 +208,20 @@ describe('outside copies', () => {
       path: findings[1].idPath,
       dataName: 'finish_outside',
       outside: true,
+      freeWall: false,
     });
     states('finish_outside', wallPath);
     expect(made).toEqual([{ floors: record.repeatable.floors }]);
+    // A free wall's row: both its sides face its room.
+    const free = planSideStates({
+      metadata: sided,
+      record,
+      createEditor: () => ({
+        fieldState: () => ({ opposite: true }),
+        resolveRow: () => ({ model: { freePath: [] } }),
+      }),
+    });
+    expect(free('finish_outside', wallPath)).toEqual({ opposite: true, freeWall: true });
     // A plan without outside copies makes no editor.
     const plain = planSideStates({ metadata, record, createEditor: () => made.push('plain') });
     expect(plain('finish_outside', wallPath)).toBeNull();

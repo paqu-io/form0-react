@@ -3598,16 +3598,48 @@ export class BuildingPlanCanvas {
    * colour (`draw/selection-name.js`). `clearance`: from the line to the room (half a wall's
    * thickness for an opening drawn on the wall's axis). Returns its rectangle, for hit testing.
    */
-  drawSelectedName(text, start, end, roomId, clearance = 0) {
+  drawSelectedName(text, start, end, roomId, clearance = 0, away = null) {
     const room = (this.rooms || []).find((entry) => entry.id === roomId);
     const size = this.computeLabelRect(text, { x: 0, y: 0 }, { position: 'center' });
     if (!size) return null;
+    // Which side of the line a point is on; `away` (a free wall's body) keeps the name off it.
+    const side = (point) =>
+      Math.sign((end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x));
     const centre = nameBeside(start, end, {
       size,
       clearance: clearance + this.px(6),
-      isInside: (point) => Boolean(room && pointInRoom(point, room)),
+      isInside: (point) =>
+        Boolean(room && pointInRoom(point, room)) && (!away || side(point) !== side(away)),
     });
     return this.drawLabelBadge(text, centre, { position: 'center', color: this.planTheme.accent });
+  }
+
+  /**
+   * A selected free wall shows as a whole (after the V1 hand test): its body outlined, its own
+   * side (the row's, where the line was drawn) as a thinner line. Returns the body's centre.
+   */
+  drawFreeWallOutline(wall) {
+    const footprint = (this.wallFootprints || []).find((entry) => entry.id === wall.physicalWallId);
+    const corners = (footprint?.polygons || []).flat();
+    if (!corners.length) return null;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = this.planTheme.accent;
+    ctx.lineWidth = this.px(1.5);
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (const polygon of footprint.polygons) {
+      if (!polygon.length) continue;
+      ctx.moveTo(polygon[0].x, polygon[0].y);
+      for (const point of polygon.slice(1)) ctx.lineTo(point.x, point.y);
+      ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.restore();
+    return {
+      x: corners.reduce((sum, point) => sum + point.x, 0) / corners.length,
+      y: corners.reduce((sum, point) => sum + point.y, 0) / corners.length,
+    };
   }
 
   drawLabelBadge(text, anchor, options = {}) {
@@ -4148,15 +4180,19 @@ export class BuildingPlanCanvas {
     wall._labelRect = null;
 
     ctx.save();
-    ctx.strokeStyle = this.selectedWallId === wall.id ? this.planTheme.accent : tones.wall;
-    ctx.lineWidth = this.selectedWallId === wall.id ? 6 : 3;
+    // A free wall stands in its room (not a room's side, nor a Split portion of one).
+    const freeWall = !wall.isBoundary && !wall.isCutPortion;
+    const selected = this.selectedWallId === wall.id;
+    ctx.strokeStyle = selected ? this.planTheme.accent : tones.wall;
+    ctx.lineWidth = selected ? (freeWall ? this.px(4) : 6) : 3;
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
     for (let i = 1; i < points.length; i += 1) {
       ctx.lineTo(points[i].x, points[i].y);
     }
-    if (!this.wallFootprints || this.selectedWallId === wall.id) ctx.stroke();
+    if (!this.wallFootprints || selected) ctx.stroke();
     ctx.restore();
+    const body = selected && freeWall ? this.drawFreeWallOutline(wall) : null;
 
     if (this.selectedWallId === wall.id) {
       const handleSize = this.px(ROOM_HANDLE_SIZE);
@@ -4188,7 +4224,7 @@ export class BuildingPlanCanvas {
         'wall'
       );
       if (labelText && start && end && named) {
-        wall._labelRect = this.drawSelectedName(labelText, start, end, wall.roomId);
+        wall._labelRect = this.drawSelectedName(labelText, start, end, wall.roomId, 0, body);
       } else if (labelText && start && end) {
         const anchor = {
           x: (start.x + end.x) / 2,

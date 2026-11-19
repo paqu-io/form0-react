@@ -83,3 +83,74 @@ it('names a selected wall in the selection colour, while wall names are off', ()
   c.drawWall(wall);
   expect(texts).toEqual([]);
 });
+
+it('shows a selected free wall as a whole, named on its own side', () => {
+  const strokes = [];
+  const texts = [];
+  const ctx = new Proxy(
+    {},
+    {
+      get: (target, name) => {
+        if (name in target) return target[name];
+        if (name === 'measureText')
+          return () => ({ width: 20, actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 3 });
+        if (name === 'fillText') return (text, x, y) => texts.push({ text, y });
+        if (name === 'stroke')
+          return () => strokes.push({ color: target.strokeStyle, width: target.lineWidth });
+        return () => {};
+      },
+      set: (target, name, value) => ((target[name] = value), true),
+    }
+  );
+  const room = {
+    id: 'r',
+    vertices: [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+      { x: 200, y: 200 },
+      { x: 0, y: 200 },
+    ],
+  };
+  // Drawn along y = 100; its body (20 thick) lies above the line.
+  const wall = {
+    id: 'w',
+    roomId: 'r',
+    physicalWallId: 'p',
+    isBoundary: false,
+    displayLabel: 'W9',
+    points: [
+      { x: 50, y: 100 },
+      { x: 150, y: 100 },
+    ],
+  };
+  const c = Object.assign(Object.create(BuildingPlanCanvas.prototype), {
+    ctx,
+    zoomLevel: 1,
+    labelSettings: { rooms: true, walls: false },
+    rooms: [room],
+    walls: [wall],
+    wallFootprints: [
+      {
+        id: 'p',
+        roomIds: [],
+        polygons: [
+          [
+            { x: 50, y: 80 },
+            { x: 150, y: 80 },
+            { x: 150, y: 100 },
+            { x: 50, y: 100 },
+          ],
+        ],
+      },
+    ],
+    selectedWallId: 'w',
+  });
+  c.drawWall(wall);
+  const accent = DEFAULT_PLAN_THEME.accent;
+  // Its own side, thinner than a room wall's selection, then its whole body outlined (the end
+  // handles follow).
+  const widths = strokes.filter((stroke) => stroke.color === accent).map((stroke) => stroke.width);
+  expect(widths.slice(0, 2)).toEqual([4, 1.5]);
+  expect(texts).toHaveLength(1);
+  expect(texts[0].y).toBeGreaterThan(100); // below the line, away from its body
+});

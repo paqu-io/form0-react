@@ -82,8 +82,9 @@ export function locatePlanRow(record, instancePath, floorKeys) {
 /**
  * For a finding on the outside copy of a wall field (`finish_outside` next to `finish`: both
  * have the same label), the field state that says which face the copy is on, the exterior or
- * the room across, as the form tags it. Read through an editor of the plan, made once per plan
- * and only when such a finding comes. Other findings: null.
+ * the room across, as the form tags it, with `freeWall` when the row is a free wall (both its
+ * sides face its room). Read through an editor of the plan, made once per plan and only when
+ * such a finding comes. Other findings: null.
  * @param {{
  *   metadata: object[],
  *   record: object,
@@ -107,7 +108,11 @@ export function planSideStates({ metadata = [], record, createEditor }) {
     try {
       if (!editors.has(located.floors))
         editors.set(located.floors, createEditor(meta, { [floorsKey]: located.floors }));
-      return editors.get(located.floors).fieldState(located.idPath, dataName) || null;
+      const editor = editors.get(located.floors);
+      const state = editor.fieldState(located.idPath, dataName);
+      if (!state) return null;
+      const model = editor.resolveRow?.(located.idPath)?.model;
+      return { ...state, freeWall: Array.isArray(model?.freePath) };
     } catch {
       return null;
     }
