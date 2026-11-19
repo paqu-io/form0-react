@@ -304,6 +304,93 @@ Decided 2026-11-19 (mockups, section "Messages · scope (1e)"), to build:
 
 Remaining in step 3: lengths while dragging; handle and cursor review for columns and beams.
 
+## 1e: canvas messages and scope (2026-11-19)
+
+Plan agreed on the frames artifact "Building Plan 1e Frames":
+
+- **M2 sources.** Shared-property conflicts are never stored (core refuses such a record and asks
+  at edit time), so the only stored source is the form's validation of plan rows: red only, no
+  amber for now. A record that fails to load shows as a red status with ×.
+- **M2 timing.** Markers after the first Save attempt, then live, like the Validation tab and the
+  form's own required fields. A one-line switch if live from the start is wanted later.
+- **M2 count.** The chip counts what is in scope: the room in room and element entries, the floor
+  on the plan page and in floor entries.
+- **Ghost lifetime.** The ghost and the outline stay with the message after the drop, until the
+  next gesture, × or Esc. (Today's behaviour, message only, was fine too; this one is to try.)
+- **V1 focus.** A separate `focus` input, the entry's own element (`buildingPlanModalContext
+  .highlight`), so hovering a list row doesn't move the levels.
+- **Refactor.** `makeAdapters` and the key lookup moved to `canvas-adapters.js` (move only), so
+  `canvas-host.jsx` went from 671 to 410 lines.
+- **Dialog banner.** The red banner at the top of an entry dialog (core refusing an edit made in
+  the form part: a typed value, "Reset to inheritance", removing a nested row) stays as it is.
+  Showing it under the refused field is a candidate for step 4. Confirmed after the M1 hand
+  test, where it showed "The opening height and sill must fit the accepted wall height."
+- **Nested rows (M2):** a click on an element one level below the list (a window, under the
+  Walls list of a room entry) marks the nearest row the list has (its wall), from the issues list
+  and from the canvas alike. Today it marks no row.
+
+### M1: refusals in the status line (hand-tested 2026-11-19, committed)
+
+- The status line is React now (`plan-status.jsx`, `plan-status.css.js`), over the canvas's
+  bottom-left corner as before. The legacy canvas reports its hint key (`onStatus`) instead of
+  building DOM. A refusal turns it red, with an icon, "1 of 2" (steps through several messages)
+  and ×. One live region throughout. The row under the canvas (`.building-plan-conflict`) is gone.
+- The canvas keeps the messages, since the ghost belongs to the gesture: the controller's
+  `reportIssues` goes to `canvas.receiveIssues` (issues reported before the canvas exists are
+  handed over), and Undo / Redo results too. Messages are grouped by text (twin faces report
+  one refusal twice). The host renders what the canvas reports (`onMessages`).
+- Ghost (`draw/refusal-marks.js`): read from the drag state before each preview, because core
+  keeps the last allowed preview. Room move (its outline moved, with an arrow), room resize (the
+  rectangle), corner (the two edges to the dragged corner, arrow), wall (the dragged line,
+  arrow), opening (a box across the wall). Columns and beams don't preview, so they have none.
+- Outline: the elements the shown message names (`plan-messages.js`): its subject (room, room
+  face by its physical wall, physical wall, opening, column, beam), plus `roomIds` (rooms that
+  overlap or stand in the way) and `openingIds` (openings a cut would remove). Floors, cuts,
+  edges and vertices name nothing drawn; several derived-engine refusals carry no subject
+  (for example "An opening no longer fits its wall"), so they get the ghost and the message only.
+- Cleared together by the next pointer-down on the canvas, ×, Esc, or a floor tab change. Esc
+  only acts on the canvas last touched, so a stale message on the plan page under a dialog
+  doesn't swallow the dialog's Esc. A first Esc dismisses the message, a second one reaches the
+  dialog.
+- New plan token `error` (the theme's error colour). New texts `plan.message.position`,
+  `plan.message.next`, `plan.message.dismiss`.
+- Logic unchanged: on drop the canvas still commits the pointer's position; a refusal leaves the
+  element where it was before the drag, as before.
+- Tests: `tests/building-plan-refusal.test.js` (grouping, targets, each ghost, outlines, drawing,
+  the canvas's message state). The editor test still finds the hint in a floor dialog. Web 310
+  of 317 with the local core (the six worker tests and the numeric setters timing flake).
+  Checked in headless Chromium, light and dark: a room dragged onto its neighbour shows "The
+  proposed rooms overlap.", the dashed ghost with its arrow and both rooms outlined, all of it
+  still there after the release, gone after Esc with the dialog still open.
+
+After the hand test: the arrow started where the drag began, which while dragging can be behind
+where the element stopped. It now starts where the element is shown at each redraw
+(`refusalArrowStart`): where it stopped while the drag goes on, where it went back after the
+drop. It grows as the pointer pulls past the limit and shows from 16 px. Openings got the arrow
+too (along their wall). To test by hand.
+
+Hand test (form "Building plan fixture", a floor or room entry):
+
+1. Drag a room onto another: red status line, dashed ghost and arrow, both rooms outlined; no
+   row appears under the canvas and nothing below moves.
+2. Release: the room goes back; ghost, outline and message stay. Click the canvas, or ×, or
+   press Esc: all three go. Esc again closes the dialog.
+3. Drag a wall or a corner so it cuts an opening; drag an opening onto another: ghost and
+   outline where core names the element.
+4. A refusal that names several things or has twin messages: "1 of 2" steps, the outline
+   follows.
+5. The hint still shows with key caps; in dark mode the red reads well.
+6. Undo / Redo still work; a refused one shows its message without a ghost.
+
+### Measurement units (noted for later)
+
+`measurement_system` (si or imperial, default si) is a form attribute, not a BuildingPlanSection
+one. Values are always stored in metres; core's presentation converts the form fields (m and mm,
+or ft and in) and puts the unit in their labels. On the canvas only the split distance uses it.
+Grid, snapping (5 m, 1 m or 10 cm by zoom) and nudges (10 cm) are metric only, so in imperial a
+room can't snap to exactly 12 ft. To handle with the first lengths on the canvas (lengths while
+dragging, step 3): grid and snap steps per system. 1e shows no lengths.
+
 ## Data proposals (step 6, to agree before any core work)
 
 **Door swing.** Two system fields on Door: `door_hinge_side` (left, right) and `door_swing`
@@ -343,7 +430,8 @@ one combined core operation is the clean way.
 | Research, mockups, decisions round 1 | Done (2026-11-18) |
 | Step 1, units 1 to 3, 1b, 1c and 1d | Done and committed (form0-react, form0-core) |
 | Plan page width, dropdown source tag, step 3 first part (hit areas, opening clicks and preview, wall grip) | Done and committed |
-| 1e: canvas messages (M1 + M2), out of scope (V1) | Decided, to build |
+| 1e: move-only `canvas-adapters.js`, M1 (refusals in the status line) | Done and committed; the arrow's start, **to test by hand** |
+| 1e: M2 (issue markers and list), V1 (scope levels) | To build |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
 | Step 6 | Proposals |
 

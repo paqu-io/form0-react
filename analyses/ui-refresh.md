@@ -1720,3 +1720,11 @@ band with a live preview, and a grip on the selected wall. Decided for 1e: canva
 status line plus issue markers (M1 + M2), out-of-scope elements faded on three levels (V1).
 Details in `analyses/building-plan-ui.md`.
 
+### 1e, M1 (2026-11-19, hand-tested, committed)
+
+Plan agreed on the frames artifact; details and the hand-test list in `building-plan-ui.md`.
+`canvas-host.jsx` split (adapters to `canvas-adapters.js`, move only). Refusals now show in the
+canvas status line (React, red, "1 of 2", ×) with a dashed ghost of the refused position and
+the element in the way outlined; the row under the canvas is gone. After the hand test the
+refusal arrow starts where the element is shown (where it stopped, or where it went back), not
+where the drag began. Web 314 of 321 (the six worker tests and the timing flake).
