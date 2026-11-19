@@ -382,6 +382,69 @@ Hand test (form "Building plan fixture", a floor or room entry):
 5. The hint still shows with key caps; in dark mode the red reads well.
 6. Undo / Redo still work; a refused one shows its message without a ghost.
 
+### M2: findings on the canvas (hand-tested 2026-11-19, committed)
+
+- Source: the root form's findings on plan rows, the Validation tab's list (after a Save
+  attempt, then live). The root turns them into id paths from the floor (`plan-findings.js`,
+  `buildingPlanFindings`) and provides them to every plan canvas below it
+  (`plan-findings-context.jsx`): the plan page's and the dialogs'.
+- Scope: the plan page lists the floor shown (the canvas's floor tab now reports its row id); a
+  floor entry its floor; room and element entries their room (`findingScope`, from the entry's
+  path).
+- Drafts: a dialog's edits reach the root record only when its floor is saved, so a dialog
+  drops the findings its draft has fixed since. `editor.evaluate` writes `required` and
+  `errors` on each draft row; a finding whose row is gone, or whose field is now filled and
+  without error, is not shown. New rows a dialog adds are not listed until saved (as in the
+  Validation tab).
+- Markers: one per row, red with "!", a fixed size on screen (`draw/issue-markers.js`), up and to
+  the right of the element: halfway along a wall face, an opening's, column's or beam's centre,
+  the top right of a room's name. A row is matched to its element by index path (every canvas
+  entry carries `path`), so the plan page needs no row resolver. Floor findings have no marker.
+- "n issues" (`plan-issue-list.jsx`) in the floor row's end group, with "View only" and
+  Undo / Redo. The list names each finding by the rows below the scope, innermost first
+  ("W1 · Bedroom" in a floor entry, "W1" in a room entry), then the field and its messages. A
+  click selects the element (`canvas.selectRow`, reported as a canvas click is), a double-click
+  opens its entry (`focusRow`, as a canvas double-click). Esc or a click elsewhere closes it.
+- Nested rows: the list marks the nearest row it holds (`markPlanRow`): a wall in a floor entry
+  marks its room, a window in a room entry its wall. Canvas clicks do the same now.
+- Test page: the preview has a new form, "Building plan, required notes" (`form=plan-issues`):
+  the fixture with its room and wall text notes required, built in memory. The fixture itself
+  has no findings after Submit (every required plan field has a default), and a dialog won't
+  save with one of its own required fields empty. Restart `preview.mjs` to get it.
+- Found on the way: an exterior wall lists the same text twice, here and in the Validation
+  tab. Core's contract copies a wall-face field for the outside face (`finish` and
+  `finish_outside`) with the same label; the form tells them apart by the tag after the label
+  ("Room side", "Exterior"), which the findings don't carry. Core's example schema also labels
+  the field "Room-side finish", which is wrong on the outside copy. Proposed fix under "Open
+  questions".
+- Tests: `tests/building-plan-findings.test.js` (findings, scope, the draft check, items,
+  markers, `selectRow`), two editor tests (no chip before Submit; a floor dialog lists the
+  findings and marks the room row of the wall picked). Web 324 of 332 with the local core (the
+  six worker tests and the numeric setters flake, both variants this run; they pass alone).
+  Checked in headless Chromium, light and dark, on the new form: 20 issues on the plan page and
+  in the floor entry, 10 in the room entry; picking a wall marks its room's row, then its own.
+
+Hand test (form "Building plan, required notes"):
+
+1. Before Submit: no chip anywhere. Submit: "n issues" on the plan page, markers on the walls
+   and rooms of the floor shown; another floor tab shows its own.
+2. Open the floor, then a room: the count narrows to the entry's floor, then room; the list
+   names the rows below it.
+3. Click an item: the element is selected on the canvas and its row (or its room's, its wall's)
+   is marked in the list. Double-click: its entry opens.
+4. Fill a note in a wall entry and save the wall: its marker and item go before the floor is
+   saved.
+5. Esc closes the list and not the dialog; dark mode reads well.
+
+Outcome: works. Follow-up: the "!" a little bigger (to do with V1).
+
+### Opening entries by double-click (noted for later)
+
+Raised at the M2 hand test: double-clicking a room, wall or door (on the canvas, in the issues
+list, in the Floors, Rooms or Walls lists) opens entries with jumps, and it's hard to tell
+where in the form you land. To review in a later round: what the page behind does (scroll),
+which dialog and which part of it opens, where focus goes, and how the way back reads.
+
 ### Measurement units (noted for later)
 
 `measurement_system` (si or imperial, default si) is a form attribute, not a BuildingPlanSection
@@ -430,8 +493,10 @@ one combined core operation is the clean way.
 | Research, mockups, decisions round 1 | Done (2026-11-18) |
 | Step 1, units 1 to 3, 1b, 1c and 1d | Done and committed (form0-react, form0-core) |
 | Plan page width, dropdown source tag, step 3 first part (hit areas, opening clicks and preview, wall grip) | Done and committed |
-| 1e: move-only `canvas-adapters.js`, M1 (refusals in the status line) | Done and committed; the arrow's start, **to test by hand** |
-| 1e: M2 (issue markers and list), V1 (scope levels) | To build |
+| 1e: move-only `canvas-adapters.js`, M1 (refusals in the status line) | Done and committed |
+| 1e: M2 (issue markers and list) | Done and committed |
+| 1e: V1 (scope levels), with a larger "!" | To build |
+| Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
 | Step 6 | Proposals |
 
@@ -444,3 +509,9 @@ one combined core operation is the clean way.
    could tell (the opening under it).
 2. Plaster: answered 2026-11-19. The recorded wall thickness is the wall only; plaster is
    additional, so its band is drawn on the face, into the room.
+3. Same label on both faces of a wall field (found at M2). Proposed: (a) in form0-react, the
+   findings carry the tag the form shows after the label, so the Validation tab and the issues
+   list read "Finish · Exterior" (the outside copy is its own data name, `finish_outside`, and
+   the plan metadata marks it `outside`); (b) in core's example schema, "Room-side finish"
+   becomes "Finish", since the form tags the side. Not proposed: core rewriting the copy's label
+   in the contract (English text in the schema, shown twice next to the tag).

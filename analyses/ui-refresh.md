@@ -1728,3 +1728,14 @@ canvas status line (React, red, "1 of 2", ×) with a dashed ghost of the refused
 the element in the way outlined; the row under the canvas is gone. After the hand test the
 refusal arrow starts where the element is shown (where it stopped, or where it went back), not
 where the drag began. Web 314 of 321 (the six worker tests and the timing flake).
+
+### 1e, M2 (2026-11-19, hand-tested, committed)
+
+After a Save attempt, plan canvases mark the rows with validation findings (a red "!" on the
+element) and list them from "n issues" in the floor row: the Validation tab's findings, in the
+canvas's scope (the floor shown, an entry's floor or room), minus those a dialog's draft has
+fixed. A click selects the element and marks the nearest list row, a double-click opens it. The
+preview has a "Building plan, required notes" form to test it. Web 324 of 332. Hand test: works;
+the "!" to be a little bigger (with V1). Noted for later: double-click jumps when opening
+entries; the same label on both faces of a wall field in the findings. Details in
+`building-plan-ui.md`.
