@@ -84,6 +84,27 @@ describe('scope levels', () => {
     expect(levels.of('doors', plan.doors[1])).toBe(OUT);
   });
 
+  it('keeps a free wall with its room: its footprint bounds no room', () => {
+    const free = { id: 'free', roomIds: [] };
+    const withFree = {
+      ...plan,
+      walls: [...plan.walls, { id: 'k9', roomId: 'k', physicalWallId: 'free' }],
+    };
+    expect(scopeLevels({ roomId: 'k', focus: null, plan: withFree }).of('footprints', free)).toBe(
+      FULL
+    );
+    const entry = scopeLevels({
+      roomId: 'k',
+      focus: { collection: 'walls', id: 'k9' },
+      plan: withFree,
+    });
+    expect(entry.of('footprints', free)).toBe(FULL);
+    expect(entry.of('footprints', footprints.long)).toBe(HALF);
+    expect(scopeLevels({ roomId: 'h', focus: null, plan: withFree }).of('footprints', free)).toBe(
+      OUT
+    );
+  });
+
   it("reads as a room entry while the entry's element isn't on the canvas", () => {
     const levels = scopeLevels({ roomId: 'k', focus: { collection: 'columns', id: 'new' }, plan });
     expect(levels.of('columns', plan.columns[0])).toBe(FULL);

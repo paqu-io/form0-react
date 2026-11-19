@@ -30,9 +30,21 @@ const OPENINGS = new Set(['doors', 'windows']);
  */
 export function scopeLevels({ roomId, focus, plan }) {
   if (!roomId) return NO_SCOPE;
+  // The physical walls the room has a face on: a free wall's footprint bounds no room (its
+  // `roomIds` is empty), so it belongs to the room of its face.
+  const own = new Set(
+    (plan.walls || [])
+      .filter((wall) => wall.roomId === roomId)
+      .map((wall) => wall.physicalWallId || wall.id)
+  );
+  const inScope = (collection, entry) =>
+    collection === 'rooms'
+      ? entry.id === roomId
+      : collection === 'footprints'
+        ? Boolean(entry.roomIds?.includes(roomId)) || own.has(entry.id)
+        : entry.roomId === roomId;
   const target = focus && (plan[focus.collection] || []).find((entry) => entry.id === focus.id);
-  if (!target)
-    return { of: (collection, entry) => (inScope(collection, entry, roomId) ? FULL : OUT) };
+  if (!target) return { of: (collection, entry) => (inScope(collection, entry) ? FULL : OUT) };
   // A wall in focus is shown whole (its physical wall, past this room's side of it), and the
   // openings in it with it. An opening is matched by its subject (the canvas has one per face).
   const wallId = focus.collection === 'walls' ? target.physicalWallId || target.id : null;
@@ -50,18 +62,12 @@ export function scopeLevels({ roomId, focus, plan }) {
   };
   return {
     of(collection, entry) {
-      if (!inScope(collection, entry, roomId)) return OUT;
+      if (!inScope(collection, entry)) return OUT;
       // The room itself keeps its surface and name; its outline goes with its walls.
       if (collection === 'rooms') return HALF;
       return focused(collection, entry) ? FULL : HALF;
     },
   };
-}
-
-function inScope(collection, entry, roomId) {
-  if (collection === 'rooms') return entry.id === roomId;
-  if (collection === 'footprints') return Boolean(entry.roomIds?.includes(roomId));
-  return entry.roomId === roomId;
 }
 
 const TONES = new WeakMap();
