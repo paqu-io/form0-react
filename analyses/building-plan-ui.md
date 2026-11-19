@@ -258,6 +258,52 @@ read-only form (zoom works).
 
 Not in 1d (later steps): handles, dimension quotes and typed values on the canvas; mobile.
 
+## After the 1d hand test (agreed 2026-11-19)
+
+Done (tested by hand, committed 2026-11-19):
+
+- **Plan page width.** A BuildingPlanSection page is as wide as the plan dialogs
+  (`PLAN_WIDE_WIDTH` in `building-plan/plan-width.js`, `min(96vw, 2460px)`) instead of the host's
+  `formWidth`; a host can set another width with `buildingPlanPageWidthOverride`. A host page
+  container narrower than that still limits it, so the form root now centres itself
+  (`marginInline: auto`) and the web template's form page no longer caps its container at the
+  form width: the header, messages and buttons keep it (`FormPage.jsx`, form0-web-tmpl-react-vite).
+  The local harness does the same in page view.
+- **Source tag inside dropdowns.** The building plan source tag ("Form default", the Reset
+  button) sits inside a single or multiple choice dropdown, before the clear button
+  (`ChoiceDropdown` `adornment`, passed as `endAdornment` by the choice fields). Radio buttons
+  and checkboxes keep it below (not used in BuildingPlanSection).
+- **Hit areas keep their screen size.** Handle sizes and hit distances are screen pixels at
+  any zoom (`px()` in the legacy canvas). With 100 px per metre, the old canvas-unit tolerances
+  had shrunk to centimetres. Room corner handles are 8 px (were 6).
+- **Openings.** A door or window is hit anywhere on its band through the wall, or 6 px around
+  it. A click there selects it and starts a move, as its centre handle does (`grabOpening`):
+  before, only the centre handle selected an opening that wasn't selected yet, which is why it
+  was easy zoomed out and hard zoomed in. A click doesn't move it (3 px before a drag starts) and
+  a drag keeps the grabbed point under the pointer (`grabOffset`). While dragged, the canvas sends core's existing
+  `previewOpening` each frame, as rooms, corners and walls already did, so the wall closes behind
+  it and opens under it live; the drop sends the same updates (`openingDragUpdates`).
+- **Wall grip.** A selected wall shows a 28 px grip on its middle (on the band's axis): two-way arrows
+  at right angles to the wall, four-way for a partition drawn with the wall tool (core moves a
+  room wall along its normal, a partition any way). It has a matching cursor and takes the
+  drag over an opening under it. Not shown while an opening, column or beam is selected, or in
+  read-only and view-only canvases.
+- **Fix.** Clicking a wall now clears an opening, column or beam selected before (the wall-end
+  handles already did); the list row of the wall is marked again.
+
+Decided 2026-11-19 (mockups, section "Messages · scope (1e)"), to build:
+
+- Canvas messages: M1 and M2. Refusals in the status line (red, icon, ×, "1 of 2"), the refused
+  position as a red dashed ghost and the element in the way outlined; stored issues as red or
+  amber markers on their elements, listed from "n issues" in the floor row (an item selects the
+  element and marks its list row). The text row under the canvas goes (no layout shift).
+- Out of scope: V1. Three levels: the entry's element in full colour, its room at half strength
+  (walls), the rest faded (faint walls, no fill, grey names); a shared wall takes the level of
+  the room in scope, openings follow their wall; no hover and an arrow cursor over faded
+  elements.
+
+Remaining in step 3: lengths while dragging; handle and cursor review for columns and beams.
+
 ## Data proposals (step 6, to agree before any core work)
 
 **Door swing.** Two system fields on Door: `door_hinge_side` (left, right) and `door_swing`
@@ -295,9 +341,11 @@ one combined core operation is the clean way.
 | Item | Status |
 |---|---|
 | Research, mockups, decisions round 1 | Done (2026-11-18) |
-| Step 1, units 1 to 3, 1b and 1c | Done, to test by hand, not committed (form0-react and form0-core) |
-| 1d (layout) and the canvas in every plan entry | Mockups first |
-| Steps 2 to 6 | To do |
+| Step 1, units 1 to 3, 1b, 1c and 1d | Done and committed (form0-react, form0-core) |
+| Plan page width, dropdown source tag, step 3 first part (hit areas, opening clicks and preview, wall grip) | Done and committed |
+| 1e: canvas messages (M1 + M2), out of scope (V1) | Decided, to build |
+| Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
+| Step 6 | Proposals |
 
 ## Open questions
 
@@ -306,5 +354,5 @@ one combined core operation is the clean way.
    element (the window's head changes, the beam moves; core derives the height) or only set it
    once (the beam keeps its number). Following needs to know which opening; the beam's own span
    could tell (the opening under it).
-2. Plaster: does the recorded wall thickness include plaster? If yes the band is drawn inside
-   the wall and the room's lengths don't change; if not it is drawn on the face.
+2. Plaster: answered 2026-11-19. The recorded wall thickness is the wall only; plaster is
+   additional, so its band is drawn on the face, into the room.

@@ -1711,3 +1711,12 @@ every plan entry (view only for walls, doors, windows, columns, beams), list row
 marking each other, the plan page laid out like the dialogs, and a fix for double-click opening
 another room's element. Details in `analyses/building-plan-ui.md`.
 
+### After the 1d hand test (2026-11-19, committed)
+
+The BuildingPlanSection page as wide as the plan dialogs (the web template's form page no longer
+caps it), the building plan source tag inside choice dropdowns, and the first part of step 3:
+hit distances and handles in screen pixels, openings selected and moved from anywhere on their
+band with a live preview, and a grip on the selected wall. Decided for 1e: canvas messages in the
+status line plus issue markers (M1 + M2), out-of-scope elements faded on three levels (V1).
+Details in `analyses/building-plan-ui.md`.
+
