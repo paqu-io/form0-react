@@ -436,7 +436,92 @@ Hand test (form "Building plan, required notes"):
    saved.
 5. Esc closes the list and not the dialog; dark mode reads well.
 
-Outcome: works. Follow-up: the "!" a little bigger (to do with V1).
+Outcome: works. Follow-up: the "!" a little bigger (done with V1).
+
+### V1: scope levels (hand-tested 2026-11-19, committed)
+
+Before V1 the canvas faded what lay outside the entry's room with transparency (rooms at 55 %,
+wall lines at 35 %), but drew the thick walls in one pass at full strength, so a room entry
+still showed every other room's walls fully dark ("the fading is not very visible").
+
+- Levels (`draw/scope-levels.js`): the plan page and floor entries have none. A room entry draws
+  its room and everything in it in full and fades the rest. An element entry (wall, door,
+  window, column, beam) draws the element in full, the rest of its room at half strength (its
+  walls, openings, columns and beams, and the room's outline; the surface and name stay), and
+  fades the rest. A wall in focus is drawn whole, past this room's side of it (decided
+  2026-11-19), with the openings in it. A wall shared with a faded room takes the level of the
+  room in scope; an opening follows its room side.
+- Focus: a new `focus` input on the canvas host, the entry's own element
+  (`buildingPlanModalContext.highlight`), so hovering a list row doesn't move the levels.
+- Tones, not transparency: new plan tokens, as colour mixes resolved like the others: `ground`
+  (the canvas behind the rooms), `wallHalf` and `symbolHalf` (50 % over the room surface),
+  `wallFaint` and `symbolFaint` (24 % over the ground), `labelFaint` (30 %). Faded rooms have
+  no surface (the ground shows through), and an opening's gap there shows the ground.
+  Overlapping walls don't stack.
+- Thick walls in three passes (`draw/walls.js`, moved out of the legacy canvas): faded, half,
+  full, so the stronger level wins at junctions.
+- Names: grey for faded rooms, walls, columns and beams; faded openings keep hiding theirs.
+- Cursor: a plain arrow over faded rooms and walls, also on view-only canvases; elsewhere as
+  before. Faded elements already ignored hover and clicks.
+- The "!" markers are larger (disc radius 9.5 px, "!" 13 px).
+- Tests: `tests/building-plan-scope-levels.test.js` (levels per entry, tones, footprint order,
+  faded hit test, cursor, a faded room's drawing). Checked in headless Chromium, light and
+  dark: floor, room, wall and door entries; the arrow over faded areas in room and wall
+  entries; no page errors.
+
+Hand test (form "Building plan fixture", then "Building plan, required notes"):
+
+1. Plan page and a floor entry: nothing fades.
+2. A room entry: the room in full, the other rooms without surface, their walls faint and
+   names grey; the wall shared with the room in scope stays dark. Arrow cursor over the faded
+   part; editing in the room works as before.
+3. A wall entry (from the room's Walls list): the wall dark and whole, the rest of the room's
+   walls mid grey, the rest faint. Hovering rows in the Walls list still marks them on the
+   canvas, without changing the levels.
+4. A door or window entry (double-click it): the opening in full, its room at half strength.
+5. Dark mode reads well. The "!" markers after a Save attempt are larger.
+
+### Same label on both faces of a wall field (hand-tested 2026-11-19, committed)
+
+Open question 3, agreed 2026-11-19.
+
+- form0-react: the findings tag the outside copy of a wall field with the tag the form shows
+  after its label, so the Validation tab, the issues list and an entry's own Validation list
+  read "Finish" and "Finish · Exterior" (or "Opposite face"). Only outside copies are tagged.
+  The tag comes from the plan's field state (`editor.fieldState`): the root reads it through
+  an editor of the plan, made only when such a finding comes (`planSideStates` in
+  `plan-findings.js`); an entry uses its own editor. The form's tag texts stay where they were
+  (`buildingPlanFieldTag` in `form-renderer.jsx`, shared by the form and the lists).
+- form0-core: the example's wall field is labelled "Finish" (it was "Room-side finish"),
+  in `create-example.js` and `schema.json`. The test page's plan fixture comes from it.
+- Tests: `locatePlanRow` and `planSideStates` in `tests/building-plan-findings.test.js`; the
+  M2 editor test checks "Wall note · Exterior". Checked in headless Chromium on the required
+  notes form: exterior walls list "Finish" and "Finish · Exterior"; a wall entry's Validation
+  tab too.
+
+Hand test: on "Building plan, required notes", Submit, then the Validation tab and "n issues":
+each exterior wall lists "Finish" and "Finish · Exterior". In a wall entry the fields read
+"Finish" with "Room side" and "Exterior" tags. Restart `preview.mjs` to get the core label.
+
+### After the V1 hand test (2026-11-19)
+
+V1 and the label fix work. Raised during the test, to align on:
+
+1. **Long decimals in opening values** (a door: width 0.9000000000000001, distance from wall
+   start 0.7314717950526478). Two causes. (a) A bug in core: an opening entry opened from a
+   wall edits the face's copy of the opening (`face_doors`, `face_windows`), and the
+   presentation only knows system fields, not those copies, so their values are shown raw
+   (`toPrecision(14)` would trim 0.9000000000000001), their labels keep "(m)", and imperial
+   would show metres. (b) Opening drags don't snap, so a position is whatever the pointer gave.
+   `ROUND()` doesn't apply: it is a calculation builtin, and these are stored values.
+2. **W3 can't be moved** ("The wall does not reach the changed room corner…", then it goes
+   back). In the fixture W3 is the wall the two bedrooms share. Moving it moves a corner of the
+   first bedroom past the end of its side wall (W2), and core requires every edge of a changed
+   room to be covered by walls (`capturedBoundaryIssues`, `incomplete_boundary_binding`). It
+   doesn't extend W2 by itself, since the extension would be a new piece of wall between the
+   two bedrooms. A rule as designed today, not a canvas bug.
+3. **Name the selected element.** Only room names show on the canvas (since 1d); a selected
+   wall, door, window, column or beam should show its name.
 
 ### Opening entries by double-click (noted for later)
 
@@ -495,7 +580,9 @@ one combined core operation is the clean way.
 | Plan page width, dropdown source tag, step 3 first part (hit areas, opening clicks and preview, wall grip) | Done and committed |
 | 1e: move-only `canvas-adapters.js`, M1 (refusals in the status line) | Done and committed |
 | 1e: M2 (issue markers and list) | Done and committed |
-| 1e: V1 (scope levels), with a larger "!" | To build |
+| 1e: V1 (scope levels), with a larger "!" | Done and committed |
+| Same label on both faces of a wall field (form0-react, core example) | Done and committed |
+| After V1: opening decimals, moving a shared wall, the selected element's name | To align |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
 | Step 6 | Proposals |
@@ -509,7 +596,8 @@ one combined core operation is the clean way.
    could tell (the opening under it).
 2. Plaster: answered 2026-11-19. The recorded wall thickness is the wall only; plaster is
    additional, so its band is drawn on the face, into the room.
-3. Same label on both faces of a wall field (found at M2). Proposed: (a) in form0-react, the
+3. Same label on both faces of a wall field (found at M2). Agreed 2026-11-19, done (see
+   above). Proposed: (a) in form0-react, the
    findings carry the tag the form shows after the label, so the Validation tab and the issues
    list read "Finish · Exterior" (the outside copy is its own data name, `finish_outside`, and
    the plan metadata marks it `outside`); (b) in core's example schema, "Room-side finish"

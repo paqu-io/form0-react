@@ -1739,3 +1739,15 @@ preview has a "Building plan, required notes" form to test it. Web 324 of 332. H
 the "!" to be a little bigger (with V1). Noted for later: double-click jumps when opening
 entries; the same label on both faces of a wall field in the findings. Details in
 `building-plan-ui.md`.
+
+### 1e, V1 and the wall field labels (2026-11-19, hand-tested, committed)
+
+Scope levels: in a room entry the room is drawn in full and the rest faded (faint walls, no
+surface, grey names); in an element entry the element in full, the rest of its room at half
+strength. Colour tokens instead of transparency, and the thick walls in three passes, so the
+fading shows (it didn't before: the thick walls stayed dark). An arrow cursor over faded parts;
+larger "!" markers. Findings tag the outside copy of a wall field ("Finish · Exterior"), and
+core's example labels its field "Finish". Web 337 of 344 (the six worker tests and the numeric
+setters flake). Details in `building-plan-ui.md`. Raised at the hand test, to align on: long
+decimals in opening values (core shows the face copies of openings unpresented; drags don't
+snap), a shared wall that can't be moved (core's boundary rule), the selected element's name.
