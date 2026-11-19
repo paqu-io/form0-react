@@ -566,6 +566,49 @@ Hand test (form "Building plan fixture"):
    "Width [m]" and "Distance from wall start [m]" show whole centimetres.
 3. Dark mode reads well.
 
+### Free walls and room contents (2026-11-19, to align)
+
+Raised at the hand test of the two units above. Agreed: free walls lock to horizontal and
+vertical only; a free wall's centreline stays inside its room (its ends may touch the outline);
+a room edit that would leave one of its free walls outside is refused, naming it; free walls are
+drawn by their centreline; a free wall's two sides are tagged "This side" and "Other side";
+columns after free walls; beams wait for step 6. Order: the fading fix, free walls inside their
+room and drawn by their centreline, selection as a whole with the wall's own side marked,
+snapping, columns.
+
+Found while checking: core accepts a free wall drawn outside its room (the canvas only lets a
+drawing start inside the room, and keeps its ends within the room's bounding box, not its
+outline), one moved outside, and a room shrunk past its free wall. A free wall has a single row
+(its drawn face; the thickness goes to one side); the row holds both sides' answers (plaster on
+this side, and "Opposite face"). Core runs two geometry engines today, and the derived one
+replaces the current one at "the switch" (4f-2, planned in the core redesign track,
+`reform-backend-nestjs/docs/building-plan-derive-step-3-item-4.md`).
+
+Raised next, to think through as a whole before any core change: when a room wall moves, the
+free walls, columns and beams touching it should follow it (a beam lengthens or shortens),
+unless something would end up outside the room. A proposal for room contents is under
+discussion.
+
+### Free walls fading in their own room (hand-tested 2026-11-19, committed)
+
+A free wall's footprint bounds no room (core gives it no `roomIds`), so V1 drew it faded in its
+own room's entry and in its own wall entry, with the arrow cursor over it. A footprint now counts
+as part of the room when the room has a face on it (`draw/scope-levels.js`). Test: a case in
+`tests/building-plan-scope-levels.test.js`; checked in headless Chromium (a wall drawn in a room
+entry, then its own entry).
+
+### Remove confirmation shortcuts (hand-tested 2026-11-19, committed)
+
+Alt+Q, Alt+Y and Escape in "Remove this entry?" only worked while focus was inside it. A click on
+its backdrop (or anywhere on the page behind) left focus outside, and the shortcuts did nothing;
+reproduced from a room entry's Walls list. The dialog now takes its shortcuts at the window level
+while it is open, ahead of the form's, and a press on its backdrop keeps focus in it. Test:
+`tests/repeatable-remove.test.jsx`.
+
+Hand test: draw a free wall in a room entry (it shows dark, also in its own entry); open "Remove
+this entry?" from any list, click its backdrop, then Alt+Q (it closes), again and Alt+Y (the row
+goes).
+
 ### Capturing a plan (harness, for W3)
 
 The test page now has a small "Save state" button (top right). It writes the live form state to
@@ -639,7 +682,8 @@ one combined core operation is the clean way.
 | The selected element's name | Done and committed |
 | Openings on a 1 cm step (form0-react, form0-core) | Done and committed |
 | W3: a wall that can't be moved | Not reproduced; "Save state" kept for next time |
-| Free walls (snapping, selection), columns | To align |
+| Free walls fading in their own room; remove confirmation shortcuts | Done and committed |
+| Free walls and room contents (follow, stay inside, centreline, selection, snapping), columns | To align |
 | `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
