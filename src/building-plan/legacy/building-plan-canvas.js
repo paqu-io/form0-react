@@ -2033,7 +2033,7 @@ export class BuildingPlanCanvas {
         return;
       }
 
-      const snapStart = this.snapToRoomEdges(point, room);
+      const snapStart = this.snapFreeWallPoint(point, room);
       this.wallDraft = { roomId: room.id, start: snapStart, end: snapStart };
       this.render();
       return;
@@ -2196,7 +2196,7 @@ export class BuildingPlanCanvas {
     if (this.mode === MODE_DRAW_WALL && this.wallDraft) {
       const room = this.rooms.find((r) => r.id === this.wallDraft.roomId);
       if (!room) return;
-      this.wallDraft.end = this.snapToRoomEdges(point, room);
+      this.wallDraft.end = this.snapFreeWallPoint(point, room, { from: this.wallDraft.start });
       this.render();
       return;
     }
@@ -2309,19 +2309,28 @@ export class BuildingPlanCanvas {
           return this.snapPoint(clamped);
         });
 
+        const freeWall = !wall.isBoundary && !wall.isCutPortion;
         const snappedPoints =
-          (wall.isBoundary || wall.isCutPortion) && this.controller?.interaction
-            ? this.controller.interaction.snapWallTranslation(newPoints, {
-                perpendicular: wall.isCutPortion && !wall.isBoundary,
+          freeWall && this.controller?.interaction?.snapFreeWallTranslation
+            ? this.controller.interaction.snapFreeWallTranslation(newPoints, {
                 roomId: room.id,
-                physicalWallId: state.physicalWallId,
-                editingGroupId: wall.isCutPortion ? wall.editingGroupId : null,
-                faceId: wall.id,
+                wallId: wall.id,
                 zoom: this.zoomLevel,
                 originalPoints: state.originalPoints,
                 bypass: Boolean(this.lastPointerEvent?.altKey),
               })
-            : newPoints;
+            : (wall.isBoundary || wall.isCutPortion) && this.controller?.interaction
+              ? this.controller.interaction.snapWallTranslation(newPoints, {
+                  perpendicular: wall.isCutPortion && !wall.isBoundary,
+                  roomId: room.id,
+                  physicalWallId: state.physicalWallId,
+                  editingGroupId: wall.isCutPortion ? wall.editingGroupId : null,
+                  faceId: wall.id,
+                  zoom: this.zoomLevel,
+                  originalPoints: state.originalPoints,
+                  bypass: Boolean(this.lastPointerEvent?.altKey),
+                })
+              : newPoints;
         const roundedPoints = roundPoints(snappedPoints);
         if (previewWall) previewWall.previewPoints = roundedPoints;
         state.previewPoints = roundedPoints;
@@ -2334,7 +2343,12 @@ export class BuildingPlanCanvas {
               x: Math.round(point.x / (this.gridSize / 10)) * (this.gridSize / 10),
               y: Math.round(point.y / (this.gridSize / 10)) * (this.gridSize / 10),
             }
-          : this.snapToRoomEdges(point, room);
+          : this.snapFreeWallPoint(point, room, {
+              from: state.originalPoints[
+                state.handleIndex === 0 ? state.originalPoints.length - 1 : 0
+              ],
+              wallId: wall.id,
+            });
         let newPoints = state.originalPoints.map((pt, idx) =>
           idx === state.handleIndex ? { ...snappedPoint } : { ...pt }
         );
@@ -2612,7 +2626,7 @@ export class BuildingPlanCanvas {
     if (this.mode === MODE_DRAW_WALL && this.wallDraft) {
       const room = this.rooms.find((r) => r.id === this.wallDraft.roomId);
       if (room) {
-        const endPoint = this.snapToRoomEdges(point, room);
+        const endPoint = this.snapFreeWallPoint(point, room, { from: this.wallDraft.start });
         if (distance(this.wallDraft.start, endPoint) > 3) {
           const wallPoints = roundPoints([this.wallDraft.start, endPoint]);
           const created = await this.controller?.createWall(room.id, wallPoints);
@@ -2919,6 +2933,25 @@ export class BuildingPlanCanvas {
     });
 
     return roundPointValues(bestPoint);
+  }
+
+  /**
+   * An end of a free wall being drawn or dragged, through core's free wall snapping: horizontal or
+   * vertical with `from`, pulls, lining up, the 1 cm step, and never outside the room. Without it
+   * (an older core), the room's edges as before.
+   */
+  snapFreeWallPoint(point, room, { from = null, wallId = null } = {}) {
+    const interaction = this.controller?.interaction;
+    if (!interaction?.snapFreeWallEnd) return this.snapToRoomEdges(point, room);
+    return roundPointValues(
+      interaction.snapFreeWallEnd(point, {
+        roomId: room.id,
+        wallId,
+        from,
+        zoom: this.zoomLevel,
+        bypass: Boolean(this.lastPointerEvent?.altKey),
+      })
+    );
   }
 
   snapToRoomEdges(point, room) {
