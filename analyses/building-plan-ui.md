@@ -614,6 +614,36 @@ Where and when (decided): in the derived engine, before the switch (today's engi
 their stored fractions: core works in metres and rewrites them (as checked). No storage format
 was planned for columns; step 6 only proposes one for beams on walls.
 
+**Plan of work (2026-11-19).** In form0-react first, since none of it depends on the engine:
+(1) a free wall selected as a whole, its sides tagged "This side" and "Other side"; (2)
+snapping for free walls (horizontal and vertical, pulls to corners, ends and lines, the 1 cm
+step, kept inside the room's outline while dragging; core's interaction helper and the canvas);
+(3) columns, the same. Then the derived engine: (4a) free walls drawn by their centreline and
+kept inside their room (rule 1, room edits included); (4b) attached contents follow their wall
+(rules 2 and 3). Attachment relies on exact contact, which (2) and (3) give, so they come first.
+
+### A free wall selected as a whole (hand-tested 2026-11-19, committed)
+
+- Canvas: a selected free wall (not a room's side nor a Split portion of one) has its body
+  outlined (1.5 px), its own side (the line it was drawn along, the row's side) as a 4 px line,
+  and its name on that side, away from its body. Room walls are selected as before.
+- Form: a free wall's side fields are tagged "This side" (the row's) and "Other side" (the copy
+  for the side across), in the entry, its Validation tab and the plan's findings. Room walls
+  keep "Room side", "Opposite face" and "Exterior". The row is told by its model's free path
+  (`editor.resolveRow`); the findings get it from `planSideStates` (`freeWall`). New texts in
+  `plan-text.js` (`plan.side.this`, `plan.side.other`).
+- Unchanged: a free wall's physical-wall fields (its thickness) still read "Shared physical
+  wall", though nothing shares it. Proposed: no tag on a free wall's physical-wall fields; not
+  answered yet.
+- Tests: `tests/building-plan-selection-name.test.js` (a selected free wall),
+  `tests/building-plan-findings.test.js` (`freeWall`). Web 346 of 353 (the six worker tests and
+  the numeric setters flake). Checked in headless Chromium, light and dark: a wall drawn in a
+  room entry, then its own entry ("Plaster" with "This side" and "Other side").
+
+Hand test (form "Building plan fixture"): in a room entry, draw a free wall and select it (the
+whole wall outlined, the drawn side heavier, the name on that side); select a room wall (as
+before); open the free wall's entry ("This side", "Other side" on the plaster fields).
+
 ### Free walls fading in their own room (hand-tested 2026-11-19, committed)
 
 A free wall's footprint bounds no room (core gives it no `roomIds`), so V1 drew it faded in its
@@ -633,6 +663,13 @@ while it is open, ahead of the form's, and a press on its backdrop keeps focus i
 Hand test: draw a free wall in a room entry (it shows dark, also in its own entry); open "Remove
 this entry?" from any list, click its backdrop, then Alt+Q (it closes), again and Alt+Y (the row
 goes).
+
+### Test page engine (2026-11-19)
+
+The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
+URL has `engine=current`), since it is the engine that stays at the switch; `replay-wall.mjs`
+follows the same rule. Everything hand-tested before this ran on the current engine (the
+changes were canvas and form changes, the same on both). Restart `preview.mjs` to get it.
 
 ### Capturing a plan (harness, for W3)
 
@@ -708,7 +745,8 @@ one combined core operation is the clean way.
 | Openings on a 1 cm step (form0-react, form0-core) | Done and committed |
 | W3: a wall that can't be moved | Not reproduced; "Save state" kept for next time |
 | Free walls fading in their own room; remove confirmation shortcuts | Done and committed |
-| Free walls and room contents (follow, stay inside, centreline, selection, snapping), columns | To align |
+| A free wall selected as a whole, "This side" and "Other side" | Done and committed |
+| Free wall snapping; columns; then in the derived engine centreline, rule 1, attachments | To build, in that order |
 | `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
