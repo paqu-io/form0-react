@@ -586,8 +586,33 @@ replaces the current one at "the switch" (4f-2, planned in the core redesign tra
 
 Raised next, to think through as a whole before any core change: when a room wall moves, the
 free walls, columns and beams touching it should follow it (a beam lengthens or shortens),
-unless something would end up outside the room. A proposal for room contents is under
-discussion.
+unless something would end up outside the room.
+
+**Room contents: rules (agreed 2026-11-19).** For everything a room holds: free walls, columns,
+beams (later objects); doors and windows stay on their wall as today.
+
+1. Ownership: an element belongs to its room, lies inside its outline (touching it is allowed),
+   and no edit may leave it outside: the edit is refused, naming the element.
+2. Attachment from contact (decided): whatever touches a wall is attached to it (a free wall's
+   end, a column's side, a beam's end); nothing new is stored, core finds the contacts when an
+   edit starts; snapping makes contacts exact.
+3. What moves: what isn't attached keeps its place relative to the parts of the room that don't
+   move, and moves with the room when the whole room moves; what is attached follows its wall (a
+   free wall's end, so the wall gets longer or shorter; a column; a beam's end, so the beam
+   lengthens or shortens); a free wall touching a moving free wall follows it too; at a corner
+   move, attached points keep their relative position along their wall (decided). Then rule 1.
+4. Splits, rejoins, removals: nothing to update (contacts are derived).
+
+Checked on both engines (probe, the fixture's first bedroom): moving its left or right wall
+leaves a window on the top wall, a column and a free wall where they were (the column's stored
+fraction of the room's box is rewritten so it stays put); moving the whole room moves all three
+with it. So the "relative to the room" part of rule 3 is today's behaviour; what is new is
+attached contents following their wall, and rule 1.
+
+Where and when (decided): in the derived engine, before the switch (today's engine retires at
+4f-2 and is not changed); tested with `engine=derived` on the test page. Columns and beams keep
+their stored fractions: core works in metres and rewrites them (as checked). No storage format
+was planned for columns; step 6 only proposes one for beams on walls.
 
 ### Free walls fading in their own room (hand-tested 2026-11-19, committed)
 
