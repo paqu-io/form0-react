@@ -16,6 +16,7 @@ import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js';
 import { drawWallFootprints } from '../draw/walls.js';
 import { nameBeside } from '../draw/selection-name.js';
+import { snapOpeningRatios } from '../opening-snap.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -2409,9 +2410,13 @@ export class BuildingPlanCanvas {
         const clampedCenter = clamp(centerRatio, minCenter, maxCenter);
         const startRatio = clamp(clampedCenter - state.spanRatio / 2, 0, 1 - state.spanRatio);
         const endRatio = clamp(startRatio + state.spanRatio, 0, 1);
+        // Whole centimetres from the wall start, the width kept.
+        const snapped = snapOpeningRatios(wall.bindings?.[segmentIndex], startRatio, endRatio, {
+          keepWidth: true,
+        });
         state.preview = {
-          startRatio,
-          endRatio,
+          startRatio: snapped.startRatio,
+          endRatio: snapped.endRatio,
           segmentIndex,
         };
         state.moved = true;
@@ -2434,9 +2439,15 @@ export class BuildingPlanCanvas {
           }
         }
         const spanRatio = clamp(endRatio - startRatio, MIN_OPENING_RATIO, 1);
-        state.preview = {
+        // Both ends on whole centimetres.
+        const snapped = snapOpeningRatios(
+          wall.bindings?.[state.originalSegmentIndex],
           startRatio,
-          endRatio,
+          endRatio
+        );
+        state.preview = {
+          startRatio: snapped.startRatio,
+          endRatio: snapped.endRatio,
           segmentIndex: state.originalSegmentIndex,
         };
         state.spanRatio = spanRatio;
@@ -4560,15 +4571,22 @@ export class BuildingPlanCanvas {
     const minCenter = spanRatio / 2;
     const maxCenter = 1 - spanRatio / 2;
     const centerRatio = clamp(rawCenter, minCenter, maxCenter);
-    const startRatio = clamp(centerRatio - spanRatio / 2, 0, 1 - spanRatio);
-    const endRatio = clamp(startRatio + spanRatio, 0, 1);
+    // Whole centimetres from the wall start, and the default width.
+    const placed = snapOpeningRatios(
+      wall.bindings?.[wallHit.segmentIndex || 0],
+      clamp(centerRatio - spanRatio / 2, 0, 1 - spanRatio),
+      clamp(centerRatio + spanRatio / 2, spanRatio, 1),
+      { keepWidth: true }
+    );
+    const { startRatio, endRatio } = placed;
+    const width = placed.width ?? appliedWidthMeters;
 
     if (type === 'door' && this.controller && typeof this.controller.createDoor === 'function') {
       const result = await this.controller.createDoor(wall.id, {
         segmentIndex: wallHit.segmentIndex || 0,
         startRatio,
         endRatio,
-        width: appliedWidthMeters,
+        width,
         height: defaultHeightMeters,
       });
       if (result) {
@@ -4588,7 +4606,7 @@ export class BuildingPlanCanvas {
         segmentIndex: wallHit.segmentIndex || 0,
         startRatio,
         endRatio,
-        width: appliedWidthMeters,
+        width,
         height: defaultHeightMeters,
         distanceFromFloor: defaultDistanceFromFloor,
       });
