@@ -1,5 +1,5 @@
 import { useBuildingPlanPresentation } from './presentation.jsx';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { BuildingPlanCanvasController } from 'form0-core';
 import { BuildingPlanController as LegacyBuildingPlanController } from './legacy/building-plan-controller.js';
 import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
@@ -9,6 +9,8 @@ import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js'
 import { PlanTooltip } from './plan-tooltip.jsx';
 import { FloorTabs } from './floor-tabs.jsx';
 import { PlanStatus } from './plan-status.jsx';
+import { PlanIssueList } from './plan-issue-list.jsx';
+import { usePlanIssues } from './use-plan-issues.js';
 import { isPlanShortcutEvent, planShortcutKey } from './plan-shortcuts.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
@@ -52,6 +54,9 @@ export function BuildingPlanCanvasHost({
   highlight = null,
   // Told the element selected on the canvas, { collection, entry } or null (to mark its row).
   onSelectElement,
+  // The rows whose validation findings this canvas shows (an id path: an entry's floor or room);
+  // without it, the floor shown.
+  findingScope = null,
 }) {
   const onSelectRef = useRef(onSelectElement);
   onSelectRef.current = onSelectElement;
@@ -85,6 +90,24 @@ export function BuildingPlanCanvasHost({
   const [status, setStatus] = useState(NO_STATUS);
   // The floors the canvas shows, reported by the canvas for the tab row.
   const [floorTabs, setFloorTabs] = useState([]);
+
+  // Validation findings (1e, M2): listed from the floor row, marked on their elements.
+  const floorsKey = useMemo(
+    () =>
+      pickMetaEntry(buildingPlanMeta, section?.data_name)?.repeatablesByNodeKey?.floors
+        ?.preferredKey || null,
+    [buildingPlanMeta, section]
+  );
+  const shownFloor = floorTabs.find((tab) => tab.active);
+  const planIssues = usePlanIssues({
+    scopePath:
+      findingScope ||
+      (floorsKey && shownFloor?.rowId ? [{ key: floorsKey, id: shownFloor.rowId }] : null),
+    repeatable: repeatableState,
+    draft: Boolean(repeatableApi.editor),
+  });
+  const findingMarkersRef = useRef(planIssues.markers);
+  findingMarkersRef.current = planIssues.markers;
 
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
@@ -213,6 +236,7 @@ export function BuildingPlanCanvasHost({
     if (earlyIssues) canvas.receiveIssues(earlyIssues);
     canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
     canvas.setHighlight(highlightRef.current || null);
+    canvas.setFindingMarkers(findingMarkersRef.current);
     canvas.onSelect = (selection) => onSelectRef.current?.(selection);
     const changeMode = canvas.setMode.bind(canvas);
     canvas.setMode = (nextMode) => {
@@ -355,6 +379,10 @@ export function BuildingPlanCanvasHost({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [editor, locked, undo, redo]);
 
+  useEffect(() => {
+    canvasRef.current?.setFindingMarkers(planIssues.markers);
+  }, [planIssues.markers]);
+
   // The marked element follows the prop (and survives the canvas's data refreshes).
   useEffect(() => {
     canvasRef.current?.setHighlight?.(highlight || null);
@@ -392,6 +420,15 @@ export function BuildingPlanCanvasHost({
               : null
           }
           viewOnly={viewOnly}
+          issues={
+            planIssues.items.length > 0 ? (
+              <PlanIssueList
+                items={planIssues.items}
+                onSelect={(item) => canvasRef.current?.selectRow(item.indexPath)}
+                onOpen={(item) => repeatableApiRef.current.focusRow?.(item.indexPath)}
+              />
+            ) : null
+          }
           history={
             editor && !viewOnly
               ? {

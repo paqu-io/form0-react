@@ -6,17 +6,26 @@ import * as styles from './floor-tabs.css.js';
 
 /**
  * The row above the plan canvas: the floors as one segmented control (they switch the floor the
- * canvas shows), "+" to add a floor where the plan page allows it, and Undo / Redo where the
- * canvas edits. Names and shortcuts show in the plan tooltip.
+ * canvas shows), "+" to add a floor where the plan page allows it, the plan's issues (`issues`,
+ * "n issues" and its list) and Undo / Redo where the canvas edits. Names and shortcuts show in
+ * the plan tooltip.
  * @param {{
  *   tabs: Array<{ index: number, label: string, active: boolean }>,
  *   onSelect: (index: number) => void,
  *   onAdd?: (() => void) | null,
  *   history?: { canUndo: boolean, canRedo: boolean, onUndo: () => void, onRedo: () => void } | null,
  *   viewOnly?: boolean,
+ *   issues?: React.ReactNode,
  * }} props
  */
-export function FloorTabs({ tabs, onSelect, onAdd = null, history = null, viewOnly = false }) {
+export function FloorTabs({
+  tabs,
+  onSelect,
+  onAdd = null,
+  history = null,
+  viewOnly = false,
+  issues = null,
+}) {
   return (
     <div className={styles.row}>
       <div className={styles.tabs} role="tablist" aria-label={planText('plan.floor.tabs')}>
@@ -45,33 +54,38 @@ export function FloorTabs({ tabs, onSelect, onAdd = null, history = null, viewOn
           </button>
         )}
       </div>
-      {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
-      {history && (
-        <div className={styles.history}>
-          <button
-            type="button"
-            className={styles.iconButton}
-            disabled={!history.canUndo}
-            onClick={history.onUndo}
-            aria-label={planText('plan.history.undo')}
-            aria-keyshortcuts={planShortcut('Z')}
-            data-tooltip={planText('plan.history.undo')}
-            data-shortcut={planShortcut('Z')}
-          >
-            <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={styles.iconButton}
-            disabled={!history.canRedo}
-            onClick={history.onRedo}
-            aria-label={planText('plan.history.redo')}
-            aria-keyshortcuts={planShortcut('Y')}
-            data-tooltip={planText('plan.history.redo')}
-            data-shortcut={planShortcut('Y')}
-          >
-            <Redo2 size={16} strokeWidth={2} aria-hidden="true" />
-          </button>
+      {(viewOnly || issues || history) && (
+        <div className={styles.end}>
+          {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
+          {issues}
+          {history && (
+            <div className={styles.history}>
+              <button
+                type="button"
+                className={styles.iconButton}
+                disabled={!history.canUndo}
+                onClick={history.onUndo}
+                aria-label={planText('plan.history.undo')}
+                aria-keyshortcuts={planShortcut('Z')}
+                data-tooltip={planText('plan.history.undo')}
+                data-shortcut={planShortcut('Z')}
+              >
+                <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={styles.iconButton}
+                disabled={!history.canRedo}
+                onClick={history.onRedo}
+                aria-label={planText('plan.history.redo')}
+                aria-keyshortcuts={planShortcut('Y')}
+                data-tooltip={planText('plan.history.redo')}
+                data-shortcut={planShortcut('Y')}
+              >
+                <Redo2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

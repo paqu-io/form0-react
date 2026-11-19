@@ -5,6 +5,7 @@ import {
 } from 'form0-core';
 import { DEFAULT_PLAN_THEME } from '../draw/plan-theme.js';
 import { groupPlanMessages } from '../plan-messages.js';
+import { drawFindingMarkers, elementAtPath, findingMarkerAnchors } from '../draw/issue-markers.js';
 import {
   drawRefusalMarks,
   refusalArrowStart,
@@ -309,6 +310,8 @@ export class BuildingPlanCanvas {
     this.messageIndex = 0;
     this.gestureGhost = null;
     this.messageGhost = null;
+    // Rows with validation findings, marked on their elements (1e, M2): index paths.
+    this.findingMarkers = [];
     this.controller = controller;
     this.presentation = presentation || createBuildingPlanPresentation();
     this.labelSettings = { ...DEFAULT_LABEL_SETTINGS, ...labelSettings };
@@ -799,6 +802,45 @@ export class BuildingPlanCanvas {
       index: this.messageIndex,
       codes: [...new Set((current?.issues || []).map((issue) => issue.code).filter(Boolean))],
     });
+  }
+
+  /** Rows with validation findings (index paths), marked on their elements with a "!" (1e, M2). */
+  setFindingMarkers(paths) {
+    this.findingMarkers = Array.isArray(paths) ? paths : [];
+    this.render();
+  }
+
+  /** Selects the element of a row (an index path), as `selectElement`; false if not shown. */
+  selectRow(indexPath) {
+    const found = elementAtPath(this, indexPath);
+    return found ? this.selectElement({ collection: found.collection, id: found.entry.id }) : false;
+  }
+
+  drawFindings() {
+    if (!this.findingMarkers.length) return;
+    drawFindingMarkers(this.ctx, findingMarkerAnchors(this, this.findingMarkers), {
+      color: this.planTheme.error,
+      ground: this.planTheme.room,
+      zoom: this.zoomLevel,
+    });
+  }
+
+  /**
+   * Selects an element from outside the canvas (an item of the issues list) as a click on it
+   * does, so the selection is reported and the entry's list marks its row.
+   * @param {{ collection: string, id: string }} target
+   * @returns {boolean} false when the canvas doesn't show it
+   */
+  selectElement(target) {
+    const field = target && HIGHLIGHT_FIELDS[target.collection];
+    const entry = field && (this[target.collection] || []).find((item) => item.id === target.id);
+    if (!entry) return false;
+    for (const other of Object.values(HIGHLIGHT_FIELDS)) this[other] = null;
+    this[field] = target.id;
+    if (target.collection !== 'rooms' && entry.roomId) this.selectedRoomId = entry.roomId;
+    this.updateButtonStates();
+    this.render();
+    return true;
   }
 
   /** The ghost, and the outline of the elements the message shown names, over everything. */
@@ -3446,6 +3488,7 @@ export class BuildingPlanCanvas {
       this.drawDraftRoom(snapped);
     }
 
+    this.drawFindings();
     this.drawRefusal();
 
     // Reset transform for any subsequent operations
@@ -3693,6 +3736,8 @@ export class BuildingPlanCanvas {
             'Floor #' +
               ((typeof floor.displayIndex === 'number' ? floor.displayIndex : floor.index) + 1),
           active: floor.index === this.activeFloorIndex,
+          // The floor's row, for the findings the plan page lists (1e, M2).
+          rowId: floor.rowId ?? null,
         })),
       });
       return;

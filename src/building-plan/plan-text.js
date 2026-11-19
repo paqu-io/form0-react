@@ -21,6 +21,11 @@ const TEXT = {
   'plan.message.position': '{index} of {total}',
   'plan.message.next': 'Next message',
   'plan.message.dismiss': 'Dismiss',
+  // The plan's validation findings in the floor row (1e).
+  'plan.issues.one': '{count} issue',
+  'plan.issues.other': '{count} issues',
+  'plan.issues.list': 'Issues',
+  'plan.issues.open': 'Double-click to open',
 };
 
 /**

@@ -74,6 +74,14 @@ export const iconButton = style({
   },
 });
 
+// The row's end: "View only", the plan's issues, Undo / Redo.
+export const end = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginLeft: 'auto',
+});
+
 export const history = style({ display: 'inline-flex', gap: '2px' });
 
 export const viewOnly = style({

@@ -319,3 +319,58 @@ it('a wall value source tag sits inside its dropdown, as in text fields', async 
   const [tag] = await dialog.findAllByText('Form default');
   expect(tag.closest('[data-form0-dropdown]')).toBeTruthy();
 });
+
+// 1e, M2: after a Save attempt, a plan dialog lists the findings in its scope from "n issues";
+// picking one selects its element on the canvas, and the list marks the nearest row it holds.
+it('lists the plan issues of a floor after a Save attempt and marks the row of the one picked', async () => {
+  const f = fixture({ walls: { extra_elements: [WALL_NOTE] } });
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      onSubmit={vi.fn(async () => ({}))}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: /^Submit/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  // The plan page lists the floor shown.
+  const pageChip = await screen.findByRole('button', { name: /^\d+ issues?$/ });
+  const count = Number(pageChip.textContent.match(/\d+/)[0]);
+  expect(count).toBeGreaterThan(0);
+  fireEvent.click((await listRows('Floors'))[0]);
+  const dialog = within(await screen.findByRole('dialog'));
+  const rooms = dialog.getAllByText('Rooms', { exact: true }).at(-1).parentElement.parentElement;
+  fireEvent.click(within(rooms).getByRole('button', { name: 'View', exact: true }));
+  await listRows('Rooms');
+  const chip = await dialog.findByRole('button', {
+    name: `${count} ${count === 1 ? 'issue' : 'issues'}`,
+  });
+  fireEvent.click(chip);
+  const items = within(dialog.getByRole('list', { name: 'Issues' })).getAllByRole('button');
+  expect(items).toHaveLength(count);
+  expect(items[0].textContent).toMatch(/Bedroom · W\d+|W\d+ · Bedroom/);
+  expect(items[0].textContent).toMatch(/Wall note/);
+  fireEvent.click(items[0]);
+  // A wall, one level below the Rooms list: its room's row is marked.
+  const [bedroom] = await listRows('Rooms');
+  await waitFor(() =>
+    expect(bedroom.closest('[data-plan-marked]')?.dataset.planMarked).toBe('true')
+  );
+});
+
+it('shows no plan issues before a Save attempt', async () => {
+  const f = fixture({ walls: { extra_elements: [WALL_NOTE] } });
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await listRows('Floors');
+  expect(screen.queryByRole('button', { name: /^\d+ issues?$/ })).toBeNull();
+});

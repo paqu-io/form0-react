@@ -39,6 +39,8 @@ import { ManagedAlertDialog } from './managed-alert-dialog.jsx';
 import * as styles from './form-renderer.css.js';
 import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
+import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
+import { buildingPlanFindings } from './building-plan/plan-findings.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { useBuildingPlanController } from './building-plan/controller.js';
@@ -3033,6 +3035,18 @@ function FormRendererContent({
       buildingPlanPresentation,
     ]
   );
+  // The plan canvases list and mark the findings on plan rows (1e, M2): the Validation tab's.
+  const planFindings = useMemo(
+    () =>
+      rootValidationIssues.length
+        ? buildingPlanFindings({
+            metadata: buildingPlanMeta,
+            record: recordCoordinator.capture(),
+            issues: rootValidationIssues,
+          })
+        : [],
+    [rootValidationIssues, buildingPlanMeta, recordCoordinator]
+  );
   // Always shown (review of 2026-11-17): sections and the issues tab stay reachable, and the
   // layout does not change when the first error appears. Before, it needed sections,
   // forceShowNavigationPanel or a failed submit.
@@ -4548,7 +4562,7 @@ function FormRendererContent({
     });
   }
 
-  return (
+  const page = (
     <ThemeProvider themeClass={themeClass}>
       <div
         ref={formRendererRootRef}
@@ -4668,6 +4682,8 @@ function FormRendererContent({
       {discardDialogNode}
     </ThemeProvider>
   );
+  // Every plan canvas below lists and marks the findings on plan rows (1e, M2).
+  return <PlanFindingsProvider findings={planFindings}>{page}</PlanFindingsProvider>;
 }
 
 function RepeatableSectionList({
@@ -5168,6 +5184,15 @@ function RepeatableEntryModal({
           roomId: nodeKey === 'rooms' ? selected.model.id : selected.roomId || null,
         },
         mode: nodeKey === 'floors' ? 'floor-modal' : 'room-modal',
+        // The canvas lists the findings of the floor of a floor entry, of the room of any other.
+        findingScope: (() => {
+          const idPath = path.map((part) => ({
+            key: part.key || part.repeatableKey,
+            id: part.id || part.instanceId,
+          }));
+          const roomDepth = idPath.findIndex((part) => part.key === roomNode.preferredKey);
+          return roomDepth >= 0 ? idPath.slice(0, roomDepth + 1) : idPath;
+        })(),
         viewOnly: !editsPlan,
         highlight: editsPlan ? null : buildingPlanEntryHighlight(nodeKey, selected),
         floorsKey: floorNode.preferredKey,
@@ -5699,9 +5724,10 @@ function RepeatableEntryModal({
           idPath[index]?.key === (part.key || part.repeatableKey) &&
           idPath[index]?.id === (part.id || part.instanceId)
       );
-      const own =
-        inEntry && idPath.length === context.path.length + 1 && idPath.at(-1).key === planListKey;
-      setPlanMarkedRowId(own ? idPath.at(-1).id : null);
+      // The list's own row, or for an element one level below it (a window under the Walls
+      // list), the nearest row the list holds (its wall).
+      const listed = inEntry ? idPath[context.path.length] : null;
+      setPlanMarkedRowId(listed?.key === planListKey ? listed.id : null);
     },
     [modal.buildingPlan, planListKey]
   );
@@ -6505,6 +6531,7 @@ function RepeatableEntryModal({
                     viewOnly={buildingPlanModalContext.viewOnly === true}
                     highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
                     onSelectElement={planListKey ? markPlanRow : undefined}
+                    findingScope={buildingPlanModalContext.findingScope || null}
                   />
                 </div>
               )}
