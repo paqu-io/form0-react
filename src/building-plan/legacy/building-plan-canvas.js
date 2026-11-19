@@ -15,6 +15,7 @@ import {
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js';
 import { drawWallFootprints } from '../draw/walls.js';
+import { nameBeside } from '../draw/selection-name.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -3581,6 +3582,23 @@ export class BuildingPlanCanvas {
    * A name on the plan as plain text with a halo; its rectangle is returned for hit testing.
    * Room names (`strong`) use the label colour, the others the muted one.
    */
+  /**
+   * The name of a selected wall or opening, beside its line on the room's side, in the selection
+   * colour (`draw/selection-name.js`). `clearance`: from the line to the room (half a wall's
+   * thickness for an opening drawn on the wall's axis). Returns its rectangle, for hit testing.
+   */
+  drawSelectedName(text, start, end, roomId, clearance = 0) {
+    const room = (this.rooms || []).find((entry) => entry.id === roomId);
+    const size = this.computeLabelRect(text, { x: 0, y: 0 }, { position: 'center' });
+    if (!size) return null;
+    const centre = nameBeside(start, end, {
+      size,
+      clearance: clearance + this.px(6),
+      isInside: (point) => Boolean(room && pointInRoom(point, room)),
+    });
+    return this.drawLabelBadge(text, centre, { position: 'center', color: this.planTheme.accent });
+  }
+
   drawLabelBadge(text, anchor, options = {}) {
     if (!this.ctx || !text) return null;
     const rect = this.computeLabelRect(text, anchor, options);
@@ -3594,7 +3612,7 @@ export class BuildingPlanCanvas {
       { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
       {
         font: labelFont(scale, options.strong ? ROOM_LABEL_FONT_SIZE : LABEL_FONT_SIZE),
-        color: options.strong ? theme.label : theme.labelMuted,
+        color: options.color || (options.strong ? theme.label : theme.labelMuted),
         halo: theme.room,
         haloWidth: 3 * scale,
       }
@@ -3668,10 +3686,11 @@ export class BuildingPlanCanvas {
     });
     ctx.restore();
 
-    if (this.shouldShowLabel('columns') && info.label) {
+    if ((this.shouldShowLabel('columns') || isSelected) && info.label) {
       const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
         position: 'top',
         theme: tones,
+        color: isSelected ? this.planTheme.accent : null,
       });
       if (labelRect) {
         column._labelRect = labelRect;
@@ -3750,10 +3769,11 @@ export class BuildingPlanCanvas {
     }
     ctx.restore();
 
-    if (this.shouldShowLabel('beams') && info.label) {
+    if ((this.shouldShowLabel('beams') || isSelected) && info.label) {
       const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
         position: 'top',
         theme: tones,
+        color: isSelected ? this.planTheme.accent : null,
       });
       if (labelRect) {
         beam._labelRect = labelRect;
@@ -4143,7 +4163,9 @@ export class BuildingPlanCanvas {
       ctx.restore();
     }
 
-    if (this.shouldShowLabel('walls')) {
+    // A selected wall is named, unless one of its openings is the selection.
+    const named = this.selectedWallId === wall.id && !this.selectedDoorId && !this.selectedWindowId;
+    if (this.shouldShowLabel('walls') || named) {
       const rawLabel =
         wall.displayLabel ||
         wall.label ||
@@ -4154,7 +4176,9 @@ export class BuildingPlanCanvas {
         typeof wall.index === 'number' ? wall.index + 1 : null,
         'wall'
       );
-      if (labelText && start && end) {
+      if (labelText && start && end && named) {
+        wall._labelRect = this.drawSelectedName(labelText, start, end, wall.roomId);
+      } else if (labelText && start && end) {
         const anchor = {
           x: (start.x + end.x) / 2,
           y: (start.y + end.y) / 2,
@@ -4294,7 +4318,7 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     const labelType = isDoor ? 'doors' : 'windows';
-    if (this.shouldShowLabel(labelType) && !isDimmed) {
+    if ((this.shouldShowLabel(labelType) || isSelected) && !isDimmed) {
       const baseLabel = opening.displayLabel || opening.label;
       const fallbackIndex = typeof opening.index === 'number' ? opening.index + 1 : null;
       const labelText = formatShortLabel(
@@ -4303,7 +4327,15 @@ export class BuildingPlanCanvas {
         fallbackIndex,
         isDoor ? 'door' : 'window'
       );
-      if (labelText) {
+      if (labelText && isSelected) {
+        opening._labelRect = this.drawSelectedName(
+          labelText,
+          geometry.startPoint,
+          geometry.endPoint,
+          opening.roomId,
+          opening.physical ? thickness / 2 : 0
+        );
+      } else if (labelText) {
         const labelOffset = lineWidth / 2 + 6;
         const labelAnchor = {
           x: geometry.centerPoint.x,
