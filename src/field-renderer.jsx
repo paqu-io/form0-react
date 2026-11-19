@@ -218,26 +218,6 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     return controls;
   };
 
-  const fieldInput = (
-    <FieldComponent
-      field={field}
-      value={presentation.toDisplay(field, selectorEnabled ? resolvedValue : value)}
-      onChange={handleChange}
-      onKeyDown={onKeyDown}
-      readOnly={resolvedReadOnly}
-      inputProps={inputProps}
-      className={isLabelField ? undefined : styles.input}
-    />
-  );
-
-  // Marks at the right edge of the control. The lock is shown only for fields that are
-  // read-only by their own attribute, not for every field of a form opened in View mode.
-  const adornment =
-    field.type === 'CalculatedField'
-      ? 'calculated'
-      : field.read_only === true && ['TextField', 'NumericField'].includes(field.type)
-        ? 'locked'
-        : null;
   // Where a building plan value comes from. Inherited: a tag naming the source. Set here: the
   // same place holds the button that returns it to the inherited value.
   const sourceNode = !sourceMode ? null : sourceMode === 'override' && onResetSource ? (
@@ -260,34 +240,62 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
       {sourceLabel}
     </span>
   );
+  // Inside a dropdown's frame the tag sits before the clear button (ChoiceDropdown's slot).
+  const sourceInDropdown =
+    Boolean(sourceNode) &&
+    !isGroupedControl &&
+    (field.type === 'SingleChoiceField' || field.type === 'MultiChoiceField');
+
+  const fieldInput = (
+    <FieldComponent
+      field={field}
+      value={presentation.toDisplay(field, selectorEnabled ? resolvedValue : value)}
+      onChange={handleChange}
+      onKeyDown={onKeyDown}
+      readOnly={resolvedReadOnly}
+      inputProps={inputProps}
+      className={isLabelField ? undefined : styles.input}
+      {...(sourceInDropdown ? { endAdornment: sourceNode } : {})}
+    />
+  );
+
+  // Marks at the right edge of the control. The lock is shown only for fields that are
+  // read-only by their own attribute, not for every field of a form opened in View mode.
+  const adornment =
+    field.type === 'CalculatedField'
+      ? 'calculated'
+      : field.read_only === true && ['TextField', 'NumericField'].includes(field.type)
+        ? 'locked'
+        : null;
   const sourceFitsInside = ['TextField', 'NumericField'].includes(field.type);
 
-  const fieldControl =
-    sourceNode && sourceFitsInside ? (
-      <div className={styles.inputAdorned} data-adornment="source" data-source={sourceMode}>
-        {fieldInput}
-        <span className={styles.sourceSlot}>{sourceNode}</span>
-      </div>
-    ) : sourceNode ? (
-      <>
-        {fieldInput}
-        <div className={styles.sourceRow}>{sourceNode}</div>
-      </>
-    ) : adornment ? (
-      <div className={styles.inputAdorned} data-adornment={adornment}>
-        {fieldInput}
-        {adornment === 'calculated' ? (
-          <span className={styles.inputAdornmentLead} aria-hidden="true">
-            ƒ
-          </span>
-        ) : null}
-        <span className={styles.inputAdornment} aria-hidden="true">
-          {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
+  const fieldControl = sourceInDropdown ? (
+    fieldInput
+  ) : sourceNode && sourceFitsInside ? (
+    <div className={styles.inputAdorned} data-adornment="source" data-source={sourceMode}>
+      {fieldInput}
+      <span className={styles.sourceSlot}>{sourceNode}</span>
+    </div>
+  ) : sourceNode ? (
+    <>
+      {fieldInput}
+      <div className={styles.sourceRow}>{sourceNode}</div>
+    </>
+  ) : adornment ? (
+    <div className={styles.inputAdorned} data-adornment={adornment}>
+      {fieldInput}
+      {adornment === 'calculated' ? (
+        <span className={styles.inputAdornmentLead} aria-hidden="true">
+          ƒ
         </span>
-      </div>
-    ) : (
-      fieldInput
-    );
+      ) : null}
+      <span className={styles.inputAdornment} aria-hidden="true">
+        {adornment === 'calculated' ? 'Calculated' : <Lock size={14} strokeWidth={2} />}
+      </span>
+    </div>
+  ) : (
+    fieldInput
+  );
 
   const labelClassNames = [labelClass, styles.labelText];
   if (isLabelField) {

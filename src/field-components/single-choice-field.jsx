@@ -24,6 +24,7 @@ export function SingleChoiceFieldComponent({
   onKeyDown,
   readOnly,
   inputProps = {},
+  endAdornment = null,
 }) {
   const presentation = useBuildingPlanPresentation();
   const inputOnFocus = inputProps.onFocus;
@@ -169,6 +170,7 @@ export function SingleChoiceFieldComponent({
       onClear={() => emitChange('', '')}
       onOtherChange={handleOtherChange}
       onKeyDown={onKeyDown}
+      endAdornment={endAdornment}
     />
   );
 }
@@ -189,6 +191,7 @@ function SingleChoiceDropdown({
   onClear,
   onOtherChange,
   onKeyDown,
+  endAdornment,
 }) {
   const otherInputRef = useRef(null);
   const focusOther = useRef(false);
@@ -218,6 +221,7 @@ function SingleChoiceDropdown({
         onClear={onClear}
         onFocus={inputProps.onFocus}
         onKeyDown={onKeyDown}
+        adornment={endAdornment}
       />
       {showOtherInput && (
         <input

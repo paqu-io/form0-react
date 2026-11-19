@@ -253,33 +253,31 @@ it('opens a room from an editable floor whose saved row carries container keys',
 // Retest 2026-11-13: selecting a validation issue inside a wall threw ("The selected row does not
 // belong to this BuildingPlanSection") and opened nothing. It now opens the floor, whose canvas
 // opens the wall.
-it('a wall issue from the Validation list opens the wall through its floor', async () => {
-  const note = {
-    type: 'TextField',
-    key: 'wall_note',
-    data_name: 'wall_note',
-    label: 'Wall note',
-    display: 'default',
-    description: null,
-    description_mode: null,
-    required: true,
-    required_conditions: null,
-    visible: true,
-    visible_conditions: null,
-    read_only: false,
-    read_only_conditions: null,
-    default_value: null,
-    pattern: null,
-    pattern_description: null,
-    supporting_image: false,
-    supporting_image_path: null,
-    supporting_image_display: null,
-  };
-  const f = fixture({ walls: { extra_elements: [note] } });
-  const errors = [];
-  vi.spyOn(console, 'error').mockImplementation((...args) =>
-    errors.push(args.map(String).join(' '))
-  );
+const WALL_NOTE = {
+  type: 'TextField',
+  key: 'wall_note',
+  data_name: 'wall_note',
+  label: 'Wall note',
+  display: 'default',
+  description: null,
+  description_mode: null,
+  required: true,
+  required_conditions: null,
+  visible: true,
+  visible_conditions: null,
+  read_only: false,
+  read_only_conditions: null,
+  default_value: null,
+  pattern: null,
+  pattern_description: null,
+  supporting_image: false,
+  supporting_image_path: null,
+  supporting_image_display: null,
+};
+
+// Submits a plan whose walls need a note, and opens the first wall issue from the Validation list.
+async function openWallIssue() {
+  const f = fixture({ walls: { extra_elements: [WALL_NOTE] } });
   const onSubmit = vi.fn(async () => ({}));
   render(
     <FormRenderer
@@ -293,15 +291,31 @@ it('a wall issue from the Validation list opens the wall through its floor', asy
   fireEvent.click(await screen.findByRole('button', { name: /^Submit/ }));
   fireEvent.click(await screen.findByRole('button', { name: /^Validation/ }));
   const [issue] = await screen.findAllByRole('button', { name: /Wall note/ });
-  // The entry names where it is (floor, room, wall) and hides the generated data name.
-  expect(issue.textContent).toMatch(/Ground Floor \/ Bedroom \/ W\d+/);
-  expect(issue.textContent).not.toMatch(/wall_note_/);
-  const [wallName] = issue.textContent.match(/W\d+/);
+  const text = issue.textContent;
   fireEvent.click(issue);
-  // The wall opens, titled by its label (the same name the issue gives it).
   const dialog = within((await screen.findAllByRole('dialog')).at(-1));
+  return { dialog, issueText: text, onSubmit };
+}
+
+it('a wall issue from the Validation list opens the wall through its floor', async () => {
+  const errors = [];
+  vi.spyOn(console, 'error').mockImplementation((...args) =>
+    errors.push(args.map(String).join(' '))
+  );
+  const { dialog, issueText, onSubmit } = await openWallIssue();
+  // The entry names where it is (floor, room, wall) and hides the generated data name.
+  expect(issueText).toMatch(/Ground Floor \/ Bedroom \/ W\d+/);
+  expect(issueText).not.toMatch(/wall_note_/);
+  const [wallName] = issueText.match(/W\d+/);
+  // The wall opens, titled by its label (the same name the issue gives it).
   expect(await dialog.findByText(wallName)).toBeTruthy();
   expect(dialog.queryByText(/^Walls \d+$/)).toBeNull();
   expect(onSubmit).not.toHaveBeenCalled();
   expect(errors.filter((error) => /does not belong/.test(error))).toEqual([]);
+});
+
+it('a wall value source tag sits inside its dropdown, as in text fields', async () => {
+  const { dialog } = await openWallIssue();
+  const [tag] = await dialog.findAllByText('Form default');
+  expect(tag.closest('[data-form0-dropdown]')).toBeTruthy();
 });

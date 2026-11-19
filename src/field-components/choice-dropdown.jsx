@@ -62,6 +62,7 @@ export function ChoiceDropdown({
   onClear,
   onFocus,
   onKeyDown,
+  adornment = null,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -232,6 +233,7 @@ export function ChoiceDropdown({
             {hasValue ? chosenLabels.join(', ') : placeholder}
           </span>
         </button>
+        {adornment ? <span className={styles.adornment}>{adornment}</span> : null}
         {hasValue && !disabled ? (
           <button
             type="button"

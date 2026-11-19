@@ -130,6 +130,14 @@ export const srOnly = style({
   border: 0,
 });
 
+// A mark inside the frame before the clear button, such as where a building plan value comes from.
+export const adornment = style({
+  flex: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  marginRight: '0.25rem',
+});
+
 export const clear = style({
   appearance: 'none',
   flex: 'none',

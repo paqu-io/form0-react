@@ -30,6 +30,7 @@ export function MultiChoiceFieldComponent({
   onKeyDown,
   readOnly,
   inputProps = {},
+  endAdornment = null,
 }) {
   const presentation = useBuildingPlanPresentation();
   const inputOnFocus = inputProps.onFocus;
@@ -192,6 +193,7 @@ export function MultiChoiceFieldComponent({
         onClear={() => emitChange(new Set(), '', false)}
         onFocus={inputOnFocus}
         onKeyDown={onKeyDown}
+        adornment={endAdornment}
       />
       {field.allow_other && showOtherInput && (
         <input
