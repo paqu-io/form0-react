@@ -1,4 +1,4 @@
-import React, { useId, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
 import * as styles from './form-renderer.css.js';
@@ -31,6 +31,16 @@ export function isRemoveEntryDialogEvent(event) {
 }
 
 /**
+ * Which of the dialog's shortcuts a key event is: Escape and Alt+Q cancel, Alt+Y removes.
+ * @param {KeyboardEvent} event
+ * @returns {'cancel' | 'confirm' | null}
+ */
+function shortcutOf(event) {
+  if (event.key === 'Escape' || (isPlainAlt(event) && isKey(event, 'KeyQ', 'q'))) return 'cancel';
+  return isPlainAlt(event) && isKey(event, 'KeyY', 'y') ? 'confirm' : null;
+}
+
+/**
  * Asks before an entry is removed, with the same words as on mobile. Cancel has the focus;
  * Escape and Alt+Q cancel, Alt+Y removes; focus stays in the dialog until it closes.
  * @param {{ entryTitle?: string, onCancel: () => void, onConfirm: () => void }} props
@@ -43,6 +53,24 @@ export function RemoveEntryDialog({ entryTitle, onCancel, onConfirm }) {
   const messageId = useId();
   useFocusTrap(true, dialogRef, { initialFocusRef: cancelRef });
   const prefix = altPrefix();
+  const actionsRef = useRef({ onCancel, onConfirm });
+  actionsRef.current = { onCancel, onConfirm };
+
+  // The dialog is modal: its shortcuts work wherever focus is while it is open, ahead of the
+  // form's own (a click on the page behind could leave focus outside it, 2026-11-19).
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onKeyDown = (event) => {
+      const action = shortcutOf(event);
+      if (!action) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (action === 'cancel') actionsRef.current.onCancel();
+      else actionsRef.current.onConfirm();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   if (typeof document === 'undefined') return null;
   return createPortal(
@@ -53,14 +81,9 @@ export function RemoveEntryDialog({ entryTitle, onCancel, onConfirm }) {
       aria-labelledby={titleId}
       aria-describedby={messageId}
       {...{ [DIALOG_ATTRIBUTE]: '' }}
-      onKeyDown={(event) => {
-        const cancel = event.key === 'Escape' || (isPlainAlt(event) && isKey(event, 'KeyQ', 'q'));
-        const confirm = !cancel && isPlainAlt(event) && isKey(event, 'KeyY', 'y');
-        if (!cancel && !confirm) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (cancel) onCancel();
-        else onConfirm();
+      // A press on the backdrop keeps focus in the dialog.
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) event.preventDefault();
       }}
     >
       <div className={`${styles.alertDialog} ${themeClass || ''}`} ref={dialogRef} tabIndex={-1}>

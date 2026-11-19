@@ -64,6 +64,24 @@ it('removes the entry once confirmed', async () => {
   await waitFor(() => expect(snapshots.mock.calls.at(-1)[0].repeatable.rows).toEqual([]));
 });
 
+it('takes its shortcuts wherever focus is while it is open', async () => {
+  const snapshots = await openList();
+  const trash = screen.getByRole('button', { name: 'Remove rows 1' });
+  fireEvent.click(trash);
+  // Focus left on the page behind (a click there): Alt+Q still cancels, Alt+Y still removes.
+  document.body.focus();
+  fireEvent.keyDown(document.body, { key: 'q', code: 'KeyQ', altKey: true });
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  expect(screen.getByRole('button', { name: 'rows 1', exact: true })).toBeTruthy();
+  fireEvent.click(trash);
+  const backdrop = screen.getByRole('alertdialog');
+  expect(fireEvent.mouseDown(backdrop)).toBe(false); // the press keeps focus in the dialog
+  document.body.focus();
+  fireEvent.keyDown(document.body, { key: 'y', code: 'KeyY', altKey: true });
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  await waitFor(() => expect(snapshots.mock.calls.at(-1)[0].repeatable.rows).toEqual([]));
+});
+
 it('offers no removal on a read-only record', async () => {
   await openList({ mode: 'readonly' });
   expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
