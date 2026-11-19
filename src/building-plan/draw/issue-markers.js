@@ -4,8 +4,8 @@
  * an opening's, column's or beam's centre, the top right of a room's name).
  */
 
-const OFFSET = 9; // screen px from the anchor, up and to the right
-const RADIUS = 7.5;
+const OFFSET = 11; // screen px from the anchor, up and to the right
+const RADIUS = 9.5;
 
 /** The point halfway along a polyline. */
 function polylineMiddle(points) {
@@ -93,7 +93,7 @@ export function drawFindingMarkers(ctx, anchors, { color, ground, zoom = 1 }) {
   ctx.setLineDash([]);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `700 ${11 * px}px Inter, system-ui, sans-serif`;
+  ctx.font = `700 ${13 * px}px Inter, system-ui, sans-serif`;
   for (const anchor of anchors) {
     const x = anchor.x + OFFSET * px;
     const y = anchor.y - OFFSET * px;

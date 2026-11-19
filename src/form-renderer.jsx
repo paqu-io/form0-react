@@ -6530,6 +6530,7 @@ function RepeatableEntryModal({
                     derivedCommands={modal.buildingPlanDerivedCommands === true}
                     viewOnly={buildingPlanModalContext.viewOnly === true}
                     highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
+                    focus={buildingPlanModalContext.highlight || null}
                     onSelectElement={planListKey ? markPlanRow : undefined}
                     findingScope={buildingPlanModalContext.findingScope || null}
                   />

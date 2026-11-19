@@ -15,6 +15,14 @@ export const DEFAULT_PLAN_THEME = Object.freeze({
   labelMuted: '#596373', // wall, opening, column and beam names
   overlay: 'rgba(246, 247, 249, 0.82)', // the "no floors" veil
   error: '#c4291c', // a refused edit: its ghost and the element in the way
+  // Scope levels (1e, V1): the room in scope's other walls and lines at half strength, and
+  // what lies outside it faint on the ground.
+  ground: '#f6f7f9', // the canvas behind the rooms
+  wallHalf: '#999b9f',
+  wallFaint: '#c7c9cc',
+  symbolHalf: '#8a8b8e',
+  symbolFaint: '#c0c1c4',
+  labelFaint: '#b2b4b7',
 });
 
 /**

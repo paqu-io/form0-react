@@ -13,6 +13,8 @@ import {
   refusalOutlines,
 } from '../draw/refusal-marks.js';
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
+import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js';
+import { drawWallFootprints } from '../draw/walls.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -27,6 +29,8 @@ const MODE_DRAW_DOOR = 'draw-door';
 const MODE_DRAW_WINDOW = 'draw-window';
 const MODE_DRAW_COLUMN = 'draw-column';
 const MODE_DRAW_BEAM = 'draw-beam';
+// The pointer over a faded element, outside the room in scope (1e, V1): a plain arrow.
+const FADED_HOVER = Object.freeze({ type: 'faded' });
 
 // Canvas units per metre: at 100% zoom a metre is 100 px, so a 1,000 to 1,500 px canvas shows 10
 // to 15 m, a usual floor plan. Labels, handles and pointer tolerances are in canvas units, so
@@ -321,6 +325,9 @@ export class BuildingPlanCanvas {
     this.mode = MODE_SELECT;
     // An element marked from outside (a view-only entry, a hovered list row): { collection, id }.
     this.highlight = null;
+    // The entry's own element (1e, V1), and the scope levels of the last render.
+    this.focus = null;
+    this.levels = null;
     // The view fits the plan once it has rooms and a size (on open, after a floor switch).
     this.fitPending = true;
     this.rooms = [];
@@ -1398,6 +1405,34 @@ export class BuildingPlanCanvas {
    * a hovered list row its own). It is applied again after every data refresh; null clears it.
    * @param {{ collection: 'walls'|'doors'|'windows'|'columns'|'beams'|'rooms', id: string } | null} highlight
    */
+  /**
+   * The entry's own element, { collection, id } (1e, V1): drawn in full, the rest of its room at
+   * half strength. Unlike `highlight`, a hovered list row doesn't change it.
+   */
+  setFocus(focus) {
+    this.focus = focus || null;
+    this.render();
+  }
+
+  /** How strongly an element is drawn (`draw/scope-levels.js`). */
+  levelOf(collection, entry) {
+    return (this.levels || NO_SCOPE).of(collection, entry);
+  }
+
+  /** Whether `point` lies on a faded room or wall, outside the room in scope. */
+  isFadedAt(point) {
+    if (!point || !this.levels) return false;
+    const faded = (collection, entry) => this.levelOf(collection, entry) === OUT;
+    return (
+      (this.rooms || []).some((room) => faded('rooms', room) && pointInRoom(point, room)) ||
+      (this.wallFootprints || []).some(
+        (wall) =>
+          faded('footprints', wall) &&
+          wall.polygons.some((vertices) => pointInRoom(point, { vertices }))
+      )
+    );
+  }
+
   setHighlight(highlight) {
     const previous = this.highlight;
     this.highlight = highlight || null;
@@ -1540,6 +1575,10 @@ export class BuildingPlanCanvas {
     }
     if (hover && hover.type === 'beam') {
       this.canvas.style.cursor = 'grab';
+      return;
+    }
+    if (hover && hover.type === 'faded') {
+      this.canvas.style.cursor = 'default';
       return;
     }
 
@@ -2055,7 +2094,11 @@ export class BuildingPlanCanvas {
     }
 
     // Block edits while retaining the existing pan gesture in every tool.
-    if (this.readOnly || this.mode === 'pin') return;
+    if (this.readOnly || this.mode === 'pin') {
+      if (this.mode === MODE_SELECT)
+        this.setHoverState(this.isFadedAt(this.getCanvasPoint(event)) ? FADED_HOVER : null);
+      return;
+    }
 
     const point = this.getCanvasPoint(event);
     if (['split', 'rejoin'].includes(this.mode)) {
@@ -2132,7 +2175,7 @@ export class BuildingPlanCanvas {
                       openingId: openingHit.openingId,
                     });
                   } else {
-                    this.setHoverState(null);
+                    this.setHoverState(this.isFadedAt(point) ? FADED_HOVER : null);
                   }
                 }
               }
@@ -3455,6 +3498,11 @@ export class BuildingPlanCanvas {
       return;
     }
 
+    this.levels = scopeLevels({
+      roomId: this.controller?.scope?.roomId || null,
+      focus: this.focus,
+      plan: this,
+    });
     this.rooms.forEach((room) => this.drawRoom(room));
 
     this.drawPhysicalWalls();
@@ -3537,7 +3585,8 @@ export class BuildingPlanCanvas {
     if (!this.ctx || !text) return null;
     const rect = this.computeLabelRect(text, anchor, options);
     if (!rect) return null;
-    const theme = this.planTheme;
+    // A faded element's name is grey on the ground (`options.theme`, 1e V1).
+    const theme = options.theme || this.planTheme;
     const scale = (options.scale || 1) / (this.zoomLevel || 1);
     drawPlanLabel(
       this.ctx,
@@ -3610,19 +3659,20 @@ export class BuildingPlanCanvas {
     if (!info) return;
     const ctx = this.ctx;
     const isSelected = this.selectedColumnId === column.id;
+    const tones = levelTheme(this.planTheme, this.levelOf('columns', column));
     ctx.save();
-    if (column.isDimmed) {
-      ctx.globalAlpha = 0.35;
-    }
     drawColumnSymbol(ctx, info.rect, {
-      theme: this.planTheme,
+      theme: tones,
       selected: isSelected,
       pixel: 1 / this.zoomLevel,
     });
     ctx.restore();
 
     if (this.shouldShowLabel('columns') && info.label) {
-      const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, { position: 'top' });
+      const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
+        position: 'top',
+        theme: tones,
+      });
       if (labelRect) {
         column._labelRect = labelRect;
       }
@@ -3681,12 +3731,10 @@ export class BuildingPlanCanvas {
     if (!info) return;
     const ctx = this.ctx;
     const isSelected = this.selectedBeamId === beam.id;
+    const tones = levelTheme(this.planTheme, this.levelOf('beams', beam));
     ctx.save();
-    if (beam.isDimmed) {
-      ctx.globalAlpha = 0.35;
-    }
     drawBeamSymbol(ctx, info.startPoint, info.endPoint, info.widthPx, {
-      theme: this.planTheme,
+      theme: tones,
       selected: isSelected,
       pixel: 1 / this.zoomLevel,
     });
@@ -3703,7 +3751,10 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     if (this.shouldShowLabel('beams') && info.label) {
-      const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, { position: 'top' });
+      const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
+        position: 'top',
+        theme: tones,
+      });
       if (labelRect) {
         beam._labelRect = labelRect;
       }
@@ -3912,7 +3963,8 @@ export class BuildingPlanCanvas {
     // the mark stands out.
     const marksElement = Boolean(this.highlight && this.highlight.collection !== 'rooms');
     const isSelected = this.selectedRoomId === room.id && !marksElement;
-    const isDimmed = Boolean(room.isDimmed);
+    const level = this.levelOf('rooms', room);
+    const faded = level === OUT;
 
     const theme = this.planTheme;
     ctx.save();
@@ -3923,24 +3975,25 @@ export class BuildingPlanCanvas {
       for (const vertex of vertices.slice(1)) ctx.lineTo(vertex.x, vertex.y);
       ctx.closePath();
     } else ctx.rect(rect.x, rect.y, rect.width, rect.height);
-    ctx.fillStyle = theme.room;
-    ctx.globalAlpha = isDimmed ? 0.55 : 1;
-    ctx.fill();
+    // A room outside the scope has no surface: the ground shows through (1e, V1).
+    if (!faded) {
+      ctx.fillStyle = theme.room;
+      ctx.fill();
+    }
     if (isSelected) {
       ctx.fillStyle = theme.accent;
       ctx.globalAlpha = 0.1;
       ctx.fill();
-    } else if (room.color && !isDimmed) {
+    } else if (room.color && !faded) {
       ctx.fillStyle = room.color;
       ctx.globalAlpha = 0.06;
       ctx.fill();
     }
 
-    ctx.globalAlpha = isDimmed ? 0.45 : 1;
-    ctx.lineWidth = isSelected ? 3 : 1.5;
-    ctx.strokeStyle = isSelected ? theme.accent : theme.wall;
-    ctx.stroke();
     ctx.globalAlpha = 1;
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.strokeStyle = isSelected ? theme.accent : levelTheme(theme, level).wall;
+    ctx.stroke();
 
     if (isSelected && !this.controller?.getCornerPlacement) {
       const handleSize = this.px(ROOM_HANDLE_SIZE);
@@ -3998,6 +4051,7 @@ export class BuildingPlanCanvas {
           position: 'center',
           scale: placement.scale,
           strong: true,
+          theme: levelTheme(theme, level),
         });
         if (labelRect) {
           room._labelRect = labelRect;
@@ -4019,34 +4073,11 @@ export class BuildingPlanCanvas {
   }
 
   drawPhysicalWalls() {
-    if (!this.wallFootprints) return;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.fillStyle = this.planTheme.wall;
-    ctx.strokeStyle = this.planTheme.wall;
-    ctx.beginPath();
-    for (const wall of this.wallFootprints) {
-      // Opaque fills compose valid junctions without double-stroked interior seams.
-      for (const polygon of wall.polygons) {
-        if (!polygon.length) continue;
-        ctx.moveTo(polygon[0].x, polygon[0].y);
-        for (const point of polygon.slice(1)) ctx.lineTo(point.x, point.y);
-        ctx.closePath();
-      }
-    }
-    ctx.fill();
-    for (const wall of this.wallFootprints) {
-      for (const segment of wall.schematicSegments) {
-        ctx.beginPath();
-        ctx.setLineDash([4, 3]);
-        ctx.lineWidth = 1 / this.zoomLevel;
-        ctx.moveTo(segment.points[0].x, segment.points[0].y);
-        ctx.lineTo(segment.points[1].x, segment.points[1].y);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-    }
-    ctx.restore();
+    drawWallFootprints(this.ctx, this.wallFootprints, {
+      theme: this.planTheme,
+      levelOf: (wall) => this.levelOf('footprints', wall),
+      zoom: this.zoomLevel,
+    });
   }
 
   drawOpenings() {
@@ -4077,7 +4108,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     const points = this.getRenderedWallPoints(wall);
     if (!Array.isArray(points) || points.length < 2) return;
-    const isDimmed = Boolean(wall.isDimmed);
+    const tones = levelTheme(this.planTheme, this.levelOf('walls', wall));
     const start = points[0];
     const end = points[points.length - 1] || points[0];
 
@@ -4086,11 +4117,8 @@ export class BuildingPlanCanvas {
     wall._labelRect = null;
 
     ctx.save();
-    ctx.strokeStyle = this.selectedWallId === wall.id ? this.planTheme.accent : this.planTheme.wall;
+    ctx.strokeStyle = this.selectedWallId === wall.id ? this.planTheme.accent : tones.wall;
     ctx.lineWidth = this.selectedWallId === wall.id ? 6 : 3;
-    if (isDimmed) {
-      ctx.globalAlpha = 0.35;
-    }
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
     for (let i = 1; i < points.length; i += 1) {
@@ -4135,7 +4163,7 @@ export class BuildingPlanCanvas {
         const labelRect = this.drawLabelBadge(
           labelText,
           { x: anchor.x, y: anchor.y - offset },
-          { position: 'top' }
+          { position: 'top', theme: tones }
         );
         if (labelRect) {
           wall._labelRect = labelRect;
@@ -4254,15 +4282,12 @@ export class BuildingPlanCanvas {
     const isDimmed = Boolean(opening.isDimmed);
 
     ctx.save();
-    if (isDimmed) {
-      ctx.globalAlpha = 0.4;
-    }
     // The opening occupies its host's full band when the wall is physical.
     const thickness =
       opening.physical?.thickness > 0 ? opening.physical.thickness * this.gridSize : lineWidth;
     (isDoor ? drawDoorSymbol : drawWindowSymbol)(ctx, geometry, {
       thickness,
-      theme: this.planTheme,
+      theme: levelTheme(this.planTheme, this.levelOf(isDoor ? 'doors' : 'windows', opening)),
       selected: isSelected,
       pixel: 1 / this.zoomLevel,
     });

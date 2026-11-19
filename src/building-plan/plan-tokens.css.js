@@ -21,6 +21,12 @@ export const planVars = {
   labelMuted: createVar(),
   overlay: createVar(),
   error: createVar(),
+  ground: createVar(),
+  wallHalf: createVar(),
+  wallFaint: createVar(),
+  symbolHalf: createVar(),
+  symbolFaint: createVar(),
+  labelFaint: createVar(),
 };
 
 export const planTokens = style({
@@ -36,5 +42,12 @@ export const planTokens = style({
     [planVars.labelMuted]: derived.muted,
     [planVars.overlay]: mix(section, 82, 'transparent'),
     [planVars.error]: vars.color.error,
+    // Scope levels (1e, V1): half strength over the room surface, faint over the ground.
+    [planVars.ground]: section,
+    [planVars.wallHalf]: mix(planVars.wall, 50, background),
+    [planVars.wallFaint]: mix(planVars.wall, 24, section),
+    [planVars.symbolHalf]: mix(foreground, 50, background),
+    [planVars.symbolFaint]: mix(foreground, 24, section),
+    [planVars.labelFaint]: mix(foreground, 30, section),
   },
 });

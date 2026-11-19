@@ -52,6 +52,9 @@ export function BuildingPlanCanvasHost({
   viewOnly = false,
   // An element to mark, { collection, id } (the entry's own, or a hovered list row's).
   highlight = null,
+  // The entry's own element, { collection, id }: drawn in full, the rest of its room at half
+  // strength, the rest faded (scope levels, 1e V1).
+  focus = null,
   // Told the element selected on the canvas, { collection, entry } or null (to mark its row).
   onSelectElement,
   // The rows whose validation findings this canvas shows (an id path: an entry's floor or room);
@@ -63,6 +66,8 @@ export function BuildingPlanCanvasHost({
   const locked = readOnly || viewOnly;
   const highlightRef = useRef(highlight);
   highlightRef.current = highlight;
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
   const presentation = useBuildingPlanPresentation();
   const presentationRef = useRef(presentation);
   presentationRef.current = presentation;
@@ -236,6 +241,7 @@ export function BuildingPlanCanvasHost({
     if (earlyIssues) canvas.receiveIssues(earlyIssues);
     canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
     canvas.setHighlight(highlightRef.current || null);
+    canvas.setFocus(focusRef.current || null);
     canvas.setFindingMarkers(findingMarkersRef.current);
     canvas.onSelect = (selection) => onSelectRef.current?.(selection);
     const changeMode = canvas.setMode.bind(canvas);
@@ -387,6 +393,10 @@ export function BuildingPlanCanvasHost({
   useEffect(() => {
     canvasRef.current?.setHighlight?.(highlight || null);
   }, [highlight?.collection, highlight?.id]);
+
+  useEffect(() => {
+    canvasRef.current?.setFocus?.(focus || null);
+  }, [focus?.collection, focus?.id]);
 
   // Sync readOnly state to canvas when it changes
   useEffect(() => {
