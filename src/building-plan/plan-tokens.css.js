@@ -20,6 +20,7 @@ export const planVars = {
   label: createVar(),
   labelMuted: createVar(),
   overlay: createVar(),
+  error: createVar(),
 };
 
 export const planTokens = style({
@@ -34,5 +35,6 @@ export const planTokens = style({
     [planVars.label]: foreground,
     [planVars.labelMuted]: derived.muted,
     [planVars.overlay]: mix(section, 82, 'transparent'),
+    [planVars.error]: vars.color.error,
   },
 });

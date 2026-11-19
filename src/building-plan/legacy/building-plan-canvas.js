@@ -4,8 +4,8 @@ import {
   createBuildingPlanPresentation,
 } from 'form0-core';
 import { DEFAULT_PLAN_THEME } from '../draw/plan-theme.js';
-import { planTextParts } from '../plan-text.js';
-import { isMacPlatform } from '../plan-shortcuts.js';
+import { groupPlanMessages } from '../plan-messages.js';
+import { drawRefusalMarks, refusalGhost, refusalOutlines } from '../draw/refusal-marks.js';
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import {
   drawBeamSymbol,
@@ -276,6 +276,10 @@ function roundPoints(points, decimals = ROUND_DECIMALS) {
   return Array.isArray(points) ? points.map((point) => roundPointValues(point, decimals)) : [];
 }
 
+// The canvas last touched: Esc dismisses its refusal, and no other canvas's (a plan page under a
+// dialog keeps its own message).
+let activeCanvas = null;
+
 export class BuildingPlanCanvas {
   constructor({
     container,
@@ -285,10 +289,21 @@ export class BuildingPlanCanvas {
     externalToolbar = false,
     readOnly = false,
     onFloorTabs = null,
+    onStatus = null,
+    onMessages = null,
   }) {
     this.container = container;
     // With an external toolbar the host draws the floor tabs from this report.
     this.onFloorTabs = typeof onFloorTabs === 'function' ? onFloorTabs : null;
+    // ...and the status line: the tool's hint (onStatus) and an edit core refused (onMessages).
+    this.onStatus = typeof onStatus === 'function' ? onStatus : null;
+    this.onMessages = typeof onMessages === 'function' ? onMessages : null;
+    // A refused edit (1e): its messages, the one shown, and where the gesture would have put the
+    // element (the ghost of the running gesture, and the one kept with the messages).
+    this.messages = [];
+    this.messageIndex = 0;
+    this.gestureGhost = null;
+    this.messageGhost = null;
     this.controller = controller;
     this.presentation = presentation || createBuildingPlanPresentation();
     this.labelSettings = { ...DEFAULT_LABEL_SETTINGS, ...labelSettings };
@@ -356,6 +371,7 @@ export class BuildingPlanCanvas {
     this.canvas?.removeEventListener('pointercancel', this.boundPointerCancel);
     this.canvas?.removeEventListener('lostpointercapture', this.boundLostCapture);
     window.removeEventListener('keydown', this.boundGestureKey, true);
+    if (activeCanvas === this) activeCanvas = null;
     window.removeEventListener('resize', this.boundResizeHandler);
     this.pixelRatioQuery?.removeEventListener?.('change', this.boundPixelRatioChange);
     this.pixelRatioQuery = null;
@@ -715,13 +731,10 @@ export class BuildingPlanCanvas {
     this.container.appendChild(this.cornerToolbar);
   }
 
-  /** A quiet line over the canvas's bottom-left corner saying what the current tool does. */
+  /** The host shows the status line (plan-status.jsx); the canvas reports what goes in it. */
   buildStatusLine() {
-    this.statusLine = document.createElement('div');
-    this.statusLine.className = 'building-plan-status';
-    this.statusLine.setAttribute('aria-live', 'polite');
+    this.reportsStatus = true;
     this.statusKey = undefined;
-    this.canvasContainer.appendChild(this.statusLine);
   }
 
   /** The status text for the current tool, or null for drawing tools (they say nothing yet). */
@@ -734,22 +747,64 @@ export class BuildingPlanCanvas {
   }
 
   updateStatusLine() {
-    if (!this.statusLine) return;
+    if (!this.reportsStatus) return;
     const key = this.statusTextKey();
     if (key === this.statusKey) return;
     this.statusKey = key;
-    this.statusLine.hidden = !key;
-    this.statusLine.replaceChildren();
-    if (!key) return;
-    const mac = isMacPlatform();
-    const keyCaps = { alt: mac ? '⌥' : 'Alt', shift: mac ? '⇧' : 'Shift' };
-    for (const part of planTextParts(key)) {
-      if (part.key) {
-        const cap = document.createElement('kbd');
-        cap.textContent = keyCaps[part.key] || part.key;
-        this.statusLine.appendChild(cap);
-      } else this.statusLine.appendChild(document.createTextNode(part.text));
+    this.onStatus?.(key);
+  }
+
+  /**
+   * Issues from the controller (an edit core refused) or the host (undo / redo), grouped by
+   * message; an empty list clears them. A refusal reported during a gesture keeps where the
+   * gesture would have put the element, until the next gesture, × or Esc (1e).
+   */
+  receiveIssues(issues) {
+    const messages = groupPlanMessages(issues);
+    if (!messages.length && !this.messages.length) return;
+    const same =
+      messages.length === this.messages.length &&
+      messages.every((entry, index) => entry.message === this.messages[index].message);
+    this.messages = messages;
+    this.messageGhost = messages.length ? this.gestureGhost : null;
+    if (!same) {
+      this.messageIndex = 0;
+      this.reportMessages();
     }
+    this.render();
+  }
+
+  /** Shows message `index` of several (it wraps), with its outline. */
+  showMessage(index) {
+    const count = this.messages.length;
+    if (!count) return;
+    this.messageIndex = ((index % count) + count) % count;
+    this.reportMessages();
+    this.render();
+  }
+
+  dismissMessages() {
+    this.receiveIssues([]);
+  }
+
+  reportMessages() {
+    const current = this.messages[this.messageIndex];
+    this.onMessages?.({
+      messages: this.messages.map((entry) => entry.message),
+      index: this.messageIndex,
+      codes: [...new Set((current?.issues || []).map((issue) => issue.code).filter(Boolean))],
+    });
+  }
+
+  /** The ghost, and the outline of the elements the message shown names, over everything. */
+  drawRefusal() {
+    if (!this.messages.length) return;
+    drawRefusalMarks(this.ctx, {
+      ghost: this.messageGhost,
+      outlines: refusalOutlines(this, this.messages[this.messageIndex]?.issues),
+      color: this.planTheme.error,
+      zoom: this.zoomLevel,
+    });
   }
 
   cornerAt(point) {
@@ -1053,6 +1108,8 @@ export class BuildingPlanCanvas {
         ])
       );
       this.pendingFocus = null;
+      activeCanvas = this;
+      this.gestureGhost = null;
       this.controller?.clearPreview?.({ clearIssues: true });
       this.controller?.interaction?.begin();
       this.canvas.setPointerCapture?.(event.pointerId);
@@ -1065,6 +1122,8 @@ export class BuildingPlanCanvas {
       this.pendingMove = null;
       if (event) {
         this.handleMouseMove(event);
+        // Kept before the previews: a refused one shows it (receiveIssues).
+        this.gestureGhost = refusalGhost(this);
         if (this.cornerDragState?.moved && this.cornerDragState.previewPoint) {
           const state = this.cornerDragState;
           this.controller.previewCorner(state.roomId, state.id, state.previewPoint);
@@ -1124,6 +1183,7 @@ export class BuildingPlanCanvas {
         } else await this.handleMouseUp(event);
       } finally {
         this.controller?.clearPreview?.();
+        this.gestureGhost = null;
       }
     };
     this.boundDoubleClick = () => {
@@ -1150,6 +1210,7 @@ export class BuildingPlanCanvas {
       if (this.moveFrame != null) cancelAnimationFrame(this.moveFrame);
       this.moveFrame = null;
       this.handleMouseLeave();
+      this.gestureGhost = null;
       this.controller?.clearPreview?.({ clearIssues: true });
     };
     this.boundGestureKey = (event) => {
@@ -1161,6 +1222,10 @@ export class BuildingPlanCanvas {
         event.stopPropagation();
         this.boundPointerCancel();
         if (['split', 'rejoin', 'pin'].includes(this.mode)) this.setMode(MODE_SELECT);
+      } else if (event.key === 'Escape' && this.messages.length && activeCanvas === this) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dismissMessages();
       }
     };
     this.canvas.addEventListener('pointercancel', this.boundPointerCancel);
@@ -3374,6 +3439,8 @@ export class BuildingPlanCanvas {
       this.drawDraftRoom(snapped);
     }
 
+    this.drawRefusal();
+
     // Reset transform for any subsequent operations
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
@@ -3659,6 +3726,7 @@ export class BuildingPlanCanvas {
     this.selectedRoomId = null;
     this.selectedWallId = null;
     this.wallDragState = null;
+    this.dismissMessages();
     this.activeFloorIndex = index;
     this.renderFloorTabs();
     if (this.controller && typeof this.controller.setActiveFloor === 'function') {

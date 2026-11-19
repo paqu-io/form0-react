@@ -14,6 +14,7 @@ export const DEFAULT_PLAN_THEME = Object.freeze({
   label: '#14171c', // room names
   labelMuted: '#596373', // wall, opening, column and beam names
   overlay: 'rgba(246, 247, 249, 0.82)', // the "no floors" veil
+  error: '#c4291c', // a refused edit: its ghost and the element in the way
 });
 
 /**

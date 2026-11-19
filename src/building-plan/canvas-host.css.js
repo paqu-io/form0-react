@@ -21,12 +21,11 @@ globalStyle('.building-plan-canvas-host', {
 // A view-only canvas has no tool rail.
 globalStyle('.building-plan-canvas-host--view', { gridTemplateColumns: 'minmax(0, 1fr)' });
 
-globalStyle(
-  '.building-plan-canvas-host > .building-plan-toolbar, .building-plan-canvas-host > .building-plan-conflict',
-  { gridColumn: '1 / -1', minWidth: 0, overflowWrap: 'anywhere' }
-);
-
-globalStyle('.building-plan-conflict', { color: vars.color.error, fontSize: '13px' });
+globalStyle('.building-plan-canvas-host > .building-plan-toolbar', {
+  gridColumn: '1 / -1',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
+});
 
 // The card around the floor tab row and the canvas.
 globalStyle('.building-plan-canvas-panel-wrapper', {
@@ -214,34 +213,6 @@ globalStyle('.building-plan-floor-placeholder', {
 });
 
 globalStyle('.building-plan-floor-placeholder::before', { content: '"+"', fontWeight: 600 });
-
-// What the current tool does, over the canvas's bottom-left corner.
-globalStyle('.building-plan-status', {
-  position: 'absolute',
-  left: '8px',
-  bottom: '8px',
-  maxWidth: 'calc(100% - 200px)',
-  padding: '5px 9px',
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: '8px',
-  background: `color-mix(in srgb, ${vars.color.background} 88%, transparent)`,
-  color: derived.muted,
-  fontSize: '12px',
-  lineHeight: 1.35,
-  pointerEvents: 'none',
-});
-
-globalStyle('.building-plan-status[hidden]', { display: 'none' });
-
-globalStyle('.building-plan-status kbd', {
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-  fontSize: '10.5px',
-  padding: '1px 4px',
-  borderRadius: '4px',
-  border: `1px solid ${derived.borderStrong}`,
-  background: derived.fill,
-  color: vars.color.foreground,
-});
 
 // The split distance while Split is the tool, floating over the canvas's top-left corner.
 globalStyle('.building-plan-cut-bar', {

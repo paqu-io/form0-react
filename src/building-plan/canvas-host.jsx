@@ -8,6 +8,7 @@ import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES, getCapabilitiesForMode } from './toolbar/toolbar-config.js';
 import { PlanTooltip } from './plan-tooltip.jsx';
 import { FloorTabs } from './floor-tabs.jsx';
+import { PlanStatus } from './plan-status.jsx';
 import { isPlanShortcutEvent, planShortcutKey } from './plan-shortcuts.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
@@ -21,6 +22,8 @@ const EDITING_POLICY = Object.freeze({
   edgeAutoPan: true,
   copyCustomAnswersAutomatically: true,
 });
+// The status line before the canvas reports anything.
+const NO_STATUS = Object.freeze({ hintKey: null, messages: [], index: 0, codes: [] });
 // The canvas shows room names only.
 const LABEL_SETTINGS = Object.freeze({
   rooms: true,
@@ -78,7 +81,8 @@ export function BuildingPlanCanvasHost({
 
   // Track zoom level for the zoom controls
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [issues, setIssues] = useState([]);
+  // The status line: the tool's hint, and an edit core refused (reported by the canvas).
+  const [status, setStatus] = useState(NO_STATUS);
   // The floors the canvas shows, reported by the canvas for the tab row.
   const [floorTabs, setFloorTabs] = useState([]);
 
@@ -139,6 +143,10 @@ export function BuildingPlanCanvasHost({
       repeatableApiRef,
     });
 
+    // Issues go to the canvas, which keeps them with the gesture that caused them; any reported
+    // before the canvas exists are handed over once it does.
+    let canvas = null;
+    let earlyIssues = null;
     const controller =
       metaEntry?.version === 2
         ? new BuildingPlanCanvasController({
@@ -154,7 +162,10 @@ export function BuildingPlanCanvasHost({
             writeRecord: (record, command) =>
               repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
             focusRow: (path) => repeatableApiRef.current.focusRow?.(path),
-            reportIssues: setIssues,
+            reportIssues: (issues) => {
+              if (canvas) canvas.receiveIssues(issues);
+              else earlyIssues = issues;
+            },
             readOnly: () => canvasRef.current?.readOnly || mode === 'parent',
           })
         : new LegacyBuildingPlanController(
@@ -187,7 +198,7 @@ export function BuildingPlanCanvasHost({
       controller.scope = scope;
     }
 
-    const canvas = new LegacyBuildingPlanCanvas({
+    canvas = new LegacyBuildingPlanCanvas({
       presentation: presentationRef.current,
       container,
       controller,
@@ -195,7 +206,11 @@ export function BuildingPlanCanvasHost({
       externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
       readOnly: locked, // Disable canvas interactions in view mode and in view-only entries
       onFloorTabs: ({ tabs }) => setFloorTabs(tabs),
+      onStatus: (hintKey) => setStatus((current) => ({ ...current, hintKey })),
+      onMessages: ({ messages, index, codes }) =>
+        setStatus((current) => ({ ...current, messages, index, codes })),
     });
+    if (earlyIssues) canvas.receiveIssues(earlyIssues);
     canvas.setTheme(resolvePlanTheme(hostRef.current, planVars));
     canvas.setHighlight(highlightRef.current || null);
     canvas.onSelect = (selection) => onSelectRef.current?.(selection);
@@ -267,6 +282,7 @@ export function BuildingPlanCanvasHost({
     return () => {
       canvas?.destroy?.();
       controller?.dispose?.();
+      setStatus(NO_STATUS);
     };
     // A controller keeps the engine it started with: a new engine needs a new controller.
   }, [section, buildingPlanMeta, derivedCommands]);
@@ -318,12 +334,12 @@ export function BuildingPlanCanvasHost({
   const undo = useCallback(() => {
     const api = repeatableApiRef.current;
     const result = api?.editor?.undo({ scopeId: api.scopeId });
-    if (result) setIssues(result.issues);
+    if (result) canvasRef.current?.receiveIssues(result.issues);
   }, []);
   const redo = useCallback(() => {
     const api = repeatableApiRef.current;
     const result = api?.editor?.redo({ scopeId: api.scopeId });
-    if (result) setIssues(result.issues);
+    if (result) canvasRef.current?.receiveIssues(result.issues);
   }, []);
   useEffect(() => {
     if (!editor || locked || typeof window === 'undefined') return undefined;
@@ -388,6 +404,14 @@ export function BuildingPlanCanvasHost({
           }
         />
         <div ref={containerRef} className="building-plan-canvas-panel" />
+        <PlanStatus
+          hintKey={status.hintKey}
+          messages={status.messages}
+          index={status.index}
+          codes={status.codes}
+          onStep={() => canvasRef.current?.showMessage(status.index + 1)}
+          onDismiss={() => canvasRef.current?.dismissMessages()}
+        />
         <ZoomControls
           zoomLevel={zoomLevel}
           onZoomIn={handleZoomIn}
@@ -395,15 +419,6 @@ export function BuildingPlanCanvasHost({
           onReset={handleZoomReset}
         />
       </div>
-      {issues.length > 0 && (
-        <div
-          role="status"
-          className="building-plan-conflict"
-          data-diagnostics={JSON.stringify(issues)}
-        >
-          {issues[0].message}
-        </div>
-      )}
       <PlanTooltip hostRef={hostRef} />
     </div>
   );
