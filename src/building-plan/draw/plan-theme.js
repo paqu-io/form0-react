@@ -4,7 +4,7 @@
  * to the canvas; these defaults are the light theme's, used until then and in tests.
  */
 export const DEFAULT_PLAN_THEME = Object.freeze({
-  wall: '#33373e', // walls and columns: the cut, solid
+  wall: '#33373e', // walls (the cut, solid) and columns' outlines and diagonals
   room: '#ffffff', // room surface and the gap of an opening
   symbol: '#14171c', // door and window lines, beams, drafts
   accent: '#2356d8', // every selection, handles, guides

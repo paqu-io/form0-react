@@ -79,20 +79,31 @@ export function drawWindowSymbol(ctx, geometry, options) {
 }
 
 /**
- * A column: filled like a wall; outlined in the accent when selected.
+ * A column, cut by the plan, as the toolbar icon draws it: its outline and both diagonals in the
+ * wall's tone, on the room's surface; the outline in the accent when selected. (Filled like a
+ * wall, a column flush against one read as a notch in it: unit 3, 2026-11-20.)
  * @param {CanvasRenderingContext2D} ctx
  * @param {{x:number,y:number,width:number,height:number}} rect
  * @param {{ theme: Record<string,string>, selected?: boolean, pixel: number }} options
  */
 export function drawColumnSymbol(ctx, rect, { theme, selected, pixel }) {
+  const { x, y, width, height } = rect;
   ctx.save();
-  ctx.fillStyle = theme.wall;
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-  if (selected) {
-    ctx.strokeStyle = theme.accent;
-    ctx.lineWidth = 2 * pixel;
-    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-  }
+  ctx.fillStyle = theme.room;
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = theme.wall;
+  ctx.lineWidth = 1.5 * pixel;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + width, y + height);
+  ctx.moveTo(x + width, y);
+  ctx.lineTo(x, y + height);
+  ctx.stroke();
+  // Inside its edges, so a column flush against a wall keeps its outline.
+  const line = (selected ? 2 : 1.5) * pixel;
+  ctx.strokeStyle = selected ? theme.accent : theme.wall;
+  ctx.lineWidth = line;
+  ctx.strokeRect(x + line / 2, y + line / 2, width - line, height - line);
   ctx.restore();
 }
 
