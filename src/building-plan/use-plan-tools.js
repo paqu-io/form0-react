@@ -3,9 +3,11 @@ import { useCallback } from 'react';
 /**
  * The toolbar's and the zoom pill's handlers for a plan canvas (moved out of
  * `canvas-host.jsx`).
- * @param {{ canvasRef: { current: object }, setActiveToolMode: (mode: string) => void }} options
+ * @param {{ canvasRef: { current: object }, setActiveToolMode: (mode: string) => void,
+ *   waitingRef?: { current: Record<string, string> } }} options `waitingRef`: the commands
+ *   waiting for a selection, with their hints
  */
-export function usePlanTools({ canvasRef, setActiveToolMode }) {
+export function usePlanTools({ canvasRef, setActiveToolMode, waitingRef = { current: {} } }) {
   // Handle tool mode change from the new toolbar
   const handleModeChange = useCallback((newMode) => {
     setActiveToolMode(newMode);
@@ -45,5 +47,21 @@ export function usePlanTools({ canvasRef, setActiveToolMode }) {
     if (!canvas.fitToContent?.()) canvas.resetZoom?.();
   }, []);
 
-  return { handleModeChange, handleClearSelection, handleZoomIn, handleZoomOut, handleZoomReset };
+  // "Add door", "Add window", "Add column" (3b): adds, or says what to select first.
+  const handleCommand = useCallback((button) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const hint = waitingRef.current?.[button.id];
+    if (hint) canvas.showHint?.(hint);
+    else canvas.addElement?.(button.command);
+  }, []);
+
+  return {
+    handleModeChange,
+    handleClearSelection,
+    handleCommand,
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomReset,
+  };
 }

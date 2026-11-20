@@ -29,6 +29,15 @@ const TEXT = {
   // After a free wall's field label: a free wall stands in its room, so both sides face it.
   'plan.side.this': 'This side',
   'plan.side.other': 'Other side',
+  // Select, then add (3b): the commands, what they need, and where nothing fits.
+  'plan.tool.door': 'Add door',
+  'plan.tool.window': 'Add window',
+  'plan.tool.column': 'Add column',
+  'plan.add.doorNeedsWall': 'Select a wall to add a door',
+  'plan.add.windowNeedsWall': 'Select a wall to add a window',
+  'plan.add.noRoomDoor': 'No room for a door on this wall',
+  'plan.add.noRoomWindow': 'No room for a window on this wall',
+  'plan.add.noRoomColumn': 'No room for a column here',
 };
 
 /**

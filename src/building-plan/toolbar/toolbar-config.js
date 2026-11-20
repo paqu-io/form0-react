@@ -1,3 +1,5 @@
+import { planText } from '../plan-text.js';
+
 /**
  * Toolbar configuration for BuildingPlan canvas.
  * Defines buttons, shortcuts, icons, and per-mode visibility/enabled rules.
@@ -120,12 +122,13 @@ export const TOOLBAR_BUTTONS = [
     stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
   {
+    // Select, then add (3b): a command, not a mode; it adds at the insertion mark.
     id: 'column',
-    label: 'Column',
+    label: planText('plan.tool.column'),
     icon: 'Column',
     shortcutKey: 'O',
-    mode: TOOL_MODES.DRAW_COLUMN,
-    isAction: false,
+    command: 'column',
+    isAction: true,
     group: 'structural',
     stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
@@ -142,21 +145,21 @@ export const TOOLBAR_BUTTONS = [
   // Openings
   {
     id: 'door',
-    label: 'Door',
+    label: planText('plan.tool.door'),
     icon: 'DoorOpen',
     shortcutKey: 'D',
-    mode: TOOL_MODES.DRAW_DOOR,
-    isAction: false,
+    command: 'door',
+    isAction: true,
     group: 'openings',
     stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },
   {
     id: 'window',
-    label: 'Window',
+    label: planText('plan.tool.window'),
     icon: 'Grid2x2',
     shortcutKey: 'I',
-    mode: TOOL_MODES.DRAW_WINDOW,
-    isAction: false,
+    command: 'window',
+    isAction: true,
     group: 'openings',
     stateByCanvasMode: enabledIn(CANVAS_MODES.ROOM),
   },

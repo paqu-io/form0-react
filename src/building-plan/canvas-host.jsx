@@ -11,6 +11,7 @@ import { usePlanIssues } from './use-plan-issues.js';
 import { usePlanHistory } from './use-plan-history.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { mountPlanCanvas } from './canvas-host-mount.js';
+import { waitingCommands } from './add-elements.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
 import { useThemeClass } from '../theme-context.jsx';
@@ -79,6 +80,11 @@ export function BuildingPlanCanvasHost({
   const [status, setStatus] = useState(NO_STATUS);
   // The floors the canvas shows, reported by the canvas for the tab row.
   const [floorTabs, setFloorTabs] = useState([]);
+  // The selected element's collection, for the commands that need one (3b: a door needs a wall).
+  const [selected, setSelected] = useState(null);
+  const waiting = useMemo(() => waitingCommands(selected), [selected]);
+  const waitingRef = useRef(waiting);
+  waitingRef.current = waiting;
 
   // Validation findings (1e, M2): listed from the floor row, marked on their elements.
   const floorsKey = useMemo(
@@ -98,8 +104,14 @@ export function BuildingPlanCanvasHost({
   const findingMarkersRef = useRef(planIssues.markers);
   findingMarkersRef.current = planIssues.markers;
 
-  const { handleModeChange, handleClearSelection, handleZoomIn, handleZoomOut, handleZoomReset } =
-    usePlanTools({ canvasRef, setActiveToolMode });
+  const {
+    handleModeChange,
+    handleClearSelection,
+    handleCommand,
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomReset,
+  } = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;
@@ -131,7 +143,7 @@ export function BuildingPlanCanvasHost({
         findingMarkersRef,
         onSelectRef,
       },
-      on: { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel },
+      on: { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected },
     });
 
     controllerRef.current = controller;
@@ -230,6 +242,8 @@ export function BuildingPlanCanvasHost({
           activeToolMode={activeToolMode}
           onModeChange={handleModeChange}
           onClearSelection={handleClearSelection}
+          onCommand={handleCommand}
+          unavailable={waiting}
           disabled={locked}
         />
       )}

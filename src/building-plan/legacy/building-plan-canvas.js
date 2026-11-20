@@ -18,6 +18,11 @@ import { drawWallFootprints } from '../draw/walls.js';
 import { nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
 import { columnWallValues, snapColumnCentre } from '../column-placement.js';
+import { markFromClick } from '../insertion-mark.js';
+import { columnStretch, keepInStretch } from '../opening-clear.js';
+import { addPlanElement } from '../add-elements.js';
+import { drawInsertionMark } from '../draw/insertion-mark.js';
+import { planText } from '../plan-text.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -643,6 +648,8 @@ export class BuildingPlanCanvas {
   }
 
   setMode(mode) {
+    this.insertionMark = null;
+    this.hintOverride = null;
     this.cornerDragState = null;
     this.pinTarget = null;
     this.cutGesture = false;
@@ -757,6 +764,7 @@ export class BuildingPlanCanvas {
 
   /** The status text for the current tool, or null for drawing tools (they say nothing yet). */
   statusTextKey() {
+    if (this.hintOverride) return this.hintOverride;
     if (this.mode === 'split') return 'plan.status.split';
     if (this.mode === 'rejoin') return 'plan.status.rejoin';
     if (this.mode === 'pin') return 'plan.status.pin';
@@ -845,6 +853,7 @@ export class BuildingPlanCanvas {
     const field = target && HIGHLIGHT_FIELDS[target.collection];
     const entry = field && (this[target.collection] || []).find((item) => item.id === target.id);
     if (!entry) return false;
+    this.insertionMark = null;
     for (const other of Object.values(HIGHLIGHT_FIELDS)) this[other] = null;
     this[field] = target.id;
     if (target.collection !== 'rooms' && entry.roomId) this.selectedRoomId = entry.roomId;
@@ -1169,6 +1178,12 @@ export class BuildingPlanCanvas {
       this.pendingFocus = null;
       activeCanvas = this;
       this.gestureGhost = null;
+      // Where the press landed, for the insertion mark (3b); a hint a command showed goes.
+      this.pressPoint = this.getCanvasPoint(event);
+      if (this.hintOverride) {
+        this.hintOverride = null;
+        this.updateStatusLine();
+      }
       this.controller?.clearPreview?.({ clearIssues: true });
       this.controller?.interaction?.begin();
       this.canvas.setPointerCapture?.(event.pointerId);
@@ -1181,6 +1196,11 @@ export class BuildingPlanCanvas {
       this.pendingMove = null;
       if (event) {
         this.handleMouseMove(event);
+        // A drag or resize that starts takes the insertion mark away (3b).
+        if (this.insertionMark && this.gestureMoved()) {
+          this.insertionMark = null;
+          this.render();
+        }
         // Kept before the previews: a refused one shows it (receiveIssues).
         this.gestureGhost = refusalGhost(this);
         if (this.cornerDragState?.moved && this.cornerDragState.previewPoint) {
@@ -1223,14 +1243,7 @@ export class BuildingPlanCanvas {
       this.activePointerId = null;
       this.stopEdgePan();
       this.canvas.releasePointerCapture?.(event.pointerId);
-      const moved = [
-        this.dragState,
-        this.cornerDragState,
-        this.wallDragState,
-        this.columnDragState,
-        this.beamDragState,
-        this.openingDragState,
-      ].some((state) => state?.moved);
+      const moved = this.gestureMoved();
       // A click only selects; a double-click opens the clicked item's row (boundDoubleClick).
       this.clickFocus = moved ? null : this.pendingFocus;
       this.pendingFocus = null;
@@ -1239,7 +1252,12 @@ export class BuildingPlanCanvas {
           if (this.pinTarget && this.cutAllowed()) this.controller.toggleWallPin(this.pinTarget);
           this.pinTarget = null;
           this.render();
-        } else await this.handleMouseUp(event);
+        } else {
+          await this.handleMouseUp(event);
+          // A click on one of the room's walls, or inside it, leaves the insertion mark there.
+          this.insertionMark = moved ? null : markFromClick(this, this.pressPoint);
+          this.render();
+        }
       } finally {
         this.controller?.clearPreview?.();
         this.gestureGhost = null;
@@ -1631,6 +1649,7 @@ export class BuildingPlanCanvas {
   }
 
   clearSelection() {
+    this.insertionMark = null;
     this.selectedRoomId = null;
     this.selectedWallId = null;
     this.selectedDoorId = null;
@@ -2055,6 +2074,13 @@ export class BuildingPlanCanvas {
       // Openings follow `canMove`; the whole room moves only where `canMoveRoom` (a floor canvas).
       if (!caps.canMoveRoom) {
         this.pendingFocus = () => this.controller?.focusRoom(room.id);
+        // In the room's own entry, a click on its floor puts the insertion mark there (3b), so
+        // an element selected before (a wall a door would go in) is no longer.
+        if (this.controller?.scope?.roomId === room.id) {
+          this.selectedWallId = this.selectedDoorId = this.selectedWindowId = null;
+          this.selectedColumnId = this.selectedBeamId = null;
+          this.render();
+        }
         return;
       }
       this.selectedRoomId = room.id;
@@ -2418,15 +2444,26 @@ export class BuildingPlanCanvas {
               : 0;
         }
         centerRatio -= state.grabOffset;
-        const minCenter = state.spanRatio / 2;
-        const maxCenter = 1 - state.spanRatio / 2;
+        // Between the columns against the wall (3b), when the opening fits there.
+        const between =
+          segmentIndex === state.originalSegmentIndex
+            ? columnStretch(this, wall, segmentIndex, state.originalStart, state.originalEnd)
+            : null;
+        const stretch = between && between[1] - between[0] >= state.spanRatio ? between : [0, 1];
+        const minCenter = stretch[0] + state.spanRatio / 2;
+        const maxCenter = stretch[1] - state.spanRatio / 2;
         const clampedCenter = clamp(centerRatio, minCenter, maxCenter);
         const startRatio = clamp(clampedCenter - state.spanRatio / 2, 0, 1 - state.spanRatio);
         const endRatio = clamp(startRatio + state.spanRatio, 0, 1);
         // Whole centimetres from the wall start, the width kept.
-        const snapped = snapOpeningRatios(wall.bindings?.[segmentIndex], startRatio, endRatio, {
-          keepWidth: true,
-        });
+        const snapped = keepInStretch(
+          snapOpeningRatios(wall.bindings?.[segmentIndex], startRatio, endRatio, {
+            keepWidth: true,
+          }),
+          between && stretch,
+          wall.bindings?.[segmentIndex],
+          true
+        );
         state.preview = {
           startRatio: snapped.startRatio,
           endRatio: snapped.endRatio,
@@ -2439,24 +2476,37 @@ export class BuildingPlanCanvas {
         const ratio = clamp(projectScalarToSegment(point, segment.start, segment.end), 0, 1);
         let startRatio = state.originalStart;
         let endRatio = state.originalEnd;
+        // Not past the columns against the wall (3b).
+        const stretch = columnStretch(
+          this,
+          wall,
+          state.originalSegmentIndex,
+          state.originalStart,
+          state.originalEnd
+        ) || [0, 1];
         if (state.handle === 'start') {
           const maxStart = Math.max(0, endRatio - MIN_OPENING_RATIO);
-          startRatio = clamp(ratio, 0, maxStart);
+          startRatio = clamp(ratio, Math.min(stretch[0], maxStart), maxStart);
           if (endRatio - startRatio < MIN_OPENING_RATIO) {
             startRatio = Math.max(0, endRatio - MIN_OPENING_RATIO);
           }
         } else {
-          endRatio = clamp(ratio, Math.max(startRatio + MIN_OPENING_RATIO, 0), 1);
+          endRatio = clamp(
+            ratio,
+            Math.max(startRatio + MIN_OPENING_RATIO, 0),
+            Math.max(stretch[1], startRatio + MIN_OPENING_RATIO)
+          );
           if (endRatio - startRatio < MIN_OPENING_RATIO) {
             endRatio = Math.min(1, startRatio + MIN_OPENING_RATIO);
           }
         }
         const spanRatio = clamp(endRatio - startRatio, MIN_OPENING_RATIO, 1);
         // Both ends on whole centimetres.
-        const snapped = snapOpeningRatios(
+        const snapped = keepInStretch(
+          snapOpeningRatios(wall.bindings?.[state.originalSegmentIndex], startRatio, endRatio),
+          stretch,
           wall.bindings?.[state.originalSegmentIndex],
-          startRatio,
-          endRatio
+          false
         );
         state.preview = {
           startRatio: snapped.startRatio,
@@ -2952,6 +3002,65 @@ export class BuildingPlanCanvas {
         bypass: Boolean(this.lastPointerEvent?.altKey),
       })
     );
+  }
+
+  /**
+   * "Add door", "Add window" or "Add column" (3b): adds one where the selection and the insertion
+   * mark say (`add-elements.js`), then selects it. Without the selection it needs, the status line
+   * says what to select; where it can't go, a refusal says so.
+   * @param {'door' | 'window' | 'column'} kind
+   */
+  async addElement(kind) {
+    const result = await addPlanElement(this, kind, {
+      door: { width: DEFAULT_DOOR_WIDTH_M, height: DEFAULT_DOOR_HEIGHT_M },
+      window: {
+        width: DEFAULT_WINDOW_WIDTH_M,
+        height: DEFAULT_WINDOW_HEIGHT_M,
+        sill: DEFAULT_WINDOW_SILL_HEIGHT_M,
+      },
+      column: {
+        width: DEFAULT_COLUMN_WIDTH_M,
+        height: DEFAULT_COLUMN_HEIGHT_M,
+        vertical: DEFAULT_COLUMN_VERTICAL_HEIGHT_M,
+      },
+    });
+    if (result.status === 'needs') return this.showHint(result.hintKey);
+    if (result.status === 'refused') {
+      this.receiveIssues([{ code: 'no_room_to_add', message: planText(result.messageKey) }]);
+      return;
+    }
+    if (result.status !== 'added') return;
+    const field = {
+      door: 'selectedDoorId',
+      window: 'selectedWindowId',
+      column: 'selectedColumnId',
+    };
+    const wallId = this.selectedWallId;
+    this.selectedDoorId = this.selectedWindowId = this.selectedColumnId = null;
+    this.selectedBeamId = null;
+    this[field[kind]] = result.id;
+    this.selectedWallId = kind === 'column' ? null : wallId;
+    this.insertionMark = null;
+    this.updateButtonStates();
+    this.render();
+  }
+
+  /** Whether the gesture under way has moved something (a drag or a resize, not a click). */
+  gestureMoved() {
+    return [
+      this.dragState,
+      this.cornerDragState,
+      this.wallDragState,
+      this.columnDragState,
+      this.beamDragState,
+      this.openingDragState,
+    ].some((state) => state?.moved);
+  }
+
+  /** Shows a hint in the status line (a command waiting for a selection) until the next press. */
+  showHint(key) {
+    this.hintOverride = key;
+    this.updateStatusLine();
   }
 
   /**
@@ -3581,6 +3690,7 @@ export class BuildingPlanCanvas {
     this.columns.forEach((column) => this.drawColumn(column));
 
     this.drawOpenings();
+    drawInsertionMark(this.ctx, this);
     this.drawEditingCuts();
     this.drawCornerControls();
     this.drawWallGrip();

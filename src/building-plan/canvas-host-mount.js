@@ -42,7 +42,7 @@ const LABEL_SETTINGS = Object.freeze({
  * @param {Record<string, { current: any }>} options.refs repeatableRef, repeatableApiRef,
  *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef
  * @param {Record<string, Function>} options.on setFloorTabs, setStatus, setActiveToolMode,
- *   setZoomLevel
+ *   setZoomLevel, setSelected (the selected element's collection)
  * @returns {{ controller: object, canvas: object }}
  */
 export function mountPlanCanvas({
@@ -69,7 +69,7 @@ export function mountPlanCanvas({
     findingMarkersRef,
     onSelectRef,
   } = refs;
-  const { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel } = on;
+  const { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected } = on;
   const metaEntry = pickMetaEntry(buildingPlanMeta, section.data_name);
   const keyLookup = createRepeatableKeyLookup(metaEntry);
   repeatableRef.current = repeatableState;
@@ -151,7 +151,10 @@ export function mountPlanCanvas({
   canvas.setHighlight(highlightRef.current || null);
   canvas.setFocus(focusRef.current || null);
   canvas.setFindingMarkers(findingMarkersRef.current);
-  canvas.onSelect = (selection) => onSelectRef.current?.(selection);
+  canvas.onSelect = (selection) => {
+    onSelectRef.current?.(selection);
+    setSelected?.(selection?.collection || null);
+  };
   const changeMode = canvas.setMode.bind(canvas);
   canvas.setMode = (nextMode) => {
     changeMode(nextMode);

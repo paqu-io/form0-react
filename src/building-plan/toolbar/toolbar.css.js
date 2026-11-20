@@ -73,6 +73,12 @@ globalStyle('.building-plan-toolbar-btn:disabled', {
   cursor: 'not-allowed',
 });
 
+// A command waiting for a selection (3b): looks disabled, keeps its tooltip and says why.
+globalStyle('.building-plan-toolbar-btn.is-unavailable', {
+  color: disabledTool,
+  cursor: 'default',
+});
+
 globalStyle('.building-plan-toolbar-btn:focus-visible', {
   outline: control.focusOutline,
   outlineOffset: '2px',

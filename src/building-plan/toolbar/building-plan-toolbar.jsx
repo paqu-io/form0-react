@@ -3,6 +3,7 @@ import { MousePointer2, X, Square, DoorOpen, Grid2x2, Scissors, Pin } from 'luci
 import { BeamIcon, ColumnIcon, RejoinIcon, WallIcon } from './plan-icons.jsx';
 import { TOOL_MODES, getButtonsForMode } from './toolbar-config.js';
 import { isPlanShortcutEvent, planShortcut, planShortcutKey } from '../plan-shortcuts.js';
+import { planText } from '../plan-text.js';
 import './toolbar.css.js';
 
 /**
@@ -40,6 +41,9 @@ function getIconComponent(iconName) {
  * @param {string} props.activeToolMode - Currently active tool mode
  * @param {Function} props.onModeChange - Callback when tool mode changes
  * @param {Function} props.onClearSelection - Callback to clear current selection
+ * @param {Function} [props.onCommand] - Called with a command button ("Add door", 3b)
+ * @param {Record<string, string>} [props.unavailable] - Commands waiting for a selection, by id:
+ *   the hint key saying what to select (the button stays focusable, so its tooltip says it)
  * @param {boolean} props.disabled - Whether the entire toolbar is disabled
  */
 export function BuildingPlanToolbar({
@@ -47,6 +51,8 @@ export function BuildingPlanToolbar({
   activeToolMode = TOOL_MODES.SELECT,
   onModeChange,
   onClearSelection,
+  onCommand,
+  unavailable = {},
   disabled = false,
 }) {
   // Get buttons configured for this canvas mode
@@ -69,6 +75,8 @@ export function BuildingPlanToolbar({
         // Action buttons (like Clear) trigger a callback
         if (button.id === 'clear' && typeof onClearSelection === 'function') {
           onClearSelection();
+        } else if (button.command && typeof onCommand === 'function') {
+          onCommand(button);
         }
       } else {
         // Mode buttons change the active tool
@@ -77,7 +85,7 @@ export function BuildingPlanToolbar({
         }
       }
     },
-    [disabled, onModeChange, onClearSelection]
+    [disabled, onModeChange, onClearSelection, onCommand]
   );
 
   // Keyboard shortcut handler (Alt+Shift+letter, matched on the physical key)
@@ -113,16 +121,18 @@ export function BuildingPlanToolbar({
     const IconComponent = getIconComponent(button.icon);
     const isActive = !button.isAction && button.mode === activeToolMode;
     const isDisabled = disabled || !button.enabled;
+    const waiting = !isDisabled && unavailable[button.id];
     const shortcut = planShortcut(button.shortcutKey);
 
     return (
       <div key={button.id} className="building-plan-toolbar-item">
         <button
           type="button"
-          className={`building-plan-toolbar-btn ${isActive ? 'active' : ''}`}
+          className={`building-plan-toolbar-btn ${isActive ? 'active' : ''} ${waiting ? 'is-unavailable' : ''}`}
           disabled={isDisabled}
+          aria-disabled={waiting ? 'true' : undefined}
           onClick={() => handleButtonClick(button)}
-          data-tooltip={button.label}
+          data-tooltip={waiting ? planText(waiting) : button.label}
           data-shortcut={shortcut || undefined}
           aria-label={button.label}
           aria-keyshortcuts={shortcut || undefined}
