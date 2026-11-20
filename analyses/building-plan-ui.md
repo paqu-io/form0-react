@@ -1136,6 +1136,77 @@ Hand test (form "Building plan fixture", a room entry):
    naming the column; a door dragged onto a column stops (3b); a new column is named "C#n".
 4. After Submit, no finding on a column standing in a wall.
 
+### 4a-2: free walls kept inside their room (hand-tested 2026-11-20, committed)
+
+Found first (probe on the derived engine, Bedroom): a free wall drawn from (3, 1) to (7, 1) across
+the right face, one moved out, and the right face moved in by 50 cm past a wall ending on it were
+all accepted, and `validate()` found nothing.
+
+Decided (2026-11-20):
+
+- D1: the line checked is the one the wall is drawn by, today its stored face path (`freePath`),
+  the line the canvas keeps inside; 4a-3 switches the check to the centreline in the same commit
+  that draws by it. Checking the centreline now would refuse what the canvas draws: a diagonal
+  wall snapped onto a face (at 45°, 20 cm thick, its centreline end is 7 cm past it, for half the
+  drawing directions) and one drawn flat along a face with its body outwards. The whole body
+  inside would refuse every diagonal wall ending on a face until 4a-3 cuts its ends.
+- D2: until 4b, a room wall a free wall touches can't be moved inwards (refused, naming it), and
+  moved outwards it leaves the free wall short of the face, as with columns.
+- D3: `free_wall_outside_room`, "Wall W9 would leave its room." (`wall_label`, else `autoLabel`,
+  as the canvas names it); the subject is the wall's row (`room_face`), so the canvas outlines it;
+  one issue per row (a wall drawn with turns has a row per run, W9 and W9.1).
+- D4: an exact test: each segment of the line, cut where it meets the outline or passes one of
+  its corners, lies inside or on it piece by piece (across an L-shaped room's notch is refused
+  even with both ends inside); within 0.1 mm of the outline counts as on it (as columns touch).
+  The whole line is checked, so Split portions are too.
+- Not covered for now: a free wall crossing another free wall, overlapping a column, or ending in
+  front of a door.
+
+Built:
+
+- form0-core: `freeWallPlacementIssues(floor)` in `room-contents.js`, called from
+  `derivedCandidateIssues` on every derived edit next to the column check. Reading a record,
+  today's engine (and so an entry's empty batch) and the findings are unchanged, as in 4a-1.
+- form0-react: no change. The canvas already holds free walls inside while drawing and dragging;
+  a refused room edit shows in the status line with the wall outlined (`refusalOutlines` reads a
+  `room_face` subject).
+- Tests: core `tests/building-plan-room-contents.test.js` (4 more): drawn or moved out, refused and
+  named; a face moved in past it refused, moved out or the whole room moved accepted (the wall goes
+  with the room); an L-shaped room's notch refused, its corner touched accepted, a slanted face
+  0.05 mm past accepted and 2 mm not; today's engine and the empty batch without the rule. Core
+  652 of 652 (`npm test`); web 358 of 365 (the six worker tests and the numeric setters flake).
+- Checked in headless Chromium (Bedroom's entry, derived engine): a free wall drawn to the right
+  face, then the face dragged in past it: "Wall W9 would leave its room." in red in the status
+  line, the wall outlined, the room unchanged; dragged out, accepted, the wall left short of the
+  face. No page errors.
+
+Hand test (form "Building plan fixture", restart `preview.mjs` first: a core-only change):
+
+1. In Bedroom's entry, draw a free wall ending on the right face; drag that face inwards past the
+   wall's end: refused, "Wall W… would leave its room.", the wall outlined in red.
+2. Drag the same face outwards: accepted, the free wall stays where it was (following is 4b).
+3. Drag a corner of the room inwards past the free wall: refused the same way. Move the whole room:
+   the free wall goes with it.
+4. Draw a free wall well inside, drag it and its ends around: the canvas keeps it inside, no
+   refusal. A diagonal one ending on a face: accepted.
+5. `engine=current`: none of this is refused (today's engine is unchanged).
+
+**After the 4a-2 hand test (2026-11-20).** Works (core `353f71c`). Raised: with a free wall ending
+on Bedroom's right wall (W2) and a room on the other side sharing it, moving the shared wall
+towards Bedroom from that room's entry is refused, where it used to go through. Checked on the
+fixture with a room at x 5.2 to 8 sharing W2, moving the shared wall 30 cm from the new room:
+
+| | Before 4a-2 | With 4a-2 |
+|---|---|---|
+| No free wall, towards Bedroom | Accepted, Bedroom 4.7 m wide | The same |
+| Free wall (3, 1)–(5, 1) ending on W2, towards Bedroom | Accepted, the free wall left where it was, its last 30 cm in W2's body and past it | Refused, "Wall W11 would leave its room." |
+| The same, away from Bedroom | Accepted, Bedroom keeps its size | The same |
+
+So it is D2: the move used to leave the free wall out of its room. 4b fixes it (the wall's end
+follows W2, 30 cm shorter, and the move goes through). Order kept: 4a-3, then 4b, which reads the
+free wall's final geometry. Noted for step 4's messages: from another room's entry, "its room"
+doesn't say which; it could read "Wall W11 would leave Bedroom."
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1235,7 +1306,8 @@ one combined core operation is the clean way.
 | Unit 3 columns: pulls, inside the room (and its walls as far as core allows), no overlaps; drawn with their diagonals; typed sizes keep columns and beams in place | Done and committed; far face and centred on room walls with 4a |
 | 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Done and committed (web); mobile with step 5 |
 | 4a-1: columns in core (in the room and its walls, centred ones and ones flush with a wall's interior face standing out, centres at midline junctions, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
-| Derived engine: 4a-2 (free walls kept inside their room), 4a-3 (free walls by their centreline, ends cut along faces, highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
+| 4a-2: free walls kept inside their room (their drawn line, room edits included, refusals naming the wall) | Done and committed |
+| Derived engine: 4a-3 (free walls by their centreline and checked by it, ends cut along faces, highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |

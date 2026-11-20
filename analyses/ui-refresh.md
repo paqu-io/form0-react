@@ -1860,3 +1860,22 @@ A column's centre is pulled to where wall midlines meet (corners, T-junctions), 
 sit in a wall with its room-side face flush with the wall's interior face, standing out past the
 exterior face when deeper than the wall (`column-wall-targets.js`). Core 648 of 648, web 359 of
 365. Next, in a new chat: 4a-2, 4a-3.
+
+### 4a-2: free walls kept inside their room (2026-11-20, to test by hand, not committed)
+
+The derived engine accepted a free wall drawn or moved out of its room, and a room face moved in
+past one. Now, on every derived edit, core checks each free wall's line against its room's
+outline (`freeWallPlacementIssues` in `room-contents.js`) and refuses the edit, naming the wall:
+"Wall W9 would leave its room." The line is the one the wall is drawn by (its face path today;
+the centreline with 4a-3). Touching the outline is allowed, within 0.1 mm. Until 4b, a room wall
+a free wall touches can't be moved inwards. Today's engine, reading a record and the findings are
+unchanged; form0-react needed no change (the status line shows the refusal, the wall outlined).
+Core 652 of 652, web 358 of 365. Details and the hand test in `building-plan-ui.md`, "4a-2".
+
+### 4a-2: hand-tested (2026-11-20, committed)
+
+Works. Raised: with a free wall ending on a wall Bedroom shares with another room, moving that
+wall towards Bedroom from the other room's entry is now refused. Checked: before 4a-2 it went
+through but left the free wall 30 cm out of its room; this is D2, and 4b (the wall's end following
+its wall) lifts it. Order kept: 4a-3, then 4b. Noted for step 4: a refusal seen from another
+room's entry could name the room ("Wall W11 would leave Bedroom."). Next: plan 4a-3.
