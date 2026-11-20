@@ -1814,3 +1814,22 @@ now centre on free walls too, and are drawn with their diagonals so a flush colu
 reads as a notch in the wall. A column in a corner blocks moving that corner inwards (core's rule
 1); following the corner is 4b. Next: 3b, placing by "select, then add". Details in
 `building-plan-ui.md`, "Unit 3: columns".
+
+### Canvas host split, see-through columns, 3b built (2026-11-20; 3b to test by hand)
+
+Committed after the second check of unit 3: column fills 55 % opaque, and `canvas-host.jsx` split
+(move only) into the host, `canvas-host-mount.js`, `use-plan-history.js` and `use-plan-tools.js`.
+Raised and left for 4a: a typed size that takes a column out of its room (core to refuse it),
+and a selected free wall highlighting only one face. 3b built, not committed: in a room entry a
+click on a wall leaves a tick, a click on the floor a cross; "Add door", "Add window" and "Add
+column" are commands that add there through core (`element-placement.js`,
+`opening-stretches.js`). They go to the nearest place that fits, or a red message says there's no
+room. Door and Window wait for a selected wall (dimmed, with a tooltip and a status hint).
+Dragged doors and windows stop at columns. Core 641 of 641, web 358 of 364. Details and the hand
+test in `building-plan-ui.md`, "3b: select, then add".
+
+### 3b: hand-tested (2026-11-20, committed)
+
+Works. After the hand test, the insertion mark goes as soon as a drag or resize starts (it used to
+stay until the release). A WSL crash (a machine check, as before) interrupted the check; nothing
+was lost. Next: 4a in the derived engine.

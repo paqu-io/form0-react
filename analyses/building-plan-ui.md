@@ -949,6 +949,95 @@ Hand test (form "Building plan fixture", a room entry):
 4. A click on a column (without dragging) doesn't move it; double-click opens its entry.
 5. Free walls still snap to columns' sides and corners.
 
+**Second check of unit 3 (2026-11-20).** The fixes above work (hand-tested). Raised:
+
+1. **A column's fill: see-through** (done, `e45e9a5`): 55 % opaque, so what lies under it shows
+   while it is placed or moved.
+2. **A typed width or depth can take a column out of its room** (core accepts it while the centre
+   stays in), and the column can't then be dragged back to the same place (the canvas holds the
+   whole column inside). Decided: 4a, where core refuses a typed size that takes a column out of
+   its room and walls; with 4b keeping the flush side put, a wider column grows away from its
+   wall.
+3. **A selected free wall highlights one face**, as room walls do (its drawn side, heavier, for
+   "This side"); with a column centred on it, that reads oddly. Proposed for 4a, where free walls
+   are redrawn by their centreline: a free wall highlighted as a whole on hover and selection, and
+   "This side" shown only in its own entry, where its fields carry the tags.
+
+The canvas host is split (move only, `f3da7e0`): `canvas-host.jsx` keeps its state, effects and
+layout; `canvas-host-mount.js` creates the controller and the canvas, `use-plan-history.js` holds
+Undo / Redo, `use-plan-tools.js` the toolbar and zoom handlers.
+
+### 3b: select, then add (hand-tested 2026-11-20, committed)
+
+Agreed details (2026-11-20): commands waiting for a selection look unavailable but keep their
+tooltip, and pressing one says what to select (status line, not red); the mark only in room
+entries (the only canvases with these commands); the canvas host split first.
+
+- form0-core:
+  - `opening-stretches.js`: the free stretches of a wall face's segment, past the openings in its
+    physical wall (from either side) and the columns standing against it (within 1 mm) or in it;
+    a face's ratios to metres along its physical wall and back.
+  - `element-placement.js`: `placeBuildingPlanOpening` (centred on the mark inside the stretch
+    holding it, else the nearest one wide enough; without a mark, the middle of the widest; its
+    start on whole centimetres along the physical wall, kept in the stretch; null when none is
+    wide enough) and `placeBuildingPlanColumn` (flush inside against the selected wall at the
+    mark, on the room's side of a room wall, on the nearer side of a free wall; else at the mark;
+    else at the room's centre; then the column pulls and the nearest place that fits).
+  - Exported, with `buildingPlanOpeningStretches`, from `index.js` and `browser.js`: plain
+    functions of the canvas snapshot (`interaction.js` unchanged).
+- form0-react:
+  - `insertion-mark.js` and `draw/insertion-mark.js`: in a room entry, a click (no drag) on one
+    of the room's walls leaves a short accent tick across it (through its body, a little into the
+    room, on the 1 cm step along it); a click on the room's floor, a small accent cross. Cleared
+    by a drag, another selection (canvas or list), a tool change, or adding. A click on the room's
+    floor in its entry now clears the selected element (before, it kept it, and a door would have
+    gone in a wall selected earlier).
+  - `add-elements.js`: "Add door", "Add window", "Add column" through core; the new element is
+    created and selected. A door or window needs a selected wall; a column with a selected wall
+    and no mark (a Walls list row) goes against the middle of that wall. Nowhere to go: a red
+    status message ("No room for a door on this wall", "… a window on this wall", "No room for a
+    column here").
+  - Toolbar: Door, Window and Column are commands now ("Add door", "Add window", "Add column", the
+    same Alt+Shift keys), not modes; no tool stays armed. Door and Window without a selected wall:
+    `aria-disabled`, dimmed, the tooltip "Select a wall to add a door", and pressing one shows it
+    in the status line until the next press (`showHint`). The host follows the canvas's selection
+    (`setSelected`) for that.
+  - `opening-clear.js`: a dragged or resized door or window stays between the columns against
+    its wall (the stretch holding it, columns only; core refuses an opening dropped on another and
+    says why), on whole centimetres.
+  - New texts in `plan-text.js` (`plan.tool.*`, `plan.add.*`).
+- Not changed: the legacy canvas's own modes for placing (its DOM toolbar, unused here), mobile
+  (step 5).
+- Tests: core `tests/building-plan-element-placement.test.js` (7, in the test script); web
+  `tests/building-plan-add-elements.test.js` (6). Core 641 of 641; web 358 of 364 (the six worker
+  tests).
+- Checked in headless Chromium (Bedroom's room entry): "Add door" with nothing selected is dimmed
+  with "Select a wall to add a door", and pressing it says so; a click on the right wall leaves
+  the tick and "Add door" adds a door centred on it; a click on the floor, then "Add column", puts
+  a column there; a click on the left and right walls, then "Add column", puts columns flush
+  against them; "Add window" on the short wall holding a door: "No room for a window on this
+  wall"; the new door dragged towards a column stops against it. No page errors.
+
+Hand test (form "Building plan fixture", a room entry):
+
+1. Nothing selected: "Add door" and "Add window" are dimmed, their tooltips say to select a wall,
+   pressing one (or Alt+Shift+D, Alt+Shift+I) says it in the status line. "Add column" adds a
+   column in the middle of the room.
+2. Click a wall: a blue tick where you clicked. "Add door": a door centred there. Click elsewhere
+   on the wall: the tick moves. On a wall with openings, near one: the new one goes beside it.
+   Where nothing fits: a red message, nothing added.
+3. Click the floor: a small blue cross. "Add column": a column there (pulled to what's near).
+   Click a wall, then "Add column": flush against it at the tick.
+4. A wall selected from the Walls list (no tick): "Add door" goes in the middle of its widest free
+   stretch, "Add column" against the middle of the wall.
+5. Drag or resize a door along its wall towards a column: it stops against it.
+6. Undo removes what was added in one step. The tools no longer stay armed.
+
+**After the 3b hand test (2026-11-20).** Works. Raised: the tick stayed where it was while its
+wall (a room wall or a free wall) was dragged, and went only on release. Now a drag or resize
+takes it away as soon as it starts (`gestureMoved`, checked on each pointer move). Checked in
+headless Chromium: the tick shows after a click on a wall and is gone while the wall moves.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1046,11 +1135,11 @@ one combined core operation is the clean way.
 | A free wall selected as a whole, "This side" and "Other side" | Done and committed |
 | Unit 2: free wall snapping; a free wall's thickness without a tag | Done and committed |
 | Unit 3 columns: pulls, inside the room (and its walls as far as core allows), no overlaps; drawn with their diagonals; typed sizes keep columns and beams in place | Done and committed; far face and centred on room walls with 4a |
-| 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Agreed 2026-11-20; after unit 3 |
-| Derived engine: 4a (free walls by their centreline, ends cut along faces; rule 1 for free walls and columns, column overlaps; core's column rule becomes the room and its walls, the u/v range widened, the canvas's centre check dropped) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
+| 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Done and committed (web); mobile with step 5 |
+| Derived engine: 4a (free walls by their centreline, ends cut along faces; rule 1 for free walls and columns, column overlaps, typed column sizes refused when they take it out; core's column rule becomes the room and its walls, the u/v range widened, the canvas's centre check dropped; a free wall highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
-| `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
+| `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
 | Step 6 | Proposals |
