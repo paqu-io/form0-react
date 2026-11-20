@@ -1879,3 +1879,26 @@ wall towards Bedroom from the other room's entry is now refused. Checked: before
 through but left the free wall 30 cm out of its room; this is D2, and 4b (the wall's end following
 its wall) lifts it. Order kept: 4a-3, then 4b. Noted for step 4: a refusal seen from another
 room's entry could name the room ("Wall W11 would leave Bedroom."). Next: plan 4a-3.
+
+### 4a-3 planned, 4a-3a built (2026-11-20, to test by hand, not committed)
+
+4a-3 agreed: free walls drawn, moved and checked by their centreline, with the record unchanged
+(the row keeps the face it lies along; `wall_geometry` already holds the centreline). Their ends
+are cut along the face they stop on (drawing only), and they are highlighted as a whole, with
+"This side" and a small label only in their own entry. Room walls get no label. Units: 4a-3a, a
+hand test, then 4a-3b and 4a-3c. An audit of everything reading a free wall's line found most of it
+right with the centreline as is. 4a-3a: core's canvas snapshot gives free walls by their centreline
+with their row's face (`sidePoints`), and the controller turns a centreline back into the face
+(`free-wall-lines.js`). The 4a-2 check reads the centreline, a thickness change keeps it, and a
+column added on a free wall goes to the row's side. The canvas draws the side line and the name
+from the face, and the tick crosses the body. Core 658 of 658, web 361 of 367. Details, audit and
+hand test in `building-plan-ui.md`, "4a-3".
+
+### 4a-3a: hand-tested (2026-11-20, committed)
+
+Works. Raised, with proposals to align: a free wall can overlap a room wall by half its body (the
+rule keeps only its centreline inside), so the proposal is to keep its body inside, with ends cut
+along faces, in 4a-3b; a free wall's split point can't be dragged into diagonals as a room wall's
+can; and a free wall's jog forms on either side of the split point depending on the move, which
+makes sense for room walls but not for free walls (proposed: centred on the split point). The last
+two are proposed as their own unit, 4a-4, after 4a-3c.

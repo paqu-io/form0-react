@@ -1207,6 +1207,124 @@ follows W2, 30 cm shorter, and the move goes through). Order kept: 4a-3, then 4b
 free wall's final geometry. Noted for step 4's messages: from another room's entry, "its room"
 doesn't say which; it could read "Wall W11 would leave Bedroom."
 
+### 4a-3: free walls by their centreline, ends cut, highlighted as a whole (2026-11-20)
+
+Read first (derived engine and canvas):
+
+- A free wall is stored as the line it was drawn along, one of its faces (`freePath`, the row's
+  side), its body on one side of it. The physical wall's `wall_geometry` segments already hold
+  the centreline (`referenceOffset`, half the thickness). No wall lengths or areas are exported,
+  and no builtin reads this geometry.
+- On the canvas a free wall was its face line (`points`), with the centreline beside it
+  (`axisPoints`): drawing, dragging, handles, snapping and the 4a-2 check used the face. Its body
+  is a rectangle around the centreline with square ends (`footprints.js`), hence the triangle at
+  a diagonal end.
+- A thickness change under the canvas's policy (`thicknessAnchor: room_face`) kept the face and
+  grew the body to one side; `midline` already kept the centreline (`shiftPartitions`, J5).
+- "Hover": a hovered Walls list row marks the element as selected on the canvas; nothing is
+  highlighted under the pointer.
+- Splitting a room wall leaves boundary faces (both engines); only free walls and their Split
+  portions have free paths.
+
+Decided (2026-11-20):
+
+- D1: storage unchanged: the face stays the stored line, `wall_geometry` the centreline; exported
+  values keep their meaning. Free walls drawn or moved from now on land where drawn, their stored
+  face half a thickness off; existing walls don't move.
+- D2: the canvas snapshot gives a free wall (Split portions included) by its centreline, with its
+  row's face as `sidePoints`; core's canvas controller turns a centreline back into the face
+  (`create_wall`, `update_wall` unchanged, so `engine=current` works). Taken as the cleanest
+  after the audit below; the maintainer wanted to see and test it.
+- D3: a free wall keeps its centreline when its thickness changes, whatever the anchor (derived
+  engine).
+- D4: the 4a-2 check reads the centreline; snapping works on the line the canvas passes.
+- D5: an end on the room's outline or on another free wall's side (within 0.1 mm) is cut along it
+  (both faces in a corner), in the drawn body only; nothing stored, no exported value changes.
+  Not covered: an end against a column, a door at a cut end.
+- D6: a selected or list-hovered free wall: body outlined, handles at the centreline ends, name
+  beside the body, no heavy side line; in its own entry, the row's side as today's 4 px line with
+  a small "This side" label. Room walls get no label (their heavy line is on the room's face, so
+  the side is plain; a free wall has its room on both sides).
+- No mockups. Units: 4a-3a (D1–D4), hand test; then 4a-3b (D5) and 4a-3c (D6) together.
+
+**Audit for D2 (2026-11-20).** What reads a free wall's line, and what it needs:
+
+- Read the line as given, right with the centreline, unchanged: Split placement (the offset along
+  the line is the same), opening placement and free stretches (same ratios; the body band from the
+  footprint), the axis alignment of a moved wall (`interaction.js`: both lines on the centreline),
+  free wall snapping targets (other free walls' ends become centreline ends, as wanted), the
+  corner handle reserve; in form0-react the hit test, drags, handles, the grip, opening geometry
+  (already on `axisPoints`), drags and placing, scope levels, issue markers, refusal outlines.
+- Changed: the snapshot and the Split marks of free walls (on the centreline); the controller's
+  conversion; the 4a-2 check; a column added on a free wall at a mark on its centreline goes to
+  the row's side (a tie otherwise); a free wall's Split portion is treated as a free wall when a
+  column is added against it (its line is no longer a face); on the canvas, the selected side line
+  and the name read the row's face (today's look until 4a-3c); the insertion tick crosses the whole
+  body; the legacy column wall fields keep reading a Split portion's face, so they don't change.
+- Mobile reads the same snapshot: it gets free walls by their centreline, adjusted in step 5.
+
+### 4a-3a: free walls drawn and edited by their centreline (hand-tested 2026-11-20, committed)
+
+- form0-core:
+  - `free-wall-lines.js`: `offsetLine` (a line moved along its normal, joints where the moved
+    lines cross), `freeWallSideDistance`, `newFreeWallWidth` (a new wall's thickness, resolved as
+    the derived engine does), `newFreeWallFace`, `faceCentreline`, `freeWallCutPoints`,
+    `freeWallSideLine` (exported as `buildingPlanFreeWallSide` from `index.js` and `browser.js`).
+  - `canvas-controller.js`: free walls by their centreline with `sidePoints`; Split marks on it;
+    `createWall` and a free wall's `update_wall` send the face (the side and distance kept).
+  - `room-contents.js`: the 4a-2 check on the centreline. `thickness-commands.js`: free walls keep
+    their centreline (J5 whatever the anchor). `element-placement.js`: the row's side on a tie.
+- form0-react: `free-wall-side.js` (`freeWallSide`, through core); the legacy canvas draws and
+  names a selected free wall's side from the row's face; `draw/insertion-mark.js` (the tick across
+  the body); `column-placement.js` (the legacy fields read a Split portion's face).
+- Tests: core `tests/building-plan-free-wall-lines.test.js` (6, in the test script): drawn by its
+  centreline on both engines, the row keeping its face; moved and turned; thicker; a Split mark;
+  "Add column" at a mark on it; `offsetLine`. The 4a-2 tests now give walls by their centreline.
+  Web `tests/building-plan-free-wall-side.test.js` (2). Core 658 of 658; web 361 of 367 (the six
+  worker tests).
+- Checked in headless Chromium (Bedroom's entry, derived engine): a wall drawn from (1, 1.5) to
+  (4, 1.5) has its body from 1.4 to 1.6, handles on the centreline ends, the heavy line and W9 on
+  the row's face (y 1.6); its end dragged past the right face stops on it; moved down, centred on
+  2.1; a diagonal wall drawn into the left face is accepted (its square end still leaves the
+  triangle, 4a-3b); the tick crosses the body; "Add column" at a click on it goes flush on the
+  row's side. No page errors.
+
+Hand test (form "Building plan fixture", Bedroom's entry; restart `preview.mjs`):
+
+1. Draw a free wall: its body is centred on the line you draw; the handles are at the ends of that
+   line. Drag an end and move the whole wall: the body follows centred; ends stop on the room's
+   faces, on other free walls' sides and corners; nothing leaves the room.
+2. Draw it along a face (close to a room wall): at most half its body goes into the room's wall.
+   A diagonal wall into a face: accepted (the triangle at its end goes with 4a-3b).
+3. Select it: the heavy line on one side ("This side") with the name, as before.
+4. In its entry, change "Thickness [mm]": the wall grows on both sides, its centreline stays.
+5. Click on it (the tick crosses its whole body), "Add column": flush on its own side; "Add
+   door": centred at the tick. Split it: the mark is on its centreline; move a portion; Rejoin.
+6. Free walls drawn before: unchanged in the record; they show where they were.
+7. `engine=current`: drawing and moving work the same (a thickness change keeps the face there).
+
+**After the 4a-3a hand test (2026-11-20).** Works (core `0657e4d`, web `ec0ffcc`). Raised, with
+proposals (to align):
+
+1. **A free wall dragged close to a room wall overlaps it** (half of it at the same thickness):
+   the rule keeps only the centreline inside. Proposed: rule 1 for free walls becomes the body,
+   its ends cut along what they stop on, inside the outline (touching allowed); a parallel move
+   stops flush, an end still runs to the face it meets and is cut along it. With 4a-3b, since it
+   needs the cut ends (with square ends a diagonal wall ending on a face always pokes through).
+   Until 4b, a free wall flush against a room wall can't be made thicker (it grows both ways);
+   4b could keep its flush side, as for columns.
+2. **A free wall's split point can't be dragged into diagonals**, as a room wall's can. For a room
+   wall the split point is a room corner (the corner move); for a free wall, Split makes portions
+   that move square to themselves. Bending one needs a new derived operation (the point moves, the
+   two portions become runs at an angle), handles and snapping for the point. Proposed: a unit of
+   its own after 4a-3c (4a-4).
+3. **The jog forms on one side or the other of the split point** depending on the move. For room
+   walls it makes sense (the return's body always lies outside the room). For free walls it
+   doesn't (both sides are the room; it follows the stored face). Proposed: a free wall's return
+   centred on the split point whichever way the portion moves (`partition-portions.js`: the
+   portions' ends at the return shift by half the thickness along the wall, back when it
+   closes; Rejoin and moving back to check), with 4a-4.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1307,7 +1425,10 @@ one combined core operation is the clean way.
 | 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Done and committed (web); mobile with step 5 |
 | 4a-1: columns in core (in the room and its walls, centred ones and ones flush with a wall's interior face standing out, centres at midline junctions, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
 | 4a-2: free walls kept inside their room (their drawn line, room edits included, refusals naming the wall) | Done and committed |
-| Derived engine: 4a-3 (free walls by their centreline and checked by it, ends cut along faces, highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do |
+| 4a-3a: free walls drawn, moved and checked by their centreline (snapshot `sidePoints`, the controller converting; thickness keeps the centreline) | Done and committed |
+| 4a-3b (ends cut along faces; proposed: the body kept inside the room) and 4a-3c (highlighted as a whole, "This side" in its own entry) | To do |
+| 4a-4 (proposed): bending a free wall at its split point; its return centred on the split point | To align |
+| Derived engine: 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
