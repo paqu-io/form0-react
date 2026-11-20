@@ -592,7 +592,9 @@ unless something would end up outside the room.
 beams (later objects); doors and windows stay on their wall as today.
 
 1. Ownership: an element belongs to its room, lies inside its outline (touching it is allowed),
-   and no edit may leave it outside: the edit is refused, naming the element.
+   and no edit may leave it outside: the edit is refused, naming the element. For columns, the
+   outline is widened to include the room's own walls, so a column may sit in them (decided
+   2026-11-20, unit 3).
 2. Attachment from contact (decided): whatever touches a wall is attached to it (a free wall's
    end, a column's side, a beam's end); nothing new is stored, core finds the contacts when an
    edit starts; snapping makes contacts exact.
@@ -688,7 +690,7 @@ Hand test (form "Building plan fixture", a room entry):
 **Columns (raised 2026-11-19, for unit 3).** A column against a wall can sit in several ways:
 its centre on the wall's centre line, or one of its sides flush with either face of the wall.
 Open: a single-choice system field on the column row for this, and whether the canvas offers a
-way to choose it.
+way to choose it. Decided 2026-11-20: see "Unit 3: columns" below.
 
 **After the unit 2 hand test (2026-11-19).** Works. Raised, none of it for this unit:
 
@@ -726,6 +728,227 @@ Hand test: draw a free wall in a room entry (it shows dark, also in its own entr
 this entry?" from any list, click its backdrop, then Alt+Q (it closes), again and Alt+Y (the row
 goes).
 
+### Unit 3: columns (hand-tested 2026-11-20, committed)
+
+Today (read 2026-11-20):
+
+- A column is a rectangle square to the page. There is no rotation: core's `transactions.js`
+  reads `column_rotation_deg`, but no schema declares it.
+- "Place Column" places it on a press; Select drags it. Both keep its centre inside the room's
+  bounding box, and within reach of a room face put the centre on the face. Room outlines are the
+  inner faces and walls go outward, so half the column ends up in the wall, by accident. No
+  rounding.
+- The drag preview is the canvas's own (`column.preview`), not core's `previewElement`.
+- Core checks nothing for columns (`element-operations.js` stores them).
+- `column_wall_segment_index` and `column_wall_ratio` are written by the canvas and exported;
+  core reads neither. The index points into the points of a wall that isn't recorded, so it is
+  0 or −1.
+- Wall bodies include their corner pieces (separate footprint polygons).
+
+Decided:
+
+- **Against a wall, three placements:**
+  - flush inside: a side on the room face;
+  - centred on the wall's midline: only where the column is no wider than the wall across it (a
+    30 cm column in a 20 cm wall would stick out of the far face);
+  - flush with the far face: the column fills the wall and stands into the room by the rest of
+    its depth.
+- **Rule 1 for columns:** inside the room plus its own walls' bodies (corner pieces included), so
+  a column may sit in its room's walls, up to their far face. Columns already stored with their
+  centre on a face stay valid.
+- **For now the position says it all (option B):** the placement is chosen by dragging, where the
+  pulls catch each one. No new field yet.
+- **Follow-up** (step 6 for the data, 4b for the engine):
+  - a single-choice system field on the column row for the placement;
+  - later, a canvas command to change it;
+  - core keeps the placement when the wall's thickness changes and when the column's size
+    changes (the flush side, or the centre, stays put).
+- **No overlaps:** a column doesn't overlap another column, a door or a window; it may touch them.
+  It may be attached to room walls, free walls and beams. Details still to confirm: see "To
+  confirm" below.
+- **Pulls, in order:**
+  1. a corner into a corner: the room's corners, free walls' corners and ends, other columns'
+     corners;
+  2. otherwise, per axis, a contact: a side flush with a line it is next to (room faces, free
+     wall sides, other columns' sides, the far faces of its room's walls, the jambs of doors and
+     windows), or its centre on a room wall's midline; on a diagonal face, the nearest corner goes
+     onto it;
+  3. otherwise, per axis, lining up with a guide: its sides with corners and ends anywhere on the
+     floor, its centre with other columns' centres (a structural grid);
+  4. otherwise the 1 cm step, on the column's sides (its top-left corner), so distances to faces
+     are whole centimetres.
+
+  Positions that don't fit (outside the room and its walls, or overlapping) are skipped; a drag
+  stops where the column would leave or overlap. Alt: no pulls, still the 1 cm step, inside and
+  clear. Against a diagonal face a column meets it with a corner (no rotation).
+- **Core refusals** go into 4a, with free walls: a column leaving its room and walls, or
+  overlapping a column or an opening, from any edit (room, wall and opening edits, typed sizes
+  included). Unit 3 keeps columns inside and clear on the canvas only, as unit 2 did for free
+  walls.
+- **Legacy wall fields** keep their meaning: segment 0 and the centre's position along the room
+  wall the column touches or sits in, else −1 and 0. They are kept while they carry useful
+  information in the export, and reviewed with the other system fields
+  (`reform-backend-nestjs/docs/building-plan-v2-system-fields.md`, "Review points").
+- **Exported values:** only `column_center_u` and `column_center_v` (and the legacy wall fields)
+  of columns placed or moved change, with the same meaning. No new fields. Existing columns are
+  untouched until moved.
+- **Mockups:** none for this unit (no new control). The canvas command, with the field, will need
+  one.
+
+Overlaps in detail (agreed 2026-11-20):
+
+- An opening's box runs across its wall, from face to far face, between its jambs. A column may
+  touch a jamb (the jambs pull its sides). A column flush inside that stands across the opening
+  counts as an overlap, since it would block it.
+- Free walls hold columns like room walls: a column may sit in a free wall and stand out on both
+  sides, since both sides are its room.
+- Beams: no check (a beam passes over a column; beams wait for step 6).
+- The opening side of the rule (an opening dragged onto a column): on the canvas with the
+  placing unit, in core with 4a.
+
+Placing (agreed 2026-11-20):
+
+- Today, on web and mobile alike, a tool stays armed. A click or tap creates a column, door or
+  window where it went down, with no preview (openings at their default width), and Select
+  adjusts it afterwards. Free walls and beams are drawn by press, drag and release.
+- Proposed first: the press starts the element, the drag adjusts it, the release creates it.
+  Not taken: creating on release feels odd, and an opening released off a wall would be lost.
+- Maintainer's proposal: the tool button brings up a faded preview (a ghost) that snaps as
+  agreed, and a click places it. For openings, a pointer inside a room, off a wall, shows that it
+  can't go there. Open: how mobile keeps the same behaviour, so nothing is learnt twice.
+- Proposed next: a ghost on the web, and on touch a ghost moved like any element, then ✓. The
+  maintainer found the touch part still odd and proposed selecting first, then adding: see
+  "Placing: select, then add" below.
+
+Placing: select, then add (maintainer's proposal, refined and agreed 2026-11-20):
+
+- Set aside: a ghost that follows the pointer. It needs hover, so touch would need a flow of its
+  own (place the ghost, then ✓), which still felt odd.
+- **The same on web and mobile:** select where the element goes, then add it.
+  - Doors and windows: select a wall, and the tool adds the opening there.
+  - Columns (beams at step 6): select a room, and the tool adds the element there.
+  - Afterwards the new element is selected, and is moved and adjusted as usual, with the pulls.
+- **Insertion mark:** the click or tap that selects a wall or a room also leaves a mark where it
+  landed: a short tick across the wall (on the 1 cm step along it), or a small cross in the room.
+  Clicking another spot moves it. The element is added at the mark, which answers "where on a
+  wall that already has two openings".
+- **Without a mark** (selected from a list, or the entry's own room): an opening goes in the
+  middle of the wall's largest free stretch, a column at the room's centre (a point inside an
+  L-shaped room).
+- **When it doesn't fit at the mark:** a door or window slides along the wall to the nearest
+  stretch that fits (within the room side, clear of openings and columns); a column moves to the
+  nearest place inside and clear; if there is none, nothing is added and the status line says why
+  ("No room for a door on this wall").
+- **A column with a wall selected:** "Add column" works there too and adds it flush inside
+  against that wall at the mark (the wall's room is known). Otherwise it needs a room selected.
+- **No ghost for now.** A preview at the mark while hovering a tool button (web only) is left to
+  look at after the hand test. No prototype: the steps reuse selection, and the mark is checked
+  at the 3b hand test.
+- **The tools become commands** for doors, windows and columns (beams at step 6): one element
+  per press, no armed mode. A tool is enabled only with the selection it needs; its tooltip and
+  the status line say what to select. Each keeps an Alt+Shift shortcut, so on the web it is a
+  click and a key. Rooms, free walls, Split, Rejoin and Pin stay drawing modes.
+- **Core decides, hosts draw:** core works out the element to add from the selection and the
+  mark (the free stretch, the clear place, or the refusal), so both canvases add elements the
+  same way. On mobile the commands sit with the selection's actions in the bottom sheet (step 5).
+- **Trade-off:** two actions per element (select, then add) where the ghost needed one click; a
+  row of columns is slower. A Duplicate command could help later.
+- **Order:** unit 3 snaps columns (moving them; placing stays as today until 3b); 3b brings
+  select-then-add to columns, doors and windows on the web, with the canvas side of the
+  opening/column overlap; mobile adopts it with step 5.
+
+**Core's rule for columns, found while building (asked 2026-11-20).** Core already refuses a
+column whose centre is outside its room's outline (`model.js`, `invalid_room_element`, shared by
+both engines), and the blueprint limits `column_center_u` and `column_center_v` to 0..1 of the
+room's box. Flush with the far face, a 30 cm column in a 20 cm wall has its centre in the wall,
+so with today's core only flush inside works fully: in a wall, only as far as the centre stays in
+the room (the far face for a column deeper than twice the wall; centred never). Decided: keep
+core's rule until 4a. Unit 3 stays canvas-only, the snapping carries core's rule as one marked
+check (`centreRegion` in `column-targets.js`), and 4a changes core's rule to the room and its
+walls, widens the u/v range, and drops that check.
+
+Unit 3 as built (2026-11-20):
+
+- form0-core:
+  - `column-targets.js`: what a column is pulled to and kept clear of, from the canvas snapshot:
+    the free wall targets in its room (the column itself left out: `freeWallTargets` takes a
+    `columnId`), its walls' bodies (far faces, ends, corner pieces) and midlines (`axisPoints`),
+    the openings' boxes (`physicalOpenings`, reaching 1 mm past both faces, so a column flush
+    inside across an opening overlaps it and one touching a jamb doesn't), other columns'
+    rectangles and centres; the region (the outline and its walls' bodies) and core's centre
+    rule.
+  - `column-fit.js`: whether a column fits (its centre in the room for now; its outline inside
+    the region, cut where it meets the polygons' edges; clear of other columns and of openings
+    by more than 0.1 mm, above the canvas's rounding); where a drag stops (as far as it goes,
+    then sliding along what stopped it); the nearest place that fits for a placement (flush
+    against nearby lines, then rings of 5 cm, within 2 m).
+  - `column-snapping.js`: the pulls in the agreed order (a corner into a corner; per axis a side
+    flush with a line beside it or the centre on a midline, a corner onto a slanted line; per
+    axis lining up, sides with corners and ends on the floor, centre with other columns'
+    centres; per axis the 1 cm step on its sides). The first offer that fits wins; else the drag
+    stops, or the placement goes to the nearest fit; Alt keeps only the step and the fit.
+  - `createBuildingPlanInteraction.snapColumn(centre, { roomId, columnId, width, height, from,
+    zoom, bypass })`: the same reach and hold as the other pulls (8 px, held to 13), the guides
+    shown as for rooms. Null when the column fits nowhere near. About 0.7 ms a call on the
+    fixture.
+- form0-react:
+  - `src/building-plan/column-placement.js`: `snapColumnCentre` (through core; with an older
+    core, as before: the room's box and the centre onto a nearby wall line) and
+    `columnWallValues` (the legacy wall fields: the room wall the column stands against, within
+    1 mm, or in; the segment and where its centre falls along it; else -1 and 0).
+  - Legacy canvas: placing ("Place Column", still a click until 3b) and dragging go through
+    `snapColumnPoint`. A click that wobbles less than 3 px doesn't move a column (before, any
+    move did, and with the step it would now rewrite its position).
+- Tests: core `tests/building-plan-column-snapping.test.js` (11, in the test script): targets,
+  the step, against a wall, corners, a drag stopping, columns touching, openings, placing,
+  lining up, Alt, the hold. Core 631 of 631. Web `tests/building-plan-column-snapping.test.js`
+  (3): placing with the legacy fields, dragging (a wobble, past the wall), the fallback. Web 352
+  of 358 (the six worker tests).
+- Checked in headless Chromium (a room entry of the fixture, derived engine): a column clicked
+  near the right face lands flush inside (4.85 m, wall segment 0, ratio 0.33); near the top-left
+  corner, into it (0.15, 0.15); dragged past the right wall, it stops with its centre on the face
+  (5.0 m); the others on whole centimetres. No page errors. Core accepts all of them.
+
+Found while checking: a column filled with the wall's tone read as a notch in the wall when flush
+against it; `interaction.js` in core is 397 lines (371 before).
+
+**After the unit 3 hand test (2026-11-20).** Works. Raised, and what was done:
+
+1. **A column vanished when its width or depth was typed in its entry** (a bug in core, also on
+   beams). The row's position fields are geometry, not plain values, so `transactions.js` sent
+   the edit without them and the element lost its position (a beam its ends); the canvas skips an
+   element without one. Fixed: an edit without the position fields keeps the element where it is.
+   A beam's typed width and depth never reached it at all (only its ends were rebuilt); fixed on
+   the way. Test: core `tests/building-plan-element-edits.test.js` (2, in the test script).
+2. **A column in a room's corner: moving that corner inwards is refused.** Core's rule 1 (the
+   column would be left outside: `invalid_room_element`). Moving it outwards is accepted, and
+   the column stays where it was, out of the corner. Both are 4b: a column touching both walls
+   is attached and follows the corner. The refusal's text is generic ("Keep structural elements
+   inside their room…"); naming the element is 4a.
+3. **A column couldn't centre on a free wall.** The midlines were only the room's own walls'.
+   Now every wall of its room, free walls included (`axisPoints`, the centre of a free wall's
+   body). Centred on a free wall, a column stands out on both sides, its centre in the room, so
+   core accepts it today. Test: a case in core's column snapping test.
+4. **Columns drawn with their diagonals** (agreed): outline and both diagonals in the wall's
+   tone (following the scope levels), on the room's surface, the outline in the accent when
+   selected (`drawColumnSymbol`). Checked in light and dark.
+5. `interaction.js` stays as it is for now (agreed).
+
+Core 634 of 634; web 352 of 358 (the six worker tests). Checked in headless Chromium: a column's
+width typed in its entry (0.5) keeps its centre and shows wider.
+
+Hand test (form "Building plan fixture", a room entry):
+
+1. "Place Column" near a face: it lands flush inside. Near a corner: in the corner. In the
+   middle: its sides on whole centimetres. Near a door: beside its jamb, never flush across it.
+2. Drag a column: it is pulled flush to faces, other columns and jambs, lines up with another
+   column (a guide), and stops at walls and other columns; past a wall, its centre stops on the
+   face (core's rule until 4a). A 50 cm column (set its width and depth in its entry) can go
+   flush with the far face of a 20 cm wall.
+3. Alt while dragging: no pulls, still whole centimetres, still inside and clear.
+4. A click on a column (without dragging) doesn't move it; double-click opens its entry.
+5. Free walls still snap to columns' sides and corners.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -760,6 +983,12 @@ Grid, snapping (5 m, 1 m or 10 cm by zoom) and nudges (10 cm) are metric only, s
 room can't snap to exactly 12 ft. To handle with the first lengths on the canvas (lengths while
 dragging, step 3): grid and snap steps per system. 1e shows no lengths.
 
+### Typed values and rounding (noted for step 4, 2026-11-20)
+
+When lengths are typed (step 4), typed values must round the way the snapping does, and core's
+contact and overlap checks must allow a small tolerance. Otherwise a column placed flush beside a
+door, or at the end of a wall, is refused for a rounding difference.
+
 ## Data proposals (step 6, to agree before any core work)
 
 **Door swing.** Two system fields on Door: `door_hinge_side` (left, right) and `door_swing`
@@ -786,6 +1015,13 @@ wall, several per wall in any combination.
 - On the canvas: select, drag the two ends and the body along the wall, type offset and length.
   The position and height are edited in the form and shown in a front view of the wall.
 
+**Column placement against a wall** (agreed as a follow-up of unit 3, 2026-11-20). A
+single-choice system field on the column row: flush inside, centred on the wall's midline, flush
+with the far face (and none, for a column standing free). Core keeps the placement when the
+wall's thickness changes and when the column's size changes. Later, a canvas command to change
+it (a mockup first). To settle when proposed: which wall it refers to (a corner column touches
+two), and what "centred" does when the column is wider than the wall.
+
 **Plaster.** No new data. Thickness drawn to scale (2 px minimum on screen), with its value as a
 label when the wall is selected.
 
@@ -809,7 +1045,11 @@ one combined core operation is the clean way.
 | Free walls fading in their own room; remove confirmation shortcuts | Done and committed |
 | A free wall selected as a whole, "This side" and "Other side" | Done and committed |
 | Unit 2: free wall snapping; a free wall's thickness without a tag | Done and committed |
-| Unit 3 columns (placement options to align); then in the derived engine 4a (centreline, ends cut along faces, rule 1) and 4b (attachments) | To do, in that order |
+| Unit 3 columns: pulls, inside the room (and its walls as far as core allows), no overlaps; drawn with their diagonals; typed sizes keep columns and beams in place | Done and committed; far face and centred on room walls with 4a |
+| 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Agreed 2026-11-20; after unit 3 |
+| Derived engine: 4a (free walls by their centreline, ends cut along faces; rule 1 for free walls and columns, column overlaps; core's column rule becomes the room and its walls, the u/v range widened, the canvas's centre check dropped) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
+| Column placement field and canvas command | Step 6 proposal |
+| Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | When the host is next touched, or at the end |
 | Opening entries by double-click (jumps) | To review |
 | Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |

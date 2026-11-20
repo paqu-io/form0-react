@@ -1774,3 +1774,43 @@ never leave the room. Web 349 of 355 (the six worker tests), core 620 of 620. Ra
 test, for later units: walls touching a moved room wall following it (4b), columns (unit 3),
 diagonal ends cut along the face and drawing by the centreline (4a). Details in
 `building-plan-ui.md`.
+
+### Unit 3, columns: plan agreed (2026-11-20, no code yet)
+
+Against a wall, a column sits flush inside, centred on the wall's midline, or flush with its far
+face. For now the position alone says which (option B): the column may sit in its room's own
+walls, and dragging catches each placement. A single-choice system field and a canvas command
+follow later (step 6). Core will keep the placement when the wall's thickness or the column's size
+changes (4b). Columns get the free wall pulls, stay inside the room and its walls, and don't
+overlap other columns, doors or windows (overlap details agreed: a column may touch a jamb but
+not stand across an opening; free walls hold columns like room walls; beams unchecked). Core
+refusals for columns go into 4a. Noted for step 4: typed values must round like the snapping, so
+contacts aren't refused. Placing is under discussion. Press, drag and release was dropped, and so
+was the ghost (on touch it needed a ✓ step that felt odd). Now proposed: select, then add, the same
+on web and mobile. A click on a wall or room leaves an insertion mark, the door, window or column
+command adds the element there (or at the nearest place that fits), and it is then adjusted as
+usual. Agreed, with "Add column" on a selected wall adding it flush inside, no ghost and no
+prototype for now. Order: unit 3 (column snapping), then 3b (select, then add). Details in
+`building-plan-ui.md`, "Unit 3: columns".
+
+### Unit 3, columns: built (2026-11-20, to test by hand, not committed)
+
+Columns snap through core: `column-targets.js`, `column-fit.js` and `column-snapping.js`, exposed
+as `interaction.snapColumn`. Pulls to faces, corners, other columns and jambs, lining up (centres
+too), else the 1 cm step; never outside the room nor over another column or an opening. A drag
+stops, and a placement goes to the nearest place that fits. The canvas places and drags through it
+(`column-placement.js`, legacy wall fields kept), and a small wobble no longer moves a column.
+Found while building: core refuses a column whose centre is outside its room. Decided to keep
+that until 4a, so for now a column stands in a wall only as far as its centre stays in the room;
+the far face (for most sizes) and centred come with 4a. Core 631 of 631, web 352 of 358 (the six
+worker tests). To align: columns drawn in the wall's tone blend into the wall when flush. Details
+and the hand test in `building-plan-ui.md`, "Unit 3: columns".
+
+### Unit 3, columns: hand-tested (2026-11-20, committed)
+
+Works. Fixed after the hand test: a column (or beam) typed a new width in its entry vanished (core
+sent the edit without its position, a geometry field); a beam's typed width never applied. Columns
+now centre on free walls too, and are drawn with their diagonals so a flush column no longer
+reads as a notch in the wall. A column in a corner blocks moving that corner inwards (core's rule
+1); following the corner is 4b. Next: 3b, placing by "select, then add". Details in
+`building-plan-ui.md`, "Unit 3: columns".
