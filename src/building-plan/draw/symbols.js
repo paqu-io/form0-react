@@ -78,9 +78,13 @@ export function drawWindowSymbol(ctx, geometry, options) {
   ctx.restore();
 }
 
+/** How opaque a column's fill is (after the unit 3 hand test: see-through, not solid). */
+const COLUMN_FILL_ALPHA = 0.55;
+
 /**
  * A column, cut by the plan, as the toolbar icon draws it: its outline and both diagonals in the
- * wall's tone, on the room's surface; the outline in the accent when selected. (Filled like a
+ * wall's tone, on the room's surface (half see-through); the outline in the accent when
+ * selected. (Filled like a
  * wall, a column flush against one read as a notch in it: unit 3, 2026-11-20.)
  * @param {CanvasRenderingContext2D} ctx
  * @param {{x:number,y:number,width:number,height:number}} rect
@@ -89,8 +93,11 @@ export function drawWindowSymbol(ctx, geometry, options) {
 export function drawColumnSymbol(ctx, rect, { theme, selected, pixel }) {
   const { x, y, width, height } = rect;
   ctx.save();
+  // Half see-through, so what lies under it (a wall it stands in, the grid) shows while placing.
+  ctx.globalAlpha = COLUMN_FILL_ALPHA;
   ctx.fillStyle = theme.room;
   ctx.fillRect(x, y, width, height);
+  ctx.globalAlpha = 1;
   ctx.strokeStyle = theme.wall;
   ctx.lineWidth = 1.5 * pixel;
   ctx.beginPath();
