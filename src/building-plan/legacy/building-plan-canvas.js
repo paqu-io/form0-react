@@ -17,6 +17,7 @@ import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js'
 import { drawWallFootprints } from '../draw/walls.js';
 import { nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
+import { columnWallValues, snapColumnCentre } from '../column-placement.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -1744,21 +1745,18 @@ export class BuildingPlanCanvas {
       if (!roomRect) {
         return;
       }
-      let placementPoint = clampPointToRoom(point, roomRect);
-      let wallSegmentIndex = -1;
-      let wallRatio = 0;
-      const wallSnap = this.snapPointToWall(placementPoint, room.id);
-      if (wallSnap) {
-        placementPoint = wallSnap.point;
-        wallSegmentIndex = wallSnap.segmentIndex;
-        wallRatio = wallSnap.ratio;
-      }
-      const ratios = getRoomRatios(placementPoint, roomRect);
+      const placed = this.snapColumnPoint(point, {
+        roomId: room.id,
+        width: DEFAULT_COLUMN_WIDTH_M,
+        height: DEFAULT_COLUMN_HEIGHT_M,
+      });
+      if (!placed) return;
+      const ratios = getRoomRatios(placed.point, roomRect);
       const created = await this.controller?.createColumn?.(room.id, {
         centerU: ratios.u,
         centerV: ratios.v,
-        wallSegmentIndex,
-        wallRatio,
+        wallSegmentIndex: placed.wallSegmentIndex,
+        wallRatio: placed.wallRatio,
         width: DEFAULT_COLUMN_WIDTH_M,
         height: DEFAULT_COLUMN_HEIGHT_M,
         vertical: DEFAULT_COLUMN_VERTICAL_HEIGHT_M,
@@ -1896,6 +1894,7 @@ export class BuildingPlanCanvas {
           pointerStart: point,
           offsetX: center.x - point.x,
           offsetY: center.y - point.y,
+          lastCenter: { x: center.x, y: center.y },
           moved: false,
         };
         this.setHoverState(null);
@@ -2482,25 +2481,26 @@ export class BuildingPlanCanvas {
       const roomRect = this.getRoomRect(column.roomId);
       if (!roomRect) return;
 
-      const center = {
-        x: point.x + state.offsetX,
-        y: point.y + state.offsetY,
-      };
-      let clamped = clampPointToRoom(center, roomRect);
-      let wallSegmentIndex = -1;
-      let wallRatio = 0;
-      const wallSnap = this.snapPointToWall(clamped, column.roomId);
-      if (wallSnap) {
-        clamped = wallSnap.point;
-        wallSegmentIndex = wallSnap.segmentIndex;
-        wallRatio = wallSnap.ratio;
-      }
-      const ratios = getRoomRatios(clamped, roomRect);
+      // A click that wobbles a little is still a click: it doesn't move the column.
+      if (!state.moved && distance(point, state.pointerStart) <= this.px(3)) return;
+      const snapped = this.snapColumnPoint(
+        { x: point.x + state.offsetX, y: point.y + state.offsetY },
+        {
+          roomId: column.roomId,
+          columnId: column.id,
+          width: column.width || DEFAULT_COLUMN_WIDTH_M,
+          height: column.height || DEFAULT_COLUMN_HEIGHT_M,
+          from: state.lastCenter,
+        }
+      );
+      if (!snapped) return;
+      state.lastCenter = snapped.point;
+      const ratios = getRoomRatios(snapped.point, roomRect);
       column.preview = {
         centerU: ratios.u,
         centerV: ratios.v,
-        wallSegmentIndex,
-        wallRatio,
+        wallSegmentIndex: snapped.wallSegmentIndex,
+        wallRatio: snapped.wallRatio,
       };
       state.moved = true;
       this.render();
@@ -2952,6 +2952,29 @@ export class BuildingPlanCanvas {
         bypass: Boolean(this.lastPointerEvent?.altKey),
       })
     );
+  }
+
+  /**
+   * A column's centre through core's column snapping (`column-placement.js`), with the legacy
+   * wall fields; null when it fits nowhere near. Without it (an older core), inside its room's box
+   * with the centre on a nearby wall line, as before.
+   * @param {{ x: number, y: number }} center
+   * @param {{ roomId: string, columnId?: string, width: number, height: number, from?: object }} column
+   * @returns {{ point: { x: number, y: number }, wallSegmentIndex: number, wallRatio: number } | null}
+   */
+  snapColumnPoint(center, column) {
+    let legacy = null;
+    const snapped = snapColumnCentre(this, center, column, (point) => {
+      const clamped = clampPointToRoom(point, this.getRoomRect(column.roomId));
+      const wallSnap = this.snapPointToWall(clamped, column.roomId);
+      legacy = wallSnap
+        ? { wallSegmentIndex: wallSnap.segmentIndex, wallRatio: wallSnap.ratio }
+        : { wallSegmentIndex: -1, wallRatio: 0 };
+      return wallSnap ? wallSnap.point : clamped;
+    });
+    if (!snapped) return null;
+    const point = { x: snapped.x, y: snapped.y };
+    return { point, ...(legacy || columnWallValues(this, point, column)) };
   }
 
   snapToRoomEdges(point, room) {
