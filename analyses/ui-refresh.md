@@ -1833,3 +1833,23 @@ test in `building-plan-ui.md`, "3b: select, then add".
 Works. After the hand test, the insertion mark goes as soon as a drag or resize starts (it used to
 stay until the release). A WSL crash (a machine check, as before) interrupted the check; nothing
 was lost. Next: 4a in the derived engine.
+
+### 4a-1: columns in core (2026-11-20, to test by hand, not committed)
+
+On every derived edit, core keeps each column inside its room and the room's own walls, clear of
+other columns, doors and windows (`room-contents.js`). It refuses otherwise, naming the column:
+"Column C#1 would leave its room.", "… would overlap column C#2 / Shared door". Reading a record
+no longer checks where a column stands, and today's engine keeps its old rule. The u/v limits
+are gone, so a column can be flush with a wall's far face or centred on it. New columns are named
+"C#1" (beams "B#1"). Core 647 of 647, web 358 of 365. Next: 4a-2, 4a-3 (perhaps in a new chat),
+then 4b.
+
+### 4a-1: hand-tested (2026-11-20, committed)
+
+Works. After the hand test: a column centred on one of its room's walls may stand out of it on
+both sides (a column wider than the wall). Columns' and beams' width and depth now show in mm. An
+old-engine message ("Keep structural elements…") for a column touching a wall's exterior face is
+gone: an entry's unchanged row sends an empty batch, which ran on today's engine and its old
+column rule, now removed. Agreed for step 4: a typed value's refusal goes under its field and into
+the entry's canvas status line. Noted: restart `preview.mjs` after a core-only change. Next, in a
+new chat: 4a-2, 4a-3.

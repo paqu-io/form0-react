@@ -1038,6 +1038,87 @@ wall (a room wall or a free wall) was dragged, and went only on release. Now a d
 takes it away as soon as it starts (`gestureMoved`, checked on each pointer move). Checked in
 headless Chromium: the tick shows after a click on a wall and is gone while the wall moves.
 
+### 4a-1: columns in core (hand-tested 2026-11-20, committed)
+
+4a split (agreed 2026-11-20): 4a-1 columns in core; 4a-2 free walls kept inside their room; 4a-3
+free walls by their centreline, ends cut along faces, highlighted as a whole (perhaps in a new
+chat).
+
+Decided (2026-11-20): reading a record stays permissive and the rule is checked on edits (records
+aren't launched yet, so no care for old ones beyond that); the u/v limits dropped; no handling for
+old columns; names in the canvas's style for codes: "C#1" (and "B#1"), not "C1", consistent with
+F#1, R#1, W#1.
+
+- form0-core:
+  - `room-contents.js`, `columnPlacementIssues`: on every derived edit (in
+    `derivedCandidateIssues`), each column of the edited floors must lie inside its room plus the
+    room's own walls (corner pieces included) and touch, not overlap, another column or a door or
+    window (flush inside across an opening counts, as on the canvas; touching within 0.1 mm). The
+    shapes come from core's footprints at one unit a metre, checked with unit 3's
+    `columnTargets` and `columnClash` (new in `column-fit.js`: what a column runs into; the
+    targets now carry the other columns' and openings' ids). Refusals: `column_outside_room`
+    ("Column C#1 would leave its room."), `column_overlap` ("Column C#2 would overlap column C#1.",
+    "Column C#1 would overlap Shared door."), the column as subject, `columnIds` or `openingIds`
+    for what it runs into; a pair is reported once, from the column the edit changed.
+  - `model.js`: the shared check no longer asks a column's centre to be in its room (still a
+    finite position and positive sizes), so a record with a column in a wall reads. Today's engine
+    has no column rule of its own any more (see "After the 4a-1 hand test", point 2).
+  - The canvas's temporary centre check is gone from `column-targets.js`: flush with the far face
+    and centred on a midline are offered, a drag past a wall stops at its far face.
+  - Blueprint: `column_center_u` and `column_center_v` have no limits (a centre in a wall falls
+    outside the room's box). Stored values unchanged; the generated system fields of every plan
+    form lose `min: 0, max: 1` there.
+  - Default names: new columns "C#1", beams "B#1" (a stored default, as agreed).
+- form0-react: a column's fractions are no longer clamped to 0..1 when placed or dragged
+  (`columnRatios`); a refusal outlines the column in the way (`columnIds` in `plan-messages.js`).
+- Tests: core `tests/building-plan-room-contents.test.js` (6, in the test script): in the wall up
+  to the far face, past it, over a column, a door, a wall moved in, a typed width, today's engine;
+  column snapping tests on the three placements; default names. Core 647 of 647 (and the whole
+  `npm test`); web 358 of 365 (the six worker tests and the numeric setters flake).
+- Checked in headless Chromium (Bedroom's entry): a column added against the right wall and dragged
+  past it stops flush with the far face, 10 cm in the room; in its entry, a width of 0.8 m shows
+  "Column C#1 would leave its room." at the top. In core: such a column is stored with
+  `column_center_u` 1.01, reads back, and the form finds nothing to flag.
+
+**After the 4a-1 hand test (2026-11-20).** Works. Raised, and what was done:
+
+1. **A column wider than its wall, centred on it** (agreed): a column centred on one of its room's
+   own walls may stand out of it on both sides, into the next room or outside, along the wall's
+   length (`straddles` in `column-targets.js`, `straddleStrips` in `column-fit.js`); still clear of
+   other columns and openings. Core's check reads the walls' midlines like the canvas
+   (`room-contents.js`). Tests: core snapping and room contents.
+2. **"Keep structural elements inside their room…" for a column touching a wall's exterior face**
+   (in the room entry, then on saving the entries). Cause, traced in the browser: an entry
+   previewing its unchanged row sends an empty batch, which `isDataBatch` doesn't take (it needs
+   one operation at least), so it goes to today's engine even on the derived one; the old centre
+   rule kept there for `engine=current` refused the column standing in the wall. Fixed: today's
+   engine has no column rule of its own any more (it retires at the switch; the canvas keeps
+   columns in place). Test: an empty batch with a column in a wall. Noted: the test page
+   rebuilds only when form0-react's source changes; after a core-only change, restart
+   `preview.mjs`.
+3. **Columns' and beams' width and depth in mm** (in for imperial), like a wall's thickness:
+   `building-plan-measures.js` (`thickness` kind); stored values unchanged; column height and beam
+   length stay in m.
+4. **A typed value's refusal shows at the top of the entry**, not like the canvas's messages.
+   Agreed for step 4 (typed values): the message under the refused field, and in the entry's
+   canvas status line (red, the element outlined); the top banner goes.
+5. **A wall moved into a column is refused**: in 4b a column touching or standing in the moved wall
+   follows it; a free-standing one it would pass still blocks the move (rule 1).
+
+Core 647 of 647 (and the whole `npm test`); web 359 of 365 (the six worker tests). Checked in
+headless Chromium: a column added at the right wall, dragged out to its far face, its entry saved
+unchanged, the room entry saved: no message.
+
+Hand test (form "Building plan fixture", a room entry):
+
+1. Drag a column into a wall: it catches flush inside, centred (a column no wider than the wall,
+   e.g. 20 × 20 cm), and stops flush with the far face; its symbol shows over the wall.
+2. In its entry, type a width or depth that takes it past the far face: refused, "Column C#… would
+   leave its room."; one that fits: accepted.
+3. Move the wall a column stands against inwards past it (the room's corner or face): refused,
+   naming the column; a door dragged onto a column stops (3b); a new column is named "C#n".
+4. After Submit, no finding on a column standing in a wall.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1136,12 +1217,13 @@ one combined core operation is the clean way.
 | Unit 2: free wall snapping; a free wall's thickness without a tag | Done and committed |
 | Unit 3 columns: pulls, inside the room (and its walls as far as core allows), no overlaps; drawn with their diagonals; typed sizes keep columns and beams in place | Done and committed; far face and centred on room walls with 4a |
 | 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Done and committed (web); mobile with step 5 |
-| Derived engine: 4a (free walls by their centreline, ends cut along faces; rule 1 for free walls and columns, column overlaps, typed column sizes refused when they take it out; core's column rule becomes the room and its walls, the u/v range widened, the canvas's centre check dropped; a free wall highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
+| 4a-1: columns in core (in the room and its walls, centred ones standing out, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
+| Derived engine: 4a-2 (free walls kept inside their room), 4a-3 (free walls by their centreline, ends cut along faces, highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
 | Opening entries by double-click (jumps) | To review |
-| Rest of step 3, then step 2 (lengths, plaster), step 4, step 5 | To do |
+| Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
 ## Open questions
