@@ -1109,6 +1109,23 @@ Core 647 of 647 (and the whole `npm test`); web 359 of 365 (the six worker tests
 headless Chromium: a column added at the right wall, dragged out to its far face, its entry saved
 unchanged, the room entry saved: no message.
 
+**Second round (2026-11-20, hand-tested, committed).** Raised and done:
+
+1. **Its centre where wall midlines meet**: the corners, T-junctions, and where a free wall meets
+   a wall (`junctions`, in the new `column-wall-targets.js`, with the room's walls' midlines);
+   a pull of the same rank as a corner into a corner. A column centred there may stand out past
+   the walls (the room walls' midlines are carried on to those points, `straddles`).
+2. **A column's face flush with a wall's interior face, from inside the wall**: in the wall, its
+   room-side face on the wall's interior face; as deep as the wall it stays inside it, deeper it
+   stands out past the exterior face (along the wall's length). `faces` (each room wall's interior
+   face and the side its body lies on); the side-to-face pull already offered it, the fit now
+   allows it (`allowances` in `column-fit.js`, replacing the strip of the first round).
+
+Core 648 of 648; web 359 of 365 (the six worker tests). Checked in headless Chromium: a column
+dragged into the right wall stops with its room-side face on the interior face (x 5.15 m, 10 cm
+outside); one dragged onto the corner centres where the two midlines meet (5.1, −0.1), standing out
+of both walls; no message.
+
 Hand test (form "Building plan fixture", a room entry):
 
 1. Drag a column into a wall: it catches flush inside, centred (a column no wider than the wall,
@@ -1217,7 +1234,7 @@ one combined core operation is the clean way.
 | Unit 2: free wall snapping; a free wall's thickness without a tag | Done and committed |
 | Unit 3 columns: pulls, inside the room (and its walls as far as core allows), no overlaps; drawn with their diagonals; typed sizes keep columns and beams in place | Done and committed; far face and centred on room walls with 4a |
 | 3b: placing by "select, then add" with an insertion mark (columns, doors, windows; web, then mobile with step 5) | Done and committed (web); mobile with step 5 |
-| 4a-1: columns in core (in the room and its walls, centred ones standing out, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
+| 4a-1: columns in core (in the room and its walls, centred ones and ones flush with a wall's interior face standing out, centres at midline junctions, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
 | Derived engine: 4a-2 (free walls kept inside their room), 4a-3 (free walls by their centreline, ends cut along faces, highlighted as a whole) and 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do, after unit 3 |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |

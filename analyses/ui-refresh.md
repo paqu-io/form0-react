@@ -1853,3 +1853,10 @@ gone: an entry's unchanged row sends an empty batch, which ran on today's engine
 column rule, now removed. Agreed for step 4: a typed value's refusal goes under its field and into
 the entry's canvas status line. Noted: restart `preview.mjs` after a core-only change. Next, in a
 new chat: 4a-2, 4a-3.
+
+### 4a-1, second round (2026-11-20, committed)
+
+A column's centre is pulled to where wall midlines meet (corners, T-junctions), and a column may
+sit in a wall with its room-side face flush with the wall's interior face, standing out past the
+exterior face when deeper than the wall (`column-wall-targets.js`). Core 648 of 648, web 359 of
+365. Next, in a new chat: 4a-2, 4a-3.
