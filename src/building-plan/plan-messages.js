@@ -6,7 +6,7 @@
  * one wall report the same refusal, so one message can carry several issues.
  */
 
-/** @typedef {{ code?: string, message?: string, subject?: { type?: string, id?: string } | null, roomIds?: Array<string | null>, openingIds?: string[] }} PlanIssue */
+/** @typedef {{ code?: string, message?: string, subject?: { type?: string, id?: string } | null, roomIds?: Array<string | null>, openingIds?: string[], columnIds?: string[] }} PlanIssue */
 
 /**
  * The issues grouped by their text, in the order they came.
@@ -47,8 +47,9 @@ const SUBJECT_KINDS = {
 /**
  * The elements the issues name: rooms, room faces (canvas wall entries), physical walls
  * (footprints), openings by subject id, columns and beams. Besides the subject, `roomIds` (rooms
- * that overlap, or stand in the way of a resize) and `openingIds` (openings a cut would remove)
- * are elements in the way too. Floors, editing cuts, edges and vertices name nothing drawn.
+ * that overlap, or stand in the way of a resize), `openingIds` (openings a cut would remove, or a
+ * column would overlap) and `columnIds` (a column another would overlap, 4a-1) are elements in the
+ * way too. Floors, editing cuts, edges and vertices name nothing drawn.
  * @param {PlanIssue[]} issues
  */
 export function planIssueTargets(issues) {
@@ -65,6 +66,7 @@ export function planIssueTargets(issues) {
     if (kind && typeof issue.subject.id === 'string') targets[kind].add(issue.subject.id);
     for (const id of issue?.roomIds || []) if (typeof id === 'string') targets.rooms.add(id);
     for (const id of issue?.openingIds || []) if (typeof id === 'string') targets.openings.add(id);
+    for (const id of issue?.columnIds || []) if (typeof id === 'string') targets.columns.add(id);
   }
   return targets;
 }

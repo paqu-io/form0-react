@@ -96,13 +96,10 @@ it('drags a column: a click does not move it, a drag past the wall stops', () =>
     return c.columns[0].preview;
   };
   expect(drag({ x: 501.5, y: 500 })).toBeUndefined();
-  // Its centre may reach the face (core's rule until 4a), not past it.
-  expect(drag({ x: 1300, y: 500 })).toEqual({
-    centerU: 1,
-    centerV: 0.5,
-    wallSegmentIndex: 0,
-    wallRatio: 0.5,
-  });
+  // Past the wall: it stops flush with the wall's far face (4a-1), its centre in the wall.
+  const stopped = drag({ x: 1300, y: 500 });
+  expect(stopped.centerU).toBeCloseTo(1.005, 9);
+  expect(stopped).toMatchObject({ centerV: 0.5, wallSegmentIndex: 0, wallRatio: 0.5 });
   expect(drag({ x: 978, y: 500 })).toMatchObject({ centerU: 0.985 });
 });
 

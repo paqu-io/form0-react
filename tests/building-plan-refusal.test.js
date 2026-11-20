@@ -56,6 +56,15 @@ describe('messages', () => {
     expect([...targets.openings]).toEqual(['o1', 'o2']);
     expect(targets.columns.size + targets.beams.size).toBe(0);
   });
+
+  it('names the columns a column runs into (4a-1): its subject, columnIds and openingIds', () => {
+    const targets = planIssueTargets([
+      { subject: { type: 'columns', id: 'c2' }, columnIds: ['c1'] },
+      { subject: { type: 'columns', id: 'c3' }, openingIds: ['d1'] },
+    ]);
+    expect([...targets.columns]).toEqual(['c2', 'c1', 'c3']);
+    expect([...targets.openings]).toEqual(['d1']);
+  });
 });
 
 describe('ghost', () => {

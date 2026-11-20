@@ -17,7 +17,7 @@ import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js'
 import { drawWallFootprints } from '../draw/walls.js';
 import { nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
-import { columnWallValues, snapColumnCentre } from '../column-placement.js';
+import { columnRatios, columnWallValues, snapColumnCentre } from '../column-placement.js';
 import { markFromClick } from '../insertion-mark.js';
 import { columnStretch, keepInStretch } from '../opening-clear.js';
 import { addPlanElement } from '../add-elements.js';
@@ -1770,7 +1770,7 @@ export class BuildingPlanCanvas {
         height: DEFAULT_COLUMN_HEIGHT_M,
       });
       if (!placed) return;
-      const ratios = getRoomRatios(placed.point, roomRect);
+      const ratios = columnRatios(placed.point, roomRect);
       const created = await this.controller?.createColumn?.(room.id, {
         centerU: ratios.u,
         centerV: ratios.v,
@@ -2545,7 +2545,7 @@ export class BuildingPlanCanvas {
       );
       if (!snapped) return;
       state.lastCenter = snapped.point;
-      const ratios = getRoomRatios(snapped.point, roomRect);
+      const ratios = columnRatios(snapped.point, roomRect);
       column.preview = {
         centerU: ratios.u,
         centerV: ratios.v,

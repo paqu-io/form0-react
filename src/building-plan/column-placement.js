@@ -5,6 +5,17 @@
  * walls, as far as core allows) and clear of other columns, doors and windows.
  */
 
+/**
+ * A column's centre as fractions of its room's box, not clamped: a column standing in a wall
+ * (4a-1) has its centre outside the box.
+ * @param {{ x: number, y: number }} centre
+ * @param {{ x: number, y: number, width: number, height: number } | null} rect
+ */
+export function columnRatios(centre, rect) {
+  if (!rect?.width || !rect?.height) return { u: 0, v: 0 };
+  return { u: (centre.x - rect.x) / rect.width, v: (centre.y - rect.y) / rect.height };
+}
+
 /** Closer than this to a wall's face (a millimetre), a column counts as against it. */
 const AGAINST_M = 0.001;
 
