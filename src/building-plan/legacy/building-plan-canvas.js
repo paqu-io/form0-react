@@ -22,6 +22,7 @@ import { markFromClick } from '../insertion-mark.js';
 import { columnStretch, keepInStretch } from '../opening-clear.js';
 import { addPlanElement } from '../add-elements.js';
 import { drawInsertionMark } from '../draw/insertion-mark.js';
+import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
 import {
   drawBeamSymbol,
@@ -4340,6 +4341,9 @@ export class BuildingPlanCanvas {
     const tones = levelTheme(this.planTheme, this.levelOf('walls', wall));
     const start = points[0];
     const end = points[points.length - 1] || points[0];
+    // A free wall comes by its centreline (4a-3); its own side, the row's face, is drawn and named.
+    const line = freeWallSide(wall, points);
+    const [lineStart, lineEnd] = [line[0], line[line.length - 1] || line[0]];
 
     wall._renderStart = start ? { ...start } : null;
     wall._renderEnd = end ? { ...end } : null;
@@ -4352,9 +4356,9 @@ export class BuildingPlanCanvas {
     ctx.strokeStyle = selected ? this.planTheme.accent : tones.wall;
     ctx.lineWidth = selected ? (freeWall ? this.px(4) : 6) : 3;
     ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    for (let i = 1; i < points.length; i += 1) {
-      ctx.lineTo(points[i].x, points[i].y);
+    ctx.moveTo(lineStart.x, lineStart.y);
+    for (let i = 1; i < line.length; i += 1) {
+      ctx.lineTo(line[i].x, line[i].y);
     }
     if (!this.wallFootprints || selected) ctx.stroke();
     ctx.restore();
@@ -4389,12 +4393,19 @@ export class BuildingPlanCanvas {
         typeof wall.index === 'number' ? wall.index + 1 : null,
         'wall'
       );
-      if (labelText && start && end && named) {
-        wall._labelRect = this.drawSelectedName(labelText, start, end, wall.roomId, 0, body);
-      } else if (labelText && start && end) {
+      if (labelText && lineStart && lineEnd && named) {
+        wall._labelRect = this.drawSelectedName(
+          labelText,
+          lineStart,
+          lineEnd,
+          wall.roomId,
+          0,
+          body
+        );
+      } else if (labelText && lineStart && lineEnd) {
         const anchor = {
-          x: (start.x + end.x) / 2,
-          y: (start.y + end.y) / 2,
+          x: (lineStart.x + lineEnd.x) / 2,
+          y: (lineStart.y + lineEnd.y) / 2,
         };
         const offset = ctx.lineWidth / 2 + 6;
         const labelRect = this.drawLabelBadge(

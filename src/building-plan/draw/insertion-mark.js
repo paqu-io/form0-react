@@ -33,8 +33,11 @@ export function drawInsertionMark(ctx, plan) {
     if (body && !body.polygons?.some((polygon) => inPolygon(probe, polygon)))
       normal = { x: -normal.x, y: -normal.y };
     const into = 6 * pixel;
-    const through = thickness + 4 * pixel;
-    ctx.moveTo(x - normal.x * into, y - normal.y * into);
+    // A free wall comes by its centreline (4a-3): the tick crosses its body from side to side.
+    const [back, through] = wall.sidePoints
+      ? [thickness / 2 + into, thickness / 2 + into]
+      : [into, thickness + 4 * pixel];
+    ctx.moveTo(x - normal.x * back, y - normal.y * back);
     ctx.lineTo(x + normal.x * through, y + normal.y * through);
   } else {
     const arm = 6 * pixel;

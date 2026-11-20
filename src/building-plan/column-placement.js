@@ -112,7 +112,9 @@ export function columnWallValues(plan, centre, { roomId, width, height }) {
   for (const wall of plan.walls || []) {
     if (wall.roomId !== roomId || !(wall.isBoundary || wall.isCutPortion) || wall.isDimmed)
       continue;
-    const points = plan.getRenderedWallPoints(wall) || [];
+    // A Split free wall portion keeps its face here (core gives its centreline since 4a-3), so
+    // the exported legacy fields don't change.
+    const points = wall.sidePoints || plan.getRenderedWallPoints(wall) || [];
     const body = plan.wallFootprints?.find((entry) => entry.id === wall.physicalWallId);
     const inBody = body?.polygons?.some((polygon) => inPolygon(centre, polygon));
     for (let index = 0; index < points.length - 1; index += 1) {
