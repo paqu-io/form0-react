@@ -1577,6 +1577,25 @@ Hand test (restart `preview.mjs`; reload any open tab):
 and the highlight. Still raised: "Column C#1 would leave its room" aligning Room 1's W1 with W1.1
 (captured).
 
+**"Column C#1 would leave its room" (hand-tested 2026-11-21, committed).** Reproduced in
+headless Chromium on the capture (the test page now opens one: `?state=<file in captured/>`).
+The drag snaps W1 exactly onto W1.1's line (0.796455 m; a round 0.797 left a 0.5 mm jog and
+went through). In line, the two faces merge and the jog's vertices go, so the follow pass (4b),
+which finds a face after the edit by its two vertices, lost the contact: the column stayed where
+it was, outside the moved face. Fixed in `follow-attached.js`: a face whose vertices are gone is
+the one that keeps one of them and runs the same way. The same cause fits "Wall W5 would leave
+its room" (a free wall's end on such a face). The column helpers moved to `follow-columns.js`
+(the file was past 300 lines). Test: `building-plan-attached-follow.test.js` (+1: a column and
+a free wall on a raised part of a face snapped back into line; fails without the fix). Core 680 of
+680. In the browser, on the capture: the snapped drag goes through, the column flush with the
+merged face.
+
+Hand test (restart `preview.mjs`): align Room 1's W1 with W1.1 as before (the column goes with
+it); a free wall ending on a raised part of a face, that part dragged back into line (it goes
+with it; the W5 case).
+
+Hand-tested: both work. Committed: form0-core `7a6abde`.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the

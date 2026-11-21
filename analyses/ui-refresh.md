@@ -1963,3 +1963,10 @@ room" (to capture again). Core 679 of 679, web 363 of 369.
 
 Works. Still raised: "Column C#1 would leave its room" when aligning Room 1's W1 with W1.1
 (captured, to look at next).
+
+### A face snapped into line: what touches it follows (hand-tested 2026-11-21, committed)
+
+"Column C#1 would leave its room" aligning W1 with W1.1: snapped exactly into line, the two faces
+merge and lose the jog's vertices, and 4b's follow pass found a face by its vertices, so the column
+stayed behind. Now the face keeping one of them, running the same way, is used. Likely the same
+for "Wall W5 would leave its room". The test page opens a capture with `?state=`. Core 680 of 680.
