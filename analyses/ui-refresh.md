@@ -2037,3 +2037,15 @@ polygon in core. To hand-test: Undo, 3c-3. Core 682 of 682, web 385 of 391.
 Committed: core `f83c85c`, web `154c79c`, `0fd00e3`. A new entry's Undo removed its own row and
 broke the form: core now treats the row's creation as the scope's opening edit (Cancel reverses
 it, Undo doesn't), to hand-test. Next queue in `building-plan-ui.md`, "Next".
+
+### Stray cap piece fixed; floor number in titles (2026-11-21, to hand-test)
+
+New-entry Undo committed (core `97a127b`). The dark piece over a pushed shared wall was a cap
+banded both ways from its edge (core `footprints.js`); now its face's outer side only. A floor
+named Upper or Basement floor shows its number in list rows, the entry header and the canvas
+tabs (`buildingPlanFloorTitle`); stored titles unchanged. Core 685 of 685, web 385 of 391.
+
+### Cap piece and floor number committed; floor order raised (2026-11-21)
+
+Committed: core `f008b24`, `c1788dd`; web `ab7c255`. Raised: floors shown in level order in the
+list and the tabs; proposed by story elevation, display only (to decide).

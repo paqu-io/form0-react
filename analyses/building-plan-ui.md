@@ -1853,7 +1853,7 @@ Hand-tested: both work. Committed: form0-core `f83c85c` (undo owner), form0-reac
 neighbour's face to where it was when the entry opened, then widens), to try and revert if it
 doesn't feel right; the stray footprint polygon fixed in core before 3c-4.
 
-### A new entry's Undo removed its own row (2026-11-21, to hand-test)
+### A new entry's Undo removed its own row (hand-tested 2026-11-21, committed)
 
 Seen: in a new floor's entry Undo was on (the floor's creation is the entry's first edit), and
 clicking it removed the floor; the open entry's row no longer existed and the form broke ("The
@@ -1866,16 +1866,45 @@ Hand test: Add Floor: Undo off, Alt+Shift+Z does nothing; Cancel removes the new
 then the plan page's Undo (if any) or the parent's removes it. Core 683 of 683
 (`building-plan-editor-open-row.test.js`). Restart the test page (core change).
 
+Hand-tested: works. Committed: form0-core `97a127b`.
+
+### The stray cap piece; a floor's number in its title (hand-tested 2026-11-21, committed)
+
+- *Stray piece (core `footprints.js`).* A cap (an edge with no row, F4) was banded both ways
+  from its edge, the room's clear space taking the inner half away. Where that space is
+  shallower than the wall (the neighbour's 16 cm strip above the pushed wall), 4 cm stood past
+  it in the next wall's band, at the other room's level. The band now stands on the face's outer
+  side only (`-side`, the room's orientation). Test `building-plan-cap-band.test.js` (fails
+  without the fix).
+- *Floor number.* A floor named "Upper floor" or "Basement floor" shows its number as entered:
+  "Upper floor 2", "Basement floor -1" (`buildingPlanFloorTitle`, core `row-title.js`), in the
+  list rows, the entry's header (form0-react: a plan entry's header reads like its list row)
+  and the canvas's floor tabs; shared-value questions name it so too. A record's stored title
+  (`title_field`) is unchanged: exported values stay as they were.
+
+Hand test: the pushed shared wall (two rooms drawn within 25 cm, the right one taller): no dark
+piece over W2. A floor: Name "Upper floor", number 2: the header, the tab and the Floors list say
+"Upper floor 2"; "Basement floor" with -1 says "Basement floor -1". Core 685 of 685, web 385 of
+391. Restart the test page (core change).
+
+Hand-tested: both work. Committed: form0-core `f008b24` (cap band), `c1788dd` (floor title);
+form0-react `ab7c255` (entry header).
+
+**Floor order (raised 2026-11-21, to decide).** Floors are listed, in the Floors list and the
+canvas's floor tabs, in the order they were added. Proposed: show them by level, from the story
+elevation they already require (ground 0, above positive, below negative), ties by name (land
+survey, basement, ground, mezzanine, upper, roof, other) and number; display only, so the stored
+row order and exported records stay as they are. A mezzanine then falls where its elevation puts
+it. Dragging rows to reorder a RepeatableSection is a separate, general feature (it changes the
+stored order, needs touch and keyboard ways too), not needed for floors.
+
 Seen meanwhile (not changed): a new floor's entry shows the first floor's plan (tabs "Ground
 floor", "F#2", the first active), not its own.
 
 ### Next (queue, 2026-11-21)
 
-1. Hand-test and commit the new-entry Undo fix (core only).
-2. The stray footprint polygon (core `footprints.js`). Repro: two rooms drawn within 25 cm (W2
-   shared), the right one taller; in the left room's entry push W2 right about 0.5 m: a dark
-   20 × 4 cm piece in the neighbour's top wall over W2 (the shared top wall's footprint, a
-   polygon at the end of the neighbour's 16 cm strip above it; see "Found" above).
+1. Floor order: decide (see "Floor order" above), then build.
+2. (done: the new-entry Undo fix, the stray cap piece, a floor's number in its title.)
 3. The kept notch, option 2 (core `derive/face-commands.js`, `shared-wall-drag.js`): a drag away
    from the neighbour first brings the neighbour's face back to where it was when the entry
    opened, then widens (F7: entry start instead of drag start). To try; revert if not right.
@@ -2068,8 +2097,10 @@ one combined core operation is the clean way.
 | Undo and Redo off in an entry with nothing of its own to undo (form0-react, form0-core) | Done and committed |
 | 3c-3: lengths for room walls and corners | Done and committed |
 | A length shorter than its pill: the pill outside its segment | With step 2 |
-| A pushed wall: a stray footprint polygon in the neighbour (core footprints); the neighbour's indent kept (option 2 decided) | Next: polygon, then option 2 |
-| A new entry's Undo removed its own row (core: the opening edit) | Built, to hand-test |
+| A pushed wall: the neighbour's indent kept (option 2 decided) | Next (new session) |
+| A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
+| The stray cap piece (core footprints); a floor's number in its title | Done and committed |
+| Floors shown by level (list and tabs) | To decide |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
