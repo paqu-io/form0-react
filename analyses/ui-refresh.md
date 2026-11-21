@@ -2049,3 +2049,13 @@ tabs (`buildingPlanFloorTitle`); stored titles unchanged. Core 685 of 685, web 3
 
 Committed: core `f008b24`, `c1788dd`; web `ab7c255`. Raised: floors shown in level order in the
 list and the tabs; proposed by story elevation, display only (to decide).
+
+### Floors by level (2026-11-21, to hand-test)
+
+Decided: by story elevation, display only. Core `buildingPlanFloorsByLevel`; the floor tabs sort
+by the snapshot's `order`, the Floors list uses `floorsByLevel`. Stored order unchanged.
+
+### Floors by level committed; queue for the next session (2026-11-21)
+
+Committed: core `5081770`, web `7194255`. Next (in `building-plan-ui.md`, "Next"): option 2 for
+a shared wall dragged back, then 3c-4 (free walls and columns), then the step 3 wrap-up.

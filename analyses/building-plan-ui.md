@@ -1898,20 +1898,40 @@ row order and exported records stay as they are. A mezzanine then falls where it
 it. Dragging rows to reorder a RepeatableSection is a separate, general feature (it changes the
 stored order, needs touch and keyboard ways too), not needed for floors.
 
+**Floor order (hand-tested 2026-11-21, committed: core `5081770`, web `7194255`).** Decided: by story elevation, display only;
+dragging rows to reorder left for later, if needed. Core `floor-order.js`
+(`buildingPlanFloorsByLevel`): elevation low to high (none: last; an empty value is none, not
+0), ties by name (land survey, basement, ground floor, mezzanine, upper floor, roof, other) and
+number, then as added. The canvas snapshot's floors carry their `order`, and the floor tabs sort
+by it; the React controller adds `floorsByLevel` for the Floors list (unnamed floors keep their
+stored number in "Floors n"). Stored rows and exported records keep their order. Hand test: add a
+floor "Basement floor", -1, elevation -3: the Floors list and the tabs show it before the Ground
+floor; its tab still switches to it; change an elevation and the order follows. Core 687 of 687,
+web 384 of 391 (the worker tests and the numeric-setters flake).
+
 Seen meanwhile (not changed): a new floor's entry shows the first floor's plan (tabs "Ground
 floor", "F#2", the first active), not its own.
 
-### Next (queue, 2026-11-21)
+### Next (queue, updated 2026-11-21)
 
-1. Floor order: decide (see "Floor order" above), then build.
-2. (done: the new-entry Undo fix, the stray cap piece, a floor's number in its title.)
-3. The kept notch, option 2 (core `derive/face-commands.js`, `shared-wall-drag.js`): a drag away
-   from the neighbour first brings the neighbour's face back to where it was when the entry
-   opened, then widens (F7: entry start instead of drag start). To try; revert if not right.
-4. 3c-4: lengths for free walls and columns (3-L1): a free wall's end dragged, its length along
-   its centreline; a free wall or a column moved, the distance to the nearest wall on each axis
-   (face to inside face; a side on a wall, 0, not drawn). Then the step 3 docs wrap-up.
-5. With step 2: a pill that doesn't fit outside its segment.
+Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
+floors in level order.
+
+1. **The kept notch, option 2** (core `derive/face-commands.js`, `derive/shared-wall-drag.js`):
+   a drag of a shared wall away from the neighbour first brings the neighbour's face back to
+   where it was when the entry opened, then widens as today (F7: entry start instead of drag
+   start; F5 `widen` stays the default). To try; revert if it doesn't feel right. Repro: two
+   rooms drawn within 25 cm (W2 shared), the right one taller; in the left room's entry push W2
+   right about 0.5 m, then drag it back: today the neighbour keeps the notch (see "Found").
+2. **3c-4: lengths for free walls and columns** (3-L1): a free wall's end dragged, its length
+   along its centreline; a free wall or a column moved, the distance to the nearest wall on each
+   axis (face to inside face; a side on a wall, 0, not drawn). Reuse `draw/dimensions.js` and
+   `drag-lengths.js`; the canvas's `drawDragLengths` dispatches by gesture (wall drags carry
+   `freeWall`, corner drags of a free wall's split point carry `freeWall`). Then the step 3 docs
+   wrap-up (the Approach row).
+3. With step 2: a pill that doesn't fit goes outside its segment.
+4. Seen, not changed: a new floor's entry shows the first floor's plan (its tab not active).
+5. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -2100,7 +2120,7 @@ one combined core operation is the clean way.
 | A pushed wall: the neighbour's indent kept (option 2 decided) | Next (new session) |
 | A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
 | The stray cap piece (core footprints); a floor's number in its title | Done and committed |
-| Floors shown by level (list and tabs) | To decide |
+| Floors shown by level (list and tabs; display only) | Done and committed |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
