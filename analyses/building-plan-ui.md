@@ -1699,6 +1699,10 @@ one combined core operation is the clean way.
 | 4a-3a: free walls drawn, moved and checked by their centreline (snapshot `sidePoints`, the controller converting; thickness keeps the centreline) | Done and committed |
 | 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
 | Derived engine: 4b (attached contents follow their wall: free walls and columns; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | Done and committed |
+| After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
+| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do |
+| Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
+| Console `invalid_routing_context` on `room_walls` (an entry dialog sends a nested list's change event from its own level, `handleNestedRemove`; the edit applies) | To look at |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
