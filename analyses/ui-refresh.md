@@ -1946,3 +1946,20 @@ the Bedroom's free wall (the 4a-2 case). Beams wait. Choices and the hand test i
 ### 4b: hand-tested (2026-11-21, committed)
 
 Works. Committed as 4b-1 (free walls) and 4b-2 (columns) in form0-core.
+
+### After the 4b hand test: the L junction (2026-11-21, to test by hand, not committed)
+
+At an L of two shared walls, the stretch of a room's face past the other room's corner is a cap
+(rule F4: no row), so the wall's highlight stopped short of the corner, and once detached the two
+caps at the inner corner (each covering the other) left an empty square. A corner beside a face a
+few micrometres longer than its wall went unfilled (grey square beside W8). Fixed on the canvas,
+records unchanged: caps draw their band with their wall, a selected room wall is drawn up to the
+corner (`extentPoints`), the corner tolerance is 0.1 mm. A record-level change (caps joining their
+wall's row) was tried and dropped: the station at the other room's corner drives face drags. "Save
+state" now keeps the open plan. Wall labels stay W1 (stored). Open: "Wall W5 would leave its
+room" (to capture again). Core 679 of 679, web 363 of 369.
+
+### The L junction: hand-tested (2026-11-21, committed)
+
+Works. Still raised: "Column C#1 would leave its room" when aligning Room 1's W1 with W1.1
+(captured, to look at next).

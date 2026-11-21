@@ -1514,6 +1514,69 @@ Hand test (restart `preview.mjs`, core changed; Bedroom's entry):
 **Hand test (2026-11-21).** Works. Committed: form0-core `9e74d2a` (4b-1, free walls) and
 `8fc0699` (4b-2, columns). Raised, not about 4b: see "After the 4b hand test" below.
 
+### After the 4b hand test (hand-tested 2026-11-21, committed)
+
+Raised: at an L of two shared walls (Room 2 wrapping Room 1's corner), W1.1's highlight stops a
+wall's thickness short of Room 2's corner; detached, an empty square at that corner; W7.1 (and W4)
+should reach the corner too; the square under the shared wall's end, beside W8, is grey from Room
+2; "Wall W5 would leave its room" while aligning W1.2 with W1. And: walls named W#1 like R#1?
+
+Found (on the captured plans; "Save state" first fixed to keep them):
+
+- **The stretch past the other room's corner is a cap** (rule F4, variant C2): a remainder of a
+  room's face whose material lies inside other walls' has no row. So Room 2's face there belongs
+  to no wall (the highlight stops), and at an inner corner the two caps have the same band (the
+  corner square): each counts as covering the other, so neither supplies it, and once the other
+  room no longer fills it the square is empty. The canvas drew a cap only as a corner's incidence,
+  never its band.
+- **The grey square** is Room 2's corner fill: W4's binding on Room 2's face ends 2.3 µm short of
+  that face's end (it is clipped to the segment built from Room 1's slightly shorter face), and
+  the canvas wanted 1 µm, so the corner went unfilled and only Room 1's W3 covered it.
+- **Tried and dropped: the record-level change** (a cap joins its source's row and body, the
+  station at the other room's corner goes, the segment runs over every row): it did what was
+  asked, but 13 core tests failed, among them real regressions (rooms overlapping on corner drags,
+  a Split point moving, a door shifting, a thickness round trip): that station is what face drags
+  and jogs move a shared part of a face by. It would mean reworking the face commands.
+- **W#1**: kept W1. Wall labels are stored (`wall_label` is written into the record); "R#1" and
+  "C#1" are only shown for a room or column with no name.
+
+Built (records unchanged):
+
+- core `footprints.js`: a cap's band is drawn with its source wall (its edge's `profile`), so an
+  inner corner is built (attached or not); a row reaches its edge's end within 0.1 mm (was 1 µm),
+  so a room's corner beside a face a few micrometres longer than its wall is filled.
+- core `face-extent.js`: a room face's line over the caps next to it (`extentPoints` in the
+  canvas snapshot); web `building-plan-canvas.js`: a selected room wall is drawn over it, its end
+  marks at its ends (not while previewed; free walls as before).
+- web `canvas-host-mount.js` and the test page: "Save state" keeps the plan the last opened canvas
+  shows (unsaved entry work included) when the page sets `__FORM0_PLAN_CAPTURE__`; the replay
+  tool reads it, with the template forms' meta.
+
+On the captured plans: Room 2's W1.1 is highlighted to x 0.72, W4 up to y 1.249; detached, both
+inner corners built (Room 1's: W1.2 to x 3.713, W7.1 down to y 2.001); the square beside W8 is
+W4's too. Open: "Wall W5 would leave its room" (its capture came from a tab with the old page: no
+plan). The console's `invalid_routing_context` for `room_walls`: the entry dialog sends a list's
+change event from its own level (`handleNestedRemove`); the edit applies; to look at.
+
+Tests: core `tests/building-plan-junction-faces.test.js` (3, in the test script; each fails
+without the fix); `building-plan-footprints.test.js` rounds both scales (a cap's band is clipped
+at each); web `building-plan-selection-name.test.js` (+1). Core 679 of 679; web 363 of 369 (the
+six worker tests).
+
+Hand test (restart `preview.mjs`; reload any open tab):
+
+1. Two rooms at an L as before. Select Room 2's wall along the inner corner (W1.1): the highlight
+   and its end marks reach the corner; the same for W4. From Room 1, its walls at its own inner
+   corner likewise.
+2. The square under the shared wall's end, beside W8: dark from Room 2.
+3. Detach the rooms: no empty square at either room's inner corner; W7.1 and W1.2 reach it.
+4. Align W1.2 with W1 again; if "Wall W5 would leave its room" comes back, "Save state" first
+   (the file now holds the plan).
+
+**Hand test (2026-11-21).** Works. Committed: form0-core `a6cebad`; form0-react the capture hook
+and the highlight. Still raised: "Column C#1 would leave its room" aligning Room 1's W1 with W1.1
+(captured).
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
