@@ -3782,8 +3782,34 @@ export class BuildingPlanCanvas {
   }
 
   /**
-   * A selected free wall shows as a whole (after the V1 hand test): its body outlined, its own
-   * side (the row's, where the line was drawn) as a thinner line. Returns the body's centre.
+   * In a free wall's own entry, its row's side (the face its fields tag "This side", 4a-3c) is
+   * named off its body. Returns the side's middle, for the wall's name to keep away from.
+   */
+  drawFreeWallSideLabel(wall, line, start, end) {
+    const room = (this.rooms || []).find((entry) => entry.id === wall.roomId);
+    const [a, b] = [line[0], line[line.length - 1]];
+    const text = planText('plan.side.this');
+    const size = this.computeLabelRect(text, { x: 0, y: 0 }, { position: 'center' });
+    const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (!size || !a || !b) return middle;
+    // Off the body: across the centreline, beyond the row's face.
+    const offsetOf = (point) =>
+      (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
+    const beyond = (point) =>
+      Math.sign(offsetOf(point)) === Math.sign(offsetOf(middle)) &&
+      Math.abs(offsetOf(point)) > Math.abs(offsetOf(middle));
+    const centre = nameBeside(a, b, {
+      size,
+      clearance: this.px(4),
+      isInside: (point) => Boolean(room && pointInRoom(point, room)) && beyond(point),
+    });
+    this.drawLabelBadge(text, centre, { position: 'center', color: this.planTheme.accent });
+    return middle;
+  }
+
+  /**
+   * A selected (or list-hovered) free wall shows as a whole (after the V1 hand test; 4a-3c): its
+   * body outlined, as heavy as a selected room wall's line. Returns the body's centre.
    */
   drawFreeWallOutline(wall) {
     const footprint = (this.wallFootprints || []).find((entry) => entry.id === wall.physicalWallId);
@@ -3792,7 +3818,7 @@ export class BuildingPlanCanvas {
     const ctx = this.ctx;
     ctx.save();
     ctx.strokeStyle = this.planTheme.accent;
-    ctx.lineWidth = this.px(1.5);
+    ctx.lineWidth = 6;
     ctx.lineJoin = 'round';
     ctx.beginPath();
     for (const polygon of footprint.polygons) {
@@ -4350,19 +4376,23 @@ export class BuildingPlanCanvas {
     wall._labelRect = null;
 
     ctx.save();
-    // A free wall stands in its room (not a room's side, nor a Split portion of one).
-    const freeWall = !wall.isBoundary && !wall.isCutPortion;
+    // A free wall (its Split portions too) is drawn as a whole when selected (4a-3c): its body
+    // outlined, no heavier side, but in its own entry, where its row's side shows, "This side".
+    const freeWall = Boolean(wall.sidePoints);
     const selected = this.selectedWallId === wall.id;
-    ctx.strokeStyle = selected ? this.planTheme.accent : tones.wall;
-    ctx.lineWidth = selected ? (freeWall ? this.px(4) : 6) : 3;
+    const ownEntry = freeWall && this.focus?.collection === 'walls' && this.focus.id === wall.id;
+    const heavy = (selected && !freeWall) || ownEntry;
+    ctx.strokeStyle = heavy ? this.planTheme.accent : tones.wall;
+    ctx.lineWidth = heavy ? (freeWall ? this.px(4) : 6) : 3;
     ctx.beginPath();
     ctx.moveTo(lineStart.x, lineStart.y);
     for (let i = 1; i < line.length; i += 1) {
       ctx.lineTo(line[i].x, line[i].y);
     }
-    if (!this.wallFootprints || selected) ctx.stroke();
+    if (!this.wallFootprints || heavy) ctx.stroke();
     ctx.restore();
-    const body = selected && freeWall ? this.drawFreeWallOutline(wall) : null;
+    if (selected && freeWall) this.drawFreeWallOutline(wall);
+    const sideMiddle = ownEntry ? this.drawFreeWallSideLabel(wall, line, start, end) : null;
 
     if (this.selectedWallId === wall.id) {
       const handleSize = this.px(ROOM_HANDLE_SIZE);
@@ -4394,14 +4424,17 @@ export class BuildingPlanCanvas {
         'wall'
       );
       if (labelText && lineStart && lineEnd && named) {
-        wall._labelRect = this.drawSelectedName(
-          labelText,
-          lineStart,
-          lineEnd,
-          wall.roomId,
-          0,
-          body
-        );
+        // A free wall's name beside its body (off "This side" in its own entry).
+        wall._labelRect = freeWall
+          ? this.drawSelectedName(
+              labelText,
+              start,
+              end,
+              wall.roomId,
+              ((wall.thickness ?? 0) * this.gridSize) / 2,
+              sideMiddle
+            )
+          : this.drawSelectedName(labelText, lineStart, lineEnd, wall.roomId, 0, null);
       } else if (labelText && lineStart && lineEnd) {
         const anchor = {
           x: (lineStart.x + lineEnd.x) / 2,
