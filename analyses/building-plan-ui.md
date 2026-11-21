@@ -1805,6 +1805,85 @@ Seen at the hand test (2026-11-21, captured `state-2026-11-21T18-48-49-321Z.json
 pushed right into the next room draws a solid piece of wall above W2, in the faded neighbour;
 moving W2 back left, the neighbour keeps the indent the push made, though nothing was saved.
 
+**Found (2026-11-21), reproduced with two rooms attached (drawn within 25 cm, so W2 is shared):**
+
+- *The kept indent is decided behaviour* (`reform-backend-nestjs/docs/building-plan-derive-step-3-item-3.md`):
+  F5 makes `widen` the default; towards the neighbour the whole shared wall moves, so a taller
+  neighbour gets a notch; away from it the neighbour keeps its face, the wall widens up to the
+  limit, holds, then the room detaches (W2 became "W10.1"), and point 9 says a seated jog stays
+  when the face is dragged back. F7 counts "before the edit" from the drag's start. Options:
+  (1) keep it, Undo is the way back; (2) a drag away first returns the neighbour's face to where
+  it was when the entry opened, then widens (revisits F7: entry start instead of drag start; a
+  core change); (3) `move_wall` as the default (revisits F5: shrinking a room then pulls its
+  neighbour along).
+- *The solid piece is a stray footprint polygon.* The neighbour was 16 cm taller than Room 1's
+  outer face, so after the push it keeps a 16 cm strip above Room 1's top wall, which becomes
+  shared. That shared wall's footprint has a 20 × 4 cm polygon at the strip's end (y 6.86 to
+  6.90, over W2) inside the neighbour's top wall band, and it is drawn at the room in scope's
+  level, so it shows dark in the faded wall. Likely a junction cap mostly hidden under the strip.
+  Fix in core's footprints (the polygon shouldn't be there), not in the drawing.
+
+### Undo and Redo off with nothing of the entry's own (hand-tested 2026-11-21, committed)
+
+Core's state names the editor that owns the next undo and redo (`undoScopeId`, `redoScopeId`);
+`ownsHistory` turns an entry's Undo and Redo off, and its shortcuts quiet, when the next step
+belongs to the entry under it (no more "Undo and Redo belong to the editor…"). Hand test: slide a
+door on a Floor canvas, open its room: the room's Undo is off; drag a corner: on (the Floor's
+off). Core 682 of 682.
+
+### 3c-3: lengths for room walls and corners (hand-tested 2026-11-21, committed)
+
+- `changedSides` (`drag-lengths.js`): the room in scope's sides corner to corner (vertices in
+  line merged, 3-L2), compared with the room when the drag started (`gestureRooms`); those whose
+  length changed, or that the drag made (a jog), drawn inside the room, all highlighted. A side is
+  matched to the one before it running the same way, on the same line if there is one, else the
+  nearest, so a wall moved straight shows the two sides next to it and not itself.
+- The canvas: a room wall's move (its room and kind recorded at the drag's start, since a preview
+  can replace the row's id) and a room corner's drag. Core keeps the last valid preview when it
+  refuses, so the lengths keep the last valid position (3-L5). Free walls and their split points
+  are 3c-4.
+
+Hand test: a room entry, drag the top wall's grip: the left and right sides' lengths; drag a
+corner: the two sides meeting there; split a side and move the wall at its end: the side
+corner to corner; push a wall into a shared neighbour: only this room's lengths. Web 385 of
+391 (the 6 worker tests).
+
+Hand-tested: both work. Committed: form0-core `f83c85c` (undo owner), form0-react `154c79c`
+(Undo off), `0fd00e3` (3c-3). Decided: the kept notch, option 2 (a drag away first returns the
+neighbour's face to where it was when the entry opened, then widens), to try and revert if it
+doesn't feel right; the stray footprint polygon fixed in core before 3c-4.
+
+### A new entry's Undo removed its own row (2026-11-21, to hand-test)
+
+Seen: in a new floor's entry Undo was on (the floor's creation is the entry's first edit), and
+clicking it removed the floor; the open entry's row no longer existed and the form broke ("The
+BuildingPlan editor row no longer exists", `RepeatableEntryModal`). Core: the edit that creates
+the row an editor opened on (`openRow` → `apply(…, { opening: true })`) is the scope's opening
+edit: Cancel reverses it, Undo leaves it (`unchanged`), `canUndo` and `undoScopeId` say there
+is nothing to undo; once the entry is saved it becomes the parent's ordinary edit (the parent's
+Undo removes the row). Same for a room, wall, door, column or beam added from a list.
+Hand test: Add Floor: Undo off, Alt+Shift+Z does nothing; Cancel removes the new floor; Save,
+then the plan page's Undo (if any) or the parent's removes it. Core 683 of 683
+(`building-plan-editor-open-row.test.js`). Restart the test page (core change).
+
+Seen meanwhile (not changed): a new floor's entry shows the first floor's plan (tabs "Ground
+floor", "F#2", the first active), not its own.
+
+### Next (queue, 2026-11-21)
+
+1. Hand-test and commit the new-entry Undo fix (core only).
+2. The stray footprint polygon (core `footprints.js`). Repro: two rooms drawn within 25 cm (W2
+   shared), the right one taller; in the left room's entry push W2 right about 0.5 m: a dark
+   20 × 4 cm piece in the neighbour's top wall over W2 (the shared top wall's footprint, a
+   polygon at the end of the neighbour's 16 cm strip above it; see "Found" above).
+3. The kept notch, option 2 (core `derive/face-commands.js`, `shared-wall-drag.js`): a drag away
+   from the neighbour first brings the neighbour's face back to where it was when the entry
+   opened, then widens (F7: entry start instead of drag start). To try; revert if not right.
+4. 3c-4: lengths for free walls and columns (3-L1): a free wall's end dragged, its length along
+   its centreline; a free wall or a column moved, the distance to the nearest wall on each axis
+   (face to inside face; a side on a wall, 0, not drawn). Then the step 3 docs wrap-up.
+5. With step 2: a pill that doesn't fit outside its segment.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1986,9 +2065,11 @@ one combined core operation is the clean way.
 | 3c-2: lengths for doors, windows and a room being drawn (`draw/dimensions.js`) | Done and committed |
 | Plan shortcuts in the top dialog only; Cancel's refusal names the edit in the way (form0-react, form0-core) | Done and committed |
 | 3c-2b: a room being drawn snaps; the full chain along a side with several openings | Done and committed |
-| Undo and Redo off in an entry with nothing of its own to undo | To do |
+| Undo and Redo off in an entry with nothing of its own to undo (form0-react, form0-core) | Done and committed |
+| 3c-3: lengths for room walls and corners | Done and committed |
 | A length shorter than its pill: the pill outside its segment | With step 2 |
-| A pushed wall: a solid piece above it in the neighbour; the neighbour's indent kept when the wall goes back | To look at (2026-11-21) |
+| A pushed wall: a stray footprint polygon in the neighbour (core footprints); the neighbour's indent kept (option 2 decided) | Next: polygon, then option 2 |
+| A new entry's Undo removed its own row (core: the opening edit) | Built, to hand-test |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 

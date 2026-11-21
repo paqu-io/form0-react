@@ -2024,3 +2024,16 @@ openings on a side break the chain. Core 681 of 681, web 380 of 386.
 
 form0-react `da3cb32`, `b512976`; form0-core `41244e3`. Next: Undo and Redo off with nothing of
 the entry's own to undo; a pushed wall's solid piece and kept indent (captured); then 3c-3.
+
+### Undo off without own history; 3c-3; a pushed wall explained (2026-11-21)
+
+Undo and Redo off where the next step is the entry's under it (core `undoScopeId`). 3c-3:
+`changedSides`, room wall and corner drags show the sides they change. A pushed shared wall: the
+kept notch is decided (`widen`, F5, F7; options noted), the solid piece is a stray footprint
+polygon in core. To hand-test: Undo, 3c-3. Core 682 of 682, web 385 of 391.
+
+### Undo off and 3c-3 committed; a new entry's Undo (2026-11-21)
+
+Committed: core `f83c85c`, web `154c79c`, `0fd00e3`. A new entry's Undo removed its own row and
+broke the form: core now treats the row's creation as the scope's opening edit (Cancel reverses
+it, Undo doesn't), to hand-test. Next queue in `building-plan-ui.md`, "Next".
