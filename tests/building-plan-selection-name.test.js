@@ -175,3 +175,74 @@ it('in its own entry, a free wall shows its row’s side as "This side", its nam
   expect(side.y).toBeGreaterThan(100); // beyond its row's face
   expect(name.y).toBeLessThan(80); // across its body
 });
+
+it('draws a selected room wall up to its room’s corner, over the caps next to it', () => {
+  // A face stopping short of the room's inner corner (the rest is a cap of its wall): core gives
+  // its line to the corner as `extentPoints`; the highlight and its end marks follow it.
+  const strokes = [];
+  const marks = [];
+  let path = [];
+  const ctx = new Proxy(
+    {},
+    {
+      get: (target, name) => {
+        if (name in target) return target[name];
+        if (name === 'measureText')
+          return () => ({ width: 20, actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 3 });
+        if (name === 'beginPath') return () => (path = []);
+        if (name === 'moveTo' || name === 'lineTo') return (x, y) => path.push([x, y]);
+        if (name === 'rect') return (x, y, w, h) => marks.push([x + w / 2, y + h / 2]);
+        if (name === 'stroke')
+          return () => strokes.push({ path, color: target.strokeStyle, width: target.lineWidth });
+        return () => {};
+      },
+      set: (target, name, value) => ((target[name] = value), true),
+    }
+  );
+  const room = {
+    id: 'r',
+    vertices: [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 80 },
+      { x: 0, y: 80 },
+    ],
+  };
+  const c = Object.assign(Object.create(BuildingPlanCanvas.prototype), {
+    ctx,
+    zoomLevel: 1,
+    labelSettings: { rooms: true, walls: false },
+    rooms: [room],
+    walls: [],
+    selectedWallId: 'w',
+  });
+  const wall = {
+    id: 'w',
+    roomId: 'r',
+    displayLabel: 'W1.1',
+    points: [
+      { x: 100, y: 0 },
+      { x: 20, y: 0 },
+    ],
+    extentPoints: [
+      { x: 100, y: 0 },
+      { x: 0, y: 0 },
+    ],
+  };
+  c.walls = [wall];
+  c.drawWall(wall);
+  const heavy = strokes.find((stroke) => stroke.color === DEFAULT_PLAN_THEME.accent);
+  expect(heavy.path).toEqual([
+    [100, 0],
+    [0, 0],
+  ]);
+  expect(marks).toEqual([
+    [100, 0],
+    [0, 0],
+  ]);
+  // Not selected: its line as it is.
+  strokes.length = 0;
+  c.selectedWallId = null;
+  c.drawWall(wall);
+  expect(strokes.every((stroke) => stroke.color !== DEFAULT_PLAN_THEME.accent)).toBe(true);
+});

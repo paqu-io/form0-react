@@ -4382,12 +4382,18 @@ export class BuildingPlanCanvas {
     const selected = this.selectedWallId === wall.id;
     const ownEntry = freeWall && this.focus?.collection === 'walls' && this.focus.id === wall.id;
     const heavy = (selected && !freeWall) || ownEntry;
+    // A selected room wall runs on over the caps next to it, up to the room's corner (core's
+    // `extentPoints`; not while it is previewed).
+    const extent =
+      heavy && !freeWall && points === wall.points && wall.extentPoints?.length > 1
+        ? wall.extentPoints
+        : line;
     ctx.strokeStyle = heavy ? this.planTheme.accent : tones.wall;
     ctx.lineWidth = heavy ? (freeWall ? this.px(4) : 6) : 3;
     ctx.beginPath();
-    ctx.moveTo(lineStart.x, lineStart.y);
-    for (let i = 1; i < line.length; i += 1) {
-      ctx.lineTo(line[i].x, line[i].y);
+    ctx.moveTo(extent[0].x, extent[0].y);
+    for (let i = 1; i < extent.length; i += 1) {
+      ctx.lineTo(extent[i].x, extent[i].y);
     }
     if (!this.wallFootprints || heavy) ctx.stroke();
     ctx.restore();
@@ -4401,7 +4407,7 @@ export class BuildingPlanCanvas {
       ctx.fillStyle = this.planTheme.handle;
       ctx.strokeStyle = this.planTheme.accent;
       ctx.lineWidth = this.px(1);
-      [start, end].forEach((point) => {
+      (extent === line ? [start, end] : [extent[0], extent[extent.length - 1]]).forEach((point) => {
         ctx.beginPath();
         ctx.rect(point.x - half, point.y - half, handleSize, handleSize);
         ctx.fill();
