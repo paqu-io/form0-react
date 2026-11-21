@@ -1671,6 +1671,86 @@ Hand-tested: works. Committed: form0-react `e9707ac`. Asked after it (2026-11-21
 (a column on a Floor canvas can't be selected today, but may be later), and the handle being
 dragged stays filled. Navigation: the proposed table above, to adjust as we go.
 
+### 3c-1b: cursors and handles follow what the canvas allows (hand-tested 2026-11-21, committed)
+
+- A cursor promises only what a press does (`hoverCursor(hover, capabilities)`): on a Floor
+  canvas rooms and openings show `grab`, walls, columns and beams the arrow; on the plan page
+  everything the arrow; in a room entry a room's floor the arrow (a click marks a place there),
+  walls `grab`. Hover now tells walls and rooms apart (`wall`, `room`). View-only canvases keep
+  V1's look (the arrow over faded elements, `grab` elsewhere).
+- A handle shows only where it can be dragged (`showsHandles`), in the select tool of an
+  editable canvas: an opening's ends need resize, its capsule move, a wall's and a beam's ends
+  resize and structure. On a Floor canvas an opening shows its capsule only, and the capsule now
+  slides it (before, its press needed resize and did nothing); an end that can't resize falls
+  through to the body, which moves it.
+- The handle being dragged stays filled: hot handles are tracked by a key (`corner:room:vertex`,
+  `opening:id:end`, …), and a gesture keeps the one it started on. After the drop, what is under
+  the pointer is hovered again (not on touch), so its handle and cursor are right at once.
+- Fix on the way: two corners of one room no longer count as the same hover.
+
+Hand test: the plan page (arrow everywhere); a Floor canvas (rooms and doors `grab`, walls
+arrow; select a door: capsule only, drag it); a room entry (drag a corner, a door's end, the
+capsule, a column: each stays filled while dragged; after the drop the cursor is right without
+moving).
+
+### 3c-2: lengths for doors, windows and a room being drawn (hand-tested 2026-11-21, committed)
+
+- `draw/dimensions.js` (new): one length (thin line, slash ticks, extension lines, the value on
+  a pill in the mono face, upright and reading bottom to top on vertical sides; changing values
+  in the accent) and `formatLength` (the plan's unit, the presentation locale's decimal sign,
+  two decimals, no unit). It returns the pill's box, for step 4.
+- `drag-lengths.js` (new): which lengths a gesture shows. A dragged door or window: the chain
+  along the room's inside face, corner to opening, width, opening to corner, the side found from
+  either face of a shared wall and run corner to corner across vertices in line (3-L2); dragging
+  an end changes the width and that side, sliding changes both sides. A room being drawn: its
+  width along the top and its depth along the left.
+- Legacy canvas: `drawDragLengths` over the plan, from what it draws (the drag's preview, the
+  draft); the dragged opening's name is hidden meanwhile (the chain takes its place). Measured
+  in the room in scope; on a Floor canvas, which slides openings too, in the opening's own room.
+- Status line while lengths show: "Lengths in metres · the highlighted ones are changing" (or
+  feet). The mockup's "{what} · blue lengths are changing · in {unit}" became two fixed texts:
+  the status line takes a key without parameters, the element's name is already beside it, and
+  the accent follows the form theme, so it isn't always blue.
+
+Seen while checking (not changed): on the derived engine a room drawn on a Floor canvas isn't
+snapped (`snapSize` returns the raw size when the controller has an interaction), and core
+attaches it to a room within 25 cm (`create_room`, `attachmentTolerance`), so the room created
+can differ a little from the lengths shown while drawing.
+
+For later (maintainer, 2026-11-21): the lengths of a room being drawn are to be looked at again
+when lengths stay visible (step 2) and when they can be typed on the canvas (step 4). Then the
+drag shows its lengths in place of the ones that stay, and a pill becomes the field you type in.
+
+Hand test (test page):
+
+1. A room entry: add a door, slide it by its capsule: three lengths along the inside face, the
+   two outer ones highlighted, its name hidden; drag an end: the width and that side
+   highlighted. Status line: "Lengths in metres …"; back to its hint after the drop.
+2. A door on a shared wall, and on a side with a vertex where another room's wall meets it: the
+   chain runs corner to corner of this room.
+3. A Floor canvas: draw a room: its width and depth while drawing.
+4. Not on the test page (it has no locale or unit switch): a comma decimal and feet, covered
+   by `formatLength`'s tests.
+
+Checked in headless Chrome: steps 1 and 3 (and the 3c-1b cursors and handles on the plan page,
+a Floor canvas and a room entry). Web 375 of 381 (the 6 worker tests); new
+`tests/building-plan-drag-lengths.test.js`.
+
+Hand-tested: works. Committed: form0-react `21f4ba8` (3c-1b), `2d18dd2` (3c-2). Decided after it
+(2026-11-21):
+
+- A room being drawn snaps as corner drags do, Alt for free; core keeps attaching it to a room
+  within 25 cm (wanted, to attach it when needed). The status line's wording stays.
+- Several openings on one side: the full chain, every opening breaking it (corner, opening,
+  gap, opening, corner), the lengths the drag changes highlighted. The same chain is the one to
+  make editable in step 4. Both as 3c-2b.
+- Columns show their clearances while moving (3-L1, in 3c-4); beams wait for the beam unit.
+- Seen at the hand test: Cancel on a Rooms entry refused with "A later independent edit depends
+  on this editor" (core `cancelScope`, `dependent_edit`), and Save stuck too. Not reproduced
+  (four paths tried). Found meanwhile: every open plan dialog listens for the undo, redo and rail
+  shortcuts on `window`, so the Floor dialog under a Rooms dialog reacts too. Fix first: plan
+  shortcuts in the top dialog only, and core's refusal naming the later edit, for next time.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1848,6 +1928,10 @@ one combined core operation is the clean way.
 | Opening entries by double-click (jumps) | Direction agreed 2026-11-21 (the whole chain, breadcrumbs); what each canvas reaches to settle with a mockup; right after step 3 |
 | Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
 | 3c-1: handles, cursors and the pin badge | Done and committed |
+| 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |
+| 3c-2: lengths for doors, windows and a room being drawn (`draw/dimensions.js`) | Done and committed |
+| Plan shortcuts in the top dialog only; Cancel's refusal names the edit in the way | To do, next |
+| 3c-2b: a room being drawn snaps; the full chain along a side with several openings | To do |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 

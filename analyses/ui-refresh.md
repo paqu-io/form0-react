@@ -1996,3 +1996,18 @@ One handle style, a capsule for doors and windows, a column grip, cursors that f
 element, a pin badge with the plan's tooltip. Committed `e9707ac`. Next: 3c-1b (cursors follow
 what the canvas allows; the dragged handle stays filled), then 3c-2. Navigation: the proposed
 double-click table agreed, to adjust as we go.
+
+### 3c-1b and 3c-2 built (2026-11-21, to hand-test)
+
+3c-1b: cursors and handles follow what each canvas allows (a Floor canvas slides openings by
+the capsule now), the dragged handle stays filled. 3c-2: `draw/dimensions.js` and
+`drag-lengths.js`; a dragged door or window shows its chain along the inside face, a room being
+drawn on a Floor canvas its width and depth, and the status line names the unit. Seen: rooms
+drawn on the derived engine aren't snapped. Web 375 of 381.
+
+### 3c-1b and 3c-2 hand-tested, committed (2026-11-21)
+
+Committed `21f4ba8` (3c-1b) and `2d18dd2` (3c-2). Decided: a room being drawn snaps; several
+openings on one side get the full chain (3c-2b). A Cancel refused on a Rooms entry
+(`dependent_edit`) wasn't reproduced; next, plan shortcuts in the top dialog only (every open
+plan dialog listens on `window` today) and core's refusal naming the edit in the way.
