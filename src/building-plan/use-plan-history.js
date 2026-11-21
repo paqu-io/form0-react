@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { isPlanShortcutEvent, planShortcutKey } from './plan-shortcuts.js';
+import { ownsPlanKeyboard } from './plan-keyboard.js';
 
 /**
  * Undo / Redo of an entry's plan edits (floor and room entries carry an editor), with their
@@ -27,6 +28,8 @@ export function usePlanHistory({ repeatableApi, repeatableApiRef, canvasRef, loc
       if (!isPlanShortcutEvent(event)) return;
       const key = planShortcutKey(event);
       if (key !== 'Z' && key !== 'Y') return;
+      // Only the top dialog's plan: a Floor entry under a Rooms entry keeps its history.
+      if (!ownsPlanKeyboard(canvasRef.current?.canvas)) return;
       event.preventDefault();
       event.stopPropagation();
       (key === 'Z' ? undo : redo)();

@@ -1,9 +1,10 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { MousePointer2, X, Square, DoorOpen, Grid2x2, Scissors, Pin } from 'lucide-react';
 import { BeamIcon, ColumnIcon, RejoinIcon, WallIcon } from './plan-icons.jsx';
 import { TOOL_MODES, getButtonsForMode } from './toolbar-config.js';
 import { isPlanShortcutEvent, planShortcut, planShortcutKey } from '../plan-shortcuts.js';
 import { planText } from '../plan-text.js';
+import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import './toolbar.css.js';
 
 /**
@@ -55,6 +56,7 @@ export function BuildingPlanToolbar({
   unavailable = {},
   disabled = false,
 }) {
+  const rootRef = useRef(null);
   // Get buttons configured for this canvas mode
   const buttons = useMemo(() => getButtonsForMode(canvasMode), [canvasMode]);
 
@@ -99,6 +101,8 @@ export function BuildingPlanToolbar({
 
       const key = planShortcutKey(event);
       if (!key) return;
+      // Only the top dialog's plan takes the rail's shortcuts.
+      if (!ownsPlanKeyboard(rootRef.current)) return;
 
       // Find matching button
       const button = buttons.find((btn) => btn.shortcutKey === key && btn.enabled && !disabled);
@@ -145,7 +149,12 @@ export function BuildingPlanToolbar({
   };
 
   return (
-    <div className="building-plan-toolbar-float" role="toolbar" aria-label="Canvas tools">
+    <div
+      ref={rootRef}
+      className="building-plan-toolbar-float"
+      role="toolbar"
+      aria-label="Canvas tools"
+    >
       {groups.map((group, index) => (
         <React.Fragment key={group[0].group}>
           {index > 0 && <div className="building-plan-toolbar-separator" role="separator" />}

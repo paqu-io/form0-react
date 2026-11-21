@@ -2022,7 +2022,10 @@ function FormRendererContent({
         );
         if (updated.status !== 'applied')
           throw new TypeError('Resolve or cancel the pending BuildingPlan edit before saving.');
-        if (updated.issues.length) throw new TypeError(updated.issues[0].message);
+        if (updated.issues.length) {
+          console.warn('[form0-react] BuildingPlan save refused.', updated.issues[0]);
+          throw new TypeError(updated.issues[0].message);
+        }
         payload = {
           ...resolveBuildingPlanRow(editor.getRecord(), path),
           ...payload,
@@ -2030,7 +2033,10 @@ function FormRendererContent({
           repeatable: resolveBuildingPlanRow(editor.getRecord(), path).repeatable,
         };
         const accepted = editor.acceptRow(scopeId);
-        if (accepted.issues.length) throw new TypeError(accepted.issues[0].message);
+        if (accepted.issues.length) {
+          console.warn('[form0-react] BuildingPlan save refused.', accepted.issues[0]);
+          throw new TypeError(accepted.issues[0].message);
+        }
         // Child data is already accepted into the shared parent draft by the adapter.
         if (controller.buildingPlan) {
           if (eventSession.config.lifecycle)
@@ -2090,7 +2096,11 @@ function FormRendererContent({
       if (modalConfig?.buildingPlan) {
         const { editor, scopeId } = modalConfig.buildingPlan;
         const result = editor.cancelRow(scopeId);
-        if (result.issues.length) throw new TypeError(result.issues[0].message);
+        if (result.issues.length) {
+          // The whole issue to the console: a refused cancel names the edit in the way.
+          console.warn('[form0-react] BuildingPlan cancel refused.', result.issues[0]);
+          throw new TypeError(result.issues[0].message);
+        }
       }
       closeRepeatableModal(modalConfig?.modalId);
     },

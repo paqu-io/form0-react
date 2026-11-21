@@ -25,6 +25,7 @@ import { drawInsertionMark } from '../draw/insertion-mark.js';
 import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
+import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import { DIMENSION_OFFSET, drawDimension, formatLength } from '../draw/dimensions.js';
 import { draftRoomLengths, openingChain } from '../drag-lengths.js';
 import {
@@ -1329,6 +1330,8 @@ export class BuildingPlanCanvas {
       this.controller?.clearPreview?.({ clearIssues: true });
     };
     this.boundGestureKey = (event) => {
+      // Only the top dialog's plan: Esc in a Rooms entry is not the Floor entry's under it.
+      if (!ownsPlanKeyboard(this.canvas)) return;
       if (
         event.key === 'Escape' &&
         (this.activePointerId != null || ['split', 'rejoin', 'pin'].includes(this.mode))

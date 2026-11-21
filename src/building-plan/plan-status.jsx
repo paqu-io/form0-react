@@ -4,6 +4,9 @@ import { planText, planTextParts } from './plan-text.js';
 import { isMacPlatform } from './plan-shortcuts.js';
 import * as styles from './plan-status.css.js';
 
+/** The status line before the canvas reports anything. */
+export const NO_STATUS = Object.freeze({ hintKey: null, messages: [], index: 0, codes: [] });
+
 /**
  * The line over the canvas's bottom-left corner: what the current tool does, or, when core has
  * refused an edit, why. A refusal is red, with "1 of 2" to step through several messages and ×

@@ -5,10 +5,11 @@ import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES } from './toolbar/toolbar-config.js';
 import { PlanTooltip } from './plan-tooltip.jsx';
 import { FloorTabs } from './floor-tabs.jsx';
-import { PlanStatus } from './plan-status.jsx';
+import { NO_STATUS, PlanStatus } from './plan-status.jsx';
 import { PlanIssueList } from './plan-issue-list.jsx';
 import { usePlanIssues } from './use-plan-issues.js';
 import { usePlanHistory } from './use-plan-history.js';
+import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { mountPlanCanvas } from './canvas-host-mount.js';
 import { waitingCommands } from './add-elements.js';
@@ -17,9 +18,6 @@ import { planTokens, planVars } from './plan-tokens.css.js';
 import { useThemeClass } from '../theme-context.jsx';
 import { pickMetaEntry } from './canvas-adapters.js';
 import './canvas-host.css.js';
-
-// The status line before the canvas reports anything.
-const NO_STATUS = Object.freeze({ hintKey: null, messages: [], index: 0, codes: [] });
 
 export function BuildingPlanCanvasHost({
   section,
@@ -60,6 +58,7 @@ export function BuildingPlanCanvasHost({
     canvasRef.current?.setPresentation(presentation);
   }, [presentation]);
   const hostRef = useRef(null);
+  usePlanKeyboard(hostRef); // the top dialog's plan takes the plan shortcuts
   // The canvas draws with the form theme's colours, resolved again when the theme changes.
   const themeClass = useThemeClass();
   useEffect(() => {
