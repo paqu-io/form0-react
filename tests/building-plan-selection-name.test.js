@@ -216,6 +216,9 @@ it('draws a selected room wall up to its room’s corner, over the caps next to 
     rooms: [room],
     walls: [],
     selectedWallId: 'w',
+    // A room canvas: its walls' ends are handles (they show only where they can be dragged).
+    mode: 'select',
+    controller: { toolbarState: { canResize: true, canMoveStructural: true } },
   });
   const wall = {
     id: 'w',

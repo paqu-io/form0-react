@@ -14,24 +14,48 @@ describe('plan canvas cursors (step 3, 3-H3)', () => {
     expect(resizeCursor(null)).toBe('ew-resize');
   });
 
+  // What a room canvas, a Floor canvas and the plan page let you drag (controller.js).
+  const ROOM = { canMove: true, canMoveStructural: true, canResize: true, canMoveRoom: false };
+  const FLOOR = { canMove: true, canMoveStructural: false, canResize: false, canMoveRoom: true };
+  const PAGE = {};
+
   it('moves corners, ends and four-way grips; grabs bodies and opening grips', () => {
-    expect(hoverCursor({ type: 'corner' })).toBe('move');
-    expect(hoverCursor({ type: 'wall-handle' })).toBe('move');
-    expect(hoverCursor({ type: 'column' })).toBe('move');
-    expect(hoverCursor({ type: 'wall-grip', free: true, direction: { x: 0, y: 1 } })).toBe('move');
-    expect(hoverCursor({ type: 'wall-grip', direction: { x: 0, y: 1 } })).toBe('ns-resize');
+    expect(hoverCursor({ type: 'corner' }, ROOM)).toBe('move');
+    expect(hoverCursor({ type: 'wall-handle' }, ROOM)).toBe('move');
+    expect(hoverCursor({ type: 'column' }, ROOM)).toBe('move');
+    const down = { x: 0, y: 1 };
+    expect(hoverCursor({ type: 'wall-grip', free: true, direction: down }, ROOM)).toBe('move');
+    expect(hoverCursor({ type: 'wall-grip', direction: down }, ROOM)).toBe('ns-resize');
     const vertical = { x: 0, y: 50 };
-    expect(hoverCursor({ type: 'opening-handle', handle: 'start', direction: vertical })).toBe(
-      'ns-resize'
+    const start = { type: 'opening-handle', handle: 'start', direction: vertical };
+    const centre = { type: 'opening-handle', handle: 'center', direction: vertical };
+    expect(hoverCursor(start, ROOM)).toBe('ns-resize');
+    expect(hoverCursor(centre, ROOM)).toBe('grab');
+    expect(hoverCursor({ type: 'beam-handle', direction: { x: 1, y: -1 } }, ROOM)).toBe(
+      'nesw-resize'
     );
-    expect(hoverCursor({ type: 'opening-handle', handle: 'center', direction: vertical })).toBe(
-      'grab'
-    );
-    expect(hoverCursor({ type: 'beam-handle', direction: { x: 1, y: -1 } })).toBe('nesw-resize');
-    expect(hoverCursor({ type: 'opening' })).toBe('grab');
-    expect(hoverCursor({ type: 'pin' })).toBe('grab');
-    expect(hoverCursor({ type: 'faded' })).toBe('default');
-    expect(hoverCursor(null)).toBe('grab');
+    for (const type of ['opening', 'beam', 'wall', 'pin'])
+      expect(hoverCursor({ type }, ROOM)).toBe('grab');
+    expect(hoverCursor({ type: 'room' }, ROOM)).toBe('default'); // a click marks a place there
+    expect(hoverCursor({ type: 'faded' }, ROOM)).toBe('default');
+    expect(hoverCursor(null, ROOM)).toBe('default');
+  });
+
+  it('promises only what the canvas lets a press drag', () => {
+    // A Floor canvas moves rooms and slides openings; walls, columns and beams stay.
+    expect(hoverCursor({ type: 'room' }, FLOOR)).toBe('grab');
+    expect(hoverCursor({ type: 'opening' }, FLOOR)).toBe('grab');
+    for (const type of ['column', 'wall-handle', 'beam-handle'])
+      expect(hoverCursor({ type }, FLOOR)).toBe('default');
+    for (const type of ['beam', 'wall', 'pin'])
+      expect(hoverCursor({ type }, FLOOR)).toBe('default');
+    // An opening's end that can't resize it moves it, as its body does.
+    const end = { type: 'opening-handle', handle: 'end', direction: { x: 1, y: 0 } };
+    expect(hoverCursor(end, FLOOR)).toBe('grab');
+    // The plan page drags nothing.
+    for (const type of ['room', 'opening', 'wall', 'column'])
+      expect(hoverCursor({ type }, PAGE)).toBe('default');
+    expect(hoverCursor(end, PAGE)).toBe('default');
   });
 
   it('keeps the cursor a gesture started on, a grab turned into grabbing', () => {

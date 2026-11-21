@@ -30,31 +30,51 @@ function roomHandleCursor(handle) {
 }
 
 /**
- * The cursor for what the pointer is over, with no gesture running.
+ * What a canvas lets you drag (its toolbar state): a cursor promises only what a press does.
+ * @typedef {{ canMove?: boolean, canMoveRoom?: boolean, canMoveStructural?: boolean,
+ *   canResize?: boolean }} CanvasCapabilities
+ */
+
+/**
+ * The cursor for what the pointer is over, with no gesture running: the arrow where a press
+ * drags nothing (a column on a Floor canvas, anything on the plan page, the ground).
  * @param {{ type: string, handle?: string, direction?: { x: number, y: number },
  *   free?: boolean } | null} hover the canvas's hover state; `direction` is the element's (an
  *   opening's wall, a beam) or, for a room wall's grip, its normal
+ * @param {CanvasCapabilities} can
  * @returns {string}
  */
-export function hoverCursor(hover) {
+export function hoverCursor(hover, can) {
+  const structure = Boolean(can.canMoveStructural);
+  const resize = Boolean(can.canResize);
   switch (hover?.type) {
     case 'corner':
-    case 'wall-handle':
-    case 'column':
       return 'move';
     case 'wall-grip':
       return hover.free ? 'move' : resizeCursor(hover.direction);
-    case 'opening-handle':
-      return hover.handle === 'center' ? 'grab' : resizeCursor(hover.direction);
+    case 'wall-handle':
+      return resize && structure ? 'move' : 'default';
+    case 'column':
+      return structure ? 'move' : 'default';
     case 'beam-handle':
-      return resizeCursor(hover.direction);
+      return resize && structure ? resizeCursor(hover.direction) : 'default';
+    case 'beam':
+    case 'wall':
+    case 'pin':
+      return structure ? 'grab' : 'default';
+    case 'opening-handle':
+      // An end that can't resize the opening moves it, as its body does.
+      if (hover.handle !== 'center' && resize) return resizeCursor(hover.direction);
+      return can.canMove ? 'grab' : 'default';
+    case 'opening':
+      return can.canMove ? 'grab' : 'default';
+    case 'room':
+      return can.canMoveRoom ? 'grab' : 'default';
     case 'room-handle':
-      return roomHandleCursor(hover.handle);
-    case 'faded':
-      return 'default';
+      return resize ? roomHandleCursor(hover.handle) : 'default';
     default:
-      // Bodies: openings, beams, walls, rooms.
-      return 'grab';
+      // Faded elements and the ground.
+      return 'default';
   }
 }
 

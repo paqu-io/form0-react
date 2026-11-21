@@ -150,6 +150,11 @@ function getCapabilities(controller) {
   return { ...CAPABILITY_DEFAULTS };
 }
 
+/** A corner's key among the hot handles (3-H1): its room and its vertex. */
+function cornerKey(corner) {
+  return `corner:${corner.roomId}:${corner.id}`;
+}
+
 function distance(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -922,7 +927,7 @@ export class BuildingPlanCanvas {
     if (this.cutAllowed() && this.mode === MODE_SELECT)
       for (const corner of view.corners || []) {
         if (corner.roomId !== roomId) continue;
-        drawHandle(ctx, corner.point, { ...style, hot: this.isHotHandle(corner.point) });
+        drawHandle(ctx, corner.point, { ...style, hot: this.isHot(cornerKey(corner)) });
       }
     // A pinned wall's badge, a quarter along its axis (3-P); its tooltip comes from the hover.
     this.pinBadges = [];
@@ -1196,8 +1201,10 @@ export class BuildingPlanCanvas {
       this.gestureGhost = null;
       // Where the press landed, for the insertion mark (3b); a hint a command showed goes.
       this.pressPoint = this.getCanvasPoint(event);
-      // A gesture keeps the cursor it started on (3-H3), a grab turned into grabbing.
-      this.pressCursor = hoverCursor(this.hoverState);
+      // A gesture keeps the handle it started on hot and its cursor (3-H1, 3-H3), a grab
+      // turned into grabbing.
+      this.pressHover = this.hoverState;
+      this.pressCursor = hoverCursor(this.hoverState, getCapabilities(this.controller));
       if (this.hintOverride) {
         this.hintOverride = null;
         this.updateStatusLine();
@@ -1274,6 +1281,10 @@ export class BuildingPlanCanvas {
           await this.handleMouseUp(event);
           // A click on one of the room's walls, or inside it, leaves the insertion mark there.
           this.insertionMark = moved ? null : markFromClick(this, this.pressPoint);
+          this.pressHover = null;
+          // The handle still under the pointer stays hot, with its cursor.
+          if (event.pointerType !== 'touch' && this.mode === MODE_SELECT && !this.readOnly)
+            this.setHoverState(this.hoverAt(this.getCanvasPoint(event)));
           this.render();
         }
       } finally {
@@ -1540,16 +1551,37 @@ export class BuildingPlanCanvas {
       this.canvas.style.cursor = 'crosshair';
       return;
     }
-    const gesture =
+    // A view-only canvas only opens elements: the arrow over faded ones, grab elsewhere (V1).
+    if (this.readOnly) {
+      this.canvas.style.cursor = this.hoverState?.type === 'faded' ? 'default' : 'grab';
+      return;
+    }
+    this.canvas.style.cursor = this.gestureRunning()
+      ? dragCursor(this.pressCursor)
+      : hoverCursor(this.hoverState, getCapabilities(this.controller));
+  }
+
+  /**
+   * Whether handles that need these capabilities are drawn: a handle shows only where it can be
+   * dragged, in the select tool of an editable canvas.
+   * @param {...string} needs `canMove`, `canMoveStructural`, `canResize`
+   */
+  showsHandles(...needs) {
+    if (this.readOnly || this.mode !== MODE_SELECT) return false;
+    const caps = getCapabilities(this.controller);
+    return needs.every((need) => caps[need]);
+  }
+
+  /** Whether a drag of a room, corner, wall, column, beam or opening is running. */
+  gestureRunning() {
+    return Boolean(
       this.dragState ||
       this.cornerDragState ||
       this.wallDragState ||
       this.columnDragState ||
       this.beamDragState ||
-      this.openingDragState;
-    this.canvas.style.cursor = gesture
-      ? dragCursor(this.pressCursor)
-      : hoverCursor(this.hoverState);
+      this.openingDragState
+    );
   }
 
   /**
@@ -1559,7 +1591,8 @@ export class BuildingPlanCanvas {
    */
   hoverAt(point) {
     const corner = this.cornerAt(point);
-    if (corner) return { type: 'corner', roomId: corner.roomId, point: corner.point };
+    if (corner)
+      return { type: 'corner', roomId: corner.roomId, key: cornerKey(corner), point: corner.point };
     const roomHandle = this.findRoomHandle(point);
     if (roomHandle)
       return { type: 'room-handle', handle: roomHandle.handle, roomId: roomHandle.room.id };
@@ -1569,15 +1602,29 @@ export class BuildingPlanCanvas {
         type: 'wall-handle',
         handle: wallHandle.index === 0 ? 'start' : 'end',
         wallId: wallHandle.wall.id,
-        point: wallHandle.handlePoint,
+        key: `wall:${wallHandle.wall.id}:${wallHandle.index === 0 ? 'start' : 'end'}`,
       };
     const grip = this.wallGrip();
     if (grip && this.findWallGrip(point))
-      return { type: 'wall-grip', wallId: grip.wall.id, free: grip.free, direction: grip.normal };
+      return {
+        type: 'wall-grip',
+        wallId: grip.wall.id,
+        key: `grip:${grip.wall.id}`,
+        free: grip.free,
+        direction: grip.normal,
+      };
     const badge = this.findPinBadge(point);
     if (badge) return { type: 'pin', wallId: badge.wallId, badge };
     const columnHit = this.findColumnHit(point);
-    if (columnHit) return { type: 'column', columnId: columnHit.column.id, hit: columnHit.type };
+    if (columnHit) {
+      const { column } = columnHit;
+      return {
+        type: 'column',
+        columnId: column.id,
+        key: `column:${column.id}`,
+        hit: columnHit.type,
+      };
+    }
     const beamHandle = this.findBeamHandle(point);
     if (beamHandle) {
       const { beam, handle } = beamHandle;
@@ -1587,7 +1634,7 @@ export class BuildingPlanCanvas {
         type: 'beam-handle',
         beamId: beam.id,
         handle,
-        point: handle === 'start' ? start : end,
+        key: `beam:${beam.id}:${handle}`,
         direction: { x: end.x - start.x, y: end.y - start.y },
       };
     }
@@ -1601,8 +1648,7 @@ export class BuildingPlanCanvas {
         handle,
         openingType: openingHandle.type,
         openingId: openingHandle.openingId,
-        point:
-          { start: geometry.startPoint, end: geometry.endPoint }[handle] || geometry.centerPoint,
+        key: `opening:${openingHandle.openingId}:${handle}`,
         direction: {
           x: geometry.endPoint.x - geometry.startPoint.x,
           y: geometry.endPoint.y - geometry.startPoint.y,
@@ -1612,13 +1658,21 @@ export class BuildingPlanCanvas {
     const openingHit = this.findOpeningNearPoint(point);
     if (openingHit)
       return { type: 'opening', openingType: openingHit.type, openingId: openingHit.openingId };
-    return this.isFadedAt(point) ? FADED_HOVER : null;
+    if (this.isFadedAt(point)) return FADED_HOVER;
+    // Bodies, for the cursor: a wall moves where structure moves, a room on a Floor canvas.
+    const wall = this.findWallNearPoint(point)?.wall;
+    if (wall) return { type: 'wall', wallId: wall.id };
+    const room = this.findRoomAtPoint(point);
+    return room ? { type: 'room', roomId: room.id } : null;
   }
 
-  /** Whether the handle at `point` is the one under the pointer (filled with the accent). */
-  isHotHandle(point) {
-    const hot = this.hoverState?.point;
-    return Boolean(hot && point) && distance(hot, point) <= this.px(1);
+  /**
+   * Whether the handle or grip with `key` is hot (3-H1): under the pointer, or the one a running
+   * gesture started on (it stays filled while dragged).
+   */
+  isHot(key) {
+    const hover = this.gestureRunning() ? this.pressHover : this.hoverState;
+    return Boolean(key) && hover?.key === key;
   }
 
   /** The pinned wall's badge at `point`, if any (drawn by `drawCornerControls`). */
@@ -2051,10 +2105,11 @@ export class BuildingPlanCanvas {
         return;
       }
 
+      // The capsule moves the opening where openings move (a Floor canvas too); an end that
+      // can't resize it falls through to its body, which moves it.
       const openingHandleHit = this.findOpeningHandle(point);
-      if (openingHandleHit) {
-        if (!caps.canResize) return;
-        const { handle } = openingHandleHit;
+      const handle = openingHandleHit?.handle;
+      if (openingHandleHit && (handle === 'center' ? caps.canMove : caps.canResize)) {
         this.grabOpening(openingHandleHit, handle === 'center' ? 'move' : handle, point);
         return;
       }
@@ -3450,7 +3505,7 @@ export class BuildingPlanCanvas {
       theme: this.planTheme,
       pixel: this.px(1),
       radius: WALL_GRIP_RADIUS,
-      hot: this.hoverState?.type === 'wall-grip',
+      hot: this.isHot(`grip:${grip.wall.id}`),
     });
   }
 
@@ -3497,7 +3552,8 @@ export class BuildingPlanCanvas {
       prev.openingId === nextState.openingId &&
       prev.openingType === nextState.openingType &&
       prev.columnId === nextState.columnId &&
-      prev.beamId === nextState.beamId;
+      prev.beamId === nextState.beamId &&
+      prev.key === nextState.key;
     if (same) return;
     if (!prev && !nextState) return;
     this.hoverState = nextState || null;
@@ -3855,12 +3911,7 @@ export class BuildingPlanCanvas {
       pixel: 1 / this.zoomLevel,
     });
     ctx.restore();
-    if (
-      isSelected &&
-      this.mode === MODE_SELECT &&
-      !this.readOnly &&
-      getCapabilities(this.controller).canMoveStructural
-    ) {
+    if (isSelected && this.showsHandles('canMoveStructural')) {
       const { x, y, width, height } = info.rect;
       drawGrip(
         ctx,
@@ -3873,7 +3924,7 @@ export class BuildingPlanCanvas {
           theme: this.planTheme,
           pixel: this.px(1),
           radius: COLUMN_GRIP_RADIUS,
-          hot: this.hoverState?.type === 'column' && this.hoverState.columnId === column.id,
+          hot: this.isHot(`column:${column.id}`),
         }
       );
     }
@@ -3950,13 +4001,14 @@ export class BuildingPlanCanvas {
       pixel: 1 / this.zoomLevel,
     });
 
-    if (isSelected)
-      for (const point of [info.startPoint, info.endPoint])
+    if (isSelected && this.showsHandles('canResize', 'canMoveStructural'))
+      [info.startPoint, info.endPoint].forEach((point, index) =>
         drawHandle(ctx, point, {
           theme: this.planTheme,
           pixel: this.px(1),
-          hot: this.isHotHandle(point),
-        });
+          hot: this.isHot(`beam:${beam.id}:${index === 0 ? 'start' : 'end'}`),
+        })
+      );
     ctx.restore();
 
     if ((this.shouldShowLabel('beams') || isSelected) && info.label) {
@@ -4354,10 +4406,14 @@ export class BuildingPlanCanvas {
     if (selected && freeWall) this.drawFreeWallOutline(wall);
     const sideMiddle = ownEntry ? this.drawFreeWallSideLabel(wall, line, start, end) : null;
 
-    if (this.selectedWallId === wall.id) {
+    if (this.selectedWallId === wall.id && this.showsHandles('canResize', 'canMoveStructural')) {
       const style = { theme: this.planTheme, pixel: this.px(1) };
-      (extent === line ? [start, end] : [extent[0], extent[extent.length - 1]]).forEach((point) =>
-        drawHandle(ctx, point, { ...style, hot: this.isHotHandle(point) })
+      const ends = extent === line ? [start, end] : [extent[0], extent[extent.length - 1]];
+      ends.forEach((point, index) =>
+        drawHandle(ctx, point, {
+          ...style,
+          hot: this.isHot(`wall:${wall.id}:${index === 0 ? 'start' : 'end'}`),
+        })
       );
     }
 
@@ -4559,22 +4615,29 @@ export class BuildingPlanCanvas {
     }
 
     if (isSelected) {
-      this.drawOpeningHandles(geometry);
+      this.drawOpeningHandles(geometry, opening.id);
     }
   }
 
-  /** A selected door's or window's handles: its two ends, and the capsule that slides it. */
-  drawOpeningHandles(geometry) {
+  /**
+   * A selected door's or window's handles, where the canvas allows them: its two ends (resize)
+   * and the capsule that slides it (move).
+   */
+  drawOpeningHandles(geometry, openingId) {
     const style = { theme: this.planTheme, pixel: this.px(1) };
-    for (const point of [geometry.startPoint, geometry.endPoint])
-      drawHandle(this.ctx, point, { ...style, hot: this.isHotHandle(point) });
+    const key = (handle) => `opening:${openingId}:${handle}`;
+    if (this.showsHandles('canResize')) {
+      drawHandle(this.ctx, geometry.startPoint, { ...style, hot: this.isHot(key('start')) });
+      drawHandle(this.ctx, geometry.endPoint, { ...style, hot: this.isHot(key('end')) });
+    }
+    if (!this.showsHandles('canMove')) return;
     const direction = {
       x: geometry.endPoint.x - geometry.startPoint.x,
       y: geometry.endPoint.y - geometry.startPoint.y,
     };
     drawCapsule(this.ctx, geometry.centerPoint, direction, {
       ...style,
-      hot: this.isHotHandle(geometry.centerPoint),
+      hot: this.isHot(key('center')),
     });
   }
 
