@@ -86,45 +86,63 @@ export function insideRun(vertices, start, end, reach) {
 }
 
 /**
- * The chain along the inside face while a door or window is dragged: corner to opening, its
- * width, opening to corner. The values the drag changes are marked `changing`: dragging an end
- * changes the width and the side next to that end; sliding it, the two sides.
+ * The chain along the inside face while a door or window is dragged, corner to corner: every
+ * opening on that side breaks it (corner, opening, gap, opening, corner; 3c-2b). The lengths the
+ * drag changes are marked `changing`: dragging an end changes the width and the length next to
+ * that end; sliding, the lengths on both sides. Other openings' widths stay plain.
  * @param {Point[]} vertices the room's inside polygon
  * @param {{ start: Point, end: Point }} opening its ends, as drawn
  * @param {'start' | 'end' | 'move'} handle what is dragged
- * @param {{ reach: number, minLength: number }} limits in canvas units: how far the side may be
- *   from the opening, and the shortest length worth drawing
+ * @param {{ reach: number, minLength: number, others?: { start: Point, end: Point }[] }} options
+ *   in canvas units: how far the side may be from an opening, the shortest length worth drawing;
+ *   `others`: the plan's other doors and windows (those on this side are used)
  * @returns {Dimension[]}
  */
-export function openingChain(vertices, opening, handle, { reach, minLength }) {
+export function openingChain(vertices, opening, handle, { reach, minLength, others = [] }) {
   const run = insideRun(vertices, opening.start, opening.end, reach);
   if (!run) return [];
   const along = unit(sub(run.end, run.start));
   const length = dot(sub(run.end, run.start), along);
   const clamp = (value) => Math.min(Math.max(value, 0), length);
-  const s = clamp(dot(sub(opening.start, run.start), along));
-  const e = clamp(dot(sub(opening.end, run.start), along));
-  const [low, high] = s <= e ? [s, e] : [e, s];
+  const position = (point) => dot(sub(point, run.start), along);
+  const offSide = (point) => Math.abs(cross(along, sub(point, run.start)));
+  const s = clamp(position(opening.start));
+  const e = clamp(position(opening.end));
   const startIsLow = s <= e;
-  const changing =
-    {
-      start: startIsLow ? ['before', 'width'] : ['width', 'after'],
-      end: startIsLow ? ['width', 'after'] : ['before', 'width'],
-      move: ['before', 'after'],
-    }[handle] || [];
+  const dragged = { low: Math.min(s, e), high: Math.max(s, e), dragged: true };
+  // Openings standing on this side, clear of the dragged one (a twin face is the same opening).
+  const spans = [dragged];
+  for (const other of others) {
+    if (offSide(other.start) > reach || offSide(other.end) > reach) continue;
+    const a = position(other.start);
+    const b = position(other.end);
+    const low = clamp(Math.min(a, b));
+    const high = clamp(Math.max(a, b));
+    if (high - low < minLength) continue;
+    if (spans.some((span) => low < span.high - minLength && high > span.low + minLength)) continue;
+    spans.push({ low, high, dragged: false });
+  }
+  spans.sort((a, b) => a.low - b.low);
+  // Which edges of the dragged opening move: its low, its high, or both (a slide).
+  const lowMoves = handle === 'move' || (handle === 'start') === startIsLow;
+  const highMoves = handle === 'move' || (handle === 'end') === startIsLow;
+  const pieces = [];
+  let cursor = 0;
+  for (const span of spans) {
+    pieces.push([cursor, span.low, span.dragged && lowMoves]);
+    pieces.push([span.low, span.high, span.dragged && handle !== 'move']);
+    cursor = span.high;
+  }
+  pieces.push([cursor, length, false]);
+  // A gap's far end may be the dragged opening's moving edge.
+  for (let index = 1; index < pieces.length; index += 2) {
+    const span = spans[(index - 1) / 2];
+    if (span.dragged && highMoves && pieces[index + 1]) pieces[index + 1][2] = true;
+  }
   const at = (value) => ({ x: run.start.x + along.x * value, y: run.start.y + along.y * value });
-  return [
-    ['before', 0, low],
-    ['width', low, high],
-    ['after', high, length],
-  ]
-    .filter(([, from, to]) => to - from >= minLength)
-    .map(([id, from, to]) => ({
-      from: at(from),
-      to: at(to),
-      normal: run.normal,
-      changing: changing.includes(id),
-    }));
+  return pieces
+    .filter(([from, to]) => to - from >= minLength)
+    .map(([from, to, changing]) => ({ from: at(from), to: at(to), normal: run.normal, changing }));
 }
 
 /**

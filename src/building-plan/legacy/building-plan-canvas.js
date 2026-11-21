@@ -2141,7 +2141,8 @@ export class BuildingPlanCanvas {
       if (!this.hasFloors) {
         return;
       }
-      this.roomDraft = { start: point, current: point };
+      const corner = this.snapDraftCorner(point);
+      this.roomDraft = { start: corner, current: corner };
       this.render();
       return;
     }
@@ -2257,7 +2258,7 @@ export class BuildingPlanCanvas {
     }
 
     if (this.mode === MODE_DRAW_ROOM && this.roomDraft) {
-      this.roomDraft.current = point;
+      this.roomDraft.current = this.snapDraftCorner(point);
       this.render();
       return;
     }
@@ -2697,7 +2698,7 @@ export class BuildingPlanCanvas {
     }
 
     if (this.mode === MODE_DRAW_ROOM && this.roomDraft) {
-      const rect = this.normalizeRectangle(this.roomDraft.start, point);
+      const rect = this.normalizeRectangle(this.roomDraft.start, this.snapDraftCorner(point));
       this.roomDraft = null;
 
       if (rect.width >= 5 && rect.height >= 5) {
@@ -4365,6 +4366,25 @@ export class BuildingPlanCanvas {
   }
 
   /**
+   * A corner of a room being drawn (3c-2b): pulled into line with other rooms' corners, as a
+   * corner drag is (Alt: no pull), and otherwise on whole centimetres, so the room created is
+   * the one its lengths showed (core may still attach it to a room within 25 cm). Today's
+   * engine snaps the drawn rectangle itself (`snapCoordinate`, `snapSize`).
+   */
+  snapDraftCorner(point) {
+    const interaction = this.controller?.interaction;
+    if (!interaction) return point;
+    const pulled = interaction.snapPoint(point, {
+      zoom: this.zoomLevel,
+      bypass: Boolean(this.lastPointerEvent?.altKey),
+    });
+    const step = this.gridSize / 100;
+    const onStep = (axis) =>
+      pulled[axis] !== point[axis] ? pulled[axis] : Math.round(point[axis] / step) * step;
+    return { x: onStep('x'), y: onStep('y') };
+  }
+
+  /**
    * A dragged door's or window's chain along the inside face, measured in the room in scope
    * (either face of a shared wall finds that room's side), or in its own room on a Floor canvas.
    */
@@ -4376,11 +4396,18 @@ export class BuildingPlanCanvas {
     if (!geometry) return [];
     const roomId = this.controller?.scope?.roomId || geometry.wall?.roomId;
     const room = (this.rooms || []).find((entry) => entry.id === roomId);
+    // The other doors and windows break the chain where they stand on the same side (3c-2b).
+    const subject = opening.subjectId || opening.id;
+    const others = [...(this.doors || []), ...(this.windows || [])]
+      .filter((entry) => (entry.subjectId || entry.id) !== subject)
+      .map((entry) => this.getOpeningGeometry(entry))
+      .filter(Boolean)
+      .map((other) => ({ start: other.startPoint, end: other.endPoint }));
     return openingChain(
       room?.vertices,
       { start: geometry.startPoint, end: geometry.endPoint },
       state.handle,
-      { reach: this.gridSize, minLength: this.gridSize / 200 }
+      { reach: this.gridSize, minLength: this.gridSize / 200, others }
     );
   }
 

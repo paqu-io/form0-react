@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { draftRoomLengths, insideRun, openingChain } from '../src/building-plan/drag-lengths.js';
 import { formatLength } from '../src/building-plan/draw/dimensions.js';
+import { BuildingPlanCanvas } from '../src/building-plan/legacy/building-plan-canvas.js';
 
 // A 5 × 3.6 m room (100 canvas units a metre) with a vertex at x = 160 on its top side, where
 // another room's wall meets it: a vertex, not a corner.
@@ -52,6 +53,19 @@ describe('a dragged opening’s chain (3-L1)', () => {
     ]);
   });
 
+  it('breaks at every other opening on the side, skipping other sides and twin faces', () => {
+    const others = [
+      { start: { x: 300, y: -12.5 }, end: { x: 420, y: -12.5 } }, // a window on this side
+      { start: { x: 100, y: 372.5 }, end: { x: 200, y: 372.5 } }, // a door on the far side
+      { start: { x: 210, y: -12.5 }, end: { x: 120, y: -12.5 } }, // the dragged door's twin face
+    ];
+    const chain = (handle) => openingChain(room, door, handle, { ...limits, others });
+    expect(lengths(chain('move'))).toEqual([120, 90, 90, 120, 80]);
+    expect(chain('move').map((d) => d.changing)).toEqual([true, false, true, false, false]);
+    expect(chain('end').map((d) => d.changing)).toEqual([false, true, true, false, false]);
+    expect(chain('start').map((d) => d.changing)).toEqual([true, true, false, false, false]);
+  });
+
   it('leaves out a side the opening closes up to', () => {
     const atCorner = { start: { x: 0, y: -12.5 }, end: { x: 90, y: -12.5 } };
     expect(lengths(openingChain(room, atCorner, 'move', limits))).toEqual([90, 410]);
@@ -75,5 +89,31 @@ describe('a length’s text (3-L4)', () => {
     expect(formatLength(3.6, { ...metres, locale: 'it' })).toBe('3,60');
     expect(formatLength(1234.5, metres)).toBe('1234.50');
     expect(formatLength(3.048, { locale: 'en', toDisplayLength: (m) => m / 0.3048 })).toBe('10.00');
+  });
+});
+
+describe('a room being drawn snaps (3c-2b)', () => {
+  const canvas = (pull) =>
+    Object.assign(Object.create(BuildingPlanCanvas.prototype), {
+      gridSize: 100,
+      zoomLevel: 1,
+      lastPointerEvent: { altKey: false },
+      controller: { interaction: { snapPoint: pull } },
+    });
+
+  it('keeps a pull into line with another room, else whole centimetres', () => {
+    // Pulled on x to another room's corner at 123.4; y free.
+    const c = canvas((point) => ({ ...point, x: 123.4 }));
+    expect(c.snapDraftCorner({ x: 120.2, y: 56.7 })).toEqual({ x: 123.4, y: 57 });
+    const free = canvas((point) => ({ ...point }));
+    expect(free.snapDraftCorner({ x: 120.2, y: 56.49 })).toEqual({ x: 120, y: 56 });
+  });
+
+  it('asks for no pull with Alt', () => {
+    let asked;
+    const c = canvas((point, options) => ((asked = options), { ...point }));
+    c.lastPointerEvent = { altKey: true };
+    c.snapDraftCorner({ x: 1, y: 1 });
+    expect(asked.bypass).toBe(true);
   });
 });
