@@ -28,6 +28,23 @@ const LABEL_SETTINGS = Object.freeze({
 });
 
 /**
+ * Test pages only: a page that sets `globalThis.__FORM0_PLAN_CAPTURE__` to an object gets a
+ * reader per open plan canvas in its `readers` (the last one opened last), each returning the
+ * plan that canvas shows, unsaved entry work included, so a "Save state" button can keep it.
+ * Nothing happens when the page doesn't ask.
+ */
+function capturePlan(controller, read) {
+  const capture = globalThis.__FORM0_PLAN_CAPTURE__;
+  if (!capture || typeof capture !== 'object') return;
+  capture.readers = [...(capture.readers || []), read];
+  const dispose = controller.dispose?.bind(controller);
+  controller.dispose = () => {
+    capture.readers = (capture.readers || []).filter((entry) => entry !== read);
+    dispose?.();
+  };
+}
+
+/**
  * @param {object} options
  * @param {HTMLElement} options.container the canvas's panel
  * @param {HTMLElement | null} options.host the host element, whose tokens theme the canvas
@@ -116,6 +133,7 @@ export function mountPlanCanvas({
   // We handle repeatable sync manually; avoid listening to DOM events the React stack never emits
   document.removeEventListener('form0:repeatable-change', controller.handleRepeatableChange);
   if (metaEntry?.version === 2) {
+    capturePlan(controller, () => ({ values: {}, repeatable: repeatableRef.current }));
     const snapshot = controller.getSnapshot.bind(controller);
     controller.getSnapshot = () => {
       const view = snapshot();
