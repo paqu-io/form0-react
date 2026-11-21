@@ -1751,6 +1751,60 @@ Hand-tested: works. Committed: form0-react `21f4ba8` (3c-1b), `2d18dd2` (3c-2). 
   shortcuts on `window`, so the Floor dialog under a Rooms dialog reacts too. Fix first: plan
   shortcuts in the top dialog only, and core's refusal naming the later edit, for next time.
 
+### Plan shortcuts in the top dialog only; a refused cancel explained (hand-tested 2026-11-21, committed)
+
+- `plan-keyboard.js` (new): plan hosts claim the keyboard as they mount (`usePlanKeyboard`), and
+  `ownsPlanKeyboard(element)` tells a canvas, a rail or the undo hook whether its plan is the top
+  one (the last mounted and still open: an entry opens over what it came from). Undo and redo
+  (`use-plan-history.js`), the rail's shortcuts and the canvas's Esc now act only there. A
+  canvas outside a host (tests) still acts.
+- Confirmed on the last commit before the fix: Alt+Shift+Z in a Rooms entry undid the Floor
+  entry's door slide underneath, and Cancel then asked to discard changes the room never made.
+  With the fix the Floor entry keeps it. Not shown to be the refused cancel's cause, but a path
+  to it (an edit in another editor while the Rooms entry is open).
+- Core (`session.js`): a refused cancel (`dependent_edit`) now says what is in the way, on the
+  issue: the edit that can't be undone (`operation`), the path of its first change whose value
+  moved (`path`), and the edits made since in other editors (`laterEdits`, empty when the value
+  changed outside the history). Message unchanged.
+- form0-react logs the whole issue when a BuildingPlan cancel or save is refused
+  (`[form0-react] BuildingPlan cancel refused.`), so the console has the details next time.
+- `NO_STATUS` moved to `plan-status.jsx` (keeps `canvas-host.jsx` under 300 lines).
+- Seen: in a Rooms entry with nothing of its own to undo, Alt+Shift+Z says "Undo and Redo
+  belong to the editor that owns the operation." (as before; the undo button could be disabled
+  there instead).
+
+Hand test: a Floor entry, slide a door, open its room, press Alt+Shift+Z, close the room: the
+door stays slid (no discard question). Rail shortcuts (Alt+Shift+S, R) in a Rooms entry change
+only its tools. If the refused cancel comes back, the console now names the edit in the way.
+Tests: core 681 of 681 (`building-plan-cancel-dependent.test.js`), web
+`tests/building-plan-keyboard.test.jsx`.
+
+### 3c-2b: a room being drawn snaps; the full chain (hand-tested 2026-11-21, committed)
+
+- A room being drawn (`snapDraftCorner`): each corner pulled into line with other rooms'
+  corners, as a corner drag is (Alt: no pull), else on whole centimetres, so the room created is
+  the one its lengths showed; core still attaches it within 25 cm. On the press, while drawing
+  and on the drop.
+- Several openings on one side: the chain breaks at each (corner, opening, gap, opening,
+  corner); the lengths on the moving side(s) of the dragged one are highlighted, other openings'
+  widths plain. Openings on other sides and the dragged one's twin face are left out.
+- Seen: a length shorter than its pill (a window 1 cm from the corner shows "0.01") draws its
+  pill over the corner. For later, with step 2: a pill that doesn't fit goes outside its
+  segment.
+
+Hand test: a room entry, a door and a window on one wall, slide the door: corner, door, gap,
+window, corner; the gap and the far side highlighted. A Floor entry, draw a room next to a
+room: its edges pull into line (guide), the lengths are whole centimetres, Alt draws freely.
+Web 380 of 386 (the 6 worker tests).
+
+Hand-tested: both work. Committed: form0-react `da3cb32` (shortcuts), `b512976` (3c-2b);
+form0-core `41244e3` (refusal details). Agreed: Undo and Redo off where the entry has nothing of
+its own to undo (now); a pill that doesn't fit goes outside its segment (with step 2).
+
+Seen at the hand test (2026-11-21, captured `state-2026-11-21T18-48-49-321Z.json`): R#1's W2
+pushed right into the next room draws a solid piece of wall above W2, in the faded neighbour;
+moving W2 back left, the neighbour keeps the indent the push made, though nothing was saved.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1930,8 +1984,11 @@ one combined core operation is the clean way.
 | 3c-1: handles, cursors and the pin badge | Done and committed |
 | 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |
 | 3c-2: lengths for doors, windows and a room being drawn (`draw/dimensions.js`) | Done and committed |
-| Plan shortcuts in the top dialog only; Cancel's refusal names the edit in the way | To do, next |
-| 3c-2b: a room being drawn snaps; the full chain along a side with several openings | To do |
+| Plan shortcuts in the top dialog only; Cancel's refusal names the edit in the way (form0-react, form0-core) | Done and committed |
+| 3c-2b: a room being drawn snaps; the full chain along a side with several openings | Done and committed |
+| Undo and Redo off in an entry with nothing of its own to undo | To do |
+| A length shorter than its pill: the pill outside its segment | With step 2 |
+| A pushed wall: a solid piece above it in the neighbour; the neighbour's indent kept when the wall goes back | To look at (2026-11-21) |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 

@@ -2011,3 +2011,16 @@ Committed `21f4ba8` (3c-1b) and `2d18dd2` (3c-2). Decided: a room being drawn sn
 openings on one side get the full chain (3c-2b). A Cancel refused on a Rooms entry
 (`dependent_edit`) wasn't reproduced; next, plan shortcuts in the top dialog only (every open
 plan dialog listens on `window` today) and core's refusal naming the edit in the way.
+
+### Plan shortcuts in the top dialog; 3c-2b (2026-11-21, to hand-test)
+
+Plan shortcuts (undo, redo, rail, Esc) act only in the top dialog's plan (`plan-keyboard.js`):
+before, undo in a Rooms entry undid the Floor entry's edit underneath (confirmed). Core's refused
+cancel names the edit in the way (`operation`, `path`, `laterEdits`), logged by form0-react.
+3c-2b: a room being drawn pulls into line with other rooms, else whole centimetres; several
+openings on a side break the chain. Core 681 of 681, web 380 of 386.
+
+### Shortcuts and 3c-2b hand-tested, committed (2026-11-21)
+
+form0-react `da3cb32`, `b512976`; form0-core `41244e3`. Next: Undo and Redo off with nothing of
+the entry's own to undo; a pushed wall's solid piece and kept indent (captured); then 3c-3.
