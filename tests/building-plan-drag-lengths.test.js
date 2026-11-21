@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { draftRoomLengths, insideRun, openingChain } from '../src/building-plan/drag-lengths.js';
+import {
+  changedSides,
+  draftRoomLengths,
+  insideRun,
+  openingChain,
+} from '../src/building-plan/drag-lengths.js';
 import { formatLength } from '../src/building-plan/draw/dimensions.js';
 import { BuildingPlanCanvas } from '../src/building-plan/legacy/building-plan-canvas.js';
 
@@ -115,5 +120,66 @@ describe('a room being drawn snaps (3c-2b)', () => {
     c.lastPointerEvent = { altKey: true };
     c.snapDraftCorner({ x: 1, y: 1 });
     expect(asked.bypass).toBe(true);
+  });
+});
+
+describe('the sides a wall or corner drag changes (3c-3)', () => {
+  const limits = { minChange: 0.1, minLength: 0.5 };
+  const sorted = (dims) => lengths(dims).sort((a, b) => a - b);
+
+  it('a wall moved straight: the two sides next to it, measured corner to corner', () => {
+    // The top wall moves up 50; the vertex at x = 160 on it stays in line.
+    const after = [
+      { x: 0, y: -50 },
+      { x: 160, y: -50 },
+      { x: 500, y: -50 },
+      { x: 500, y: 360 },
+      { x: 0, y: 360 },
+    ];
+    const dims = changedSides(room, after, limits);
+    expect(sorted(dims)).toEqual([410, 410]);
+    expect(dims.every((d) => d.changing)).toBe(true);
+    // Each stands inside the room: the right side's normal points left.
+    const right = dims.find((d) => d.from.x === 500);
+    expect(right.normal.x).toBeCloseTo(-1);
+  });
+
+  it('a side split by a vertex in line is one length (3-L2)', () => {
+    const after = [
+      { x: 0, y: 0 },
+      { x: 160, y: 0 },
+      { x: 550, y: 0 },
+      { x: 550, y: 360 },
+      { x: 0, y: 360 },
+    ];
+    expect(sorted(changedSides(room, after, limits))).toEqual([550, 550]);
+  });
+
+  it('a corner dragged: the two sides that meet there', () => {
+    const after = [
+      { x: 0, y: 0 },
+      { x: 500, y: 0 },
+      { x: 500, y: 360 },
+      { x: 40, y: 400 },
+    ];
+    expect(sorted(changedSides(room, after, limits))).toEqual([402, 462]);
+  });
+
+  it('a jog the drag made shows, as do the sides it changed', () => {
+    // The lower half of the right side moved out 60: a jog of 60, and the bottom longer.
+    const after = [
+      { x: 0, y: 0 },
+      { x: 500, y: 0 },
+      { x: 500, y: 180 },
+      { x: 560, y: 180 },
+      { x: 560, y: 360 },
+      { x: 0, y: 360 },
+    ];
+    expect(sorted(changedSides(room, after, limits))).toEqual([60, 180, 180, 560]);
+  });
+
+  it('nothing before the drag, or nothing changed: no lengths', () => {
+    expect(changedSides(null, room, limits)).toEqual([]);
+    expect(changedSides(room, room, limits)).toEqual([]);
   });
 });

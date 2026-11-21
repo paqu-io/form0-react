@@ -27,7 +27,7 @@ import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
 import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import { DIMENSION_OFFSET, drawDimension, formatLength } from '../draw/dimensions.js';
-import { draftRoomLengths, openingChain } from '../drag-lengths.js';
+import { changedSides, draftRoomLengths, openingChain } from '../drag-lengths.js';
 import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
@@ -3452,6 +3452,9 @@ export class BuildingPlanCanvas {
       type: 'move',
       wallId: wall.id,
       physicalWallId: wall.physicalWallId,
+      // Its room and kind, for the lengths it changes (a preview may replace the row's id).
+      roomId: wall.roomId,
+      freeWall: Boolean(wall.sidePoints),
       pointerStart: point,
       originalPoints: basePoints,
       moved: false,
@@ -4347,7 +4350,11 @@ export class BuildingPlanCanvas {
    * @param {{ x: number, y: number, width: number, height: number } | null} draftRoom
    */
   drawDragLengths(draftRoom) {
-    const dimensions = draftRoom ? draftRoomLengths(draftRoom) : this.openingDragLengths();
+    const dimensions = draftRoom
+      ? draftRoomLengths(draftRoom)
+      : this.openingDragState
+        ? this.openingDragLengths()
+        : this.roomDragLengths();
     const style = { theme: this.planTheme, pixel: this.px(1) };
     for (const dimension of dimensions) {
       const metres = lengthToMeters(distance(dimension.from, dimension.to), this.gridSize);
@@ -4363,6 +4370,26 @@ export class BuildingPlanCanvas {
     }
     this.lengthsShown = dimensions.length > 0;
     this.updateStatusLine();
+  }
+
+  /**
+   * A room wall or corner drag (3c-3): the sides of the room in scope it changes, compared with
+   * the room when the drag started (`gestureRooms`); the preview keeps its last valid shape when
+   * core refuses, so the lengths do too (3-L5). Free walls and their split points are 3c-4.
+   */
+  roomDragLengths() {
+    const wallDrag = this.wallDragState;
+    const cornerDrag = this.cornerDragState;
+    let roomId = null;
+    if (wallDrag?.moved && wallDrag.type === 'move' && !wallDrag.freeWall) roomId = wallDrag.roomId;
+    else if (cornerDrag?.moved && !cornerDrag.freeWall) roomId = cornerDrag.roomId;
+    if (!roomId) return [];
+    roomId = this.controller?.scope?.roomId || roomId;
+    return changedSides(
+      this.gestureRooms?.get(roomId)?.vertices,
+      (this.rooms || []).find((room) => room.id === roomId)?.vertices,
+      { minChange: this.gridSize / 1000, minLength: this.gridSize / 200 }
+    );
   }
 
   /**

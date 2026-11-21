@@ -146,6 +146,83 @@ export function openingChain(vertices, opening, handle, { reach, minLength, othe
 }
 
 /**
+ * A room's sides corner to corner: its polygon's edges, those in line with the next merged (a
+ * vertex where another room's wall meets a side is no corner; 3-L2).
+ * @param {Point[]} vertices
+ * @returns {{ start: Point, end: Point, along: Point, length: number }[]}
+ */
+function sides(vertices) {
+  const count = vertices?.length || 0;
+  if (count < 3) return [];
+  const edges = [];
+  for (let index = 0; index < count; index += 1) {
+    const start = vertices[index];
+    const end = vertices[(index + 1) % count];
+    const along = unit(sub(end, start));
+    if (along) edges.push({ start, end, along });
+  }
+  const inLine = (a, b) =>
+    Math.abs(cross(a.along, b.along)) < COLLINEAR && dot(a.along, b.along) > 0;
+  // Start at an edge that turns from the one before it, so no run is cut at index 0.
+  const first = edges.findIndex((edge, index) => !inLine(edges.at(index - 1), edge));
+  if (first < 0) return [];
+  const runs = [];
+  for (let step = 0; step < edges.length; step += 1) {
+    const edge = edges[(first + step) % edges.length];
+    const last = runs.at(-1);
+    if (last && inLine(last, edge)) last.end = edge.end;
+    else runs.push({ ...edge });
+  }
+  for (const run of runs) run.length = dot(sub(run.end, run.start), run.along);
+  return runs;
+}
+
+/**
+ * The sides of a room that a wall or corner drag changes (3-L1): corner to corner (3-L2), those
+ * whose length differs from before the drag, or that the drag made (a jog). A side is matched to
+ * the one before it running the same way, on the same line if there is one (the sides next to a
+ * moved wall), else the nearest (the moved wall itself, which keeps its length when it moves
+ * straight). All are changing; they stand inside the room.
+ * @param {Point[]} before the room's inside polygon when the drag started
+ * @param {Point[]} after the room's inside polygon in the drag's preview
+ * @param {{ minChange: number, minLength: number }} limits in canvas units
+ * @returns {Dimension[]}
+ */
+export function changedSides(before, after, { minChange, minLength }) {
+  const earlier = sides(before);
+  if (!earlier.length) return [];
+  const result = [];
+  for (const side of sides(after)) {
+    if (side.length < minLength) continue;
+    const offset = (run) => cross(side.along, run.start);
+    const span = (run) => [dot(run.start, side.along), dot(run.end, side.along)];
+    const [low, high] = span(side);
+    const overlap = (run) => {
+      const [a, b] = span(run);
+      return Math.min(high, b) - Math.max(low, a);
+    };
+    const sameWay = earlier.filter(
+      (run) => Math.abs(cross(run.along, side.along)) < COLLINEAR && dot(run.along, side.along) > 0
+    );
+    const onLine = sameWay.filter((run) => Math.abs(offset(run) - offset(side)) < minChange);
+    const candidates = onLine.length ? onLine : sameWay;
+    const match = candidates.sort(
+      (a, b) =>
+        overlap(b) - overlap(a) ||
+        Math.abs(offset(a) - offset(side)) - Math.abs(offset(b) - offset(side))
+    )[0];
+    if (match && Math.abs(match.length - side.length) <= minChange) continue;
+    // Into the room: a point just off the side's middle.
+    const middle = { x: (side.start.x + side.end.x) / 2, y: (side.start.y + side.end.y) / 2 };
+    let normal = { x: -side.along.y, y: side.along.x };
+    if (!inside({ x: middle.x + normal.x * 0.5, y: middle.y + normal.y * 0.5 }, after))
+      normal = { x: -normal.x, y: -normal.y };
+    result.push({ from: side.start, to: side.end, normal, changing: true });
+  }
+  return result;
+}
+
+/**
  * A room being drawn: its width along the top and its depth along the left, both changing.
  * @param {{ x: number, y: number, width: number, height: number }} rect normalised
  * @returns {Dimension[]}
