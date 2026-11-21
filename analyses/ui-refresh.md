@@ -1902,3 +1902,31 @@ along faces, in 4a-3b; a free wall's split point can't be dragged into diagonals
 can; and a free wall's jog forms on either side of the split point depending on the move, which
 makes sense for room walls but not for free walls (proposed: centred on the split point). The last
 two are proposed as their own unit, 4a-4, after 4a-3c.
+
+### 4a-3b, 4a-3c, 4a-4 built (2026-11-20, to test by hand, not committed)
+
+4a-3b: a free wall's body has its ends cut along the face, corner or other free wall's side they stop
+on, and stays inside its room (`free-wall-body.js`, `free-wall-hold.js`). A move stops flush on whole
+centimetres, an end near a face lands on it, and core refuses a body in the room's wall. 4a-3c: a
+selected free wall shows as a whole (outlined, no heavy side), with its row's side and "This side"
+only in its own entry. 4a-4: a free wall's split point is a corner that bends the wall when dragged
+(`move_free_wall_point`, derived engine only), and a moved portion's return stands centred on the
+split point. To review: a new `editingReturn.centred` key in an exported model field, and that
+`update_wall` on such a portion sends its stored face. Core 667 of 667, web 362 of 368. Details,
+choices and the hand test in `building-plan-ui.md`, "4a-3b, 4a-3c, 4a-4".
+
+### 4a-3b, 4a-3c, 4a-4: hand test (2026-11-20)
+
+Raised: a free wall attached to a room wall was pulled back when dragged along it (a wobble towards
+the face made the move stop where it started, and a step back left its end off the face), and then
+its free end tilted only a few degrees (an end off the face isn't cut along it, so its corner poked
+into the wall). Fixed: the move slides along what stopped it, puts an end near a face back on it, and
+steps back only along what it moved; an end within 1 mm of a face counts as meeting it. The
+one-sided jog came from a stale preview (fine after a restart). A hovered free wall's outline is now
+as heavy as a room wall's highlight. Decided: centred returns carry no marker (nothing new in the
+export); the `update_wall` note for portions is documented. Core 668 of 668, web 362 of 368.
+
+### 4a-3b, 4a-3c, 4a-4: rechecked (2026-11-21, committed)
+
+Works. Committed as three units: core 4a-3b (bodies inside, ends cut, the hold) and 4a-4 (the
+bend, centred returns), web 4a-3c (the whole-wall highlight, "This side"). Next: 4b.

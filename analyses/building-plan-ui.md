@@ -1325,6 +1325,124 @@ proposals (to align):
    portions' ends at the return shift by half the thickness along the wall, back when it
    closes; Rejoin and moving back to check), with 4a-4.
 
+Agreed (2026-11-20): (1) the body kept inside, with 4a-3b; (2) and (3) as 4a-4, in the same pass
+as 4a-3b and 4a-3c, with one hand test.
+
+### 4a-3b, 4a-3c, 4a-4 (hand-tested 2026-11-21, committed)
+
+**4a-3b: ends cut, the body kept inside.**
+
+- form0-core:
+  - `free-wall-body.js`: the body, a band around the centreline; an end on the room's outline cut
+    along it (both faces in a convex corner; square at a reflex one; a line within 5° of the wall
+    doesn't cut), else along another free wall's side; `freeWallFits` (centreline and body inside
+    the outline, within 0.1 mm); `freeWallSegmentBodies` for the drawing. The "inside" helpers
+    moved here from `room-contents.js`.
+  - `free-wall-hold.js`: how far a move or an end may go. A move stops where the body would leave
+    the room, then goes back onto the 1 cm step when that still fits (flush, exactly). An end near
+    a face goes onto it, where it is cut along it, else stops where it last fitted (the interaction
+    remembers it per drag).
+  - `footprints.js` draws free walls with their cut ends; `room-contents.js` checks the body too;
+    `free-wall-snapping.js` and the interaction pass the half-thickness (the wall's, or a new wall's
+    from the room, `freeWallWidth` in the snapshot).
+- No exported value changes (nothing stored; the cut is drawn from contact).
+
+**4a-3c: highlighted as a whole.** A selected or list-hovered free wall (its Split portions too):
+its body outlined, handles at the centreline ends, its name beside the body; no heavy side line.
+In its own entry, the row's side as the 4 px line, with a small "This side" label beyond the face
+(`plan.side.this`), and the name across the body. Room walls: no label (agreed).
+
+**4a-4: bending at a split point, the return centred.**
+
+- form0-core:
+  - `derive/partition-bend.js`, `move_free_wall_point` (derived engine only): the split point's
+    new centreline point; each portion keeps its far centreline end and its face is rebuilt from
+    its centreline (a far end joined to another portion meets it where their faces cross); the
+    later portion's openings keep their distance from its far end. Refused where a return stands
+    ("Move this portion back in line with the wall before bending it here.").
+  - The canvas snapshot lists free wall split points with no return as corners (`freeWall`, on the
+    derived engine only); the controller's corner drag sends the bend, and the interaction snaps
+    it like an end (no lock), holding both runs inside (`free-wall-bend.js`, `holdFreeWallBend`).
+  - `partition-portions.js`: a free wall's return stands centred on its split point whichever way
+    the portion moves; the portions' ends at it shift half the width along the wall, back when it
+    closes or the portion moves the other way. Nothing marks it (see point 1 below).
+- form0-react: none for the bend (the canvas's corner drag and preview carry it).
+- Rejoin refuses a bent wall, as for any portions out of line ("Align the split portions on the
+  same straight line before rejoining.").
+
+**Choices made while building (to review at the hand test):**
+
+1. A marker on centred returns (`editingReturn.centred`) would have been a new key in an exported
+   field. Decided (2026-11-20): no marker; every square return of a free wall is taken as centred,
+   so a return made before 4a-4 shifts by half the width on its portion's next move (records
+   aren't launched).
+2. Once a return is centred, its portions' stored faces start half the width along the wall: an
+   `update_wall` on such a portion sends its stored face moved (the canvas controller does), not the
+   face as split. Documented for future callers (`partition-portions.js`); two parity tests now move
+   the stored face and skip the geometry while a return stands.
+3. Bend points are corners on the derived engine only; `engine=current` shows none.
+4. In its own entry, a free wall's side and "This side" show whether or not it is selected.
+5. Files: `interaction.js` 425 lines (397 before, left as agreed), `footprints.js` 370 (366),
+   `canvas-controller.js` grew by about 30; the new modules are under 300.
+
+Tests: core `tests/building-plan-free-wall-body.test.js` (4), `tests/building-plan-free-wall-bend.test.js`
+(5), the room contents notch case updated (its centreline through the notch's corner now refused, its
+body cutting it), two derived partition parity tests updated; web `tests/building-plan-selection-name.test.js`
+(the free wall cases restated, 2). Core 667 of 667; web 362 of 368 (the six worker tests).
+
+Checked in headless Chromium (Bedroom's entry, derived engine): a diagonal wall into the right face,
+its end cut along it; a wall moved up into the top face stops flush (body 0 to 0.2 m); selected, its
+body outlined, no side line, the name below; a straight wall split at 2.5 and bent there (far ends
+kept); its right portion moved up, the return centred on 2.5 (body 2.4 to 2.6; the first try showed it
+on one side: the squareness check was stricter than a portion move's tolerance, fixed); the portion's
+own entry: the side line, "This side" beyond the face, the name across. No page errors.
+
+Hand test (form "Building plan fixture", Bedroom's entry; restart `preview.mjs`):
+
+1. Draw a diagonal free wall into a face, and one into a corner: their ends follow the face(s), no
+   triangle, nothing past them. Draw one ending on another free wall's side at an angle: cut along it.
+2. Move a free wall towards a room wall: it stops flush. Drag an end towards a face at an angle: it
+   lands on the face. Tilt a flush wall's end into the face: it stops. Make a flush wall thicker in
+   its entry: refused, naming it (until 4b).
+3. Select a free wall, and hover its row in the Walls list: the body outlined, no heavy side line,
+   handles at the centreline ends, the name beside it. Open its entry: the heavy line and "This
+   side" on the row's side, the name across.
+4. Split a free wall: a round handle at the split point. Drag it: the wall bends there, its far ends
+   stay; it stops at faces. Undo. Rejoin a bent wall: refused with a message.
+5. Split a free wall and move a portion up, then down: the return stays centred on the split point;
+   back in line, it goes. With a return, drag the split point's handle: refused with a message.
+6. `engine=current`: no bend handles; the rest as before.
+
+**Hand test (2026-11-20).** Points 3 and 4 (the choices above) agreed, no file split needed.
+Raised, and what was done:
+
+1. **A free wall attached to a room wall was pulled back when moved along it, and hard to move.**
+   Cause: a drag that wobbles towards the face past the line pull's hold (13 px) took the attached
+   end past the face; the move's stop scaled the whole move back towards where it started (so the
+   wall stayed), and its step back onto the 1 cm grid shifted it sideways, off the face (7 mm on
+   the right face). Fixed (`free-wall-hold.js`): after the stop, the rest of the move slides along
+   what stopped it (across or down the page, or along the face an end or side met); an end within
+   1 mm of a face is then put on it exactly; the step back only goes along what the wall moved, and
+   never takes an end off a face.
+2. **After that, its free end tilted only a few degrees** ("would leave its room"): its attached end
+   sat off the face, so it wasn't cut along it and its square corner poked into the wall (0.3 mm off:
+   0.2°; 3 mm: 1.8°). Fixed by point 1, and an end within 1 mm of a face or side now meets it and is
+   cut along it (`CUT_REACH` in `free-wall-body.js`; inside or outside is still within 0.1 mm).
+3. **The jog formed on either side of the split point**: the hand test ran on a preview built
+   before the squareness fix (the test page rebuilds only on form0-react changes, and form0-react
+   changed in the middle of the work). After a restart, fixed.
+4. **A list-hovered free wall's outline was thinner than a room wall's highlight**: now as heavy (6
+   plan units), selected or hovered.
+
+Also: "Save state" only holds a dialog's work once its floor entry is saved (the capture from this
+round was empty). Tests: core `tests/building-plan-free-wall-body.test.js` (+1: the slide, an end
+0.3 mm off still tilting); core 668 of 668; web 362 of 368 (the six worker tests). Checked in headless
+Chromium: a wall drawn into the right face, dragged up 0.6 m with 25 cm towards the face, slides up
+with its end on the face; its free end then tilts to (3.2, 0.2).
+
+**Recheck (2026-11-21).** Works. Committed: form0-core `cb398d7` (4a-3b) and `5159e88` (4a-4),
+form0-react `5933bf6` (4a-3c).
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1426,8 +1544,7 @@ one combined core operation is the clean way.
 | 4a-1: columns in core (in the room and its walls, centred ones and ones flush with a wall's interior face standing out, centres at midline junctions, no overlaps, on every derived edit; u/v limits dropped; "C#1"; sections in mm) | Done and committed |
 | 4a-2: free walls kept inside their room (their drawn line, room edits included, refusals naming the wall) | Done and committed |
 | 4a-3a: free walls drawn, moved and checked by their centreline (snapshot `sidePoints`, the controller converting; thickness keeps the centreline) | Done and committed |
-| 4a-3b (ends cut along faces; proposed: the body kept inside the room) and 4a-3c (highlighted as a whole, "This side" in its own entry) | To do |
-| 4a-4 (proposed): bending a free wall at its split point; its return centred on the split point | To align |
+| 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
 | Derived engine: 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
