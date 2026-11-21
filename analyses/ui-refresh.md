@@ -1970,3 +1970,29 @@ Works. Still raised: "Column C#1 would leave its room" when aligning Room 1's W1
 merge and lose the jog's vertices, and 4b's follow pass found a face by its vertices, so the column
 stayed behind. Now the face keeping one of them, running the same way, is used. Likely the same
 for "Wall W5 would leave its room". The test page opens a capture with `?state=`. Core 680 of 680.
+
+### `invalid_routing_context` found; entry navigation noted (2026-11-21)
+
+The console's refused `change` on `room_walls` comes from entries opened from a canvas: a
+double-click opens a wall's entry over the Floor dialog, skipping the Room, so on save the Floor
+sends the change and core accepts it only from the Room. Not `handleNestedRemove`, as first
+noted. On hold, tied to the maintainer's idea for entry navigation (no skipped levels from a
+Floor canvas, Cancel back to the entry's list, breadcrumbs), noted in `building-plan-ui.md`,
+"Opening entries by double-click". Step 3: mockups first for handles and cursors, lengths while
+dragging, and a pinned wall's marker.
+
+### Step 3 decided; navigation direction (2026-11-21)
+
+Mockups agreed (section "Handles · lengths (3)"): one 10 px handle style, a capsule grip for
+doors and windows, a four-way grip for columns, cursors that follow the element, lengths only in
+room and element entries (a Floor canvas moves rooms, it doesn't resize them), a pin badge for a
+pinned wall. Details in `building-plan-ui.md`, "Step 3, rest". Navigation: the whole chain
+opens (each level a real dialog, Cancel back to the entry's list, breadcrumbs); what each canvas
+reaches is to settle with a mockup after step 3. Starting 3c-1.
+
+### 3c-1: handles, cursors, pin badge (hand-tested 2026-11-21, committed)
+
+One handle style, a capsule for doors and windows, a column grip, cursors that follow the
+element, a pin badge with the plan's tooltip. Committed `e9707ac`. Next: 3c-1b (cursors follow
+what the canvas allows; the dragged handle stays filled), then 3c-2. Navigation: the proposed
+double-click table agreed, to adjust as we go.

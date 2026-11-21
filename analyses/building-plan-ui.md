@@ -50,7 +50,7 @@ Still open (mockups page, "Open decisions"): D3, D5 to D18, D21, and the questio
 |---|---|---|---|
 | 1 | Look only, web: chrome and canvas on the theme tokens, grid, symbols, the list panel, one tooltip, shortcut matching | None | Done, **to test by hand** |
 | 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None (reads resolved values through `fieldState()`) | To do |
-| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | To do |
+| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Pin, status line, fit on open, hit areas, wall grip done; 3c-1 (handles, cursors, pin badge) done; lengths (3c-2 to 3c-4) to do |
 | 4 | Typed values, web: click a length to type it (openings, columns, beams, wall lengths) | None (existing update calls; a wall length is the existing parallel move of the neighbouring wall) | To do |
 | 5 | Mobile: steps 1 to 4 on react-native-svg (handles replace the Resize mode), then the full-screen editor with the bottom sheet (step 10) | None in core | To do |
 | 6 | New data: door swing, wall beams and beam height, wall front view, run and rise | Core fields and operations, after agreement | Proposals |
@@ -303,6 +303,7 @@ Decided 2026-11-19 (mockups, section "Messages · scope (1e)"), to build:
   elements.
 
 Remaining in step 3: lengths while dragging; handle and cursor review for columns and beams.
+Decided 2026-11-21, see "Step 3, rest: handles, cursors and lengths".
 
 ## 1e: canvas messages and scope (2026-11-19)
 
@@ -1596,6 +1597,80 @@ with it; the W5 case).
 
 Hand-tested: both work. Committed: form0-core `7a6abde`.
 
+### Step 3, rest: handles, cursors and lengths (decided 2026-11-21)
+
+Agreed on the mockups page, section "Handles · lengths (3)":
+
+- **3-H1, one handle style.** Every point you drag (room corners, wall ends, a free wall's split
+  point, opening ends, beam ends): a 10 px circle in the theme background with an accent ring,
+  filled with the accent under the pointer. Hit areas at least 16 px. The wall grip stays.
+- **3-H2, grips.** Doors and windows: a capsule along the wall (20 × 8 px) in the middle.
+  Columns: a four-way grip (22 px) on the centre while selected. Chosen over arrows inside the
+  outline, accepting that the grip covers a column under about 22 px on screen.
+- **3-H3, cursors follow the element.** Resize arrows: the nearest of the four to the element's
+  direction (a door on a vertical wall gets `ns-resize`). `move`: corners, ends, split points,
+  four-way grips. `grab`, then `grabbing`: bodies and opening grips. Unchanged: the arrow over
+  faded elements, the crosshair for drawing tools.
+- **3-H4.** Column resize on the canvas later (step 4); sizes are typed in the form.
+- **3-H5.** Beams: style and cursor only; the rest waits for the beam unit.
+- **3-L1, which lengths.** A drag shows the lengths it changes, in the room in scope; a move
+  (column, free wall) shows the distance to the nearest wall on each axis. Only in room and
+  element entries: a Floor canvas moves whole rooms and doesn't resize them (`canResize` false
+  in `controller.js`, confirmed 2026-11-21), so a floor entry has no lengths to show.
+- **3-L2, a split side.** Corner to corner of the room's inside; a row's own length comes with
+  step 2.
+- **3-L3, the look.** Thin line, slash ticks, the value in the mono face on a pill, changing
+  values in the accent; the same size on screen at any zoom. One module, `draw/dimensions.js`,
+  reused by step 2.
+- **3-L4, units.** The plan's unit and the locale's decimal sign, two decimals, no unit on the
+  labels; the status line names the unit while dragging.
+- **3-L5, when.** Only during the drag; at a refused position they keep the last valid one.
+- **3-P, a pinned wall.** A pin badge (16 px, accent) a quarter along the wall, with a tooltip
+  (`plan.wall.pinned` in `plan-text.js`), replacing the hard-coded word "Pinned".
+
+Units, each hand-tested before its commit: 3c-1 handles, cursors and the pin badge; 3c-2
+`draw/dimensions.js` with doors and windows; 3c-3 walls and corners; 3c-4 free walls and
+columns. Then the navigation unit (see "Opening entries by double-click").
+
+### 3c-1: handles, cursors and the pin badge (hand-tested 2026-11-21, committed)
+
+- `draw/handles.js` (new): the drag handle, the opening capsule, round grips with arrows (the
+  wall grip moved here, a column's four-way grip), the pin badge and where it sits.
+- `canvas-cursors.js` (new): the cursor rules, moved out of the legacy canvas (`updateCursor`,
+  `gripCursor`, `getCursorForHandle`). A gesture keeps the cursor it started on, a grab turned
+  into grabbing.
+- Legacy canvas: hover detection moved into `hoverAt`, in the order a press takes things, and
+  corners are hovered now. Handles carry their point (drawn hot) and their element's direction.
+  The selected wall's ends, opening ends, beam ends and corners use the one handle.
+- `plan-tooltip.jsx`: things the canvas draws get the plan's tooltip through a bubbling
+  `plan-tooltip` event (`{ text, box }`). Used by the pin badge.
+- Unchanged: hit areas (corners 9 px in core, wall ends 8, opening ends 10, beam ends 12, the
+  wall grip 16), records, core. The split nodes the cut tools show stay small dots (they aren't
+  dragged).
+
+Hand test (test page, a room entry):
+
+1. Corners and a free wall's split points: round 10 px handles. Under the pointer: filled blue,
+   cursor `move`, kept while dragging.
+2. Select a room wall: round ends, the grip as before; its cursor follows the wall.
+3. Pin tool, click a wall: a pin badge a quarter along it (no more "Pinned"); hover it for the
+   tooltip.
+4. Add a door on a vertical wall: round ends with `ns-resize`, a capsule in the middle (`grab`,
+   then `grabbing`). On a horizontal wall: `ew-resize`.
+5. Select a column: a four-way grip on its centre, cursor `move`. On a Floor canvas: no grip.
+6. A free wall: round ends and split point, the grip `move`. A beam: round ends, the cursor
+   along the beam.
+7. Dark colour scheme: the same, readable.
+
+Checked in headless Chrome (room entry, light and dark): the handles, the capsule, the column
+grip, the badge and its tooltip, the hot states, and the cursors for steps 1 to 5. Web 366 of 373
+(the 6 worker tests and the numeric-setters flake); new `tests/building-plan-handles.test.js`;
+the selected-wall test reads the end marks as circles.
+
+Hand-tested: works. Committed: form0-react `e9707ac`. Asked after it (2026-11-21), as 3c-1b: cursors follow what the canvas allows
+(a column on a Floor canvas can't be selected today, but may be later), and the handle being
+dragged stays filled. Navigation: the proposed table above, to adjust as we go.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1614,12 +1689,76 @@ sends it:
     node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json>
     node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json> "R#1" W3 0.4
 
-### Opening entries by double-click (noted for later)
+### Opening entries by double-click (noted for later; idea added 2026-11-21)
 
 Raised at the M2 hand test: double-clicking a room, wall or door (on the canvas, in the issues
 list, in the Floors, Rooms or Walls lists) opens entries with jumps, and it's hard to tell
 where in the form you land. To review in a later round: what the page behind does (scroll),
 which dialog and which part of it opens, where focus goes, and how the way back reads.
+
+**Today (read from the code, 2026-11-21).** A double-click on a canvas, or an item in the
+issues list, opens the element's own entry over the dialog you are in, skipping the levels in
+between (`focusRow` in `form-renderer.jsx`): from a Floor canvas, a wall's, column's or door's
+entry opens over the Floor dialog, with no Room dialog; from a Room canvas, a door's or window's
+over the Room dialog, with no Wall dialog; from the plan page the Floor dialog opens, then the
+element over it. Cancel closes that entry and shows the dialog below as it was left (its main
+page, not a list). The header names only the list and the row ("Walls", "W3"): nothing says
+which room or floor.
+
+**Idea (maintainer, 2026-11-21).** From a Floor canvas, don't enter an element below a room
+directly. Cancel goes back to the list the entry belongs to, as it does when a RepeatableSection
+row is opened from its list. Breadcrumbs at the top of the form column ("Floors › Ground floor ›
+Rooms › Bedroom › Walls › W3"), so it is clear where you are.
+
+**Tied to the console's `invalid_routing_context`.** The error exists only because levels are
+skipped. An entry's `change` is sent by the dialog below it (`persistRepeatableEntry`), and core
+accepts a list's `change` only from the row that owns the list (the Room for `room_walls`). When
+the Room dialog was skipped, the Floor sends it and core refuses it; the edit itself applies. If
+no path skips a level, the owner is always open and the fix needs no new event code. If a path
+still jumps (the issues list, say), the event goes one level up instead: the Floor gets a
+`change` on `rooms` for that room, with the full path to the wall. The bug is on hold until the
+navigation is decided.
+
+To settle, with a mockup: one level at a time (a Floor canvas opens rooms only), the whole chain
+opened down to the element (Back and Cancel step up one level, each landing in its list), or the
+jump kept with breadcrumbs added; where Cancel lands; what a breadcrumb opens; the issues list;
+focus and scroll.
+
+**Direction (agreed 2026-11-21): the whole chain.** A double-click opens every level between the
+canvas's entry and the element, each as a real dialog (a wall from a Floor canvas opens the Room,
+then the Wall over it). Cancel and Back step up one level and land in the list the entry belongs
+to, with its row marked. Breadcrumbs in the header ("Floors › Ground floor › Rooms › Bedroom ›
+Walls › W3"). Chosen over a Floor canvas that opens rooms only, so one double-click still
+reaches a wall. Every change is then sent by the row that owns its list, so
+`invalid_routing_context` goes with no new event code. A unit of its own, right after step 3.
+
+**What a double-click reaches, today** (editable canvases; read-only ones reach everything). It
+follows what the press does, not a rule: a Floor canvas opens walls and openings but not columns
+or beams, because their press returns before it records what to open.
+
+| Canvas | Today | Proposed (to settle with the mockup) |
+|---|---|---|
+| Plan page | rooms, walls (the Floor, then the element over it) | as a Floor canvas, with the Floor dialog under it |
+| Floor entry | rooms, walls, doors, windows | rooms; walls, columns and beams (Room › element); a door or window opens Room › Wall with its row marked |
+| Room entry | walls, doors, windows, columns, beams | the same; a door or window opens Wall › Door |
+| Wall entry | its doors and windows | the same |
+| Door, window, column or beam entry | nothing | nothing |
+
+Agreed 2026-11-21: the proposed column, to adjust as we go. The proposed rule: each canvas
+opens what it shows at its own scale. On a zoomed-out floor a door
+is a few pixels on a wall, so a double-click aimed at the wall often lands on the door. Opening
+the wall, with the door's row marked, is then the right result either way. The issues list opens
+the whole chain down to the field. The alternative: any element, with the whole chain (up to four
+dialogs from the plan page).
+
+Also for the mockup:
+
+- **One Save per opened level.** Nested entries save in layers (`acceptRow` into the parent's
+  draft), so a wall edited from a Floor canvas needs Save on the Wall, the Room and the Floor.
+  This is the same as opening each level by hand; today the skipped Room saves one step.
+- **Cancel drops saved child edits without asking.** Cancel on a Room that holds a saved wall
+  edit discards it. This happens today too, but the chain shows a Room the user didn't open
+  themselves, so the mockup should decide whether Cancel asks first.
 
 ### Measurement units (noted for later)
 
@@ -1702,11 +1841,13 @@ one combined core operation is the clean way.
 | After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
 | Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do |
 | Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
-| Console `invalid_routing_context` on `room_walls` (an entry dialog sends a nested list's change event from its own level, `handleNestedRemove`; the edit applies) | To look at |
+| Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | On hold; goes with the navigation unit (every level a real dialog) |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
-| Opening entries by double-click (jumps) | To review |
+| Opening entries by double-click (jumps) | Direction agreed 2026-11-21 (the whole chain, breadcrumbs); what each canvas reaches to settle with a mockup; right after step 3 |
+| Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
+| 3c-1: handles, cursors and the pin badge | Done and committed |
 | Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
