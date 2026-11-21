@@ -4060,8 +4060,12 @@ export class BuildingPlanCanvas {
   }
   renderFloorTabs() {
     if (this.onFloorTabs) {
+      // Tabs in level order (core's `order`; today's engine: as added).
+      const floors = [...(this.floors || [])].sort(
+        (a, b) => (a.order ?? a.index) - (b.order ?? b.index)
+      );
       this.onFloorTabs({
-        tabs: (this.floors || []).map((floor) => ({
+        tabs: floors.map((floor) => ({
           index: floor.index,
           label:
             floor.label ||

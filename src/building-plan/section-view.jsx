@@ -81,10 +81,13 @@ export function BuildingPlanSectionView({
             ) : (
               <RepeatableEntryRows
                 label={controller?.floorField?.label || 'Floors'}
-                entries={controller.floors.map((floor, idx) => ({
+                entries={(controller.floorsByLevel || controller.floors).map((floor, idx) => ({
                   id: floor.id,
-                  // Unnamed floors fall back to the title any entry gets ("Floors 1").
-                  title: floor.label || `${controller?.floorField?.label || 'Floors'} ${idx + 1}`,
+                  // In level order; unnamed floors fall back to the title any entry gets
+                  // ("Floors 1"), numbered as stored.
+                  title:
+                    floor.label ||
+                    `${controller?.floorField?.label || 'Floors'} ${(floor.position ?? idx) + 1}`,
                 }))}
                 readOnly={readOnly}
                 onOpen={(id) => controller.onViewFloor?.(id)}

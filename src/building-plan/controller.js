@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildingPlanRowTitle } from 'form0-core';
+import { buildingPlanFloorsByLevel, buildingPlanRowTitle } from 'form0-core';
 
 const NODE_KEYS = {
   floors: 'floors',
@@ -174,6 +174,15 @@ export function useBuildingPlanController({
       repeatableKeys,
       floorField,
       floors: mappedFloors,
+      // For the Floors list: level order (story elevation), the stored order left as it is.
+      floorsByLevel: buildingPlanFloorsByLevel(
+        mappedFloors.map((floor, position) => ({ ...floor, position })),
+        (floor, name) => {
+          const node = metaEntry?.repeatablesByNodeKey?.[NODE_KEYS.floors];
+          const field = node?.fieldsByOriginalDataName?.[name];
+          return field ? floor.values[field.dataName] : undefined;
+        }
+      ),
       hasFloors: mappedFloors.length > 0,
       hasAnyRooms,
       toolbarState,
