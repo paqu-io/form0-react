@@ -1443,6 +1443,77 @@ with its end on the face; its free end then tilts to (3.2, 0.2).
 **Recheck (2026-11-21).** Works. Committed: form0-core `cb398d7` (4a-3b) and `5159e88` (4a-4),
 form0-react `5933bf6` (4a-3c).
 
+### 4b: attached contents follow their wall (hand-tested 2026-11-21, committed)
+
+Agreed 2026-11-21 (D1 to D8 as proposed): a point keeps its place along a wall that moved square
+to itself, and its fraction along one whose corner moved (D1); a free wall's end on a face
+follows it, a free wall lying along a face moves with it, an end on another free wall follows
+that wall (D2); its openings keep their place from the end that stayed (D3); a free wall left
+under 1 cm, or turned back, is refused, named (D4); a thicker free wall flush with a face keeps
+that side (D5); columns follow their wall, at a corner both, keeping to the line they hold to
+when the wall's thickness or their own size changes (D6); a shared wall moved from the other
+room carries both rooms' contents (D7); what touches nothing keeps its place and still blocks a
+move (D8). Beams wait for their own unit.
+
+Built (form0-core, derived engine only):
+
+- `derive/attached-contacts.js`: the contacts, read from the floor before the edit (rule 2,
+  nothing stored), within 1 mm (the cut's reach): a free wall's centreline end on a room face or
+  on another free wall's side or centreline; a free wall lying along a face or another free
+  wall's side; a column flush with a face on the room's side, centred on the wall's midline,
+  standing in the wall from its face, flush with its far face, or else in the wall; centred on a
+  free wall or flush with one of its sides. Rows of the same wall and returns at its split points
+  are not anchors, and an end joined to another row's end has no contacts.
+- `derive/follow-attached.js`: after every derived edit (room, face, corner and free wall
+  commands, data and thickness changes, a decision's rederive), what touched a moved line moves:
+  with a line that moved whole it moves with it; along one that only got longer, shorter or moved
+  square to itself it keeps its place; along one that turned, or at a corner move, it keeps its
+  fraction. Two lines (a corner): where both meet. A free wall that follows carries what touches
+  it. Joints of a wall's rows meet where their faces cross; openings keep their distance from the
+  end that stayed. Too short: `free_wall_too_short`, "Wall W9 would be too short."
+- `partition-thickness.js` (D5): a free wall with a side on a face of its room keeps that side.
+- `derived-edit.js` (`followAndWrite`); `data-commands.js` gives the floor before any of an
+  operation's edits (`original`), so a column only resized keeps its contacts.
+
+Choices made while building (to review at the hand test):
+
+1. **Centred before flush**: a column as wide as its wall is flush with both faces and centred;
+   it is taken as centred, so a thicker wall keeps it centred.
+2. **Room resize** (`resize_room`): an end on a face that only stretched keeps its place (D1),
+   though doors on a resized room's walls scale with them (today's rule for openings).
+3. **A free wall row of more than one edge** (older records) doesn't follow; drawn walls have a
+   row per straight run.
+4. **Cost**: a face drag preview with four free walls and three columns takes about 6.2 ms
+   instead of 5.1 ms.
+
+Tests: core `tests/building-plan-attached-follow.test.js` (8, in the test script);
+`tests/building-plan-room-contents.test.js`: the face moved past a column or a free wall now
+uses ones clear of it (attached ones follow), and the column resized uses one clear of the walls.
+Core 676 of 676; web 362 of 368 (the six worker tests; the numeric setters flake passed alone).
+Checked in headless Chromium: a free wall drawn into the right wall, the wall dragged out: its
+end goes with it.
+
+Hand test (restart `preview.mjs`, core changed; Bedroom's entry):
+
+1. Draw a free wall into the right wall. Drag the wall out, then in: the free wall gets longer,
+   then shorter. Drag it in past the free wall's other end: "Wall W9 would be too short."
+2. A slanted free wall into the right wall: drag the wall out: its end stays at its height. Drag
+   the bottom-right corner: its end keeps its place down the face, as a fraction.
+3. A free wall flush along the top wall: drag the top wall down: it moves with it. Make it
+   thicker in its entry: it grows into the room, its side staying on the face.
+4. A free wall ending on another's side: move the other, split and bend it: the first follows.
+5. From the room below, drag the shared wall up into the Bedroom, a free wall ending on it:
+   accepted, the free wall shorter (the case raised at 4a-2).
+6. Columns: flush with the right wall inside the room, drag the wall: it follows. Centred on the
+   wall, and flush with its far face: change W2's thickness: they keep to the midline and the far
+   face. One in a corner: move the corner. One flush with a face: type a larger width: its side
+   stays on the face.
+7. A free wall or a column touching nothing: a wall moved into it is still refused.
+8. `engine=current`: nothing follows.
+
+**Hand test (2026-11-21).** Works. Committed: form0-core `9e74d2a` (4b-1, free walls) and
+`8fc0699` (4b-2, columns). Raised, not about 4b: see "After the 4b hand test" below.
+
 ### Test page engine (2026-11-19)
 
 The test page now runs the derived engine by default (`buildingPlanDerivedCommands` unless the
@@ -1545,7 +1616,7 @@ one combined core operation is the clean way.
 | 4a-2: free walls kept inside their room (their drawn line, room edits included, refusals naming the wall) | Done and committed |
 | 4a-3a: free walls drawn, moved and checked by their centreline (snapshot `sidePoints`, the controller converting; thickness keeps the centreline) | Done and committed |
 | 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
-| Derived engine: 4b (attachments; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | To do |
+| Derived engine: 4b (attached contents follow their wall: free walls and columns; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | Done and committed |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |

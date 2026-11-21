@@ -1930,3 +1930,19 @@ export); the `update_wall` note for portions is documented. Core 668 of 668, web
 
 Works. Committed as three units: core 4a-3b (bodies inside, ends cut, the hold) and 4a-4 (the
 bend, centred returns), web 4a-3c (the whole-wall highlight, "This side"). Next: 4b.
+
+### 4b: attached contents follow their wall (2026-11-21, to test by hand, not committed)
+
+D1 to D8 agreed as proposed. In the derived engine, after every edit, what touched a line the
+edit moved moves with it (contacts read before the edit, within 1 mm, nothing stored): a free
+wall's end (the wall gets longer, shorter or turns), a free wall lying along a face, a free wall
+ending on a moved free wall, and columns (flush, centred on the midline, flush with the far face,
+in the wall; at a corner, both walls). A thicker wall keeps a column on its midline or far face; a
+column made wider keeps its flush side; a thicker free wall flush with a face keeps that side. A
+free wall left under 1 cm is refused, named. A shared wall moved from the other room now carries
+the Bedroom's free wall (the 4a-2 case). Beams wait. Choices and the hand test in
+`building-plan-ui.md`, "4b". Core 676 of 676, web 362 of 368.
+
+### 4b: hand-tested (2026-11-21, committed)
+
+Works. Committed as 4b-1 (free walls) and 4b-2 (columns) in form0-core.
