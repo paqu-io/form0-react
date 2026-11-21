@@ -25,6 +25,8 @@ import { drawInsertionMark } from '../draw/insertion-mark.js';
 import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
+import { DIMENSION_OFFSET, drawDimension, formatLength } from '../draw/dimensions.js';
+import { draftRoomLengths, openingChain } from '../drag-lengths.js';
 import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
@@ -81,6 +83,8 @@ const OPENING_HANDLE_RADIUS = 10;
 const OPENING_REACH = 6;
 // The grip on a selected wall's middle.
 const WALL_GRIP_RADIUS = 14;
+// How far into the room a dragged opening's chain of lengths stands off its side (3-L3).
+const OPENING_CHAIN_OFFSET = 26;
 const DOOR_LINE_WIDTH = 6;
 const WINDOW_LINE_WIDTH = 6;
 const LABEL_FONT_SIZE = 12;
@@ -791,6 +795,11 @@ export class BuildingPlanCanvas {
   /** The status text for the current tool, or null for drawing tools (they say nothing yet). */
   statusTextKey() {
     if (this.hintOverride) return this.hintOverride;
+    // While a drag shows lengths, the line names their unit (3-L4).
+    if (this.lengthsShown)
+      return this.presentation?.unitFor?.() === 'ft'
+        ? 'plan.status.lengths.ft'
+        : 'plan.status.lengths.m';
     if (this.mode === 'split') return 'plan.status.split';
     if (this.mode === 'rejoin') return 'plan.status.rejoin';
     if (this.mode === 'pin') return 'plan.status.pin';
@@ -3694,6 +3703,7 @@ export class BuildingPlanCanvas {
       this.drawDraftBeam(this.beamDraft);
     }
 
+    let draftRoom = null;
     if (this.roomDraft) {
       const rect = this.normalizeRectangle(this.roomDraft.start, this.roomDraft.current);
       const snapped = {
@@ -3703,7 +3713,9 @@ export class BuildingPlanCanvas {
         height: this.snapSize(rect.height),
       };
       this.drawDraftRoom(snapped);
+      draftRoom = snapped;
     }
+    this.drawDragLengths(draftRoom);
 
     this.drawFindings();
     this.drawRefusal();
@@ -4324,6 +4336,51 @@ export class BuildingPlanCanvas {
     }
   }
 
+  /**
+   * Lengths while dragging (step 3: 3-L1, 3-L5): what the gesture changes, drawn over the plan
+   * from what the canvas shows (a drag's preview, the room being drawn), only while it runs. The
+   * status line names their unit meanwhile (3-L4).
+   * @param {{ x: number, y: number, width: number, height: number } | null} draftRoom
+   */
+  drawDragLengths(draftRoom) {
+    const dimensions = draftRoom ? draftRoomLengths(draftRoom) : this.openingDragLengths();
+    const style = { theme: this.planTheme, pixel: this.px(1) };
+    for (const dimension of dimensions) {
+      const metres = lengthToMeters(distance(dimension.from, dimension.to), this.gridSize);
+      drawDimension(
+        this.ctx,
+        {
+          ...dimension,
+          text: formatLength(metres, this.presentation),
+          offset: draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET,
+        },
+        style
+      );
+    }
+    this.lengthsShown = dimensions.length > 0;
+    this.updateStatusLine();
+  }
+
+  /**
+   * A dragged door's or window's chain along the inside face, measured in the room in scope
+   * (either face of a shared wall finds that room's side), or in its own room on a Floor canvas.
+   */
+  openingDragLengths() {
+    const state = this.openingDragState;
+    if (!state?.moved) return [];
+    const opening = this.getOpeningById(state.type, state.openingId);
+    const geometry = opening && this.getOpeningGeometry(opening, state.preview);
+    if (!geometry) return [];
+    const roomId = this.controller?.scope?.roomId || geometry.wall?.roomId;
+    const room = (this.rooms || []).find((entry) => entry.id === roomId);
+    return openingChain(
+      room?.vertices,
+      { start: geometry.startPoint, end: geometry.endPoint },
+      state.handle,
+      { reach: this.gridSize, minLength: this.gridSize / 200 }
+    );
+  }
+
   drawDraftRoom(rect) {
     const ctx = this.ctx;
     ctx.save();
@@ -4582,7 +4639,11 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     const labelType = isDoor ? 'doors' : 'windows';
-    if ((this.shouldShowLabel(labelType) || isSelected) && !isDimmed) {
+    // While dragged, its chain of lengths takes the place beside it (3-L1), not its name.
+    const chained = Boolean(
+      this.openingDragState?.moved && this.openingDragState.openingId === opening.id
+    );
+    if ((this.shouldShowLabel(labelType) || isSelected) && !isDimmed && !chained) {
       const baseLabel = opening.displayLabel || opening.label;
       const fallbackIndex = typeof opening.index === 'number' ? opening.index + 1 : null;
       const labelText = formatShortLabel(
