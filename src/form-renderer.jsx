@@ -6256,7 +6256,14 @@ function RepeatableEntryModal({
   const modalDrilldownActive = modalActiveDrilldownPath.length > 0;
   const modalTitle = activeNestedRepeatable?.field?.label || modal.label || 'Repeatable Entry';
   const modalTitleDescriptor = modalTitleDatasets.byRepeatableKey.get(modal.repeatableKey) || null;
+  // A plan entry's header reads like its list row ("Upper floor 2": a floor's number with it).
   const modalRecordTitle =
+    (modal.buildingPlanMeta &&
+      buildingPlanRowTitle({
+        metadata: modal.buildingPlanMeta,
+        repeatableKey: modal.repeatableKey,
+        row: { values: entryValues },
+      })) ||
     resolveDatasetRowTitle(modalTitleDescriptor, entryValues) ||
     `${modal.label || 'Entry'} ${(modal.instanceIndex ?? 0) + 1}`;
   // Always shown, as on the root (see showNavigationPanel).
