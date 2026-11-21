@@ -24,6 +24,16 @@ import { addPlanElement } from '../add-elements.js';
 import { drawInsertionMark } from '../draw/insertion-mark.js';
 import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
+import { dragCursor, hoverCursor } from '../canvas-cursors.js';
+import {
+  COLUMN_GRIP_RADIUS,
+  PIN_BADGE_RADIUS,
+  drawCapsule,
+  drawGrip,
+  drawHandle,
+  drawPinBadge,
+  quarterAlong,
+} from '../draw/handles.js';
 import {
   drawBeamSymbol,
   drawColumnSymbol,
@@ -40,6 +50,15 @@ const MODE_DRAW_COLUMN = 'draw-column';
 const MODE_DRAW_BEAM = 'draw-beam';
 // The pointer over a faded element, outside the room in scope (1e, V1): a plain arrow.
 const FADED_HOVER = Object.freeze({ type: 'faded' });
+// Hovers that draw what is under the pointer hot: handles fill, grips tint (3-H1).
+const HOT_HOVERS = new Set([
+  'corner',
+  'wall-handle',
+  'wall-grip',
+  'column',
+  'beam-handle',
+  'opening-handle',
+]);
 
 // Canvas units per metre: at 100% zoom a metre is 100 px, so a 1,000 to 1,500 px canvas shows 10
 // to 15 m, a usual floor plan. Labels, handles and pointer tolerances are in canvas units, so
@@ -56,6 +75,7 @@ const ROOM_HANDLE_SIZE = 8;
 const ROOM_HANDLE_HIT_SIZE = 16;
 const WALL_HANDLE_HIT_RADIUS = 8;
 const OPENING_HIT_TOLERANCE = 12;
+// How far from an opening's or a beam's handle a press takes it (drawn by `draw/handles.js`).
 const OPENING_HANDLE_RADIUS = 10;
 // An opening is hit anywhere on its band through the wall, or this close to it.
 const OPENING_REACH = 6;
@@ -897,26 +917,21 @@ export class BuildingPlanCanvas {
       this.controller.preferredRoomId ||
       this.selectedRoomId;
     const ctx = this.ctx;
-    ctx.save();
+    const style = { theme: this.planTheme, pixel: this.px(1) };
+    // Corners and a free wall's split points take the handle every dragged point has (3-H1).
     if (this.cutAllowed() && this.mode === MODE_SELECT)
       for (const corner of view.corners || []) {
         if (corner.roomId !== roomId) continue;
-        ctx.beginPath();
-        ctx.arc(corner.point.x, corner.point.y, 4 / this.zoomLevel, 0, Math.PI * 2);
-        ctx.fillStyle = this.planTheme.handle;
-        ctx.fill();
-        ctx.strokeStyle = this.planTheme.accent;
-        ctx.lineWidth = 1.5 / this.zoomLevel;
-        ctx.stroke();
+        drawHandle(ctx, corner.point, { ...style, hot: this.isHotHandle(corner.point) });
       }
-    ctx.font = `${11 / this.zoomLevel}px sans-serif`;
-    ctx.fillStyle = this.planTheme.accent;
+    // A pinned wall's badge, a quarter along its axis (3-P); its tooltip comes from the hover.
+    this.pinBadges = [];
     for (const wall of view.walls.filter((wall) => wall.pinned)) {
-      const a = wall.points[0],
-        b = wall.points.at(-1);
-      ctx.fillText('Pinned', (a.x + b.x) / 2, (a.y + b.y) / 2 - 8 / this.zoomLevel);
+      const point = quarterAlong(wall.axisPoints?.length >= 2 ? wall.axisPoints : wall.points);
+      if (!point) continue;
+      drawPinBadge(ctx, point, style);
+      this.pinBadges.push({ wallId: wall.id, point });
     }
-    ctx.restore();
     if (this.pinWallButton) {
       this.pinWallButton.disabled = !this.cutAllowed();
       this.pinWallButton.textContent = 'Pin / unpin';
@@ -1181,6 +1196,8 @@ export class BuildingPlanCanvas {
       this.gestureGhost = null;
       // Where the press landed, for the insertion mark (3b); a hint a command showed goes.
       this.pressPoint = this.getCanvasPoint(event);
+      // A gesture keeps the cursor it started on (3-H3), a grab turned into grabbing.
+      this.pressCursor = hoverCursor(this.hoverState);
       if (this.hintOverride) {
         this.hintOverride = null;
         this.updateStatusLine();
@@ -1523,88 +1540,114 @@ export class BuildingPlanCanvas {
       this.canvas.style.cursor = 'crosshair';
       return;
     }
+    const gesture =
+      this.dragState ||
+      this.cornerDragState ||
+      this.wallDragState ||
+      this.columnDragState ||
+      this.beamDragState ||
+      this.openingDragState;
+    this.canvas.style.cursor = gesture
+      ? dragCursor(this.pressCursor)
+      : hoverCursor(this.hoverState);
+  }
 
-    if (this.dragState) {
-      if (this.dragState.type === 'resize') {
-        this.canvas.style.cursor = this.getCursorForHandle(this.dragState.handle);
-        return;
-      }
-      this.canvas.style.cursor = 'grabbing';
-      return;
+  /**
+   * What the pointer is over in the select tool, in the order a press takes it
+   * (`handleMouseDown`). Handles carry their `point` (drawn filled while hovered) and, where the
+   * cursor follows the element, its `direction` (`canvas-cursors.js`).
+   */
+  hoverAt(point) {
+    const corner = this.cornerAt(point);
+    if (corner) return { type: 'corner', roomId: corner.roomId, point: corner.point };
+    const roomHandle = this.findRoomHandle(point);
+    if (roomHandle)
+      return { type: 'room-handle', handle: roomHandle.handle, roomId: roomHandle.room.id };
+    const wallHandle = this.findWallHandle(point);
+    if (wallHandle)
+      return {
+        type: 'wall-handle',
+        handle: wallHandle.index === 0 ? 'start' : 'end',
+        wallId: wallHandle.wall.id,
+        point: wallHandle.handlePoint,
+      };
+    const grip = this.wallGrip();
+    if (grip && this.findWallGrip(point))
+      return { type: 'wall-grip', wallId: grip.wall.id, free: grip.free, direction: grip.normal };
+    const badge = this.findPinBadge(point);
+    if (badge) return { type: 'pin', wallId: badge.wallId, badge };
+    const columnHit = this.findColumnHit(point);
+    if (columnHit) return { type: 'column', columnId: columnHit.column.id, hit: columnHit.type };
+    const beamHandle = this.findBeamHandle(point);
+    if (beamHandle) {
+      const { beam, handle } = beamHandle;
+      const start = beam._renderStart;
+      const end = beam._renderEnd;
+      return {
+        type: 'beam-handle',
+        beamId: beam.id,
+        handle,
+        point: handle === 'start' ? start : end,
+        direction: { x: end.x - start.x, y: end.y - start.y },
+      };
     }
+    const beamHit = this.findBeamHit(point);
+    if (beamHit) return { type: 'beam', beamId: beamHit.beam.id, hit: beamHit.type };
+    const openingHandle = this.findOpeningHandle(point);
+    if (openingHandle) {
+      const { geometry, handle } = openingHandle;
+      return {
+        type: 'opening-handle',
+        handle,
+        openingType: openingHandle.type,
+        openingId: openingHandle.openingId,
+        point:
+          { start: geometry.startPoint, end: geometry.endPoint }[handle] || geometry.centerPoint,
+        direction: {
+          x: geometry.endPoint.x - geometry.startPoint.x,
+          y: geometry.endPoint.y - geometry.startPoint.y,
+        },
+      };
+    }
+    const openingHit = this.findOpeningNearPoint(point);
+    if (openingHit)
+      return { type: 'opening', openingType: openingHit.type, openingId: openingHit.openingId };
+    return this.isFadedAt(point) ? FADED_HOVER : null;
+  }
 
-    if (this.wallDragState) {
-      if (this.wallDragState.type === 'resize') {
-        this.canvas.style.cursor = 'crosshair';
-        return;
-      }
-      this.canvas.style.cursor = 'grabbing';
-      return;
-    }
+  /** Whether the handle at `point` is the one under the pointer (filled with the accent). */
+  isHotHandle(point) {
+    const hot = this.hoverState?.point;
+    return Boolean(hot && point) && distance(hot, point) <= this.px(1);
+  }
 
-    if (this.columnDragState) {
-      this.canvas.style.cursor = 'grabbing';
-      return;
-    }
+  /** The pinned wall's badge at `point`, if any (drawn by `drawCornerControls`). */
+  findPinBadge(point) {
+    return (
+      (this.pinBadges || []).find(
+        (badge) => distance(badge.point, point) <= this.px(PIN_BADGE_RADIUS)
+      ) || null
+    );
+  }
 
-    if (this.beamDragState) {
-      if (this.beamDragState.mode && this.beamDragState.mode.startsWith('resize')) {
-        this.canvas.style.cursor = 'ew-resize';
-      } else {
-        this.canvas.style.cursor = 'grabbing';
-      }
-      return;
+  /**
+   * Shows or hides the plan's tooltip for a pinned wall's badge: the canvas sends `plan-tooltip`
+   * with the text and the badge's box in client coordinates (`plan-tooltip.jsx`).
+   */
+  announcePinTip(badge) {
+    if (!this.canvas?.dispatchEvent || typeof CustomEvent !== 'function') return;
+    let detail = null;
+    if (badge) {
+      const box = this.canvas.getBoundingClientRect();
+      const x = box.left + badge.point.x * this.zoomLevel + this.panOffset.x;
+      const y = box.top + badge.point.y * this.zoomLevel + this.panOffset.y;
+      const r = PIN_BADGE_RADIUS;
+      detail = {
+        text: planText('plan.wall.pinned'),
+        box: { left: x - r, right: x + r, top: y - r, bottom: y + r, width: 2 * r, height: 2 * r },
+      };
     }
-
-    if (this.openingDragState) {
-      if (this.openingDragState.handle === 'move') {
-        this.canvas.style.cursor = 'grabbing';
-      } else {
-        this.canvas.style.cursor = 'ew-resize';
-      }
-      return;
-    }
-
-    const hover = this.hoverState;
-    if (hover && hover.type === 'room-handle') {
-      this.canvas.style.cursor = this.getCursorForHandle(hover.handle);
-      return;
-    }
-    if (hover && hover.type === 'wall-handle') {
-      this.canvas.style.cursor = 'crosshair';
-      return;
-    }
-    if (hover && hover.type === 'wall-grip') {
-      const grip = this.wallGrip();
-      this.canvas.style.cursor = grip ? this.gripCursor(grip) : 'grab';
-      return;
-    }
-    if (hover && hover.type === 'opening-handle') {
-      this.canvas.style.cursor = hover.handle === 'center' ? 'grab' : 'ew-resize';
-      return;
-    }
-    if (hover && hover.type === 'opening') {
-      this.canvas.style.cursor = 'grab';
-      return;
-    }
-    if (hover && hover.type === 'column') {
-      this.canvas.style.cursor = 'grab';
-      return;
-    }
-    if (hover && hover.type === 'beam-handle') {
-      this.canvas.style.cursor = 'ew-resize';
-      return;
-    }
-    if (hover && hover.type === 'beam') {
-      this.canvas.style.cursor = 'grab';
-      return;
-    }
-    if (hover && hover.type === 'faded') {
-      this.canvas.style.cursor = 'default';
-      return;
-    }
-
-    this.canvas.style.cursor = 'grab';
+    this.canvas.dispatchEvent(new CustomEvent('plan-tooltip', { bubbles: true, detail }));
   }
 
   /**
@@ -2143,74 +2186,7 @@ export class BuildingPlanCanvas {
       !this.roomDraft &&
       !this.wallDraft
     ) {
-      const roomHandle = this.findRoomHandle(point);
-      if (roomHandle) {
-        this.setHoverState({
-          type: 'room-handle',
-          handle: roomHandle.handle,
-          roomId: roomHandle.room.id,
-        });
-      } else {
-        const wallHandle = this.findWallHandle(point);
-        const gripWall = wallHandle ? null : this.findWallGrip(point);
-        if (wallHandle) {
-          this.setHoverState({
-            type: 'wall-handle',
-            handle: wallHandle.index === 0 ? 'start' : 'end',
-            wallId: wallHandle.wall.id,
-          });
-        } else if (gripWall) {
-          this.setHoverState({ type: 'wall-grip', wallId: gripWall.id });
-        } else {
-          const columnHit = this.findColumnHit(point);
-          if (columnHit) {
-            this.setHoverState({
-              type: 'column',
-              columnId: columnHit.column.id,
-              hit: columnHit.type,
-            });
-          } else {
-            const beamHandle = this.findBeamHandle(point);
-            if (beamHandle) {
-              this.setHoverState({
-                type: 'beam-handle',
-                beamId: beamHandle.beam.id,
-                handle: beamHandle.handle,
-              });
-            } else {
-              const beamHit = this.findBeamHit(point);
-              if (beamHit) {
-                this.setHoverState({
-                  type: 'beam',
-                  beamId: beamHit.beam.id,
-                  hit: beamHit.type,
-                });
-              } else {
-                const openingHandle = this.findOpeningHandle(point);
-                if (openingHandle) {
-                  this.setHoverState({
-                    type: 'opening-handle',
-                    handle: openingHandle.handle,
-                    openingType: openingHandle.type,
-                    openingId: openingHandle.openingId,
-                  });
-                } else {
-                  const openingHit = this.findOpeningNearPoint(point);
-                  if (openingHit) {
-                    this.setHoverState({
-                      type: 'opening',
-                      openingType: openingHit.type,
-                      openingId: openingHit.openingId,
-                    });
-                  } else {
-                    this.setHoverState(this.isFadedAt(point) ? FADED_HOVER : null);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+      this.setHoverState(this.hoverAt(point));
     }
 
     if (this.mode === MODE_DRAW_ROOM && this.roomDraft) {
@@ -3465,50 +3441,17 @@ export class BuildingPlanCanvas {
     return grip && distance(point, grip.center) <= this.px(WALL_GRIP_RADIUS + 2) ? grip.wall : null;
   }
 
-  /** The cursor over the grip: the arrows' direction, or "move" for a free partition. */
-  gripCursor(grip) {
-    if (grip.free) return 'move';
-    const angle = ((Math.atan2(grip.normal.y, grip.normal.x) * 180) / Math.PI + 180) % 180;
-    if (angle < 22.5 || angle >= 157.5) return 'ew-resize';
-    if (angle < 67.5) return 'nwse-resize';
-    if (angle < 112.5) return 'ns-resize';
-    return 'nesw-resize';
-  }
-
   drawWallGrip() {
     const grip = this.wallGrip();
     if (!grip) return;
-    const ctx = this.ctx;
-    const { center: c, normal: n } = grip;
-    const radius = this.px(WALL_GRIP_RADIUS);
-    ctx.save();
-    ctx.fillStyle = this.planTheme.handle;
-    ctx.strokeStyle = this.planTheme.accent;
-    ctx.lineWidth = this.px(2);
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    const n = grip.normal;
     // Double arrows: along the wall's normal; a free partition also along the wall.
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const reach = radius * 0.6;
-    const head = radius * 0.3;
-    for (const axis of grip.free ? [n, { x: -n.y, y: n.x }] : [n]) {
-      const side = { x: -axis.y, y: axis.x };
-      ctx.beginPath();
-      ctx.moveTo(c.x - axis.x * reach, c.y - axis.y * reach);
-      ctx.lineTo(c.x + axis.x * reach, c.y + axis.y * reach);
-      for (const sign of [-1, 1]) {
-        const tip = { x: c.x + axis.x * reach * sign, y: c.y + axis.y * reach * sign };
-        const back = { x: tip.x - axis.x * head * sign, y: tip.y - axis.y * head * sign };
-        ctx.moveTo(back.x + side.x * head, back.y + side.y * head);
-        ctx.lineTo(tip.x, tip.y);
-        ctx.lineTo(back.x - side.x * head, back.y - side.y * head);
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
+    drawGrip(this.ctx, grip.center, grip.free ? [n, { x: -n.y, y: n.x }] : [n], {
+      theme: this.planTheme,
+      pixel: this.px(1),
+      radius: WALL_GRIP_RADIUS,
+      hot: this.hoverState?.type === 'wall-grip',
+    });
   }
 
   findWallHandle(point) {
@@ -3559,6 +3502,10 @@ export class BuildingPlanCanvas {
     if (!prev && !nextState) return;
     this.hoverState = nextState || null;
     this.updateCursor();
+    const pinOf = (hover) => (hover?.type === 'pin' ? hover.badge : null);
+    if (pinOf(prev) !== pinOf(nextState)) this.announcePinTip(pinOf(nextState));
+    // A handle or grip under the pointer is drawn hot (3-H1).
+    if (HOT_HOVERS.has(prev?.type) || HOT_HOVERS.has(nextState?.type)) this.render();
   }
 
   computeResizedRect(baseRect, handle, pointer) {
@@ -3598,19 +3545,6 @@ export class BuildingPlanCanvas {
       height: Math.max(minSize, bottom - top),
     };
     return roundRectValues(rect);
-  }
-
-  getCursorForHandle(handle) {
-    switch (handle) {
-      case 'top-left':
-      case 'bottom-right':
-        return 'nwse-resize';
-      case 'top-right':
-      case 'bottom-left':
-        return 'nesw-resize';
-      default:
-        return 'default';
-    }
   }
 
   previewRoomMovement(roomId, newRect) {
@@ -3921,6 +3855,28 @@ export class BuildingPlanCanvas {
       pixel: 1 / this.zoomLevel,
     });
     ctx.restore();
+    if (
+      isSelected &&
+      this.mode === MODE_SELECT &&
+      !this.readOnly &&
+      getCapabilities(this.controller).canMoveStructural
+    ) {
+      const { x, y, width, height } = info.rect;
+      drawGrip(
+        ctx,
+        { x: x + width / 2, y: y + height / 2 },
+        [
+          { x: 1, y: 0 },
+          { x: 0, y: 1 },
+        ],
+        {
+          theme: this.planTheme,
+          pixel: this.px(1),
+          radius: COLUMN_GRIP_RADIUS,
+          hot: this.hoverState?.type === 'column' && this.hoverState.columnId === column.id,
+        }
+      );
+    }
 
     if ((this.shouldShowLabel('columns') || isSelected) && info.label) {
       const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
@@ -3994,15 +3950,13 @@ export class BuildingPlanCanvas {
       pixel: 1 / this.zoomLevel,
     });
 
-    if (isSelected) {
-      ctx.fillStyle = this.planTheme.accent;
-      ctx.beginPath();
-      ctx.arc(info.startPoint.x, info.startPoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(info.endPoint.x, info.endPoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (isSelected)
+      for (const point of [info.startPoint, info.endPoint])
+        drawHandle(ctx, point, {
+          theme: this.planTheme,
+          pixel: this.px(1),
+          hot: this.isHotHandle(point),
+        });
     ctx.restore();
 
     if ((this.shouldShowLabel('beams') || isSelected) && info.label) {
@@ -4401,19 +4355,10 @@ export class BuildingPlanCanvas {
     const sideMiddle = ownEntry ? this.drawFreeWallSideLabel(wall, line, start, end) : null;
 
     if (this.selectedWallId === wall.id) {
-      const handleSize = this.px(ROOM_HANDLE_SIZE);
-      const half = handleSize / 2;
-      ctx.save();
-      ctx.fillStyle = this.planTheme.handle;
-      ctx.strokeStyle = this.planTheme.accent;
-      ctx.lineWidth = this.px(1);
-      (extent === line ? [start, end] : [extent[0], extent[extent.length - 1]]).forEach((point) => {
-        ctx.beginPath();
-        ctx.rect(point.x - half, point.y - half, handleSize, handleSize);
-        ctx.fill();
-        ctx.stroke();
-      });
-      ctx.restore();
+      const style = { theme: this.planTheme, pixel: this.px(1) };
+      (extent === line ? [start, end] : [extent[0], extent[extent.length - 1]]).forEach((point) =>
+        drawHandle(ctx, point, { ...style, hot: this.isHotHandle(point) })
+      );
     }
 
     // A selected wall is named, unless one of its openings is the selection.
@@ -4618,28 +4563,19 @@ export class BuildingPlanCanvas {
     }
   }
 
+  /** A selected door's or window's handles: its two ends, and the capsule that slides it. */
   drawOpeningHandles(geometry) {
-    const ctx = this.ctx;
-    const handles = [geometry.startPoint, geometry.endPoint];
-    ctx.save();
-    ctx.fillStyle = this.planTheme.accent;
-    ctx.strokeStyle = this.planTheme.handle;
-    ctx.lineWidth = 2;
-    handles.forEach((handlePoint) => {
-      ctx.beginPath();
-      ctx.arc(handlePoint.x, handlePoint.y, this.px(OPENING_HANDLE_RADIUS), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+    const style = { theme: this.planTheme, pixel: this.px(1) };
+    for (const point of [geometry.startPoint, geometry.endPoint])
+      drawHandle(this.ctx, point, { ...style, hot: this.isHotHandle(point) });
+    const direction = {
+      x: geometry.endPoint.x - geometry.startPoint.x,
+      y: geometry.endPoint.y - geometry.startPoint.y,
+    };
+    drawCapsule(this.ctx, geometry.centerPoint, direction, {
+      ...style,
+      hot: this.isHotHandle(geometry.centerPoint),
     });
-    const center = geometry.centerPoint;
-    ctx.fillStyle = this.planTheme.handle;
-    ctx.strokeStyle = this.planTheme.accent;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(center.x, center.y, this.px(OPENING_HANDLE_RADIUS - 2), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
   }
 
   snapPointToWall(point, roomId = null) {

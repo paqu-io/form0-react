@@ -191,7 +191,8 @@ it('draws a selected room wall up to its room’s corner, over the caps next to 
           return () => ({ width: 20, actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 3 });
         if (name === 'beginPath') return () => (path = []);
         if (name === 'moveTo' || name === 'lineTo') return (x, y) => path.push([x, y]);
-        if (name === 'rect') return (x, y, w, h) => marks.push([x + w / 2, y + h / 2]);
+        // The end marks are the handles every dragged point has (step 3, 3-H1): circles.
+        if (name === 'arc') return (x, y) => marks.push([x, y]);
         if (name === 'stroke')
           return () => strokes.push({ path, color: target.strokeStyle, width: target.lineWidth });
         return () => {};
