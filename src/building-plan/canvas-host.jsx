@@ -8,7 +8,7 @@ import { FloorTabs } from './floor-tabs.jsx';
 import { NO_STATUS, PlanStatus } from './plan-status.jsx';
 import { PlanIssueList } from './plan-issue-list.jsx';
 import { usePlanIssues } from './use-plan-issues.js';
-import { usePlanHistory } from './use-plan-history.js';
+import { ownsHistory, usePlanHistory } from './use-plan-history.js';
 import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { mountPlanCanvas } from './canvas-host-mount.js';
@@ -268,8 +268,8 @@ export function BuildingPlanCanvasHost({
           history={
             editor && !viewOnly
               ? {
-                  canUndo: !readOnly && editor.getState().canUndo,
-                  canRedo: !readOnly && editor.getState().canRedo,
+                  canUndo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'undo'),
+                  canRedo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'redo'),
                   onUndo: undo,
                   onRedo: redo,
                 }
