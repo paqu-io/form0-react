@@ -16,7 +16,7 @@ describe('plan canvas cursors (step 3, 3-H3)', () => {
 
   // What a room canvas, a Floor canvas and the plan page let you drag (controller.js).
   const ROOM = { canMove: true, canMoveStructural: true, canResize: true, canMoveRoom: false };
-  const FLOOR = { canMove: true, canMoveStructural: false, canResize: false, canMoveRoom: true };
+  const FLOOR = { canMove: false, canMoveStructural: false, canResize: false, canMoveRoom: true };
   const PAGE = {};
 
   it('moves corners, ends and four-way grips; grabs bodies and opening grips', () => {
@@ -42,16 +42,17 @@ describe('plan canvas cursors (step 3, 3-H3)', () => {
   });
 
   it('promises only what the canvas lets a press drag', () => {
-    // A Floor canvas moves rooms and slides openings; walls, columns and beams stay.
+    // A Floor canvas moves rooms only (2026-11-22); openings, walls, columns and beams stay.
     expect(hoverCursor({ type: 'room' }, FLOOR)).toBe('grab');
-    expect(hoverCursor({ type: 'opening' }, FLOOR)).toBe('grab');
+    expect(hoverCursor({ type: 'opening' }, FLOOR)).toBe('default');
     for (const type of ['column', 'wall-handle', 'beam-handle'])
       expect(hoverCursor({ type }, FLOOR)).toBe('default');
     for (const type of ['beam', 'wall', 'pin'])
       expect(hoverCursor({ type }, FLOOR)).toBe('default');
-    // An opening's end that can't resize it moves it, as its body does.
+    // An opening's end that can't resize it moves it, as its body does, where openings move.
     const end = { type: 'opening-handle', handle: 'end', direction: { x: 1, y: 0 } };
-    expect(hoverCursor(end, FLOOR)).toBe('grab');
+    expect(hoverCursor(end, FLOOR)).toBe('default');
+    expect(hoverCursor(end, { ...ROOM, canResize: false })).toBe('grab');
     // The plan page drags nothing.
     for (const type of ['room', 'opening', 'wall', 'column'])
       expect(hoverCursor({ type }, PAGE)).toBe('default');

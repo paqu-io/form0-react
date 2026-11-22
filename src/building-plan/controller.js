@@ -141,9 +141,9 @@ export function useBuildingPlanController({
         return base;
       }
 
-      // Floor canvas/modal: select + move (no resize)
+      // Floor canvas/modal: draws, moves and attaches rooms only; doors and windows (like walls,
+      // columns and beams) are edited in their room (2026-11-22, revising 3c-1b).
       if (mode === 'floor-modal' || mode === 'floor') {
-        base.canMove = true;
         base.canMoveRoom = true;
         base.canMoveStructural = false; // Only move rooms; walls/columns/beams stay fixed here
         base.canDrawRoom = true; // Can draw rooms in floor view

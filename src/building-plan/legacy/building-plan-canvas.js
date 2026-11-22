@@ -890,6 +890,17 @@ export class BuildingPlanCanvas {
   }
 
   /**
+   * On a Floor canvas or the plan page, which edit no room's contents, a press on anything inside
+   * a room selects the room: what a double-click there opens, and the row the Rooms list marks
+   * (2026-11-22). Nothing happens on a canvas scoped to a room.
+   * @param {string | null | undefined} roomId
+   */
+  selectRoomOf(roomId) {
+    if (!roomId || this.controller?.scope?.roomId) return;
+    this.selectElement({ collection: 'rooms', id: roomId });
+  }
+
+  /**
    * Selects an element from outside the canvas (an item of the issues list) as a click on it
    * does, so the selection is reported and the entry's list marks its row.
    * @param {{ collection: string, id: string }} target
@@ -1974,7 +1985,7 @@ export class BuildingPlanCanvas {
       if (roomHandleHit && roomHandleHit.room) {
         // A double-click opens what was pressed even where it can't be dragged (2026-11-22).
         this.pendingFocus = () => this.controller?.focusRoom(roomHandleHit.room.id);
-        if (!caps.canResize) return;
+        if (!caps.canResize) return this.selectRoomOf(roomHandleHit.room.id);
         const { room, handle } = roomHandleHit;
         const rect = room.previewRect || room.rect;
         if (rect) {
@@ -2037,7 +2048,7 @@ export class BuildingPlanCanvas {
       const columnHit = this.findColumnHit(point);
       if (columnHit) {
         this.pendingFocus = () => this.controller?.focusColumn?.(columnHit.column.id);
-        if (!caps.canMoveStructural) return;
+        if (!caps.canMoveStructural) return this.selectRoomOf(columnHit.column.roomId);
         const { column } = columnHit;
         this.selectedColumnId = column.id;
         this.selectedBeamId = null;
@@ -2063,7 +2074,8 @@ export class BuildingPlanCanvas {
       const beamHandleHit = this.findBeamHandle(point);
       if (beamHandleHit) {
         this.pendingFocus = () => this.controller?.focusBeam?.(beamHandleHit.beam.id);
-        if (!caps.canResize || !caps.canMoveStructural) return;
+        if (!caps.canResize || !caps.canMoveStructural)
+          return this.selectRoomOf(beamHandleHit.beam.roomId);
         const { beam, handle } = beamHandleHit;
         this.selectedBeamId = beam.id;
         this.selectedColumnId = null;
@@ -2100,7 +2112,7 @@ export class BuildingPlanCanvas {
       const beamHit = this.findBeamHit(point);
       if (beamHit) {
         this.pendingFocus = () => this.controller?.focusBeam?.(beamHit.beam.id);
-        if (!caps.canMoveStructural) return;
+        if (!caps.canMoveStructural) return this.selectRoomOf(beamHit.beam.roomId);
         const { beam } = beamHit;
         this.selectedBeamId = beam.id;
         this.selectedColumnId = null;
@@ -2153,7 +2165,7 @@ export class BuildingPlanCanvas {
         // The plan page can't move it; a double-click there still opens its room (2026-11-22).
         const focus = openingHit.type === 'door' ? 'focusDoor' : 'focusWindow';
         this.pendingFocus = () => this.controller?.[focus]?.(openingHit.openingId);
-        if (!caps.canMove) return;
+        if (!caps.canMove) return this.selectRoomOf(openingHit.geometry?.wall?.roomId);
         this.grabOpening(openingHit, 'move', point);
         return;
       }
@@ -2200,6 +2212,7 @@ export class BuildingPlanCanvas {
     if (this.mode === MODE_SELECT && wall) {
       if (!caps.canMoveStructural) {
         this.pendingFocus = () => this.controller?.focusWall?.(wall.id);
+        this.selectRoomOf(wall.roomId);
         return;
       }
       this.startWallMove(wall, point);
@@ -2210,6 +2223,7 @@ export class BuildingPlanCanvas {
       // Openings follow `canMove`; the whole room moves only where `canMoveRoom` (a floor canvas).
       if (!caps.canMoveRoom) {
         this.pendingFocus = () => this.controller?.focusRoom(room.id);
+        this.selectRoomOf(room.id);
         // In the room's own entry, a click on its floor puts the insertion mark there (3b), so
         // an element selected before (a wall a door would go in) is no longer.
         if (this.controller?.scope?.roomId === room.id) {
