@@ -29,6 +29,13 @@ import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import { DIMENSION_OFFSET, drawDimension, formatLength } from '../draw/dimensions.js';
 import { changedSides, draftRoomLengths, openingChain } from '../drag-lengths.js';
 import {
+  columnClearances,
+  freeWallClearances,
+  freeWallHalfWidth,
+  runLength,
+  splitPointLengths,
+} from '../content-lengths.js';
+import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
   drawCapsule,
@@ -4358,7 +4365,7 @@ export class BuildingPlanCanvas {
       ? draftRoomLengths(draftRoom)
       : this.openingDragState
         ? this.openingDragLengths()
-        : this.roomDragLengths();
+        : (this.contentDragLengths() ?? this.roomDragLengths());
     const style = { theme: this.planTheme, pixel: this.px(1) };
     for (const dimension of dimensions) {
       const metres = lengthToMeters(distance(dimension.from, dimension.to), this.gridSize);
@@ -4367,7 +4374,7 @@ export class BuildingPlanCanvas {
         {
           ...dimension,
           text: formatLength(metres, this.presentation),
-          offset: draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET,
+          offset: dimension.offset ?? (draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET),
         },
         style
       );
@@ -4377,9 +4384,45 @@ export class BuildingPlanCanvas {
   }
 
   /**
+   * A drag of the room's contents (3c-4), from what the canvas draws: a free wall's end, its
+   * run's length; a free wall's split point, both runs; a free wall or a column moved, its
+   * clearances to the room's inside face. Null for any other gesture.
+   * @returns {Array<object> | null}
+   */
+  contentDragLengths() {
+    const limits = { minLength: this.gridSize / 200, pixel: this.px(1) };
+    const roomOf = (roomId) => (this.rooms || []).find((room) => room.id === roomId)?.vertices;
+    const column = this.columnDragState;
+    if (column) {
+      const entry = column.moved && this.columns.find((c) => c.id === column.columnId);
+      const info = entry && this.getColumnRenderInfo(entry);
+      return info ? columnClearances(roomOf(entry.roomId), info.rect, limits) : [];
+    }
+    const corner = this.cornerDragState;
+    if (corner?.freeWall) {
+      if (!corner.moved || !corner.previewPoint) return [];
+      const runs = this.walls.filter((wall) => corner.freeWall.faceIds?.includes(wall.id));
+      return splitPointLengths(
+        runs.map((wall) => this.getRenderedWallPoints(wall)),
+        corner.previewPoint,
+        { ...limits, halfWidth: freeWallHalfWidth(runs[0]) }
+      );
+    }
+    const drag = this.wallDragState;
+    const wall = drag && this.walls.find((entry) => entry.id === drag.wallId);
+    if (!drag || !(drag.freeWall || wall?.sidePoints)) return null;
+    if (!drag.moved) return [];
+    const points = wall ? this.getRenderedWallPoints(wall) : drag.previewPoints;
+    const halfWidth = freeWallHalfWidth(wall);
+    if (drag.type === 'move')
+      return freeWallClearances(roomOf(wall?.roomId ?? drag.roomId), points, halfWidth, limits);
+    return [runLength(points, { ...limits, halfWidth })].filter(Boolean);
+  }
+
+  /**
    * A room wall or corner drag (3c-3): the sides of the room in scope it changes, compared with
    * the room when the drag started (`gestureRooms`); the preview keeps its last valid shape when
-   * core refuses, so the lengths do too (3-L5). Free walls and their split points are 3c-4.
+   * core refuses, so the lengths do too (3-L5).
    */
   roomDragLengths() {
     const wallDrag = this.wallDragState;
