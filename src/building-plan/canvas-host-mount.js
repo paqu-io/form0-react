@@ -9,6 +9,7 @@ import {
   makeAdapters,
   pickMetaEntry,
 } from './canvas-adapters.js';
+import { doubleClickTarget } from './entry-chain.js';
 
 /**
  * Creating a plan canvas for `BuildingPlanCanvasHost` (moved out of `canvas-host.jsx`): its
@@ -121,7 +122,8 @@ export function mountPlanCanvas({
           readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
           writeRecord: (record, command) =>
             repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
-          focusRow: (path) => repeatableApiRef.current.focusRow?.(path),
+          // A double-click: on a Floor canvas or the plan page, rooms only (2026-11-22).
+          focusRow: (path) => repeatableApiRef.current.focusRow?.(doubleClickTarget(path, mode)),
           reportIssues: (issues) => {
             if (canvas) canvas.receiveIssues(issues);
             else earlyIssues = issues;

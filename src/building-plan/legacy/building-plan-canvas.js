@@ -1854,10 +1854,12 @@ export class BuildingPlanCanvas {
       const beam = this.findBeamHit(point)?.beam;
       const wall = this.findWallNearPoint(point)?.wall;
       const room = this.findRoomAtPoint(point);
+      // `findOpeningNearPoint` names the opening `openingId` (an `opening.opening.id` here opened
+      // nothing, so no door or window opened from a read-only canvas; fixed 2026-11-22).
       this.pendingFocus = opening
         ? () =>
             this.controller?.[opening.type === 'door' ? 'focusDoor' : 'focusWindow']?.(
-              opening.opening.id
+              opening.openingId
             )
         : column
           ? () => this.controller?.focusColumn?.(column.id)
@@ -1970,6 +1972,8 @@ export class BuildingPlanCanvas {
       }
       const roomHandleHit = this.findRoomHandle(point);
       if (roomHandleHit && roomHandleHit.room) {
+        // A double-click opens what was pressed even where it can't be dragged (2026-11-22).
+        this.pendingFocus = () => this.controller?.focusRoom(roomHandleHit.room.id);
         if (!caps.canResize) return;
         const { room, handle } = roomHandleHit;
         const rect = room.previewRect || room.rect;
@@ -1987,7 +1991,6 @@ export class BuildingPlanCanvas {
             moved: false,
           };
           this.setHoverState(null);
-          this.pendingFocus = () => this.controller?.focusRoom(room.id);
           this.updateButtonStates();
           this.updateCursor();
           this.render();
@@ -1997,6 +2000,7 @@ export class BuildingPlanCanvas {
 
       const wallHandleHit = this.findWallHandle(point);
       if (wallHandleHit && wallHandleHit.wall) {
+        this.pendingFocus = () => this.controller?.focusWall(wallHandleHit.wall.id);
         if (!caps.canResize || !caps.canMoveStructural) return;
         const { wall, index } = wallHandleHit;
         const basePoints =
@@ -2017,7 +2021,6 @@ export class BuildingPlanCanvas {
           moved: false,
         };
         this.setHoverState(null);
-        this.pendingFocus = () => this.controller?.focusWall(wall.id);
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -2033,6 +2036,7 @@ export class BuildingPlanCanvas {
 
       const columnHit = this.findColumnHit(point);
       if (columnHit) {
+        this.pendingFocus = () => this.controller?.focusColumn?.(columnHit.column.id);
         if (!caps.canMoveStructural) return;
         const { column } = columnHit;
         this.selectedColumnId = column.id;
@@ -2050,9 +2054,6 @@ export class BuildingPlanCanvas {
           moved: false,
         };
         this.setHoverState(null);
-        if (typeof this.controller?.focusColumn === 'function') {
-          this.pendingFocus = () => this.controller.focusColumn(column.id);
-        }
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -2061,6 +2062,7 @@ export class BuildingPlanCanvas {
 
       const beamHandleHit = this.findBeamHandle(point);
       if (beamHandleHit) {
+        this.pendingFocus = () => this.controller?.focusBeam?.(beamHandleHit.beam.id);
         if (!caps.canResize || !caps.canMoveStructural) return;
         const { beam, handle } = beamHandleHit;
         this.selectedBeamId = beam.id;
@@ -2089,9 +2091,6 @@ export class BuildingPlanCanvas {
           },
         };
         this.setHoverState(null);
-        if (typeof this.controller?.focusBeam === 'function') {
-          this.pendingFocus = () => this.controller.focusBeam(beam.id);
-        }
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -2100,6 +2099,7 @@ export class BuildingPlanCanvas {
 
       const beamHit = this.findBeamHit(point);
       if (beamHit) {
+        this.pendingFocus = () => this.controller?.focusBeam?.(beamHit.beam.id);
         if (!caps.canMoveStructural) return;
         const { beam } = beamHit;
         this.selectedBeamId = beam.id;
@@ -2131,9 +2131,6 @@ export class BuildingPlanCanvas {
           roomRect,
         };
         this.setHoverState(null);
-        if (typeof this.controller?.focusBeam === 'function') {
-          this.pendingFocus = () => this.controller.focusBeam(beam.id);
-        }
         this.updateButtonStates();
         this.updateCursor();
         this.render();
@@ -2153,6 +2150,9 @@ export class BuildingPlanCanvas {
       // only the centre selected an opening that wasn't selected yet).
       const openingHit = this.findOpeningNearPoint(point);
       if (openingHit) {
+        // The plan page can't move it; a double-click there still opens its room (2026-11-22).
+        const focus = openingHit.type === 'door' ? 'focusDoor' : 'focusWindow';
+        this.pendingFocus = () => this.controller?.[focus]?.(openingHit.openingId);
         if (!caps.canMove) return;
         this.grabOpening(openingHit, 'move', point);
         return;
