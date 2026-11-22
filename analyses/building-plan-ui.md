@@ -50,7 +50,7 @@ Still open (mockups page, "Open decisions"): D3, D5 to D18, D21, and the questio
 |---|---|---|---|
 | 1 | Look only, web: chrome and canvas on the theme tokens, grid, symbols, the list panel, one tooltip, shortcut matching | None | Done, **to test by hand** |
 | 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None (reads resolved values through `fieldState()`) | To do |
-| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Pin, status line, fit on open, hit areas, wall grip done; 3c-1 to 3c-4 done; then the split point's pull and moving a return (core) |
+| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Done (2026-11-22): see "Step 3: wrap-up" |
 | 4 | Typed values, web: click a length to type it (openings, columns, beams, wall lengths) | None (existing update calls; a wall length is the existing parallel move of the neighbouring wall) | To do |
 | 5 | Mobile: steps 1 to 4 on react-native-svg (handles replace the Resize mode), then the full-screen editor with the bottom sheet (step 10) | None in core | To do |
 | 6 | New data: door swing, wall beams and beam height, wall front view, run and rise | Core fields and operations, after agreement | Proposals |
@@ -2014,18 +2014,66 @@ before the step 3 docs wrap-up):
   portions' lines (they lengthen or shorten, keeping their direction), as a room wall's jog does;
   refused when a portion would vanish or the return runs nearly along one.
 
+### A split point's pull and moving a return (2026-11-22, hand-tested, committed)
+
+Two core units from the 3c-4 hand test, each committed on its own after the hand test.
+
+- *The split point holds its wall's line* (`free-wall-bend.js`, `interaction.js`). The runs' lines
+  as the drag found them (each far end through the split point, across the room) are line targets
+  of the split point's pull, after corners and ends (8 px, 13 held; Alt none). On one, the point
+  goes on the 1 cm step from that run's far end (the run a whole centimetre long), with a guide
+  from that end. On a straight wall both lines are the wall's line: the point slides along it.
+  Tests (2, in `building-plan-free-wall-bend.test.js`) fail with the old pull.
+- *A return moves* (`derive/partition-portions.js`, `moveReturn`). Parallel to itself, by the part
+  of the move across it; its ends slide along the portions it joins (they lengthen or shorten,
+  keeping their direction). Refused when a portion would shrink to nothing
+  (`partition_return_collapse`) or runs nearly along the return (`partition_return_parallel`).
+  The stored paths are faces on one side, all at the same distance from the centrelines, so the
+  centrelines follow. Bends aren't offered once a return exists (as before). Tests: new
+  `building-plan-partition-return-move.test.js` (3), failing without the change. On the capture,
+  W9.2 moves 0.3 either way; 0.84 right or 0.9 left are refused.
+
+Core 701 of 701, web 395 of 401 (the worker tests). Headless on the canvas: a split point dragged
+3 cm off its wall stays on it (lengths whole centimetres, a guide along the wall); a return made by
+moving a portion down moves 0.3 m sideways, the portions next to it following.
+
+Hand test (restart the test page, core change): a room entry, draw a free wall, split it, drag
+the split point along the wall a little off it: it stays on the line, then leaves it when you pull
+away; bend it, drag again: each run's line holds. Then split a straight wall, move one portion
+sideways (a return appears), select the return and drag it: it moves, the portions next to it
+lengthen and shorten; too far, the refusal.
+
+Hand-tested 2026-11-22: both work. Committed: form0-core `68747f3` (split point), `d95d345`
+(return).
+
+### Step 3: wrap-up (2026-11-22)
+
+Step 3 (handles and live lengths, web) is done, each unit hand-tested before its commit:
+
+| Unit | What | Commits |
+|---|---|---|
+| First part | Hit areas in screen pixels, openings grabbed anywhere, the wall grip; Pin in the rail, hints in the status line, fit on open | form0-react `b5dc3d9` and earlier |
+| 3c-1, 3c-1b | One handle style (3-H1), grips (3-H2), cursors that follow the element and what the canvas allows (3-H3), the pin badge (3-P) | form0-react `e9707ac`, `21f4ba8` |
+| 3c-2, 3c-2b | `draw/dimensions.js` (3-L3, 3-L4); lengths for doors and windows (the full chain along a side) and a room being drawn, which snaps | form0-react `2d18dd2`, `b512976` |
+| 3c-3 | Lengths for room walls and corners, corner to corner (3-L2) | form0-react `0fd00e3` |
+| 3c-4 | Lengths for free walls (a run, both runs at a split point) and clearances for a moved free wall or column | form0-react `b092562` |
+
+Along the way, in core (each its own unit): the undo owner (`f83c85c`), a new entry's Undo
+(`97a127b`), the cap band (`f008b24`), the kept notch option 2 (`bcd0861`), a split point holding
+its wall's line (`68747f3`), moving a return (`d95d345`).
+
+Left out of step 3, by decision: column resize on the canvas (3-H4, step 4; sizes are typed);
+beams beyond style and cursor (3-H5, the beam unit); hiding a dragged element's own label (on hold
+2026-11-22); a length shorter than its pill drawn outside its segment (with step 2). Clicking a
+length to type it is step 4.
+
 ### Next (queue, updated 2026-11-22)
 
 Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
-floors in level order, the kept notch option 2 (core `bcd0861`).
+floors in level order, the kept notch option 2 (core `bcd0861`), 3c-4 (`b092562`), a split
+point's pull (`68747f3`), moving a return (`d95d345`); step 3 wrapped up.
 
-1. **3c-4: lengths for free walls and columns** (3-L1): a free wall's end dragged, its length
-   along its centreline; a free wall or a column moved, the distance to the nearest wall on each
-   axis (face to inside face; a side on a wall, 0, not drawn). Reuse `draw/dimensions.js` and
-   `drag-lengths.js`; the canvas's `drawDragLengths` dispatches by gesture (wall drags carry
-   `freeWall`, corner drags of a free wall's split point carry `freeWall`). Then the step 3 docs
-   wrap-up (the Approach row).
-2. **The floor below (agreed 2026-11-22; mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr).**
+1. **The floor below (agreed 2026-11-22; mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr).**
    F1: a new floor's entry shows its own floor (today it shows the first floor's plan, its tab
    not active; the main use of F2 and F3 is drawing a new upper floor). F2: the floor below
    drawn (core snapshot, `draw/floor-below.js`). F3: pulls to its corners (core
@@ -2038,7 +2086,11 @@ floors in level order, the kept notch option 2 (core `bcd0861`).
    corner, a room wall, moving a room (free walls and columns later); U7 today's pull (each axis
    within 8 px, 13 held, Alt none, same guide) with a small ring on a corner from the floor
    below; U8 nearest wins, a tie to this floor. Floors share one coordinate frame.
-3. With step 2: a pill that doesn't fit goes outside its segment.
+2. **Opening entries by double-click** (the navigation unit, see below): direction agreed
+   2026-11-21 (the whole chain of dialogs, breadcrumbs); what each canvas reaches to settle
+   with a mockup first.
+3. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
+   gets the floor below's switch), with a pill that doesn't fit drawn outside its segment.
 4. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
@@ -2215,7 +2267,7 @@ one combined core operation is the clean way.
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
-| Opening entries by double-click (jumps) | Direction agreed 2026-11-21 (the whole chain, breadcrumbs); what each canvas reaches to settle with a mockup; right after step 3 |
+| Opening entries by double-click (jumps) | Direction agreed 2026-11-21 (the whole chain, breadcrumbs); what each canvas reaches to settle with a mockup; after the floor below |
 | Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
 | 3c-1: handles, cursors and the pin badge | Done and committed |
 | 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |
@@ -2229,7 +2281,11 @@ one combined core operation is the clean way.
 | A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
 | The stray cap piece (core footprints); a floor's number in its title | Done and committed |
 | Floors shown by level (list and tabs; display only) | Done and committed |
-| Rest of step 3, then step 2 (lengths, plaster), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
+| 3c-4: lengths for free walls and columns | Done and committed |
+| A split point holds its wall's line; a free wall's return can be moved (core) | Done and committed |
+| Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
+| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls) | Next; decided (U1 to U8), mockup done |
+| Step 2 (lengths, plaster, Show menu), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
 ## Open questions

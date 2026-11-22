@@ -2087,3 +2087,18 @@ wall. Web 395 of 401 (the worker tests); headless on the canvas all four gesture
 the dragged element's own label while it moves (a column's upward clearance runs over it). Hand-tested: works; committed
 `b092562`; the label stays for now. Found at the hand test (core, next): a split point doesn't
 hold its wall's line while dragged; a return can't be moved (today's rule, to change).
+
+### A split point's pull and moving a return (2026-11-22, committed)
+
+Core, from the 3c-4 hand test: a split point's drag is pulled onto its runs' lines (the wall's line
+when straight), on whole centimetres along the run, with a guide; a return moves parallel to
+itself, its ends sliding along the portions next to it, refused when a portion would vanish or runs
+nearly along it. Core 701 of 701, web 395 of 401; headless on the canvas both work. Hand-tested: both work;
+committed form0-core `68747f3` (split point), `d95d345` (return).
+
+### Step 3 wrapped up (2026-11-22)
+
+Step 3 (handles and live lengths, web) is done: 3c-1 to 3c-4 plus its first part, each
+hand-tested and committed; the core fixes found on the way committed as their own units. The
+analysis has the table ("Step 3: wrap-up") and what was left out by decision. Next: the floor
+below (F1 to F3), then the navigation unit (mockup first), then step 2.
