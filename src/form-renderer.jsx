@@ -48,6 +48,7 @@ import { nextEntryStep } from './building-plan/entry-chain.js';
 import { DialogPath } from './dialog-path.jsx';
 import { dialogPathParts } from './dialog-path-parts.js';
 import { sameEntryData } from './utils/entry-data.js';
+import { useDialogStepUp } from './use-dialog-step-up.js';
 import { useBuildingPlanController } from './building-plan/controller.js';
 import { pickOwnedValues } from './utils/value-updates.js';
 import {
@@ -1340,6 +1341,19 @@ function FormRendererContent({
       ),
     []
   );
+  // A part of a dialog's header path pressed (2026-11-22): { id, to, list } until dialog `to`
+  // shows `list` (or its page), or a dialog on the way keeps its changes.
+  const [dialogStepUp, setDialogStepUp] = useState(null);
+  const dialogStepUps = useRef(0);
+  const requestDialogStepUp = useCallback((target) => {
+    dialogStepUps.current += 1;
+    setDialogStepUp({ ...target, id: dialogStepUps.current });
+  }, []);
+  const endDialogStepUp = useCallback(() => setDialogStepUp(null), []);
+  useEffect(() => {
+    if (dialogStepUp && (!repeatableModals.length || dialogStepUp.to >= repeatableModals.length))
+      setDialogStepUp(null);
+  }, [dialogStepUp, repeatableModals.length]);
   const [hasRootChanges, setHasRootChanges] = useState(false);
   const rootChangesRef = useRef(false);
   const snapshotBaselineRef = useRef(null);
@@ -4720,8 +4734,12 @@ function FormRendererContent({
                 pathAbove={repeatableModals.slice(0, index).map((below) => ({
                   list: below.label,
                   row: modalRecordTitles[below.modalId] || '',
+                  key: below.repeatableKey,
                 }))}
                 onRecordTitle={reportModalRecordTitle}
+                stepUp={dialogStepUp}
+                onStepUp={requestDialogStepUp}
+                onStepUpEnd={endDialogStepUp}
                 themeClass={themeClass}
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
@@ -4859,6 +4877,9 @@ function RepeatableEntryModal({
   showPrimaryActionsInViewMode = true,
   pathAbove = [],
   onRecordTitle,
+  stepUp = null,
+  onStepUp,
+  onStepUpEnd,
 }) {
   const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
   const [entryMode, setEntryMode] = useState(normalizedEntryMode);
@@ -5093,7 +5114,9 @@ function RepeatableEntryModal({
   const cancelEntry = useCallback(async () => {
     modal.buildingPlan?.editor.cancelUIRequests();
     const result = await rowEvents.close(true);
-    if (result.status === 'completed') onCancel(modal);
+    if (result.status !== 'completed') return false;
+    onCancel(modal);
+    return true;
   }, [rowEvents.close, onCancel, modal]);
 
   const entryValidationSummary = useMemo(
@@ -5900,21 +5923,29 @@ function RepeatableEntryModal({
 
   // On the way to a row (2026-11-22): this dialog shows the list that holds the next row, as a
   // click on that list would, with the row selected on the canvas and marked in the list.
-  planChainRef.current = (next, indexPath) => {
+  // One of this dialog's lists, shown as a click on it in the navigation does.
+  const showNestedList = (key) => {
     const info = Object.values(modalSectionMetadata).find(
       (entry) =>
         entry.type === 'RepeatableSection' &&
-        (entry.repeatableKey || resolveRepeatableKey(entry.field)) === next.key
+        (entry.repeatableKey || resolveRepeatableKey(entry.field)) === key
     );
-    if (!info?.field) return;
-    planChainMarkRef.current = { listKey: next.key, rowId: next.id };
+    if (!info?.field) return false;
     handleEnterNestedRepeatable({
       field: info.field,
-      repeatableKey: next.key,
+      repeatableKey: key,
       contextPath: info.repeatableParentPath || [],
       sectionId: info.id,
       highlightPath: info.path || [],
     });
+    return true;
+  };
+  planChainRef.current = (next, indexPath) => {
+    planChainMarkRef.current = { listKey: next.key, rowId: next.id };
+    if (!showNestedList(next.key)) {
+      planChainMarkRef.current = null;
+      return;
+    }
     setPlanChainSelect(indexPath);
   };
 
@@ -5951,14 +5982,20 @@ function RepeatableEntryModal({
     setDiscardDialogVisible(true);
   }, []);
 
+  // Asked on the way up a header path (useDialogStepUp): keeping the changes stops there.
+  const stepUpAskedRef = useRef(false);
   const closeDiscardDialog = useCallback(() => {
     setDiscardDialogVisible(false);
-  }, []);
+    if (stepUpAskedRef.current) onStepUpEnd?.();
+    stepUpAskedRef.current = false;
+  }, [onStepUpEnd]);
 
-  const confirmDiscard = useCallback(() => {
+  const confirmDiscard = useCallback(async () => {
     setDiscardDialogVisible(false);
-    cancelEntry();
-  }, [cancelEntry]);
+    const asked = stepUpAskedRef.current;
+    stepUpAskedRef.current = false;
+    if (!(await cancelEntry()) && asked) onStepUpEnd?.();
+  }, [cancelEntry, onStepUpEnd]);
 
   const handleCancelRequest = useCallback(() => {
     if (activeNestedRepeatable) {
@@ -5979,6 +6016,28 @@ function RepeatableEntryModal({
     openDiscardDialog,
     cancelEntry,
   ]);
+
+  // A part of a header path pressed (2026-11-22): above its level this dialog closes as Back
+  // then Cancel would; at its level it shows the list asked for, or its own page.
+  useDialogStepUp({
+    stepUp,
+    isTop: isTopModal,
+    index: modal.stackIndex,
+    close: async () => {
+      if (activeNestedRepeatable) handleExitNestedRepeatable();
+      if (hasEntryChanges) {
+        stepUpAskedRef.current = true;
+        openDiscardDialog();
+        return;
+      }
+      if (!(await cancelEntry())) onStepUpEnd?.();
+    },
+    land: (list) => {
+      if (list) showNestedList(list);
+      else if (activeNestedRepeatable) handleExitNestedRepeatable();
+      onStepUpEnd?.();
+    },
+  });
 
   const repeatableMetadataFields = useMemo(
     () => createTimestampMetadataFields(`repeatable_${modal.modalId}`),
@@ -6341,6 +6400,7 @@ function RepeatableEntryModal({
   const modalPathParts = dialogPathParts({
     above: pathAbove,
     list: modal.label || modalTitle,
+    listKey: modal.repeatableKey,
     row: modalRecordTitle,
     nestedList: activeNestedRepeatable?.field?.label || null,
   });
@@ -6627,7 +6687,11 @@ function RepeatableEntryModal({
             <div className={styles.repeatableModalHeaderTopRow}>
               {renderHeaderActionButtons(modalLeftAction, 'left')}
               <div className={styles.repeatableModalTitle}>
-                <DialogPath parts={modalPathParts} className={styles.formNameTitleText} />
+                <DialogPath
+                  parts={modalPathParts}
+                  className={styles.formNameTitleText}
+                  onSelect={onStepUp}
+                />
                 <ModePill mode={isEntryReadOnly ? 'readonly' : 'edit'} />
               </div>
               {renderHeaderActionButtons([modalSecondaryRightAction, modalRightAction], 'right')}

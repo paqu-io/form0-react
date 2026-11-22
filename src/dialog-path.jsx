@@ -6,14 +6,20 @@ import * as styles from './dialog-path.css.js';
  * A RepeatableSection dialog's header title (2026-11-22): the path to it, "Floors › Ground floor
  * › Rooms", the last part the title. When it doesn't fit between the header's buttons, its middle
  * collapses ("Floors › … › Rooms"), then all but the title ("… › Rooms"). A single part renders
- * as the title did before.
- * @param {{ parts: string[], className?: string }} props
+ * as the title did before. With `onSelect`, the parts before the title are buttons: pressing one
+ * hands its `target` to `onSelect` (the "…" stays text).
+ * @param {{
+ *   parts: Array<{ label: string, target: object | null }>,
+ *   className?: string,
+ *   onSelect?: (target: object) => void,
+ * }} props
  */
-export function DialogPath({ parts, className = '' }) {
+export function DialogPath({ parts, className = '', onSelect }) {
   const ref = useRef(null);
   // 0: the whole path; 1: its middle collapsed; 2: only the title, after an ellipsis.
   const [level, setLevel] = useState(0);
-  const signature = parts.join('\u0000');
+  const labels = parts.map((part) => part.label);
+  const signature = labels.join('\u0000');
 
   // A new path, or a new width, starts whole; it collapses a step at a time while it overflows.
   useLayoutEffect(() => setLevel(0), [signature]);
@@ -43,10 +49,10 @@ export function DialogPath({ parts, className = '' }) {
     return () => observer.disconnect();
   }, [whole]);
 
-  if (parts.length <= 1) return <span className={className}>{parts[0] || ''}</span>;
+  if (parts.length <= 1) return <span className={className}>{labels[0] || ''}</span>;
   const shown = level ? collapsedPathParts(parts, level) : parts;
   return (
-    <span ref={ref} className={`${styles.path} ${className}`} title={parts.join(' › ')}>
+    <span ref={ref} className={`${styles.path} ${className}`} title={labels.join(' › ')}>
       {shown.map((part, index) => (
         <React.Fragment key={index}>
           {index > 0 && (
@@ -54,9 +60,19 @@ export function DialogPath({ parts, className = '' }) {
               ›
             </span>
           )}
-          <span className={index === shown.length - 1 ? styles.current : styles.ancestor}>
-            {part ?? '…'}
-          </span>
+          {index === shown.length - 1 ? (
+            <span className={styles.current}>{part.label}</span>
+          ) : part && part.target && onSelect ? (
+            <button
+              type="button"
+              className={`${styles.ancestor} ${styles.link}`}
+              onClick={() => onSelect(part.target)}
+            >
+              {part.label}
+            </button>
+          ) : (
+            <span className={styles.ancestor}>{part ? part.label : '…'}</span>
+          )}
         </React.Fragment>
       ))}
     </span>
