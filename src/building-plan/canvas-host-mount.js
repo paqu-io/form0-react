@@ -107,6 +107,8 @@ export function mountPlanCanvas({
           managedTransactions: true,
           editingPolicy: EDITING_POLICY,
           derivedCommands,
+          // An entry shows its own floor (F1), a new floor's included.
+          floorId: scope?.floorId || null,
           confirmOpeningRemoval: (issue) =>
             globalThis.confirm?.(
               `${issue.message}\n\nKeep this position and remove the opening(s)?`
@@ -147,6 +149,8 @@ export function mountPlanCanvas({
     };
     controller.setScope = (next) => {
       controller.scope = next;
+      if (next?.floorId && typeof controller.showFloor === 'function')
+        controller.showFloor(next.floorId);
       controller.emitUpdate();
     };
     controller.scope = scope;
