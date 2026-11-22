@@ -2077,3 +2077,13 @@ scope keeps every plan it went through, and the return reads the earliest that h
 neighbour's face facing the dragged room across a wall. Core 696 of 696, web 385 of 391; headless
 on the canvas the notch's side returns exactly. Hand-tested again 2026-11-22: works. Committed:
 core `bcd0861`.
+
+### 3c-4: lengths for free walls and columns (2026-11-22, committed)
+
+Built (web only): `content-lengths.js` and the canvas's `contentDragLengths`. A free wall's end
+shows its run's length, a split point both runs (outside the bend); a free wall or a column moved
+shows one clearance per axis to the room's inside face, the nearer side, none for a side on a
+wall. Web 395 of 401 (the worker tests); headless on the canvas all four gestures draw. Open: hide
+the dragged element's own label while it moves (a column's upward clearance runs over it). Hand-tested: works; committed
+`b092562`; the label stays for now. Found at the hand test (core, next): a split point doesn't
+hold its wall's line while dragged; a return can't be moved (today's rule, to change).

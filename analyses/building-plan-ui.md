@@ -50,7 +50,7 @@ Still open (mockups page, "Open decisions"): D3, D5 to D18, D21, and the questio
 |---|---|---|---|
 | 1 | Look only, web: chrome and canvas on the theme tokens, grid, symbols, the list panel, one tooltip, shortcut matching | None | Done, **to test by hand** |
 | 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None (reads resolved values through `fieldState()`) | To do |
-| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Pin, status line, fit on open, hit areas, wall grip done; 3c-1 (handles, cursors, pin badge) done; lengths (3c-2 to 3c-4) to do |
+| 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Pin, status line, fit on open, hit areas, wall grip done; 3c-1 to 3c-4 done; then the split point's pull and moving a return (core) |
 | 4 | Typed values, web: click a length to type it (openings, columns, beams, wall lengths) | None (existing update calls; a wall length is the existing parallel move of the neighbouring wall) | To do |
 | 5 | Mobile: steps 1 to 4 on react-native-svg (handles replace the Resize mode), then the full-screen editor with the bottom sheet (step 10) | None in core | To do |
 | 6 | New data: door swing, wall beams and beam height, wall front view, run and rise | Core fields and operations, after agreement | Proposals |
@@ -1971,6 +1971,48 @@ back: the notch's side comes back with it, then the wall widens. On your plan: W
 then W1 or W3 into the notch's sides and back.
 
 Hand-tested 2026-11-22 (round 2: works). Committed: core `bcd0861`.
+
+### 3c-4: lengths for free walls and columns (2026-11-22, hand-tested, committed)
+
+Agreed (2026-11-22): a free wall's end shows its run's length along the centreline, a split point
+both runs; a free wall moved, its clearances along its own axes (across from its faces, along
+from its ends); a column, across x and y; one per axis, the nearer side, 0 not drawn; a new
+module, since `drag-lengths.js` is at 237 lines.
+
+- `content-lengths.js` (new): `runLength` (beside the wall, clear of its face: above it, or left
+  of it when it runs up and down), `splitPointLengths` (each run on the outside of the bend),
+  `clearances` (a ray from each side of the element along the axis to the room's inside face,
+  the nearer kept; under 5 mm, a side on a wall, not drawn), `columnClearances` (from the middle
+  of each side), `freeWallClearances`, `freeWallHalfWidth` (from the centreline and the row's
+  face). Clearances are drawn along the gap itself (no offset).
+- Legacy canvas: `contentDragLengths`, from what the canvas draws (the wall's rendered points, the
+  column as drawn), dispatched before the room lengths; a dimension may carry its own offset.
+- Targets are the room's inside face only ("face to inside face"); other free walls and columns
+  are not measured to.
+
+Hand test (reload the test page; web only): `?form=plan`, View, double-click the Bedroom. Wall
+tool, draw a free wall across it; Select, click it, drag an end: its length above it; drag its
+grip: the clearance across (from the nearer face) and along (from the nearer end), none for a side
+on a wall. Split it, drag the split point: both runs' lengths, outside the bend. Add column (it
+lands at the room's centre), drag it near a corner: its clearance across x and y; against a wall:
+only the other axis. Tests: `building-plan-content-lengths.test.js` (10); web 395 of 401 (the
+worker tests). Headless on the real canvas: all four gestures as described. Seen there: a column's
+clearance upwards runs over its label (C#1), and a free wall's clearance across can touch its
+label; hiding the dragged element's own label while it moves would clear both (to decide).
+
+Hand-tested 2026-11-22: works. Committed: form0-react `b092562`. Hiding the dragged element's
+label: on hold. Found at the hand test, in core, not 3c-4 (agreed 2026-11-22, each its own unit
+before the step 3 docs wrap-up):
+
+- *A split point doesn't hold its wall's line.* Dragged, it snaps as a free end does (corners,
+  faces, lining up, else 1 cm steps); nothing pulls it onto its own wall's line, so it is hard to
+  slide along a straight wall. Fix: the runs' lines as the drag found them pull it (8 px, 13
+  held), with a guide; corners and ends first, Alt none.
+- *A return can't be moved* ("Move an adjacent partition portion to adjust this return.",
+  capture `state-2026-11-22T11-47-02-185Z.json`: W9.2, the return made when W9.1 moved). Today's
+  rule. Change: a return moves parallel to itself, its ends sliding along the neighbouring
+  portions' lines (they lengthen or shorten, keeping their direction), as a room wall's jog does;
+  refused when a portion would vanish or the return runs nearly along one.
 
 ### Next (queue, updated 2026-11-22)
 
