@@ -45,6 +45,8 @@ import { planText } from './building-plan/plan-text.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { nextEntryStep } from './building-plan/entry-chain.js';
+import { DialogPath } from './dialog-path.jsx';
+import { dialogPathParts } from './dialog-path-parts.js';
 import { useBuildingPlanController } from './building-plan/controller.js';
 import { pickOwnedValues } from './utils/value-updates.js';
 import {
@@ -1328,6 +1330,15 @@ function FormRendererContent({
   const discardDialogRef = useRef(null);
   const discardCancelButtonRef = useRef(null);
   const [repeatableModals, setRepeatableModals] = useState([]);
+  // Each open dialog's row title, as it is now, for the header path of the dialogs over it.
+  const [modalRecordTitles, setModalRecordTitles] = useState({});
+  const reportModalRecordTitle = useCallback(
+    (modalId, title) =>
+      setModalRecordTitles((current) =>
+        current[modalId] === title ? current : { ...current, [modalId]: title }
+      ),
+    []
+  );
   const [hasRootChanges, setHasRootChanges] = useState(false);
   const rootChangesRef = useRef(false);
   const snapshotBaselineRef = useRef(null);
@@ -4704,6 +4715,12 @@ function FormRendererContent({
                   diagnosticsActive: modal.diagnosticGeneration === diagnosticGeneration,
                 }}
                 isTopModal={index === repeatableModals.length - 1}
+                // The dialogs under this one, for its header path (2026-11-22).
+                pathAbove={repeatableModals.slice(0, index).map((below) => ({
+                  list: below.label,
+                  row: modalRecordTitles[below.modalId] || '',
+                }))}
+                onRecordTitle={reportModalRecordTitle}
                 themeClass={themeClass}
                 labelPosition={labelPosition}
                 labelWidthPercent={labelWidthPercent}
@@ -4839,6 +4856,8 @@ function RepeatableEntryModal({
   recordStatusInfo,
   getAltShortcutLabel = () => null,
   showPrimaryActionsInViewMode = true,
+  pathAbove = [],
+  onRecordTitle,
 }) {
   const normalizedEntryMode = initialMode === 'readonly' ? 'readonly' : 'edit';
   const [entryMode, setEntryMode] = useState(normalizedEntryMode);
@@ -6309,6 +6328,17 @@ function RepeatableEntryModal({
       })) ||
     resolveDatasetRowTitle(modalTitleDescriptor, entryValues) ||
     `${modal.label || 'Entry'} ${(modal.instanceIndex ?? 0) + 1}`;
+  useEffect(() => {
+    onRecordTitle?.(modal.modalId, modalRecordTitle);
+  }, [onRecordTitle, modal.modalId, modalRecordTitle]);
+  // Where this dialog is: the lists and rows under it, then its own list (or its row and the
+  // list it shows), in place of the list's label alone.
+  const modalPathParts = dialogPathParts({
+    above: pathAbove,
+    list: modal.label || modalTitle,
+    row: modalRecordTitle,
+    nestedList: activeNestedRepeatable?.field?.label || null,
+  });
   // Always shown, as on the root (see showNavigationPanel).
   const showModalNavigationPanel = true;
 
@@ -6592,7 +6622,7 @@ function RepeatableEntryModal({
             <div className={styles.repeatableModalHeaderTopRow}>
               {renderHeaderActionButtons(modalLeftAction, 'left')}
               <div className={styles.repeatableModalTitle}>
-                <span className={styles.formNameTitleText}>{modalTitle}</span>
+                <DialogPath parts={modalPathParts} className={styles.formNameTitleText} />
                 <ModePill mode={isEntryReadOnly ? 'readonly' : 'edit'} />
               </div>
               {renderHeaderActionButtons([modalSecondaryRightAction, modalRightAction], 'right')}

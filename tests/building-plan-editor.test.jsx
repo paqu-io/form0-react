@@ -320,6 +320,7 @@ it('a wall issue opens the floor, the room and the wall, each on the way showing
   const { dialog, issueText } = await openWallIssue();
   const [wallName] = issueText.match(/W\d+/);
   await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
+  expect(await dialog.findByTitle('Floors › Ground Floor › Rooms › Bedroom › Walls')).toBeTruthy();
   const marked = (rows, name) =>
     rows.find((row) => row.textContent.includes(name))?.closest('[data-plan-marked]')?.dataset
       .planMarked;
