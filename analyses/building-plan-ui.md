@@ -41,15 +41,17 @@ this file is the plan and the current state.
 | Doors | Drawn as a plain cut in the wall until the swing fields exist | 2026-11-18 |
 | Legacy canvas | Move out only the drawing parts a unit touches; no logic changes | 2026-11-18 |
 | Commits | One per unit, so each can be reverted on its own | 2026-11-18 |
+| Step 2 layers | A Show menu (Lengths, Plaster, Floor below), the plaster's real thickness to scale, the selected room's lengths: S1 to S12, see "Step 2: decisions" | 2026-11-22 |
 
-Still open (mockups page, "Open decisions"): D3, D5 to D18, D21, and the questions at the end.
+Still open (mockups page, "Open decisions"): D3, D5 to D7, D9 to D15, D17, D18, D21 (D8 settled
+by step 2's S2 and S8), and the questions at the end.
 
 ## Approach
 
 | Step | What | Logic touched | Status |
 |---|---|---|---|
 | 1 | Look only, web: chrome and canvas on the theme tokens, grid, symbols, the list panel, one tooltip, shortcut matching | None | Done, **to test by hand** |
-| 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None (reads resolved values through `fieldState()`) | To do |
+| 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None in records (reads resolved values through `fieldState()`); a core controller setting turns the floor below's pulls off | Decided (2026-11-22), units 2a to 2c to do |
 | 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Done (2026-11-22): see "Step 3: wrap-up" |
 | 4 | Typed values, web: click a length to type it (openings, columns, beams, wall lengths) | None (existing update calls; a wall length is the existing parallel move of the neighbouring wall) | To do |
 | 5 | Mobile: steps 1 to 4 on react-native-svg (handles replace the Resize mode), then the full-screen editor with the bottom sheet (step 10) | None in core | To do |
@@ -2336,21 +2338,92 @@ Hand test (reload the test page; web only):
 
 Hand-tested 2026-11-22: works. Committed: form0-react `99f5674` (A), `52c9165` (B), `aee3e91` (C).
 
-### Next (queue, updated 2026-11-22, night)
+### Step 2: decisions (2026-11-22)
+
+Settled with a mockup (https://claude.ai/artifact/UeBG8QwWJG7zgLqzAtizfG; a drawing of a sample
+floor, not the real canvas). Read from the code while aligning (not yet checked headless): every
+wall in the canvas snapshot carries its record `path`, so `controller.fieldState(wall.path,
+'wall_plaster')` and `'wall_plaster_thickness'` give the resolved values, floor defaults included;
+boundary walls and free walls have the `_outside` copies; the floor tab row already has an end
+cluster (View only, issues, Undo and Redo); room areas aren't drawn anywhere (left out of step 2).
+
+- **S1, the Show menu.** A "Show" button in the floor tab row's end cluster, before Undo and
+  Redo, on every plan canvas (the plan page, floor, room and element entries, view-only ones
+  included); a dot on it while a layer is off.
+- **S2, what it holds.** Three switches, all on by default: Lengths, Plaster, Floor below (listed
+  only when the floor has one). No "All rooms" (two lengths on every shared wall).
+- **S3, how long a choice lasts.** One setting for every plan canvas of a form, in memory for the
+  form's life: a provider in its own module, mounted once by `form-renderer.jsx` (wiring only).
+  No localStorage; two forms on one page don't share it.
+- **S4, the floor below.** Its switch (U3) goes in the menu, on by default. Off hides its outlines
+  and the "… below" name in the tab row and stops its pulls (Alt still frees one gesture). The
+  pulls are worked out in core (the snap functions read the controller's own snapshot), so core
+  gets a controller setting that every pull path follows, U6's included (name to settle in 2a);
+  interaction only, no record change.
+- **S5, which faces.** Every face whose resolved plaster is "Plastered": room sides from their
+  own row (a shared wall, each side from its room's row), outside faces of boundary walls, both
+  sides of free walls. Broken at doors and windows, faded with the scope (V1); columns have none.
+  To check in 2b: the outside band wraps outside corners and needs the wall bands' outline; if
+  this floor's isn't reachable from the web, a display-only addition to the snapshot (like U4)
+  is to agree first.
+- **S6, the band.** The plaster's real thickness, to scale like the walls (they have no minimum),
+  drawn on the face into the room: the space it takes from the room. At least 2 px on screen
+  (on a typical screen 10 to 20 mm is about 1 px at the fitted zoom); exact from about 140%
+  (20 mm) to 290% (10 mm). The value goes with the selected wall's name ("W#1 · plaster 15 mm",
+  "not plastered"). Rejected: a band by thickness, not to scale (1 px per 5 mm).
+- **S7, what lengths measure.** The bare wall face, as the drag lengths and the record do; the
+  band sits inside them.
+- **S8, which room.** An entry: its own room; a wall, door or window entry: its room, with that
+  element's chain. The plan page and a Floor entry: the room you click (none selected, none).
+- **S9, which lengths.** Each side corner to corner (3-L2, as in 3c-3), inside the room. The
+  selected wall's side adds its chain (split points and openings) at the usual offset, the whole
+  side moving further in. The selected wall's name moves in past its lengths; the status line
+  names the unit.
+- **S10, while dragging.** The drag's lengths replace the room's; a room being drawn keeps its
+  width and depth.
+- **S11, a pill that doesn't fit.** Past the end of its segment, on its line extended (a spot
+  inside the room first, then the chain's outer side); stepped out with a short leader when both
+  spots are taken. In `draw/dimensions.js`, so the lengths while dragging get it too.
+- **S12, zoomed out.** A room's lengths hide when the room is too small on screen to hold them;
+  a drag's lengths always show.
+- **U6** (the floor below, next after step 2): free walls and columns pull to the floor below
+  (its wall corners and faces, as rooms do); a column's centre onto the centre of the column
+  below, centre to centre whatever their sizes; the ring and the pull rule as F3.
+
+Units, each hand-tested before its commit (2a and 2b can share one hand test): **2a** the Show
+menu and its setting, with the floor below's switch and the core pull setting; **2b** the
+plaster band; **2c** the room's lengths, with S11.
+
+*Beams and exported records* (asked 2026-11-22). Wall beams would add a collection on each wall
+(stored on the physical wall, a copy per room side, as doors and windows are) with new fields
+(offset, length, position, height); room beams keep their shape and gain a height; the leftover
+`beam_wall_segment_index` and ratios could go. Nothing existing changes shape. Reform
+(`reform-backend-nestjs` checked): no beam- or plan-specific record code (the record sync walks
+Section, BuildingPlanSection and RepeatableSection generically; validation; the billing
+entitlement), and building plans aren't live, so there are no stored plan records to migrate;
+only `docs/building-plan-v2-system-fields.md` to update. The earlier concern was a changed export
+of an existing field type (choices); this is additive. Not checked: whether core writes an empty
+collection as an empty list or leaves it out. Agreed: 3a first (today's room beams: snapping,
+rule 1, following their walls; no data change, and still needed for beams across a room), then
+wall beams as a core design round straight after (open question 1, a beam whose wall splits),
+not waiting for step 6.
+
+### Next (queue, updated 2026-11-22, late)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
 mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a Floor canvas
 (`665230e`), N2 every level a real dialog (`9c056f5`), N3 the header path (`84b53aa`); after
 their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms only (`52c9165`),
 clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
-(`a0cbf3a`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see
-"Next" before this one in the log).
+(`a0cbf3a`); step 2 decided (above). Earlier this round: the floor below F1 to F3 and its fit,
+Save showing why (see "Next" before this one in the log).
 
-1. **Step 2**: read-only layers (the plaster band, the selected room's lengths, a Show menu,
-   which also gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its
-   segment. Decisions to align first (what each layer shows, where the Show menu sits).
+1. **Step 2** (decided, see "Step 2: decisions"): 2a the Show menu (with the floor below's switch
+   and the core pull setting), 2b the plaster band, 2c the room's lengths and a pill that doesn't
+   fit.
 2. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
-3. **Beams**: snapping, rule 1, following their wall (open question 1: wall beams or room beams).
+3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
+   core design round (open question 1; Reform checked, no blocker).
 4. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
    line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
 5. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
@@ -2580,7 +2653,7 @@ one combined core operation is the clean way.
 | 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
 | Derived engine: 4b (attached contents follow their wall: free walls and columns; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | Done and committed |
 | After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
-| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do |
+| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do: 3a room beams, then wall beams as a core design round (Reform checked 2026-11-22, no blocker) |
 | Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
 | Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | Gone with N2 (every level a real dialog); committed |
 | Column placement field and canvas command | Step 6 proposal |
@@ -2595,7 +2668,7 @@ one combined core operation is the clean way.
 | 3c-2b: a room being drawn snaps; the full chain along a side with several openings | Done and committed |
 | Undo and Redo off in an entry with nothing of its own to undo (form0-react, form0-core) | Done and committed |
 | 3c-3: lengths for room walls and corners | Done and committed |
-| A length shorter than its pill: the pill outside its segment | With step 2 |
+| A length shorter than its pill: the pill outside its segment | Decided (S11): past the end, else stepped out; with 2c |
 | A pushed wall: the neighbour's indent kept (option 2 decided) | Done (core `bcd0861`: entry return, scope plans, the canvas's preview scope; hand-tested 2026-11-22) |
 | A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
 | The stray cap piece (core footprints); a floor's number in its title | Done and committed |
@@ -2605,7 +2678,8 @@ one combined core operation is the clean way.
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
 | The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns later (U6) |
 | Save with a required plan field cleared shows the validation | Done and committed |
-| Step 2 (lengths, plaster, Show menu), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
+| Step 2 (lengths, plaster, Show menu) | Decided 2026-11-22 (S1 to S12, mockup); 2a, 2b, 2c to do |
+| Step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
 ## Open questions
@@ -2614,7 +2688,8 @@ one combined core operation is the clean way.
    an opening" / "under a window" / "top of the wall" keep the beam's height in step with that
    element (the window's head changes, the beam moves; core derives the height) or only set it
    once (the beam keeps its number). Following needs to know which opening; the beam's own span
-   could tell (the opening under it).
+   could tell (the opening under it). Reform impact checked 2026-11-22: additive, no blocker
+   (see "Step 2: decisions", beams); to settle in the wall beams design round after 3a.
 2. Plaster: answered 2026-11-19. The recorded wall thickness is the wall only; plaster is
    additional, so its band is drawn on the face, into the room.
 3. Same label on both faces of a wall field (found at M2). Agreed 2026-11-19, done (see

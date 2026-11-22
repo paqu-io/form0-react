@@ -2178,3 +2178,19 @@ stepping up as Back and Cancel would, each dialog asking when it has changes. Te
 without each change; web 415 of 421 (the worker tests); headless as described in
 `building-plan-ui.md`. Hand-tested: works; committed form0-react `99f5674`, `52c9165`, `aee3e91`.
 Next: step 2 (see the queue in `building-plan-ui.md`).
+
+### Step 2: decided (2026-11-22)
+
+Settled with a mockup (https://claude.ai/artifact/UeBG8QwWJG7zgLqzAtizfG). A "Show" button in the
+floor tab row of every plan canvas, with three switches on by default: Lengths, Plaster, Floor
+below (its switch also stops its pulls, through a new core controller setting; no record change).
+One setting per form, in memory. Plaster: every plastered face (room sides, outside faces, both
+sides of free walls), its real thickness to scale like the walls, on the face into the room, at
+least 2 px; the value with the selected wall's name. Lengths: to the bare face, the room of the
+entry (or the clicked room on the plan page and a Floor canvas), sides corner to corner plus the
+selected wall's chain; a pill that doesn't fit goes past the end of its segment, else steps out;
+hidden when the room is too small on screen; a drag's lengths replace them. U6 agreed. Beams:
+wall beams are additive for exported records and Reform has no plan-specific record code (no
+blocker); 3a (room beams) first, then wall beams as a core design round. Details in
+`building-plan-ui.md`, "Step 2: decisions". Next: units 2a (Show menu), 2b (plaster), 2c
+(lengths).
