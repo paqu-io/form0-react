@@ -1159,6 +1159,13 @@ export class BuildingPlanCanvas {
       ctx.lineTo(guide.to.x, guide.to.y);
       ctx.stroke();
     }
+    // A corner of the floor below that a pull took gets a small ring (F3, U7).
+    ctx.setLineDash([]);
+    for (const guide of guides.filter((entry) => entry.below)) {
+      ctx.beginPath();
+      ctx.arc(guide.from.x, guide.from.y, 5 / this.zoomLevel, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
