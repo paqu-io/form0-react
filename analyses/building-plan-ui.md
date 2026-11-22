@@ -1912,26 +1912,92 @@ web 384 of 391 (the worker tests and the numeric-setters flake).
 Seen meanwhile (not changed): a new floor's entry shows the first floor's plan (tabs "Ground
 floor", "F#2", the first active), not its own.
 
-### Next (queue, updated 2026-11-21)
+### The kept notch, option 2 (2026-11-22, committed)
+
+Agreed (2026-11-22): N1, outside any editor no return (today's behaviour); N2, the neighbour's
+face at the editor's start found by geometry, not by row id; N3, the mirror case (a wall widened
+in an entry, then dragged towards the neighbour, moves whole at its widened width) left out, a
+follow-up if the hand test asks for it, since narrowing back drops the explicit thickness widen
+stores.
+
+- *Core (`derive/entry-return.js`, new).* A drag of a shared wall away from its one neighbour,
+  under `widen`, in an editor: how far the neighbour's face now stands past where the editor
+  first saw it. That much of the drag moves the whole wall back (`move_wall`), exactly, however
+  the drag snaps; the rest widens as before (limit, hold and detach measured after the return).
+  `resizeFace` runs the two passes. Where the editor first saw the face: the earliest of the
+  plans the editor went through in which the neighbour had a line facing the same way as its face
+  now, overlapping the shared stretch, on the dragged room's side, with a line of the dragged room
+  facing it across a wall (no wider than the widen limit). Revised after the first hand test, see
+  below.
+- *Core (`session.js`).* Each editor scope keeps the plans it went through (the plan it opened
+  on, then the plan after each commit, synchronize, undo, redo or child cancel; a private map,
+  not in `getState()`); `preview` hands them to the derived command (`entryStates`, each plan's
+  copy of the floor as `entryFloors`).
+- *Core (`canvas-controller.js`).* Found by the headless check: the web canvas previews in a
+  session of its own (the editor commits), with no scope, so the drop returned the wall while the
+  drag showed it widening. A managed controller now opens a scope of its own in its session when
+  it creates it (the plan the canvas opened on: the entry's start) and previews in it
+  (`previewScopeId`).
+
+Hand test (restart the test page, core change): `?form=plan`, View, double-click the Bedroom
+(its entry opens over the floor's), select W3 (left of its door), push it 0.5 m down into the
+next room (the notch), release, then drag it back: the next room's face comes back with it
+while dragging, and at 0.5 m the plan is the one the entry opened on; drag further: the wall
+widens as before (up to 0.7 m), the next room stays. Save, reopen the Bedroom, drag back: the
+saved push stays (the entry opened on it). Core 693 of 693
+(`building-plan-derived-entry-return.test.js`), web 384 of 391 (the worker tests and the
+numeric-setters flake).
+
+First hand test (2026-11-22, capture `state-2026-11-22T10-53-48-254Z.json`): the first wall
+returned; a second didn't. The sequence, read from the capture: Room 1 beside the taller Room 2;
+W2 pushed into Room 2 (the notch), W1 and W3 pushed into the notch's top and bottom sides, then
+dragged back: the sides stayed. Cause: the return looked for the neighbour's face only in the
+plan the entry opened on, and the notch's sides didn't exist then (W2's push in the same entry
+made them). A second fault turned up reproducing it: the lookup could take another face of the
+neighbour within reach for the pushed one (the core example: A's side pushed 0.3 into B's notch
+side, dragged back 0.6, B's side ended 0.3 past where it was; B's far side matched), with only a
+depth check against it. Agreed fix (2026-11-22): the session keeps every plan the entry went
+through, and the return reads the earliest that has the face, which must face the dragged room
+across a wall (replaces the depth check). Three tests added (the report's sequence in a session
+and through a managed canvas, the far face within reach); they fail with the start plan only, the
+far-face one also without the across-a-wall check. Core 696 of 696, web 385 of 391 (the worker
+tests). Headless on the real canvas: W3 pushed 0.498, A's side pushed 0.299 into the notch's side
+(5.2 to 5.499), dragged back 0.498: the side returns to 5.2 and A's side widens to 4.801, during
+the drag and after the drop.
+
+Hand test, round 2 (restart the test page, core change): as above, then in the same entry push
+the Bedroom's right side, where it now meets the next room's notch, further into it, and drag it
+back: the notch's side comes back with it, then the wall widens. On your plan: W2 into Room 2,
+then W1 or W3 into the notch's sides and back.
+
+Hand-tested 2026-11-22 (round 2: works). Committed: core `bcd0861`.
+
+### Next (queue, updated 2026-11-22)
 
 Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
-floors in level order.
+floors in level order, the kept notch option 2 (core `bcd0861`).
 
-1. **The kept notch, option 2** (core `derive/face-commands.js`, `derive/shared-wall-drag.js`):
-   a drag of a shared wall away from the neighbour first brings the neighbour's face back to
-   where it was when the entry opened, then widens as today (F7: entry start instead of drag
-   start; F5 `widen` stays the default). To try; revert if it doesn't feel right. Repro: two
-   rooms drawn within 25 cm (W2 shared), the right one taller; in the left room's entry push W2
-   right about 0.5 m, then drag it back: today the neighbour keeps the notch (see "Found").
-2. **3c-4: lengths for free walls and columns** (3-L1): a free wall's end dragged, its length
+1. **3c-4: lengths for free walls and columns** (3-L1): a free wall's end dragged, its length
    along its centreline; a free wall or a column moved, the distance to the nearest wall on each
    axis (face to inside face; a side on a wall, 0, not drawn). Reuse `draw/dimensions.js` and
    `drag-lengths.js`; the canvas's `drawDragLengths` dispatches by gesture (wall drags carry
    `freeWall`, corner drags of a free wall's split point carry `freeWall`). Then the step 3 docs
    wrap-up (the Approach row).
+2. **The floor below (agreed 2026-11-22; mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr).**
+   F1: a new floor's entry shows its own floor (today it shows the first floor's plan, its tab
+   not active; the main use of F2 and F3 is drawing a new upper floor). F2: the floor below
+   drawn (core snapshot, `draw/floor-below.js`). F3: pulls to its corners (core
+   `interaction.js`). Decided: U1 only the floor directly below in level order (none for the
+   lowest or a floor with no elevation); U2 its wall bands as hairline outlines (both faces) and
+   its columns, no fills, labels, openings or handles, over the room surfaces and under this
+   floor's walls; U3 every canvas that shows a floor, on by default, the switch in step 2's Show
+   menu, a quiet chip naming the floor; U4 core's canvas snapshot carries it, display only;
+   U5 targets all corners of its wall bands (inside and outside); U6 drawing a room, a room
+   corner, a room wall, moving a room (free walls and columns later); U7 today's pull (each axis
+   within 8 px, 13 held, Alt none, same guide) with a small ring on a corner from the floor
+   below; U8 nearest wins, a tie to this floor. Floors share one coordinate frame.
 3. With step 2: a pill that doesn't fit goes outside its segment.
-4. Seen, not changed: a new floor's entry shows the first floor's plan (its tab not active).
-5. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+4. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -2117,7 +2183,7 @@ one combined core operation is the clean way.
 | Undo and Redo off in an entry with nothing of its own to undo (form0-react, form0-core) | Done and committed |
 | 3c-3: lengths for room walls and corners | Done and committed |
 | A length shorter than its pill: the pill outside its segment | With step 2 |
-| A pushed wall: the neighbour's indent kept (option 2 decided) | Next (new session) |
+| A pushed wall: the neighbour's indent kept (option 2 decided) | Done (core `bcd0861`: entry return, scope plans, the canvas's preview scope; hand-tested 2026-11-22) |
 | A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
 | The stray cap piece (core footprints); a floor's number in its title | Done and committed |
 | Floors shown by level (list and tabs; display only) | Done and committed |

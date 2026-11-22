@@ -2059,3 +2059,21 @@ by the snapshot's `order`, the Floors list uses `floorsByLevel`. Stored order un
 
 Committed: core `5081770`, web `7194255`. Next (in `building-plan-ui.md`, "Next"): option 2 for
 a shared wall dragged back, then 3c-4 (free walls and columns), then the step 3 wrap-up.
+
+### The kept notch, option 2 (2026-11-22, committed)
+
+Agreed: option 2 to try (N1 no return outside an editor, N2 by geometry, N3 the mirror case
+later); 3c-4 as queued; the floor below shown under a floor and pulled to (U1 to U8, mockup
+https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr), after 3c-4, with a new floor's entry showing
+its own floor first. Built in core: a drag back first returns the shared wall as far as the
+editor's earlier push moved the neighbour (`derive/entry-return.js`); each scope keeps the plan
+it opened on; the web canvas's preview session previews in a scope of its own (the headless
+check found the drag widening while the drop returned). Core 693 of 693, web 384 of 391.
+
+First hand test: the first wall returned, a second (pushed into a notch side the first push
+made) didn't, since the return read only the plan the entry opened on; reproducing it also showed
+the lookup could take another face of the neighbour within reach. Fixed in core (agreed): each
+scope keeps every plan it went through, and the return reads the earliest that has the
+neighbour's face facing the dragged room across a wall. Core 696 of 696, web 385 of 391; headless
+on the canvas the notch's side returns exactly. Hand-tested again 2026-11-22: works. Committed:
+core `bcd0861`.
