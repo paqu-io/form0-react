@@ -2131,9 +2131,11 @@ room wall and moving a room pull into line with the floor below's corners, a tie
 a ring on the corner taken (core, web). Core 710 of 710, web 398 of 405; headless as described. Hand-tested: all work;
 committed form0-react `1c2a3c9`, `a800458`, `fdd24ca`, form0-core `5666d82`.
 
-### The room tool shows where a room would start (2026-11-22, to hand-test)
+### The room tool shows where a room would start (2026-11-22, committed)
 
 Asked at the F3 hand test: with the room tool, before the press, the canvas shows the corner the
 press would start at, pulled as the press pulls it (rooms, the floor below), with its guides and
-ring. Web only (legacy canvas). Web 399 of 405; headless: the handle lands on a corner below.
-Next after it: the navigation unit (mockup first), then step 2.
+ring. Web only (legacy canvas). A test in `building-plan-drawing.test.js` (the handle where the
+pull lands, the press starting there, leaving clearing it), failing without the change. Web 400
+of 406 (the worker tests); headless: the handle lands on a corner below. Hand-tested: works;
+committed form0-react `40f827d`. Next: the navigation unit (mockup first), then step 2.

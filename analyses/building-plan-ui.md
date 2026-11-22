@@ -2182,7 +2182,7 @@ Hand-tested 2026-11-22: all work. Committed: form0-react `1c2a3c9` (Save), `a800
 `fdd24ca` (ring); form0-core `5666d82` (F3 pulls). Asked at the hand test: the room tool's first
 corner snapping before the press (below).
 
-### The room tool shows where a room would start (2026-11-22, to hand-test)
+### The room tool shows where a room would start (2026-11-22, hand-tested, committed)
 
 Asked at the F3 hand test: on an empty floor, the cursor should snap to the floor below's
 corners before drawing starts, as the corner being dragged does. The press already pulled the
@@ -2190,13 +2190,16 @@ first corner (`snapDraftCorner`), but nothing showed it until the drag. Now, wit
 and no room being drawn, a pointer move works out that corner the way the press will (into line
 with rooms and the floor below, Alt none) and the canvas draws the handle there, with the pull's
 guides and the ring on a corner below. The press starts the room there; leaving the canvas or
-changing tools clears it (and its guides). Legacy canvas only (`draftStart`). Web 399 of 405 (the
-worker tests). Headless: the room tool a few pixels off a corner below: the handle on the corner,
+changing tools clears it (and its guides). Legacy canvas only (`draftStart`). Test in
+`building-plan-drawing.test.js`, failing without the change. Web 400 of 406 (the worker tests).
+Headless: the room tool a few pixels off a corner below: the handle on the corner,
 its guide.
 
 Hand test (reload the test page; web only): a new floor with an elevation, the room tool: move
 the pointer near the floor below's corners: a handle jumps onto them (a ring when it's a corner
 below); press there and draw: the room starts on that corner. Alt: the handle follows the pointer.
+
+Hand-tested 2026-11-22: works. Committed: form0-react `40f827d`.
 
 ### Next (queue, updated 2026-11-22, evening)
 
@@ -2204,18 +2207,18 @@ Done this round: the new-entry Undo fix, the stray cap piece, a floor's number i
 floors in level order, the kept notch option 2 (core `bcd0861`), 3c-4 (`b092562`), a split
 point's pull (`68747f3`), moving a return (`d95d345`); step 3 wrapped up; the floor below: F1
 (core `f685d76`, web `418114c`), F2 (`930c69b`, `e675129`), F3 (`5666d82`, `fdd24ca`), an empty
-floor fitted to it (`a800458`); Save showing why (`1c2a3c9`). The floor below's decisions (U1 to
+floor fitted to it (`a800458`); Save showing why (`1c2a3c9`); the room tool's start preview
+(`40f827d`). The floor below's decisions (U1 to
 U8, mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr) are in "F2" and "F3" above.
 
-1. **The room tool's start preview** (built, to hand-test, then commit; see its section).
-2. **Opening entries by double-click** (the navigation unit, see below): direction agreed
+1. **Opening entries by double-click** (the navigation unit, see below): direction agreed
    2026-11-21 (the whole chain of dialogs, breadcrumbs); what each canvas reaches to settle
    with a mockup first. Also clears the console `invalid_routing_context` (see Status).
-3. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
+2. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
    gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its segment.
-4. The floor below, later (U6): free walls and columns pulled to it (a column over the column
+3. The floor below, later (U6): free walls and columns pulled to it (a column over the column
    below).
-5. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+4. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -2408,7 +2411,7 @@ one combined core operation is the clean way.
 | 3c-4: lengths for free walls and columns | Done and committed |
 | A split point holds its wall's line; a free wall's return can be moved (core) | Done and committed |
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
-| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed; the room tool's start preview to hand-test; free walls and columns later (U6) |
+| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns later (U6) |
 | Save with a required plan field cleared shows the validation | Done and committed |
 | Step 2 (lengths, plaster, Show menu), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
