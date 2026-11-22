@@ -2122,3 +2122,18 @@ tab row names it, and an entry's tab row shows only its own floor. Core 707 of 7
 form0-core `930c69b`, form0-react `e675129`. Found at the hand test (from 2026-11-08): a cleared
 required field keeps the plan's last valid value (kept), and Save then showed no validation (to
 fix). Next: that fix, an empty floor fitted to the floor below, F3.
+
+### Save shows why; an empty floor fits to the floor below; F3 (2026-11-22, committed)
+
+Save with a required plan field cleared counts the attempt, so the validation shows (web). An empty
+floor fits its view to the floor below once it shows (web). F3: drawing a room, a room corner, a
+room wall and moving a room pull into line with the floor below's corners, a tie to this floor,
+a ring on the corner taken (core, web). Core 710 of 710, web 398 of 405; headless as described. Hand-tested: all work;
+committed form0-react `1c2a3c9`, `a800458`, `fdd24ca`, form0-core `5666d82`.
+
+### The room tool shows where a room would start (2026-11-22, to hand-test)
+
+Asked at the F3 hand test: with the room tool, before the press, the canvas shows the corner the
+press would start at, pulled as the press pulls it (rooms, the floor below), with its guides and
+ring. Web only (legacy canvas). Web 399 of 405; headless: the handle lands on a corner below.
+Next after it: the navigation unit (mockup first), then step 2.
