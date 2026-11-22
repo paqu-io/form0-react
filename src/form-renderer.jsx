@@ -47,6 +47,7 @@ import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { nextEntryStep } from './building-plan/entry-chain.js';
 import { DialogPath } from './dialog-path.jsx';
 import { dialogPathParts } from './dialog-path-parts.js';
+import { sameEntryData } from './utils/entry-data.js';
 import { useBuildingPlanController } from './building-plan/controller.js';
 import { pickOwnedValues } from './utils/value-updates.js';
 import {
@@ -5112,12 +5113,16 @@ function RepeatableEntryModal({
     };
   }, [modal.modalId]);
 
+  // An existing row asks on Cancel only when its data changed: a plan draft's display state and
+  // the spelling of empty values don't count (2026-11-22). A new row compares as before.
   const hasEntryChanges = useMemo(() => {
     const snapshot = initialEntrySnapshot.current;
-    return (
-      !deepEqual(entryValues, snapshot.values) || !deepEqual(entryRepeatable, snapshot.repeatable)
-    );
-  }, [entryRepeatable, entryValues]);
+    if (modal.mode === 'create')
+      return (
+        !deepEqual(entryValues, snapshot.values) || !deepEqual(entryRepeatable, snapshot.repeatable)
+      );
+    return !sameEntryData({ values: entryValues, repeatable: entryRepeatable }, snapshot);
+  }, [entryRepeatable, entryValues, modal.mode]);
 
   const buildEntryParentValues = useCallback(
     (path = []) => {

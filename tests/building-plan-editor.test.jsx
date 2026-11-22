@@ -419,3 +419,69 @@ it('Save with a required plan field cleared shows the validation and keeps the e
   await waitFor(() => expect(validation()).toMatch(/Validation\s*[1-9]/));
   expect(screen.getByRole('dialog')).toBeTruthy();
 });
+
+// Cancel asks about data only (2026-11-22): a plan draft's display state and a `null` choice
+// written by core made dialogs ask with nothing changed.
+async function openPlanFloor(overrides = null) {
+  const f = fixture(overrides);
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      onSubmit={vi.fn(async () => ({}))}
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  fireEvent.click((await listRows('Floors'))[0]);
+  await screen.findByRole('dialog');
+}
+const topDialog = () => within(screen.getAllByRole('dialog').at(-1));
+const dialogCount = () => screen.queryAllByRole('dialog').length;
+const discardAsked = () =>
+  screen.queryByRole('dialog', { name: 'This record has unsaved changes' });
+async function openFirstRow(list) {
+  const card = topDialog().getAllByText(list, { exact: true }).at(-1).parentElement.parentElement;
+  const opened = dialogCount();
+  fireEvent.click(within(card).getByRole('button', { name: 'View', exact: true }));
+  fireEvent.click((await listRows(list))[0]);
+  await waitFor(() => expect(dialogCount()).toBe(opened + 1));
+}
+async function press(name) {
+  fireEvent.click(topDialog().getByRole('button', { name }));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+}
+
+it('Cancel does not ask when nothing changed: a floor, then a room after one of its walls', async () => {
+  await openPlanFloor();
+  await press(/^Cancel/);
+  await waitFor(() => expect(dialogCount()).toBe(0));
+  expect(discardAsked()).toBeNull();
+  fireEvent.click((await listRows('Floors'))[0]);
+  await screen.findByRole('dialog');
+  await openFirstRow('Rooms');
+  await openFirstRow('Walls');
+  await press(/^Cancel/);
+  await waitFor(() => expect(dialogCount()).toBe(2));
+  await press(/^Back/);
+  await press(/^Cancel/);
+  await waitFor(() => expect(dialogCount()).toBe(1));
+  expect(discardAsked()).toBeNull();
+});
+
+it('Cancel asks when a room holds a wall edit saved into it', async () => {
+  await openPlanFloor({ walls: { extra_elements: [{ ...WALL_NOTE, required: false }] } });
+  await openFirstRow('Rooms');
+  await openFirstRow('Walls');
+  fireEvent.change(topDialog().getAllByLabelText(/Wall note/)[0], {
+    target: { value: 'Cracked' },
+  });
+  await press(/^Save/);
+  await waitFor(() => expect(dialogCount()).toBe(2), { timeout: 3000 });
+  await press(/^Back/);
+  await press(/^Cancel/);
+  expect(
+    await screen.findByRole('dialog', { name: 'This record has unsaved changes' })
+  ).toBeTruthy();
+});
