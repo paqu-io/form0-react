@@ -23,6 +23,7 @@ export const DEFAULT_PLAN_THEME = Object.freeze({
   symbolHalf: '#8a8b8e',
   symbolFaint: '#c0c1c4',
   labelFaint: '#b2b4b7',
+  below: '#8b929d', // the floor below's outlines, under this floor (F2)
 });
 
 /**

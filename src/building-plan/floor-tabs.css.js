@@ -5,7 +5,8 @@ import { control, derived } from '../theme-derived.css.js';
 export const row = style({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  // The floor below's name follows the tabs; the end keeps to the right (`end`).
+  justifyContent: 'flex-start',
   gap: '8px',
   flexWrap: 'wrap',
   marginBottom: '8px',
@@ -72,6 +73,13 @@ export const iconButton = style({
     '&:disabled': { color: derived.disabledFg, cursor: 'not-allowed' },
     '&:focus-visible': { outline: control.focusOutline, outlineOffset: '1px' },
   },
+});
+
+// The floor drawn under the one shown (F2), named after the tabs: quiet text.
+export const below = style({
+  color: derived.muted,
+  fontSize: '12px',
+  whiteSpace: 'nowrap',
 });
 
 // The row's end: "View only", the plan's issues, Undo / Redo.

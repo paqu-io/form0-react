@@ -78,7 +78,7 @@ export function BuildingPlanCanvasHost({
   // The status line: the tool's hint, and an edit core refused (reported by the canvas).
   const [status, setStatus] = useState(NO_STATUS);
   // The floors the canvas shows, reported by the canvas for the tab row.
-  const [floorTabs, setFloorTabs] = useState([]);
+  const [floorTabs, setFloorTabs] = useState({ tabs: [], below: null });
   // The selected element's collection, for the commands that need one (3b: a door needs a wall).
   const [selected, setSelected] = useState(null);
   const waiting = useMemo(() => waitingCommands(selected), [selected]);
@@ -92,7 +92,7 @@ export function BuildingPlanCanvasHost({
         ?.preferredKey || null,
     [buildingPlanMeta, section]
   );
-  const shownFloor = floorTabs.find((tab) => tab.active);
+  const shownFloor = floorTabs.tabs.find((tab) => tab.active);
   const planIssues = usePlanIssues({
     scopePath:
       findingScope ||
@@ -248,7 +248,8 @@ export function BuildingPlanCanvasHost({
       )}
       <div className="building-plan-canvas-panel-wrapper">
         <FloorTabs
-          tabs={floorTabs}
+          tabs={floorTabs.tabs}
+          below={floorTabs.below}
           onSelect={(index) => canvasRef.current?.handleFloorTabClick(index)}
           onAdd={
             mode === 'parent' && !readOnly && typeof repeatableApi.addFloor === 'function'

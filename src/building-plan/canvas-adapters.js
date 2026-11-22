@@ -1,6 +1,7 @@
 /**
  * Adapters between the canvas host and the form's repeatable state: the key lookup for a plan's
- * repeatables, and the form renderer and form state shims the legacy controller expects.
+ * repeatables, the form renderer and form state shims the legacy controller expects, and the
+ * floor tabs an entry shows.
  */
 const NODE_KEYS = {
   floors: 'floors',
@@ -262,4 +263,15 @@ export function makeAdapters({ repeatableRef, keyLookup, repeatableApiRef }) {
       clearPendingValuesUnderPath() {},
     },
   };
+}
+
+/**
+ * The tabs a canvas shows: in an entry only its own floor's (decided 2026-11-22), on the plan page
+ * (no floor) all of them; all too if none is the entry's (a tab row is never empty by mistake).
+ * @param {Array<{ id?: string | null }>} tabs
+ * @param {string | null | undefined} floorId the entry's floor
+ */
+export function entryFloorTabs(tabs, floorId) {
+  const own = floorId ? tabs.filter((tab) => tab.id === floorId) : [];
+  return own.length ? own : tabs;
 }

@@ -6,11 +6,12 @@ import * as styles from './floor-tabs.css.js';
 
 /**
  * The row above the plan canvas: the floors as one segmented control (they switch the floor the
- * canvas shows), "+" to add a floor where the plan page allows it, the plan's issues (`issues`,
- * "n issues" and its list) and Undo / Redo where the canvas edits. Names and shortcuts show in
- * the plan tooltip.
+ * canvas shows), "+" to add a floor where the plan page allows it, the floor drawn under the one
+ * shown (`below`, its name), the plan's issues (`issues`, "n issues" and its list) and Undo / Redo
+ * where the canvas edits. Names and shortcuts show in the plan tooltip.
  * @param {{
  *   tabs: Array<{ index: number, label: string, active: boolean }>,
+ *   below?: string | null,
  *   onSelect: (index: number) => void,
  *   onAdd?: (() => void) | null,
  *   history?: { canUndo: boolean, canRedo: boolean, onUndo: () => void, onRedo: () => void } | null,
@@ -20,6 +21,7 @@ import * as styles from './floor-tabs.css.js';
  */
 export function FloorTabs({
   tabs,
+  below = null,
   onSelect,
   onAdd = null,
   history = null,
@@ -54,6 +56,9 @@ export function FloorTabs({
           </button>
         )}
       </div>
+      {below && (
+        <span className={styles.below}>{planText('plan.floor.below', { floor: below })}</span>
+      )}
       {(viewOnly || issues || history) && (
         <div className={styles.end}>
           {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}

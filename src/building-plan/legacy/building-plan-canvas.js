@@ -35,6 +35,7 @@ import {
   runLength,
   splitPointLengths,
 } from '../content-lengths.js';
+import { drawFloorBelow } from '../draw/floor-below.js';
 import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
@@ -1385,6 +1386,8 @@ export class BuildingPlanCanvas {
       this.doors = snapshot.doors || [];
       this.windows = snapshot.windows || [];
       this.floors = snapshot.floors || [];
+      // The floor directly below, drawn under this one (F2).
+      this.floorBelow = snapshot.floorBelow || null;
       this.activeFloorIndex =
         typeof snapshot.activeFloorIndex === 'number' ? snapshot.activeFloorIndex : 0;
       this.hasFloors = this.floors.length > 0;
@@ -3695,6 +3698,8 @@ export class BuildingPlanCanvas {
       plan: this,
     });
     this.rooms.forEach((room) => this.drawRoom(room));
+    // Over the room surfaces, under this floor's walls (F2).
+    drawFloorBelow(this.ctx, this.floorBelow, { theme: this.planTheme, pixel: this.px(1) });
 
     this.drawPhysicalWalls();
     this.walls.forEach((wall) => this.drawWall(wall));
@@ -4081,7 +4086,10 @@ export class BuildingPlanCanvas {
           active: floor.index === this.activeFloorIndex,
           // The floor's row, for the findings the plan page lists (1e, M2).
           rowId: floor.rowId ?? null,
+          id: floor.id ?? null,
         })),
+        // The floor drawn under the one shown, named in the tab row (F2).
+        below: this.floorBelow?.label || null,
       });
       return;
     }

@@ -3,7 +3,12 @@ import { BuildingPlanController as LegacyBuildingPlanController } from './legacy
 import { BuildingPlanCanvas as LegacyBuildingPlanCanvas } from './legacy/building-plan-canvas.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planVars } from './plan-tokens.css.js';
-import { createRepeatableKeyLookup, makeAdapters, pickMetaEntry } from './canvas-adapters.js';
+import {
+  createRepeatableKeyLookup,
+  entryFloorTabs,
+  makeAdapters,
+  pickMetaEntry,
+} from './canvas-adapters.js';
 
 /**
  * Creating a plan canvas for `BuildingPlanCanvasHost` (moved out of `canvas-host.jsx`): its
@@ -163,7 +168,12 @@ export function mountPlanCanvas({
     labelSettings: LABEL_SETTINGS,
     externalToolbar: true, // Use new React toolbar instead of legacy DOM toolbar
     readOnly: locked, // Disable canvas interactions in view mode and in view-only entries
-    onFloorTabs: ({ tabs }) => setFloorTabs(tabs),
+    // An entry shows only its own floor's tab; the floor below is named after the tabs (F2).
+    onFloorTabs: ({ tabs, below }) =>
+      setFloorTabs({
+        tabs: entryFloorTabs(tabs, (controller.scope || scope)?.floorId),
+        below: below || null,
+      }),
     onStatus: (hintKey) => setStatus((current) => ({ ...current, hintKey })),
     onMessages: ({ messages, index, codes }) =>
       setStatus((current) => ({ ...current, messages, index, codes })),

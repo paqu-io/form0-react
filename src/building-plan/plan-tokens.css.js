@@ -27,6 +27,7 @@ export const planVars = {
   symbolHalf: createVar(),
   symbolFaint: createVar(),
   labelFaint: createVar(),
+  below: createVar(),
 };
 
 export const planTokens = style({
@@ -49,5 +50,7 @@ export const planTokens = style({
     [planVars.symbolHalf]: mix(foreground, 50, background),
     [planVars.symbolFaint]: mix(foreground, 24, section),
     [planVars.labelFaint]: mix(foreground, 30, section),
+    // The floor below's outlines (F2): quiet, between the muted text and the ground.
+    [planVars.below]: mix(derived.muted, 70, background),
   },
 });

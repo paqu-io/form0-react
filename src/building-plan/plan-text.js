@@ -10,6 +10,8 @@ const TEXT = {
   'plan.floor.add': 'Add floor',
   'plan.floor.none': 'No floors yet',
   'plan.floor.tabs': 'Floors',
+  // The floor drawn under the one shown (F2), named after the floor tabs.
+  'plan.floor.below': '{floor} below',
   'plan.history.undo': 'Undo',
   'plan.history.redo': 'Redo',
   'plan.status.select': 'Drag a corner to reshape · {alt} moves it freely · {shift}-drag pans',
