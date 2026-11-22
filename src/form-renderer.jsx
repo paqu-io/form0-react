@@ -5971,7 +5971,13 @@ function RepeatableEntryModal({
     if (isEntryReadOnly) return;
     await pendingPlanCompletion.current;
     const completion = await completePlanRow(null, true);
-    if (completion && !['applied', 'unchanged'].includes(completion.status)) return;
+    if (completion && !['applied', 'unchanged'].includes(completion.status)) {
+      // A field the plan can't take yet (a required one cleared, an invalid number): the form's
+      // own validation says why, so the attempt counts and its errors show (hand test
+      // 2026-11-22: Save did nothing, and showed nothing).
+      if (completion.status === 'invalid') setEntrySubmitCount((count) => count + 1);
+      return;
+    }
     setEntrySubmitCount((count) => count + 1);
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();

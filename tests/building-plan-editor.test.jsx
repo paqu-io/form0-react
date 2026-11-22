@@ -378,3 +378,30 @@ it('shows no plan issues before a Save attempt', async () => {
   await listRows('Floors');
   expect(screen.queryByRole('button', { name: /^\d+ issues?$/ })).toBeNull();
 });
+
+// Hand test 2026-11-22: a saved floor's story elevation cleared, then Save: the plan editor can't
+// take the row (a required field empty), and Save stopped before counting the attempt, so the
+// Validation panel and the field showed nothing. The attempt counts; the form says why.
+it('Save with a required plan field cleared shows the validation and keeps the entry open', async () => {
+  const f = fixture();
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  fireEvent.click((await listRows('Floors'))[0]);
+  const dialog = within(await screen.findByRole('dialog'));
+  const elevation = await dialog.findByLabelText(/Story elevation/);
+  expect(elevation.value).toBe('0');
+  fireEvent.change(elevation, { target: { value: '' } });
+  fireEvent.blur(elevation);
+  const validation = () => dialog.getByRole('button', { name: /^Validation/ }).textContent;
+  expect(validation()).toMatch(/Validation\s*0?$/);
+  fireEvent.click(dialog.getByRole('button', { name: /^Save/ }));
+  await waitFor(() => expect(validation()).toMatch(/Validation\s*[1-9]/));
+  expect(screen.getByRole('dialog')).toBeTruthy();
+});
