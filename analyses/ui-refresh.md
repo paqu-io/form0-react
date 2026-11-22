@@ -2139,3 +2139,16 @@ ring. Web only (legacy canvas). A test in `building-plan-drawing.test.js` (the h
 pull lands, the press starting there, leaving clearing it), failing without the change. Web 400
 of 406 (the worker tests); headless: the handle lands on a corner below. Hand-tested: works;
 committed form0-react `40f827d`. Next: the navigation unit (mockup first), then step 2.
+
+### Opening entries by double-click: decided (2026-11-22)
+
+Settled with a mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa). A double-click is a
+shortcut for clicks made by hand: every level opens as an ordinary RepeatableSection dialog.
+A Floor canvas and the plan page open rooms only (a wall, door, window, column or beam opens its
+room); a Room canvas opens walls, columns and beams, and a door or window as Wall › Door; a Wall
+canvas its doors and windows. The issues list opens down to the finding's row. Dialogs the chain
+opens start on the list towards the next level, that element selected; Save and Cancel work as
+today. Every nested RepeatableSection dialog shows the path in its header ("Floors › Ground floor
+› Rooms"), the row's title kept in the bar. Corrected: Cancel already asks before dropping saved
+child edits in plan entries (checked headless); the 2026-11-21 note said it didn't. Details in
+`building-plan-ui.md`, "Opening entries by double-click". Next: the units, to agree before code.

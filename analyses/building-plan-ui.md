@@ -2211,9 +2211,10 @@ floor fitted to it (`a800458`); Save showing why (`1c2a3c9`); the room tool's st
 (`40f827d`). The floor below's decisions (U1 to
 U8, mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr) are in "F2" and "F3" above.
 
-1. **Opening entries by double-click** (the navigation unit, see below): direction agreed
-   2026-11-21 (the whole chain of dialogs, breadcrumbs); what each canvas reaches to settle
-   with a mockup first. Also clears the console `invalid_routing_context` (see Status).
+1. **Opening entries by double-click** (the navigation unit, see below): decided 2026-11-22
+   with the mockup (rooms only from a Floor canvas, every level a real dialog, the path in the
+   header of nested RepeatableSection dialogs); the units to agree before code. Also clears the
+   console `invalid_routing_context` (see Status).
 2. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
    gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its segment.
 3. The floor below, later (U6): free walls and columns pulled to it (a column over the column
@@ -2238,7 +2239,7 @@ sends it:
     node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json>
     node ../.local-test-harnesses/form0-ui-refresh-20261116/replay-wall.mjs <state.json> "R#1" W3 0.4
 
-### Opening entries by double-click (noted for later; idea added 2026-11-21)
+### Opening entries by double-click (decided 2026-11-22; idea added 2026-11-21)
 
 Raised at the M2 hand test: double-clicking a room, wall or door (on the canvas, in the issues
 list, in the Floors, Rooms or Walls lists) opens entries with jumps, and it's hard to tell
@@ -2285,7 +2286,7 @@ reaches a wall. Every change is then sent by the row that owns its list, so
 follows what the press does, not a rule: a Floor canvas opens walls and openings but not columns
 or beams, because their press returns before it records what to open.
 
-| Canvas | Today | Proposed (to settle with the mockup) |
+| Canvas | Today | Proposed 2026-11-21 (replaced by the decision below) |
 |---|---|---|
 | Plan page | rooms, walls (the Floor, then the element over it) | as a Floor canvas, with the Floor dialog under it |
 | Floor entry | rooms, walls, doors, windows | rooms; walls, columns and beams (Room › element); a door or window opens Room › Wall with its row marked |
@@ -2305,9 +2306,59 @@ Also for the mockup:
 - **One Save per opened level.** Nested entries save in layers (`acceptRow` into the parent's
   draft), so a wall edited from a Floor canvas needs Save on the Wall, the Room and the Floor.
   This is the same as opening each level by hand; today the skipped Room saves one step.
-- **Cancel drops saved child edits without asking.** Cancel on a Room that holds a saved wall
-  edit discards it. This happens today too, but the chain shows a Room the user didn't open
-  themselves, so the mockup should decide whether Cancel asks first.
+- **Cancel asks before dropping saved child edits (corrected 2026-11-22).** The note here said
+  Cancel on a Room holding a saved wall edit discards it without asking. That was read from the
+  code, not tried, and it is wrong. Plan entries and other RepeatableSection entries share one
+  Cancel: it asks ("This record has unsaved changes") whenever the entry's fields or its rows
+  differ from what it opened with (`hasEntryChanges`). Checked headless on the fixture: the
+  Floor asks after a Room field edit saved into it, after its own canvas edit and after its own
+  field edit. Dialogs the chain opens therefore ask exactly as they do today; nothing to build.
+
+Today, checked headless on the fixture (2026-11-22): on a Floor canvas a room opens the Room, a
+wall opens W1 over the Floor (the Room skipped), the door opens "Shared door" over the Floor (the
+Room and the Wall skipped); on the plan page a room opens Floor › Room, a wall Floor › W1, the
+door nothing.
+
+**Decided (2026-11-22, with the mockup https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa).**
+Revises the 2026-11-21 direction.
+
+- *Principle.* A double-click is a shortcut for clicks you could make by hand. Every dialog it
+  opens is an ordinary RepeatableSection dialog: RepeatableSections inside a BuildingPlanSection
+  behave like any other (Save, Cancel, titles, validation).
+- *What a double-click reaches* (replaces the proposed column above):
+
+  | Canvas | Opens |
+  |---|---|
+  | Plan page | rooms, as a Floor canvas: Floor › Room |
+  | Floor entry | rooms only; a wall, door, window, column or beam opens its room (a shared wall: the room on the pointer's side, its face nearest the pointer, as today's hit test finds it) |
+  | Room entry | walls, columns and beams; a door or window opens Wall › Door |
+  | Wall entry | its doors and windows |
+  | Door, window, column or beam entry | nothing |
+
+  Chosen over the 2026-11-21 rule (a Floor canvas reaching walls and columns, a door opening
+  Room › Wall): one dialog per double-click on a Floor canvas, no few-pixel targets, and the wall
+  is a double-click away on the Room canvas, where it is drawn large. The cost: two double-clicks
+  from a Floor canvas to a wall.
+- *The issues list* (M2, "n issues" in the floor row, markers on the elements) stays as it is.
+  Its double-click, and a root Validation click on a plan finding (the same `focusRow`), opens
+  every level down to the row the finding is on, its field focused, from any canvas: a finding
+  names a row, not a pixel. The Validation tab stays each entry's own.
+- *Where each dialog opens.* The dialog you double-clicked in stays as you left it, the element
+  selected (a list showing marks its row, as a selection does today). Each dialog the chain opens
+  for you starts on the list towards the next level, that element selected, so its row is
+  marked; the last opens on its page. Save and Cancel show the dialog below as it was: no new
+  landing rule, no new row marking.
+- *Where you are.* The header of every nested RepeatableSection dialog, not only plan ones, shows
+  the path in place of the list's label ("Floors › Ground floor › Rooms"); the bar under it keeps
+  the row's title ("Bedroom"). A first-level dialog reads as today ("Floors"), so forms without
+  nested sections don't change. When the path doesn't fit between Cancel and Save, its middle
+  collapses ("Floors › … › Walls"). Read only in this unit. Seen in the mockup: a list page and
+  an entry opened from it share the header; the entry adds its row bar and has Cancel where the
+  list has Back.
+- *Cancel* asks as today (the correction above). *Save* stays one per level, with no marker for
+  levels that hold changes.
+- `invalid_routing_context` goes: no path skips a level, so every change is sent by the row that
+  owns its list.
 
 ### Measurement units (noted for later)
 
@@ -2394,7 +2445,7 @@ one combined core operation is the clean way.
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
-| Opening entries by double-click (jumps) | Next. Direction agreed 2026-11-21 (the whole chain, breadcrumbs); what each canvas reaches to settle with a mockup |
+| Opening entries by double-click (jumps) | Next. Decided 2026-11-22 with the mockup (see its section); units to agree |
 | Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
 | 3c-1: handles, cursors and the pin badge | Done and committed |
 | 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |
