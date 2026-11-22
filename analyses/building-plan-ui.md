@@ -2067,6 +2067,36 @@ beams beyond style and cursor (3-H5, the beam unit); hiding a dragged element's 
 2026-11-22); a length shorter than its pill drawn outside its segment (with step 2). Clicking a
 length to type it is step 4.
 
+### F1: an entry shows its own floor (2026-11-22, hand-tested, committed)
+
+Seen (reproduced headless): Add Floor opened the new floor's entry on the Ground floor, its tab
+active and its room selected; a room drawn there went to the Ground floor. Cause: the entry passes
+its floor as `scope.floorId` (`form-renderer.jsx`, from the editor's row), but nothing used it to
+choose the floor shown; the core canvas controller always started on floor index 0. So any floor
+or room entry on another floor showed the first floor, not only a new one.
+
+- *Core (`canvas-controller.js`).* The controller keeps the floor shown by id (`shownFloorId`): a
+  `floorId` option (an entry's own floor), `showFloor(floorId)`, and a tab chosen
+  (`setActiveFloor`); `refresh` picks it whenever the plan changes, so it stays shown when floors
+  are added or reordered. None given: the first, as before.
+- *Web (`canvas-host-mount.js`).* The managed controller gets `floorId` from the entry's scope;
+  a scope change shows its floor.
+
+Tests: `building-plan-canvas-shown-floor.test.js` (3: shown from the start with its tab active,
+drawing goes to it, it stays as the plan changes and follows `showFloor` and the tabs), failing
+without the change. Core 704 of 704, web 395 of 401 (the worker tests). Headless: Add Floor shows
+F#2, empty; a room drawn there stays on F#2; its room entry shows F#2.
+
+Hand test (restart the test page, core change): `?form=plan`, View, Add Floor: the new floor's
+tab is active and the canvas empty; draw a room: it stays there; double-click it: its entry
+shows the same floor. On a plan with two saved floors, open the upper one's entry, and a room's
+on it: each shows its floor.
+
+Hand-tested 2026-11-22: works. Committed: form0-core `f685d76`, form0-react `418114c`. Decided
+for F2 (2026-11-22): U1 kept (a floor with no elevation shows nothing under it, a new floor
+included until its elevation is typed); the chip is muted text in the floor tab row, after the
+tabs; in a floor or room entry only the entry's own floor tab shows (all tabs on the plan page).
+
 ### Next (queue, updated 2026-11-22)
 
 Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
@@ -2074,8 +2104,7 @@ floors in level order, the kept notch option 2 (core `bcd0861`), 3c-4 (`b092562`
 point's pull (`68747f3`), moving a return (`d95d345`); step 3 wrapped up.
 
 1. **The floor below (agreed 2026-11-22; mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr).**
-   F1: a new floor's entry shows its own floor (today it shows the first floor's plan, its tab
-   not active; the main use of F2 and F3 is drawing a new upper floor). F2: the floor below
+   F1 done (`f685d76`, `418114c`). F2: the floor below
    drawn (core snapshot, `draw/floor-below.js`). F3: pulls to its corners (core
    `interaction.js`). Decided: U1 only the floor directly below in level order (none for the
    lowest or a floor with no elevation); U2 its wall bands as hairline outlines (both faces) and
@@ -2284,7 +2313,7 @@ one combined core operation is the clean way.
 | 3c-4: lengths for free walls and columns | Done and committed |
 | A split point holds its wall's line; a free wall's return can be moved (core) | Done and committed |
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
-| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls) | Next; decided (U1 to U8), mockup done |
+| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls) | F1 done and committed; F2, F3 next (U1 to U8; chip in the tab row; an entry shows only its floor's tab) |
 | Step 2 (lengths, plaster, Show menu), step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 

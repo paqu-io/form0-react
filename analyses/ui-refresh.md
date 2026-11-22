@@ -2102,3 +2102,12 @@ Step 3 (handles and live lengths, web) is done: 3c-1 to 3c-4 plus its first part
 hand-tested and committed; the core fixes found on the way committed as their own units. The
 analysis has the table ("Step 3: wrap-up") and what was left out by decision. Next: the floor
 below (F1 to F3), then the navigation unit (mockup first), then step 2.
+
+### F1: an entry shows its own floor (2026-11-22, committed)
+
+A new floor's entry showed the first floor, and a room drawn there went to it; any entry on
+another floor did the same. The core canvas controller now shows a floor by id (an entry's own,
+from its scope, kept as the plan changes; a tab chosen); the web host passes the entry's floor.
+Core 704 of 704, web 395 of 401; headless: the new floor shown, a room drawn stays on it. Hand-tested: works;
+committed form0-core `f685d76`, form0-react `418114c`. For F2: U1 kept, the chip in the floor tab
+row, an entry showing only its own floor's tab.
