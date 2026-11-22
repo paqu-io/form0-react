@@ -2287,24 +2287,79 @@ Found at the hand test, and decided (2026-11-22):
   a room selects the room, on a Floor canvas and on the plan page, so the canvas, the Rooms list
   and the double-click agree.
 
-### Next (queue, updated 2026-11-22, evening)
+### Cancel, a Floor canvas for rooms, clickable breadcrumbs (2026-11-22, hand-tested, committed)
 
-Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
-floors in level order, the kept notch option 2 (core `bcd0861`), 3c-4 (`b092562`), a split
-point's pull (`68747f3`), moving a return (`d95d345`); step 3 wrapped up; the floor below: F1
-(core `f685d76`, web `418114c`), F2 (`930c69b`, `e675129`), F3 (`5666d82`, `fdd24ca`), an empty
-floor fitted to it (`a800458`); Save showing why (`1c2a3c9`); the room tool's start preview
-(`40f827d`). The floor below's decisions (U1 to
-U8, mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr) are in "F2" and "F3" above.
+The three decisions of the N1 to N3 hand test (see there), each a unit to commit on its own;
+they share one hand test. Web only, no record change.
 
-1. **After the N1 to N3 hand test** (see their section): Cancel without a false "unsaved
-   changes" (the form compares data only); a Floor canvas that edits rooms only, a click inside
-   a room selecting the room; clickable breadcrumbs.
-2. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
-   gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its segment.
-3. The floor below, later (U6): free walls and columns pulled to it (a column over the column
-   below).
-4. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+- *A: Cancel asks about data only* (`utils/entry-data.js`, `sameEntryData`). An existing row's
+  Cancel compares its data with the snapshot it opened with, leaving out a row's display state
+  (`visible`, `required`, `errors`, `read_only`) and treating empty values alike (`null`, `''`,
+  `[]`, an empty choice). A new row compares as before, so an untouched new row still asks:
+  found by `runtime-retention.test.jsx`, which expects that prompt; making it data-only too
+  would change every RepeatableSection's Add then Cancel (to decide if wanted).
+- *B: a Floor canvas edits rooms only* (`controller.js`: `canMove` off on a Floor canvas; doors
+  and windows no longer slide there, their cursor is the arrow). On a Floor canvas and on the
+  plan page, a press on a wall, door, window, column, beam or room handle selects its room
+  (`selectRoomOf`, legacy canvas, in the branches that refuse the drag), and on the plan page a
+  press on a room selects it. A canvas scoped to a room is unchanged.
+- *C: clickable breadcrumbs.* The parts before the title are buttons (`DialogPath`,
+  `dialogPathParts` now giving each part its target: the dialog to land on and the list it then
+  shows). The form keeps the request (`dialogStepUp`); each dialog above the target, on top in
+  turn, closes as Back then Cancel would (`use-dialog-step-up.js`), asking when it has changes;
+  keeping them stops there. The target then shows its list, or its page. The first part closes
+  every dialog. `cancelEntry` now tells whether the dialog closed; the list-entering code is
+  shared (`showNestedList`, the chain uses it too).
+
+Tests (each failing without its change): `entry-data.test.js`, `building-plan-editor.test.jsx`
+(a floor opened and cancelled, a room after one of its walls: no prompt; a room holding a saved
+wall edit: the prompt), `building-plan-floor-selection.test.js`, `building-plan-handles.test.js`
+(a Floor canvas's cursors), `dialog-path.test.jsx` (each part's target; a row's part, a change on
+the way kept and then discarded, the first part). Web 415 of 421 (the worker tests).
+
+Headless on the fixture: a Floor opened and cancelled, and a Room after a wall and Cancel, ask
+nothing; on a Floor canvas a drag on the door changes nothing (the Floor's Cancel then asks
+nothing); from a Door opened through the Room canvas, "Rooms" lands on the Floor's Rooms list,
+then "Floors" closes every dialog. No console errors.
+
+Hand test (reload the test page; web only):
+- A: open a Floor and Cancel: no prompt. Open a Room, open a wall, Cancel, Back, Cancel the Room:
+  no prompt. Edit a wall field, Save, Cancel the Room: the prompt. Add a floor and Cancel: the
+  prompt, as before.
+- B: on a Floor canvas, click a door, a wall, a column: the room is selected (not the door or
+  wall); a door doesn't slide; double-click: the room opens. On the plan page, click a room or a
+  door: the room is selected.
+- C: from a Door opened through a Room canvas, press "Bedroom": the Room on its page; press
+  "Rooms": the Floor on its Rooms list; "Floors": every dialog closed. Edit a field in the Door
+  first: pressing a part asks; Cancel keeps you there, "Yes, discard" goes on up. Building
+  Condition Survey, Rooms surveyed › Observations: the same.
+
+Hand-tested 2026-11-22: works. Committed: form0-react `99f5674` (A), `52c9165` (B), `aee3e91` (C).
+
+### Next (queue, updated 2026-11-22, night)
+
+Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
+mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a Floor canvas
+(`665230e`), N2 every level a real dialog (`9c056f5`), N3 the header path (`84b53aa`); after
+their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms only (`52c9165`),
+clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
+(`a0cbf3a`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see
+"Next" before this one in the log).
+
+1. **Step 2**: read-only layers (the plaster band, the selected room's lengths, a Show menu,
+   which also gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its
+   segment. Decisions to align first (what each layer shows, where the Show menu sits).
+2. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
+3. **Beams**: snapping, rule 1, following their wall (open question 1: wall beams or room beams).
+4. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
+   line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
+5. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+6. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
+   change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
+7. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
+   (would let the form drop its data-only comparison; changes exported records, so it needs a
+   Reform impact check first).
+8. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -2531,7 +2586,7 @@ one combined core operation is the clean way.
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
-| Opening entries by double-click (jumps) | Done and committed (N1 rooms only from a Floor canvas, N2 every level a real dialog, N3 the header path); next: clickable breadcrumbs |
+| Opening entries by double-click (jumps) | Done and committed (N1 rooms only from a Floor canvas, N2 every level a real dialog, N3 the header path, clickable breadcrumbs; Cancel about data only; a Floor canvas for rooms only) |
 | Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
 | 3c-1: handles, cursors and the pin badge | Done and committed |
 | 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |

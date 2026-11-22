@@ -2167,3 +2167,14 @@ Found at the hand test: a false "unsaved changes" on Cancel (draft rows carrying
 evaluation, a core-written `null` choice); decided to compare data only in the form (a core fix
 would change exported records). Also decided: clickable breadcrumbs (the same presses as Cancel
 and Back), and a Floor canvas that edits rooms only, a click inside a room selecting the room.
+
+### Cancel, a Floor canvas for rooms, clickable breadcrumbs (2026-11-22, committed)
+
+A: an existing row's Cancel asks only when its data changed (display state and the spelling of
+empty values left out, `utils/entry-data.js`); a new row compares as before. B: a Floor canvas
+edits rooms only (doors and windows no longer slide there); a press inside a room on a Floor
+canvas or the plan page selects the room. C: the parts of a dialog's header path are buttons,
+stepping up as Back and Cancel would, each dialog asking when it has changes. Tests failing
+without each change; web 415 of 421 (the worker tests); headless as described in
+`building-plan-ui.md`. Hand-tested: works; committed form0-react `99f5674`, `52c9165`, `aee3e91`.
+Next: step 2 (see the queue in `building-plan-ui.md`).
