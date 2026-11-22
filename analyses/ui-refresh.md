@@ -2111,3 +2111,14 @@ from its scope, kept as the plan changes; a tab chosen); the web host passes the
 Core 704 of 704, web 395 of 401; headless: the new floor shown, a room drawn stays on it. Hand-tested: works;
 committed form0-core `f685d76`, form0-react `418114c`. For F2: U1 kept, the chip in the floor tab
 row, an entry showing only its own floor's tab.
+
+### F2: the floor below, drawn and named (2026-11-22, committed)
+
+Core's canvas snapshot carries the floor directly below (level order, a lower elevation; none
+without an elevation), its wall bands' and columns' outlines and its name; the web canvas draws
+them as hairlines over the room surfaces and under this floor's walls (a new `below` token), the
+tab row names it, and an entry's tab row shows only its own floor. Core 707 of 707, web 398 of
+404; headless as described. Hand-tested: works; committed
+form0-core `930c69b`, form0-react `e675129`. Found at the hand test (from 2026-11-08): a cleared
+required field keeps the plan's last valid value (kept), and Save then showed no validation (to
+fix). Next: that fix, an empty floor fitted to the floor below, F3.

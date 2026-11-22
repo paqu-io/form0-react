@@ -2097,6 +2097,55 @@ for F2 (2026-11-22): U1 kept (a floor with no elevation shows nothing under it, 
 included until its elevation is typed); the chip is muted text in the floor tab row, after the
 tabs; in a floor or room entry only the entry's own floor tab shows (all tabs on the plan page).
 
+### F2: the floor below, drawn and named (2026-11-22, hand-tested, committed)
+
+As decided (U1 to U4; the chip in the tab row; an entry shows only its floor's tab):
+
+- *Core (`floor-below.js`, new; `canvas-controller.js`).* The canvas snapshot's `floorBelow`: the
+  nearest floor before the one shown in level order with a lower story elevation (none for a
+  floor with no elevation, the lowest, or one only at the same level), with its label (its tab's)
+  and outlines in canvas units: its wall bands (`buildingPlanFootprints`, free walls included) and
+  its columns (position and size). Display only. Worked out on each refresh; a preview reuses it
+  (an edit of this floor can't change it).
+- *Web.* `draw/floor-below.js` (new): hairline outlines (one screen pixel, both faces, no fills),
+  in a new plan token `below` (the muted text mixed 70% into the background); the legacy canvas
+  draws it after the room surfaces, before this floor's walls. The tab row names it after the
+  tabs ("Ground floor below", `plan.floor.below`, quiet text). An entry's tab row shows only its
+  own floor's tab (`entryFloorTabs` in `canvas-adapters.js`, all of them if none matches); the
+  plan page shows all. The canvas reports tabs with their floor id and the floor below's label;
+  the host keeps both in one state.
+
+Tests: core `building-plan-floor-below.test.js` (3: the bands and columns, named; none for the
+lowest, no elevation, the same level; a preview keeps it); web `building-plan-floor-below.test.js`
+(3: the entry's tab, the fallback, the outlines drawn). Core 707 of 707, web 398 of 404 (the worker
+tests). Headless: Add Floor, elevation 3: only F#2's tab, "Ground floor below", the Ground floor's
+bands as hairlines; a room drawn over them shows them on its surface, its walls cover them.
+
+Seen there, not changed: an empty new floor doesn't fit its view to the floor below (the fit on
+open has nothing to fit, and the floor below only appears once the elevation is typed).
+
+Hand test (restart the test page, core change): `?form=plan`, View, Add Floor, type a story
+elevation (3): the tab row shows only the new floor's tab and "Ground floor below", the canvas the
+Ground floor's walls as thin grey outlines; draw a room over them: the outlines show inside it,
+not over its walls. Clear the elevation: they go. The Ground floor's own entry: no floor below,
+only its tab. The plan page: all tabs.
+
+Hand-tested 2026-11-22: works. Committed: form0-core `930c69b`, form0-react `e675129`. Found at
+the hand test, both from 2026-11-08 (v2 editing), not from F2:
+
+- *A cleared elevation keeps the floor below.* An entry's values reach the plan through core's
+  `editor.completeRow`, which writes a row only when its changed fields are valid; a required
+  field cleared isn't, so the plan keeps the last valid value (3) and the canvas, which reads the
+  plan, keeps the floor below. Every plan field behaves so (a floor's wall thickness cleared keeps
+  the walls' last thickness). Kept (2026-11-22): the canvas shows the last valid plan; Cancel
+  reverts. Letting the plan take an empty required value would change every plan field.
+- *Save with a cleared required field shows no validation.* The entry's Save asks the editor to
+  complete the row first and stops unless it is applied or unchanged; a field typed or saved,
+  then cleared, makes it invalid, so Save stopped before counting the submit, which turns on the
+  Validation panel and the red fields. To fix (web).
+
+Decided (2026-11-22): an empty floor fits its view to the floor below when it appears; F3 next.
+
 ### Next (queue, updated 2026-11-22)
 
 Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
