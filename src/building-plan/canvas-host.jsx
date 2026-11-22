@@ -11,6 +11,7 @@ import { usePlanIssues } from './use-plan-issues.js';
 import { ownsHistory, usePlanHistory } from './use-plan-history.js';
 import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
+import { usePlanScope } from './use-plan-scope.js';
 import { mountPlanCanvas } from './canvas-host-mount.js';
 import { waitingCommands } from './add-elements.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
@@ -40,6 +41,8 @@ export function BuildingPlanCanvasHost({
   focus = null,
   // Told the element selected on the canvas, { collection, entry } or null (to mark its row).
   onSelectElement,
+  // An element to select, an index path (a dialog opened on the way to a row, 2026-11-22).
+  select = null,
   // The rows whose validation findings this canvas shows (an id path: an entry's floor or room);
   // without it, the floor shown.
   findingScope = null,
@@ -181,25 +184,7 @@ export function BuildingPlanCanvasHost({
     }
   }, [toolbarState]);
 
-  // Forward scope (active floor/room) to the legacy controller for dimming rules.
-  // Only clear selection when the scope actually changes to avoid flicker.
-  const prevScopeRef = useRef({ floorId: null, roomId: null });
-  useEffect(() => {
-    const controller = controllerRef.current;
-    const nextScope = scope || { floorId: null, roomId: null };
-    const prevScope = prevScopeRef.current;
-    const changed =
-      prevScope.floorId !== nextScope.floorId || prevScope.roomId !== nextScope.roomId;
-    if (controller && typeof controller.setScope === 'function') {
-      controller.setScope(nextScope);
-    }
-    if (changed && canvasRef.current && typeof canvasRef.current.clearSelection === 'function') {
-      canvasRef.current.clearSelection();
-    }
-    if (changed) {
-      prevScopeRef.current = nextScope;
-    }
-  }, [scope]);
+  usePlanScope({ scope, select, controllerRef, canvasRef });
 
   // Undo / Redo of the entry's plan edits (floor and room entries carry an editor).
   const { editor, undo, redo } = usePlanHistory({
@@ -262,7 +247,11 @@ export function BuildingPlanCanvasHost({
               <PlanIssueList
                 items={planIssues.items}
                 onSelect={(item) => canvasRef.current?.selectRow(item.indexPath)}
-                onOpen={(item) => repeatableApiRef.current.focusRow?.(item.indexPath)}
+                onOpen={(item) =>
+                  repeatableApiRef.current.focusRow?.(item.indexPath, {
+                    validationFocus: item.fieldName ? { fieldName: item.fieldName } : null,
+                  })
+                }
               />
             ) : null
           }

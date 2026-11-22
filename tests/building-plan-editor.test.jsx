@@ -314,6 +314,19 @@ it('a wall issue from the Validation list opens the wall through its floor', asy
   expect(errors.filter((error) => /does not belong/.test(error))).toEqual([]);
 });
 
+// Every level opens as a real dialog (2026-11-22): the floor and the room come up on the list
+// towards the wall, its row marked, and the wall's header names the path to it.
+it('a wall issue opens the floor, the room and the wall, each on the way showing its list', async () => {
+  const { dialog, issueText } = await openWallIssue();
+  const [wallName] = issueText.match(/W\d+/);
+  await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
+  const marked = (rows, name) =>
+    rows.find((row) => row.textContent.includes(name))?.closest('[data-plan-marked]')?.dataset
+      .planMarked;
+  await waitFor(async () => expect(marked(await listRows('Walls'), wallName)).toBe('true'));
+  await waitFor(async () => expect(marked(await listRows('Rooms'), 'Bedroom')).toBe('true'));
+});
+
 it('a wall value source tag sits inside its dropdown, as in text fields', async () => {
   const { dialog } = await openWallIssue();
   const [tag] = await dialog.findAllByText('Form default');

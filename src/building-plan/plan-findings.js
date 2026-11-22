@@ -186,6 +186,7 @@ export function planIssueView(findings, { scopeDepth = 0, repeatable }) {
       title: [...below].reverse().join(' · '),
       detail: [finding.label, finding.messages.join(' ')].filter(Boolean).join(': '),
       indexPath,
+      fieldName: finding.fieldName,
     });
     markers.set(JSON.stringify(indexPath), indexPath);
   }

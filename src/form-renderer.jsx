@@ -44,6 +44,7 @@ import { buildingPlanFindings, planSideStates } from './building-plan/plan-findi
 import { planText } from './building-plan/plan-text.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
+import { nextEntryStep } from './building-plan/entry-chain.js';
 import { useBuildingPlanController } from './building-plan/controller.js';
 import { pickOwnedValues } from './utils/value-updates.js';
 import {
@@ -5179,6 +5180,8 @@ function RepeatableEntryModal({
     ]
   );
 
+  // Set below, once the list helpers exist: shows the list towards a row on the way (focusRow).
+  const planChainRef = useRef(null);
   // Building Plan modal canvas context (scoped to current floor/room)
   const buildingPlanModalContext = useMemo(() => {
     if (modal.buildingPlan) {
@@ -5201,39 +5204,41 @@ function RepeatableEntryModal({
               editor.apply(operation, { scopeId }),
               modal.engineOptions?.onMessageBox
             ),
-          focusRow: (indexPath, { validationFocus = null } = {}) => {
+          focusRow: (indexPath, { validationFocus = null, chained = false } = {}) => {
             const record = editor.getRecord();
             let row = record;
+            const rows = [];
             const idPath = indexPath.map((part) => {
               row = row.repeatable[part.key][part.index];
+              rows.push(row);
               return { key: part.key, id: row.id };
             });
             // Only this entry's own rows open from its canvas (not a wall of another room).
-            const ownsRow = path.every(
-              (part, index) =>
-                idPath[index] &&
-                idPath[index].key === (part.key || part.repeatableKey) &&
-                idPath[index].id === (part.id || part.instanceId)
-            );
-            if (!ownsRow) return;
-            const local = idPath.slice(path.length);
-            if (!local.length) return;
-            const target = local.at(-1);
-            const info = entryController.metadata?.byPreferredKey?.get(target.key);
+            const step = nextEntryStep(path, idPath);
+            if (!step) return;
+            const info = entryController.metadata?.byPreferredKey?.get(step.next.key);
             if (!info) return;
+            // Every level opens as a real dialog (2026-11-22): the row one level below, which
+            // opens the rest when it mounts. A dialog opened on the way (`chained`) shows the
+            // list towards that row, the row selected; the one double-clicked in stays as it was.
+            if (chained) planChainRef.current?.(step.next, indexPath.slice(0, step.depth + 1));
             openNestedModal(
               {
-                repeatableKey: target.key,
+                repeatableKey: step.next.key,
                 field: info.field,
                 label: info.field.label,
                 mode: 'edit',
-                instanceId: target.id,
-                parentPath: local.slice(0, -1),
+                instanceId: step.next.id,
+                parentPath: [],
                 schema: modal.schema,
                 engineOptions: modal.engineOptions,
-                parentValues: entryController.buildParentValues(local.slice(0, -1)),
-                initialInstance: cloneDeepSafe(row),
-                ...(validationFocus ? { validationFocus } : {}),
+                parentValues: entryController.buildParentValues([]),
+                initialInstance: cloneDeepSafe(rows[step.depth]),
+                ...(step.more
+                  ? { buildingPlanFocusPath: indexPath, buildingPlanFocusIssue: validationFocus }
+                  : validationFocus
+                    ? { validationFocus }
+                    : {}),
               },
               entryController
             );
@@ -5474,26 +5479,6 @@ function RepeatableEntryModal({
     modal.schema?.form?.elements,
     modal.mode,
     buildingPlanRevision,
-  ]);
-
-  const initialPlanFocus = useRef(null);
-  useEffect(() => {
-    if (
-      !modal.buildingPlanFocusPath ||
-      !buildingPlanModalContext ||
-      initialPlanFocus.current === modal.modalId
-    )
-      return;
-    initialPlanFocus.current = modal.modalId;
-    // Opened for a validation issue: the nested row focuses the issue's field.
-    buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath, {
-      validationFocus: modal.buildingPlanFocusIssue || null,
-    });
-  }, [
-    modal.modalId,
-    modal.buildingPlanFocusPath,
-    modal.buildingPlanFocusIssue,
-    buildingPlanModalContext,
   ]);
 
   const buildingPlanModalController = useBuildingPlanController({
@@ -5748,9 +5733,15 @@ function RepeatableEntryModal({
       : null;
   const [planRowHighlight, setPlanRowHighlight] = useState(null);
   const [planMarkedRowId, setPlanMarkedRowId] = useState(null);
+  // A list shown on the way to a row (planChainRef) opens with that row marked.
+  const planChainMarkRef = useRef(null);
+  // The element a dialog opened on the way selects on its canvas: an index path.
+  const [planChainSelect, setPlanChainSelect] = useState(null);
   useEffect(() => {
     setPlanRowHighlight(null);
-    setPlanMarkedRowId(null);
+    const pending = planChainMarkRef.current;
+    planChainMarkRef.current = null;
+    setPlanMarkedRowId(pending?.listKey === planListKey ? pending.rowId : null);
   }, [planListKey]);
   const highlightPlanRow = useCallback(
     (rowId) => {
@@ -5802,6 +5793,9 @@ function RepeatableEntryModal({
       // The list's own row, or for an element one level below it (a window under the Walls
       // list), the nearest row the list holds (its wall).
       const listed = inEntry ? idPath[context.path.length] : null;
+      // The entry's own element says nothing about its lists: a view-only entry (a wall) selects
+      // its element again on every update, which would drop the row marked on the way.
+      if (inEntry && !listed) return;
       setPlanMarkedRowId(listed?.key === planListKey ? listed.id : null);
     },
     [modal.buildingPlan, planListKey]
@@ -5879,6 +5873,49 @@ function RepeatableEntryModal({
     setModalHighlightedPath([MODAL_ROOT_NAV_NODE_ID]);
     setModalActiveDrilldownPath([]);
   }, [setModalActiveDrilldownPath, setModalHighlightedPath]);
+
+  // On the way to a row (2026-11-22): this dialog shows the list that holds the next row, as a
+  // click on that list would, with the row selected on the canvas and marked in the list.
+  planChainRef.current = (next, indexPath) => {
+    const info = Object.values(modalSectionMetadata).find(
+      (entry) =>
+        entry.type === 'RepeatableSection' &&
+        (entry.repeatableKey || resolveRepeatableKey(entry.field)) === next.key
+    );
+    if (!info?.field) return;
+    planChainMarkRef.current = { listKey: next.key, rowId: next.id };
+    handleEnterNestedRepeatable({
+      field: info.field,
+      repeatableKey: next.key,
+      contextPath: info.repeatableParentPath || [],
+      sectionId: info.id,
+      highlightPath: info.path || [],
+    });
+    setPlanChainSelect(indexPath);
+  };
+
+  // Opened on the way to a row (the plan page, a validation issue, a level of a chain): this
+  // dialog opens the next level, which carries on. After the reset of the list on open above.
+  const initialPlanFocus = useRef(null);
+  useEffect(() => {
+    if (
+      !modal.buildingPlanFocusPath ||
+      !buildingPlanModalContext ||
+      initialPlanFocus.current === modal.modalId
+    )
+      return;
+    initialPlanFocus.current = modal.modalId;
+    // Opened for a validation issue: the last row focuses the issue's field.
+    buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath, {
+      validationFocus: modal.buildingPlanFocusIssue || null,
+      chained: true,
+    });
+  }, [
+    modal.modalId,
+    modal.buildingPlanFocusPath,
+    modal.buildingPlanFocusIssue,
+    buildingPlanModalContext,
+  ]);
 
   const [discardDialogVisible, setDiscardDialogVisible] = useState(false);
   const discardDialogRef = useRef(null);
@@ -6620,6 +6657,7 @@ function RepeatableEntryModal({
                     highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
                     focus={buildingPlanModalContext.highlight || null}
                     onSelectElement={planListKey ? markPlanRow : undefined}
+                    select={planChainSelect}
                     findingScope={buildingPlanModalContext.findingScope || null}
                   />
                 </div>

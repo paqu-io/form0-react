@@ -104,6 +104,8 @@ describe('findings', () => {
     });
     expect(view.items.map((item) => item.title)).toEqual(['Window 1 · W2', 'W1', 'Window 1 · W2']);
     expect(view.items[0].detail).toBe('Height [m]: This field is required');
+    // A double-click on the item focuses this field in its row's entry (2026-11-22).
+    expect(view.items[0].fieldName).toBe('window_height');
     expect(view.items[1].indexPath).toEqual([
       { key: 'floors', index: 0 },
       { key: 'rooms', index: 0 },
