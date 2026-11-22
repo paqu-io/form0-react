@@ -1541,7 +1541,7 @@ export class BuildingPlanCanvas {
   fitToContent({ render = true } = {}) {
     const inScope = (this.rooms || []).filter((room) => room && !room.isDimmed);
     const rooms = inScope.length ? inScope : this.rooms || [];
-    const points = rooms.flatMap((room) => {
+    const roomPoints = rooms.flatMap((room) => {
       if (room.vertices?.length) return room.vertices;
       const rect = room.rect;
       return rect
@@ -1551,6 +1551,10 @@ export class BuildingPlanCanvas {
           ]
         : [];
     });
+    // An empty floor fits to the floor below once it shows (F2): where its rooms will go.
+    const points = roomPoints.length
+      ? roomPoints
+      : [...(this.floorBelow?.walls || []), ...(this.floorBelow?.columns || [])].flat();
     const { width, height } = this.getViewSize();
     if (!points.length || !(width > 0) || !(height > 0)) return false;
     const xs = points.map((point) => point.x);
