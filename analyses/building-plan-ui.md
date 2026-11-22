@@ -2201,6 +2201,92 @@ below); press there and draw: the room starts on that corner. Alt: the handle fo
 
 Hand-tested 2026-11-22: works. Committed: form0-react `40f827d`.
 
+### Opening entries by double-click: N1 to N3 (2026-11-22, hand-tested, committed)
+
+The decided navigation (see "Opening entries by double-click" below), in three units, each to
+commit on its own after the hand test. Web only; no core change, no record change.
+
+- *N1: a Floor canvas and the plan page open rooms only.* `entry-chain.js` (new):
+  `doubleClickTarget` cuts the element's index path to its room on a floor-level canvas (`parent`
+  or `floor-modal`); the managed controller's `focusRow` goes through it (`canvas-host-mount.js`).
+  Legacy canvas, the press only: it records what a double-click opens before its capability
+  checks (room and wall handles, columns, beams, doors and windows), since a Floor canvas can't
+  drag columns, beams or handles and the plan page can't move anything. Found headless: the plan
+  page's canvas isn't read-only (its controller is), so a door press there returned at `canMove`
+  before recording anything. Also fixed: the locked press (view-only entries, read-only records)
+  read `opening.opening.id`, undefined (`findOpeningNearPoint` gives `openingId`), so no door or
+  window opened from a locked canvas.
+- *N2: every level a real dialog.* The entry's `focusRow` opens the next row only
+  (`nextEntryStep`), passing the rest of the path as `buildingPlanFocusPath`; the dialog opened
+  carries on from its mount effect (`chained`), which shows the list towards the next row (as the
+  navigation's list entry does), that row marked and selected on its canvas (a new `select` prop;
+  the scope effect moved, unchanged, from `canvas-host.jsx` into `use-plan-scope.js` with it). The
+  effect moved below the dialog's list reset on open. The dialog double-clicked in stays as it
+  was. `markPlanRow` ignores the entry's own element: a view-only entry (a wall) selects it again
+  on every update, which dropped the row marked on the way. The issues list's items carry their
+  `fieldName`, so its double-click focuses the field, as the root Validation tab's does.
+  `invalid_routing_context` goes: no path skips a level.
+- *N3: the path in the header of nested RepeatableSection dialogs.* Each dialog reports its row
+  title as it is now to the stack (`modalRecordTitles` in the form); its header shows
+  `dialogPathParts` (`dialog-path-parts.js`) through `DialogPath` (`dialog-path.jsx`, styles in
+  `dialog-path.css.js`) in place of the list's label. A first-level dialog on its page reads as
+  before. When the path doesn't fit, by the parts' natural widths, it collapses to "Floors › … ›
+  Bedroom › Walls", then to "… › Walls"; the parts before the title shrink first.
+
+Tests (each failing without its change): `building-plan-entry-chain.test.js` (rooms only, the
+next step, presses on a Floor canvas or the plan page and on a locked canvas),
+`building-plan-editor.test.jsx` (a wall issue opens Floor › Room › Wall, the floor and the room
+on their lists with the row marked, the wall's header path), `dialog-path.test.jsx` (the parts,
+the collapse, a nested ordinary RepeatableSection), `building-plan-findings.test.js` (an item's
+field). Web 407 of 413 (the worker tests).
+
+Headless on the fixture: plan page, a room, a wall or the door: Floor › Bedroom, the Floor on its
+Rooms list with Bedroom marked. Floor canvas, a wall or the door: the Bedroom only, the Floor on its
+page. Room canvas, the door: W3 on its Doors list ("Shared door" marked) › the Door; the door's
+label edited and saved: the list marks "Edited door"; the Wall saved: the Room as it was. A
+view-only W3 opened by hand, its door: the Door, W3 as it was. The issues list in the Floor
+dialog, a wall finding: Room on its Walls list (W1 marked) › W1, focus in its field. Header: wide
+and medium show the whole path, phone "… › Walls". No console errors or warnings.
+
+Hand test (reload the test page; web only):
+- N1: on the plan page and on a Floor canvas, double-click a room, a wall, the door and a column:
+  each opens its room only (the plan page: the Floor, then the Room).
+- N2: in a Room, double-click the door: the Wall opens on its Doors list with the door marked,
+  then the Door; Cancel steps back through each. From a Floor's "n issues" (`form=plan-issues`,
+  after Submit), double-click a wall finding: Room › Wall, the field focused. Edit and Save in a
+  Door opened so: no `invalid_routing_context` in the console.
+- N3: the header of each nested dialog names the path ("Floors › Ground floor › Rooms"), the row
+  in the bar; a Floor reads "Floors"; Building Condition Survey, Rooms surveyed › Observations, the
+  same; Width "Phone": the path collapses, the title stays whole.
+
+Hand-tested 2026-11-22: works. Committed: form0-react `665230e` (N1), `9c056f5` (N2), `84b53aa`
+(N3).
+
+Found at the hand test, and decided (2026-11-22):
+
+- *A false "unsaved changes" on Cancel.* Opening a wall from a Room and coming back, the Room's
+  Cancel asked with nothing changed; a Floor asked even when opened and cancelled at once.
+  Read headless from the comparison Cancel makes (`hasEntryChanges`): after a child dialog
+  closes, the Room's draft rows carry the editor's evaluation (`visible`, `required`, `errors`,
+  `read_only`, merged by core's `evaluate` into the record `getRecord()` returns), which its
+  opening snapshot doesn't; and a floor row saved by core has `null` for an unanswered choice
+  where the dialog holds `{ choice: [], other: [] }`. Not from N1 to N3 (opening a wall by hand
+  from the list does the same). Weighed: fixing it in core (evaluation beside the record; rows
+  written with canonical choice values) was set aside, since it changes exported records
+  (Reform reads them). Decided: the form compares data only (display state ignored, empty
+  values alike), for every entry.
+- *Clickable breadcrumbs.* Decided: a part of the path works as the Cancel and Back presses from
+  the top down to its level, each asking as it does today; keeping the changes stops there. A
+  list part lands on that list, a row part on its page, the first part closes every dialog; the
+  "…" stays inert.
+- *A Floor canvas edits rooms only.* A door double-clicked on a Floor canvas showed the door and
+  its wall selected (a click selected them, since doors slid there), and the room opened.
+  Decided (revising 3c-1b, where the capsule was made to slide an opening on a Floor canvas): a
+  Floor canvas draws, moves and attaches rooms only; doors and windows don't slide there (walls,
+  columns and beams already didn't, and corners don't reshape there). A click on anything inside
+  a room selects the room, on a Floor canvas and on the plan page, so the canvas, the Rooms list
+  and the double-click agree.
+
 ### Next (queue, updated 2026-11-22, evening)
 
 Done this round: the new-entry Undo fix, the stray cap piece, a floor's number in its title,
@@ -2211,10 +2297,9 @@ floor fitted to it (`a800458`); Save showing why (`1c2a3c9`); the room tool's st
 (`40f827d`). The floor below's decisions (U1 to
 U8, mockup https://claude.ai/artifact/RjghR89Z6nASVNLDSHxjWr) are in "F2" and "F3" above.
 
-1. **Opening entries by double-click** (the navigation unit, see below): decided 2026-11-22
-   with the mockup (rooms only from a Floor canvas, every level a real dialog, the path in the
-   header of nested RepeatableSection dialogs); the units to agree before code. Also clears the
-   console `invalid_routing_context` (see Status).
+1. **After the N1 to N3 hand test** (see their section): Cancel without a false "unsaved
+   changes" (the form compares data only); a Floor canvas that edits rooms only, a click inside
+   a room selecting the room; clickable breadcrumbs.
 2. Step 2 (read-only layers: plaster band, the selected room's lengths, a Show menu, which also
    gets the floor below's switch, U3), with a pill that doesn't fit drawn outside its segment.
 3. The floor below, later (U6): free walls and columns pulled to it (a column over the column
@@ -2310,9 +2395,10 @@ Also for the mockup:
   Cancel on a Room holding a saved wall edit discards it without asking. That was read from the
   code, not tried, and it is wrong. Plan entries and other RepeatableSection entries share one
   Cancel: it asks ("This record has unsaved changes") whenever the entry's fields or its rows
-  differ from what it opened with (`hasEntryChanges`). Checked headless on the fixture: the
-  Floor asks after a Room field edit saved into it, after its own canvas edit and after its own
-  field edit. Dialogs the chain opens therefore ask exactly as they do today; nothing to build.
+  differ from what it opened with (`hasEntryChanges`); a saved child edit changes the entry's
+  rows. Dialogs the chain opens therefore ask exactly as they do today. The headless check first
+  given for this proved nothing: a Floor asks even with no edit (a false change, found at the
+  N1 to N3 hand test; see there).
 
 Today, checked headless on the fixture (2026-11-22): on a Floor canvas a room opens the Room, a
 wall opens W1 over the Floor (the Room skipped), the door opens "Shared door" over the Floor (the
@@ -2441,11 +2527,11 @@ one combined core operation is the clean way.
 | After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
 | Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do |
 | Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
-| Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | On hold; goes with the navigation unit (every level a real dialog) |
+| Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | Gone with N2 (every level a real dialog); committed |
 | Column placement field and canvas command | Step 6 proposal |
 | Plan system fields (legacy column and beam wall fields among them) | To review with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md` |
 | `canvas-host.jsx` split (move only) | Done and committed (2026-11-20) |
-| Opening entries by double-click (jumps) | Next. Decided 2026-11-22 with the mockup (see its section); units to agree |
+| Opening entries by double-click (jumps) | Done and committed (N1 rooms only from a Floor canvas, N2 every level a real dialog, N3 the header path); next: clickable breadcrumbs |
 | Step 3 decisions (handles, cursors, lengths, pin badge) | Decided 2026-11-21 |
 | 3c-1: handles, cursors and the pin badge | Done and committed |
 | 3c-1b: cursors and handles follow what the canvas allows; the dragged handle filled | Done and committed |

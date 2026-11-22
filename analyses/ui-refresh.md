@@ -2152,3 +2152,18 @@ today. Every nested RepeatableSection dialog shows the path in its header ("Floo
 › Rooms"), the row's title kept in the bar. Corrected: Cancel already asks before dropping saved
 child edits in plan entries (checked headless); the 2026-11-21 note said it didn't. Details in
 `building-plan-ui.md`, "Opening entries by double-click". Next: the units, to agree before code.
+
+### Opening entries by double-click: N1 to N3 (2026-11-22, committed)
+
+N1: a Floor canvas and the plan page open rooms only (`entry-chain.js`); the canvas press records
+what a double-click opens before its capability checks, and the locked press names an opening by
+`openingId` (no door or window opened from a locked canvas before). N2: every level opens as a
+real dialog, each opened on the way showing the list towards the next row, that row marked and
+selected; the issues list focuses the finding's field; `invalid_routing_context` gone. N3: nested
+RepeatableSection dialogs name the path in their header, collapsing when it doesn't fit. Tests
+failing without each change; web 407 of 413 (the worker tests); headless as described in
+`building-plan-ui.md`. Hand-tested: works; committed form0-react `665230e`, `9c056f5`, `84b53aa`.
+Found at the hand test: a false "unsaved changes" on Cancel (draft rows carrying the editor's
+evaluation, a core-written `null` choice); decided to compare data only in the form (a core fix
+would change exported records). Also decided: clickable breadcrumbs (the same presses as Cancel
+and Back), and a Floor canvas that edits rooms only, a click inside a room selecting the room.
