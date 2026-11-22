@@ -689,6 +689,8 @@ export class BuildingPlanCanvas {
   setMode(mode) {
     this.insertionMark = null;
     this.hintOverride = null;
+    if (this.draftStart) this.controller?.interaction?.reset?.();
+    this.draftStart = null;
     this.cornerDragState = null;
     this.pinTarget = null;
     this.cutGesture = false;
@@ -2163,6 +2165,7 @@ export class BuildingPlanCanvas {
         return;
       }
       const corner = this.snapDraftCorner(point);
+      this.draftStart = null;
       this.roomDraft = { start: corner, current: corner };
       this.render();
       return;
@@ -2276,6 +2279,14 @@ export class BuildingPlanCanvas {
       !this.wallDraft
     ) {
       this.setHoverState(this.hoverAt(point));
+    }
+
+    // The room tool before its press: the corner a press would start at, pulled as the press
+    // pulls it (into line with rooms and the floor below), with its guides (2026-11-22).
+    if (this.mode === MODE_DRAW_ROOM && !this.roomDraft) {
+      this.draftStart = this.hasFloors ? this.snapDraftCorner(point) : null;
+      this.render();
+      return;
     }
 
     if (this.mode === MODE_DRAW_ROOM && this.roomDraft) {
@@ -2904,6 +2915,8 @@ export class BuildingPlanCanvas {
     this.cutDraft = null;
     if (this.mode === MODE_DRAW_ROOM) {
       this.roomDraft = null;
+      if (this.draftStart) this.controller?.interaction?.reset?.();
+      this.draftStart = null;
     }
     if (this.mode === MODE_DRAW_WALL) {
       this.wallDraft = null;
@@ -3744,7 +3757,8 @@ export class BuildingPlanCanvas {
       };
       this.drawDraftRoom(snapped);
       draftRoom = snapped;
-    }
+    } else if (this.draftStart && this.mode === MODE_DRAW_ROOM)
+      drawHandle(this.ctx, this.draftStart, { theme: this.planTheme, pixel: this.px(1) });
     this.drawDragLengths(draftRoom);
 
     this.drawFindings();

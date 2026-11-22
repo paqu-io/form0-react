@@ -186,3 +186,42 @@ it('wall previews stay in the view and pointer release ends the gesture before a
     { x: 100, y: 0 },
   ]);
 });
+
+it('the room tool shows, before its press, the corner the press starts at', async () => {
+  // The pull stands in for core's: anything within 10 cm of (100, 100) lands on it.
+  const pulled = (point) =>
+    Math.hypot(point.x - 100, point.y - 100) <= 10 ? { x: 100, y: 100 } : point;
+  let resets = 0;
+  const c = Object.assign(Object.create(BuildingPlanCanvas.prototype), {
+    mode: 'draw-room',
+    hasFloors: true,
+    gridSize: 20,
+    zoomLevel: 1,
+    rooms: [],
+    walls: [],
+    controller: {
+      toolbarState: { canDrawRoom: true },
+      interaction: { snapPoint: (point) => pulled(point), reset: () => (resets += 1) },
+    },
+    getCanvasPoint: (point) => point,
+    render() {},
+    updateCursor() {},
+    updateButtonStates() {},
+  });
+
+  c.handleMouseMove({ x: 104, y: 97 });
+  assert.deepEqual(c.draftStart, { x: 100, y: 100 }, 'the handle sits where the pull lands');
+  await c.handleMouseDown({ x: 104, y: 97, button: 0 });
+  assert.deepEqual(c.roomDraft.start, { x: 100, y: 100 }, 'the room starts at the handle');
+  assert.equal(c.draftStart, null);
+
+  c.roomDraft = null;
+  c.handleMouseMove({ x: 104, y: 97 });
+  c.handleMouseLeave();
+  assert.equal(c.draftStart, null, 'leaving the canvas clears the handle');
+  assert.equal(resets, 1, 'and its guides');
+
+  c.hasFloors = false;
+  c.handleMouseMove({ x: 104, y: 97 });
+  assert.equal(c.draftStart, null, 'no handle without a floor to draw on');
+});
