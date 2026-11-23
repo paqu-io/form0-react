@@ -2292,3 +2292,12 @@ same words. Core 729 of 729, web 442 of 448 (the worker tests), mobile fixtures 
 screen's title test, failing on HEAD too). Hand-tested: works. Committed form0-core `2c6b3c8`,
 form0-react `b005511`, form0-react-native `6166420`. Next: a drawn free wall stacking on the wall
 below (midlines below), then beams 3a.
+
+### A drawn free wall stacking on the wall below (2026-11-23, hand-tested, committed)
+
+Aligned 1 to 5 as recommended (`building-plan-ui.md`). Core only: the floor below's walls'
+midlines and their meeting points in the snapshot (invariant: halfway between the band's faces);
+a drawn end snaps to them, so a wall drawn over a wall below stands on its middle; a moved free
+wall may go centred on it as well as flush. Core 732 of 732, web 442 of 448 (the worker tests).
+Checked on the test page. Hand-tested: works. Committed form0-core `f872899`. Next:
+beams 3a, in a new session.

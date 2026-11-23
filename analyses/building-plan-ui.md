@@ -51,7 +51,7 @@ by step 2's S2 and S8), and the questions at the end.
 | Step | What | Logic touched | Status |
 |---|---|---|---|
 | 1 | Look only, web: chrome and canvas on the theme tokens, grid, symbols, the list panel, one tooltip, shortcut matching | None | Done, **to test by hand** |
-| 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None in records (reads resolved values through `fieldState()`); a core controller setting turns the floor below's pulls off | Decided (2026-11-22), units 2a to 2c to do |
+| 2 | Read-only layers, web: plaster band, the selected room's lengths, a Show menu | None in records (reads resolved values through `fieldState()`); a core controller setting turns the floor below's pulls off | Done (2026-11-23): 2a, 2a-2, 2b, 2c committed |
 | 3 | Handles and live lengths, web: handles and cursors for today's drags, lengths while dragging, Pin in the rail, hints in a status line, fit on open | None (same calls) | Done (2026-11-22): see "Step 3: wrap-up" |
 | 4 | Typed values, web: click a length to type it (openings, columns, beams, wall lengths) | None (existing update calls; a wall length is the existing parallel move of the neighbouring wall) | To do |
 | 5 | Mobile: steps 1 to 4 on react-native-svg (handles replace the Resize mode), then the full-screen editor with the bottom sheet (step 10) | None in core | To do |
@@ -2842,6 +2842,39 @@ Bedroom, double-click W3 (not on its door): Height, Thickness and Construction m
 it closes, the entry stays; Tab to it, Enter: it opens. Plaster says "Room side". Cancel, open
 W1: "Whole wall", no icon. From the other Bedroom, W3 names Bedroom (room 1).
 
+### A drawn free wall stacking on the wall below (2026-11-23, hand-tested, committed)
+
+Aligned 1 to 5 as recommended: (1) core gives the floor below's walls' midlines and where they
+meet, checked by invariants; (2) a drawn end: midlines below join the lines, their meeting points
+the corners, the nearest winning within each, a tie to this floor, a small ring; (3) the second end
+keeps to a straight midline by today's lock, a slanted one pulls it as any line; (4) a moved free
+wall may go centred on a midline running with it as well as flush with a face; (5) columns
+unchanged.
+
+Core only (`floor-below.js`, `column-wall-targets.js`, `floor-below-pulls.js`, `interaction.js`):
+the snapshot's `floorBelow` gains `midlines` (its walls' axes, from their segments) and
+`junctions` (`midlineJunctions`, the finder this floor's column targets used, now shared: crossings
+within 0.5 m past either end). `withFloorBelow(…, { midlines: true })` for a free wall's pulls
+(drawn, dragged, bent): midlines marked `mid`, junctions inside the room. `belowMove` across: a
+side flush with a face, or the centreline on a midline (`acrossOntoWallsBelow`), the nearer; a
+moved wall's end meets faces only. Tests: `building-plan-floor-below.test.js` (midlines halfway
+between their band's faces wherever they cross it, each junction on two midlines; again with W3
+thickened to 0.3 m, its midline at 3.15), `building-plan-floor-below-contents.test.js` (+2: a drawn
+end onto the W3.2 / W8 junction and onto the shared wall's midline, the next end kept on it; a 0.1 m
+wall moved centred at 0.3 off, flush at 0.2 off its face), each failing on HEAD. Core 732 of 732,
+web 442 of 448 (the worker tests; no web change). Headless on the test page
+(`state-u6-check.json`, the upper floor's room, Wall): pressed 3 cm off where the shared wall's
+midline meets Room 2's wall's and drawn along it: the wall from (2.90, 3.10) to (1.49, 3.10), on
+the wall below's middle.
+
+Hand-tested 2026-11-23: works. Committed form0-core `f872899`.
+
+Hand test (restart the test page, core change): `?form=plan&state=state-u6-check.json`, View, the
+upper floor, double-click its room, Wall: start near where the shared wall below meets Room 2's
+wall (a ring there), draw along the shared wall: it stays on its middle. Start near the middle of
+a wall below, away from corners: it starts on the middle. Set W5's thickness to 0.1 m, move it onto
+the shared wall below: centred near the middle, flush near a face.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2851,31 +2884,28 @@ their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms on
 clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
 (`a0cbf3a`); step 2 decided (above) and built: 2a, 2a-2, 2b, 2c (core `d26df06`, web `28356e2`,
 `39cec5c`); U6 (core `08b7240`, web `21d2a4a`); a shared wall shown as shared (core `2c6b3c8`,
-web `b005511`, mobile `6166420`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
+web `b005511`, mobile `6166420`); a drawn free wall stacking on the wall below (core `f872899`).
+Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
 before this one in the log).
 
-1. **A drawn free wall stacking on the wall below** (core, from U6's hand test): drawing an end
-   puts its centreline onto a corner or face below, so a wall drawn over a wall below needs a move
-   to stack. Wanted: ends also pulled to the walls below's midlines (and where midlines meet), so
-   it stacks as drawn; then the second end slides along the midline.
-2. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
+1. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
-3. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
+2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
    tried and reverted 2026-11-23, made it a cap that didn't follow W3).
-4. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
+3. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
    "n issues" list inside a dialog (the open-dropdown marker); the mobile fixture "Native titles a
    room screen with its position on the floor" ("Rooms 2" not found, failing on HEAD too).
-5. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
+4. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
    line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
-6. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
-7. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
+5. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+6. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
    change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
-8. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
+7. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
    (would let the form drop its data-only comparison; changes exported records, so it needs a
    Reform impact check first).
-9. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+8. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -3120,7 +3150,7 @@ one combined core operation is the clean way.
 | A split point holds its wall's line; a free wall's return can be moved (core) | Done and committed |
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
 | The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns (U6) too |
-| A drawn free wall stacking on the wall below (midlines below for its ends) | Queued (from U6's hand test) |
+| A drawn free wall stacking on the wall below (midlines below for its ends) | Done and committed (core) |
 | Save with a required plan field cleared shows the validation | Done and committed |
 | Step 2 (lengths, plaster, Show menu) | Done and committed (2a, 2a-2, 2b, 2c; 2026-11-23) |
 | A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Done and committed (A: the icon and note; C: "Whole wall" / "Shared wall"; mobile: the words) |
