@@ -2194,3 +2194,15 @@ wall beams are additive for exported records and Reform has no plan-specific rec
 blocker); 3a (room beams) first, then wall beams as a core design round. Details in
 `building-plan-ui.md`, "Step 2: decisions". Next: units 2a (Show menu), 2b (plaster), 2c
 (lengths).
+
+### 2a: the Show menu and the floor below's switch (2026-11-23, committed)
+
+Core: `setFloorBelowPulls(on)` on the canvas controller; off, the pulls' scene has no floor below
+(every pull path stops), the snapshot keeps it. Web: `PlanLayersProvider` in `FormRenderer` (one
+setting for every plan canvas of the form), "Show" in the floor row with "Floor below" (listed
+only on a floor with one; Plaster and Lengths join with 2b and 2c); off, the outlines, the name and
+the pulls go. The open menu carries the open-dropdown marker, since a dialog's key handler stopped
+Esc first (found headless; "n issues" has the same gap, not changed). Tests failing without the
+change; core 711 of 711, web 417 of 423 (the worker tests); headless as described in
+`building-plan-ui.md`. Hand-tested: works; committed form0-core `37ba511`, form0-react
+`c67c641`. Asked: Show disabled rather than hidden when empty, a larger dot (with 2b's hand test).

@@ -2408,6 +2408,51 @@ rule 1, following their walls; no data change, and still needed for beams across
 wall beams as a core design round straight after (open question 1, a beam whose wall splits),
 not waiting for step 6.
 
+### 2a: the Show menu and the floor below's switch (2026-11-23, hand-tested, committed)
+
+- *Core (`canvas-controller.js`).* `setFloorBelowPulls(on)`, on by default: off, the scene the
+  interaction's pulls read has no floor below, so every pull path stops (drawing a room and its
+  start preview, a corner, a wall, moving a room; U6's later). The snapshot keeps `floorBelow`.
+  Interaction only, no record change. Test in `building-plan-floor-below-pull.test.js`, failing
+  without the change.
+- *Web.* `plan-layers.jsx` (new): `PlanLayersProvider`, mounted once in `FormRenderer` around
+  the form (wiring only), so the plan page and every entry dialog share one setting for the form's
+  life (S3); `usePlanLayers` hands it to the canvas (`setLayers`) and the core controller
+  (`setFloorBelowPulls`), also at mount (`canvas-host-mount.js`); a canvas outside a provider keeps
+  its own. `plan-show-menu.jsx` (new): "Show" in the floor row's end, before Undo and Redo, a
+  dot while a layer is off; switches in a menu that a click elsewhere or Esc closes. While open
+  it carries the open-dropdown marker (`data-form0-dropdown-open`), since a dialog's key handler
+  otherwise stops Esc before it (found headless). `FloorTabs` lists the layers the floor has:
+  in 2a only "Floor below" ("{floor}, and the pulls to it"), so the button shows only on a floor
+  with a floor below; Plaster comes with 2b, Lengths with 2c. Off, the "… below" name goes and
+  the legacy canvas neither draws nor fits to the floor below (`shownFloorBelow`). Texts in
+  `plan-text.js` (`plan.show.*`).
+
+Tests: `building-plan-show-menu.test.jsx` (2: the switch on the plan page hides the name and
+stops the pulls, the upper floor's entry follows the same setting, switched back on there; Esc
+closes the menu and not the dialog; the canvas's `shownFloorBelow`), failing without the change
+(the Esc check fails without the marker). Core 711 of 711, web 417 of 423 (the worker tests).
+Headless on the test page: the plan page's Ground floor has no Show; Add Floor, elevation 3: "Ground
+floor below" and Show; the room tool 3 px off a corner below starts on it (ring, guide); Floor below
+off: outlines and name gone, "some hidden" on the button, Esc closes the menu and keeps the
+dialog, the room tool's start stays at the pointer; on again: back. No console errors.
+
+Seen, not changed: "n issues" (`plan-issue-list.jsx`) has the same Esc gap inside a dialog (the
+list stays open); the same marker would fix it, a unit of its own if wanted.
+
+Hand test (restart the test page, core change): `?form=plan`, View: on the Ground floor no Show.
+Add Floor, type a story elevation (3): "Ground floor below" and Show beside Undo; open Show:
+"Floor below" checked. Uncheck it: the grey outlines and the name go, a dot on Show; Esc closes
+the menu, the dialog stays. Draw room near where the floor below's corners were: no pull, no ring.
+Check it again: outlines back, the pull back (Alt still draws freely). With it off, close the
+entry and open a saved upper floor (or the plan page on an upper floor's tab): it stays off there
+too. Reload the page: back on.
+
+Hand-tested 2026-11-23: works. Committed: form0-core `37ba511`, form0-react `c67c641`. Asked at
+the hand test, a small unit of its own with 2b's hand test: Show stays in the row, disabled, when
+there is nothing to switch (from 2b Plaster is always listed, so the same idea goes to the menu:
+"Floor below" listed on every floor, disabled where there is none); the dot on Show larger.
+
 ### Next (queue, updated 2026-11-22, late)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
