@@ -2206,3 +2206,35 @@ Esc first (found headless; "n issues" has the same gap, not changed). Tests fail
 change; core 711 of 711, web 417 of 423 (the worker tests); headless as described in
 `building-plan-ui.md`. Hand-tested: works; committed form0-core `37ba511`, form0-react
 `c67c641`. Asked: Show disabled rather than hidden when empty, a larger dot (with 2b's hand test).
+
+### 2a-2 and 2b: Show's notes, the plaster band (2026-11-23, to hand test)
+
+2a-2: "Floor below" listed on every floor (disabled where there is none), Show disabled only when
+no switch applies, a larger dot. 2b (web, no core change): each face's plaster read from its row
+through `fieldState` (data names from `meta.fieldBindings`), bands at the real thickness to scale
+(at least 2 px) on room sides, free walls' two faces and outside faces (from the footprints' outer
+edges, wrapping corners), cut at openings, faded with the scope; the selected wall's name adds
+its plaster; Plaster in the Show menu. Plaster is drawn over the selected room's outline (in a
+room entry the room is selected, and its outline hid the band); to confirm at the hand test. Web
+423 of 429 (the worker tests); headless as described in `building-plan-ui.md`.
+
+First hand test of 2b (2026-11-23): works; notes, all built for round 2. Selection strokes keep to
+the wall's side of the face (the selected wall's and the room's outline), so plaster shows. A jog's
+leftover (W3.3, W3.2's last 0.2 m over Room 2's wall corner, with W3.2's copied plaster) is a cap
+now (core `derive/caps.js`: a stretch whose subject goes on as another wall of the same result
+loses nothing as a cap); caps show their neighbour's plaster (bands over each row's extent). The
+name reads "plaster: 35 mm (int.) · 20 mm (ext.)". Core 712 of 712, web 424 of 430 (the worker
+tests).
+
+Second hand test of 2b (2026-11-23): rule (b) made a leftover a cap that didn't follow W3's drag
+(the return slid 0.2 m); exposed wall ends and preview frames had no or wrong plaster; the
+entry's auto-selected room outline stood out. Decided D1 to D5: plaster surfaces in core
+(`plaster-surfaces.js`, display only, previews included, one continuity rule, invariant tests),
+(b) reverted (leftovers a later core unit), the web draws core's surfaces, no room outline in
+entries, 2a-2 committed (`1d6920b`). Core 716 of 716, web 422 of 429.
+
+Round 3 hand-tested (2026-11-23): works. Committed form0-react `1d6920b` (2a-2), `e431aef` (2b),
+form0-core `a2f53e4` (plaster surfaces). Noted for later: the surfaces' invariants over the F4
+corpus; surfaces in the derive output. Asked: a selected free wall's outline covered its plaster;
+decided to keep the whole body outlined, inside the body (built, to hand test). Next: 2c (the
+room's lengths), then U6, beams 3a; a drag's leftover (caps following their source's drag) later.

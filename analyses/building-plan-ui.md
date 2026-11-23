@@ -2453,7 +2453,175 @@ the hand test, a small unit of its own with 2b's hand test: Show stays in the ro
 there is nothing to switch (from 2b Plaster is always listed, so the same idea goes to the menu:
 "Floor below" listed on every floor, disabled where there is none); the dot on Show larger.
 
-### Next (queue, updated 2026-11-22, late)
+### 2a-2 and 2b: Show's notes, the plaster band (2026-11-23, hand-tested, committed)
+
+Two units, one hand test, a commit each.
+
+- *2a-2, Show's notes (web).* "Floor below" is listed on every floor, disabled with "No floor
+  below this one" where there is none; Show is disabled only when no switch applies (from 2b
+  Plaster always does, so it stays enabled); the dot counts only switches that apply; the dot
+  is 12 px (was 9).
+- *2b, the plaster band (web; no core change).* `plaster-values.js` (new): the wall rows' plaster
+  fields found through `meta.fieldBindings` (their data names carry a schema hash), each face read
+  with the controller's `fieldState` (resolved values, floor defaults included; thicknesses in
+  metres): the row's own face, and the face across (an exterior wall's outside face, a free
+  wall's "Other side"; not applicable on a shared wall). Read on accepted snapshots only and kept
+  while a preview lasts, found by wall id, row id, or room and physical wall. `draw/plaster-bands.js`
+  (new): a band on each plastered room side into the room, the real thickness to scale and at
+  least 2 px, cut where a door or window's axis lies within the wall; a free wall's two faces;
+  outside faces from the outer edges of the walls' footprints (open space beyond), each piece given
+  to the exterior face a wall's thickness behind it (or the nearest within 60 cm: the corner
+  pieces), running on round an outside corner. Drawn after the room surfaces and the floor below,
+  before the walls, faded with the wall's scope level (plan tokens `plaster`, `plasterFaint`). The
+  selected wall's name adds its plaster ("W1 · plaster 15 mm · outside 20 mm", a free wall's
+  "other side", "not plastered"), in mm or in by the plan's unit. The Show menu's "Plaster" switch
+  (on by default) hides both.
+
+Chosen while checking (to confirm at the hand test): plaster is drawn over the selected room's
+outline. A room in its own entry counts as selected, and its 3-unit outline drawn on top covered
+a 15 mm band completely (tried, reverted); now the band shows, and the selection shows through the
+room's tint and on faces without plaster. Alternative: trace the selected outline at the plaster's
+inner edge.
+
+Tests: `building-plan-plaster.test.js` (6: names and values on a core plan with floor defaults, a
+preview's face finding its values, mm, comma and inches, the name's text; bands into the room at
+2 px zoomed out and to scale zoomed in, on both sides of a shared wall and not on it, outside
+faces wrapping a corner and running on past a shared wall's end, cut at an opening, a free wall's
+two faces); `building-plan-show-menu.test.jsx` updated (Plaster switches and puts the dot on Show;
+Floor below disabled on the ground floor), failing against 2a. Web 423 of 429 (the worker tests).
+Headless on the test page: the Ground floor's defaults set to plastered 15 mm inside and 20 mm
+outside: sand bands in both rooms and along the outside faces, wrapping the outside corner,
+stopping at the door; Plaster off: gone; the Bedroom's entry: its bands full, the other room's
+faded; W1 selected: "W1 · plaster 15 mm · outside 20 mm". No console errors.
+
+Hand test (reload the test page; web only): `?form=plan`, View, open the Ground floor, set
+"Select a default status for interior wall plaster" to plastered, 15 mm, and the exterior one to
+plastered, 20 mm: thin sand bands on every room side and outside face; zoom in (about 300%): the
+bands grow with the zoom, the outside one wraps the corners, both stop at doors and windows. Show:
+"Plaster" and "Floor below" (disabled, "No floor below this one"); uncheck Plaster: the bands go and
+the dot (larger) shows. Double-click the Bedroom: its bands full, the other room's faded; select a
+wall: its name with the plaster ("· outside" on an exterior wall, none on the shared one). Change a
+wall's own plaster (its entry, 25 mm, or not plastered): its band follows. Draw a free wall,
+set its two sides' plaster: a band on each side. Drag a wall: the bands follow.
+
+First hand test (2026-11-23, capture `state-2026-11-23T09-20-15-314Z.json`): works; three notes.
+Reproduced headless and in core:
+
+1. *A selected wall hid its plaster:* its stroke, 6 units centred on the face, covered 3 cm into
+   the room. Decided, option A: selection strokes keep to the wall's side of the face (clipped
+   outside the room, drawn twice as wide), the selected wall's and the selected room's outline;
+   the room's outline is now drawn after the walls (`drawSelectedOutline`). This also replaces
+   "plaster over the selected room's outline" above.
+2. *A jog's leftover (W3.3) and a small blue segment.* W3.2 (x 0 to 3 at y 3, 35 mm) dragged
+   0.752 down: the drag can't take its last 0.2 m (over Room 2's wall corner), which stayed as
+   W3.3, a wall of its own with W3.2's copied plaster (`dividedFromWallId` W3.2). By F4 it is a
+   cap (its material lies inside the walls round it), kept a wall only because its answers
+   differ from W3's; F4′ (2026-11-13) left out thickness and height answers only. The blue
+   segment: the cap from (2.8, 3) to (2.8, 3.2) had no plaster band (caps have no row), so the
+   selected room's outline showed through. Decided: (b) in core, and plaster over caps (web).
+3. *The label:* "plaster: 35 mm (int.) · 20 mm (ext.)" (agreed wording).
+
+Fix round (to hand test):
+
+- *Core, a drag's leftover is a cap (`derive/caps.js`).* A cap candidate whose subject goes on as
+  another wall piece of the same result loses nothing as a cap (its answers and records stay with
+  that piece), so its answers no longer keep it a wall. In a settled plan each piece has its own
+  subject: this applies to the edit that leaves the stretch behind. Test in
+  `building-plan-derived-cap-answers.test.js` (the capture's drag on the core example: W3.2 keeps
+  its 35 mm, no other Bedroom row carries it, six rows), failing without the change. Core 712 of
+  712. A capture saved before this keeps its W3.3 (by then a subject of its own): the drag has to
+  be made again.
+- *Web, plaster over caps (`draw/plaster-bands.js`).* A room side's band runs over its row's
+  extent (core's `extentPoints`: the face up to the room's corner, over the caps next to it), so
+  a cap shows its neighbour's plaster.
+- *Web, selection strokes on the wall side* (`clipOutside`; the selected wall's stroke, the
+  selected room's outline).
+- *Web, the label* (`plasterLabel`): "plaster: 35 mm (int.) · 20 mm (ext.)", a free wall's "(this
+  side)" and "(other side)", one face untagged ("plaster: 15 mm"), "none" for a face without it,
+  "plaster: none" with none at all.
+
+Tests: `building-plan-plaster.test.js` 7 (the wording; bands over a row's extent, failing without
+it). Web 424 of 430 (the worker tests). Headless on the test page: floor defaults 15 and 20 mm,
+W3.2 set to 35 mm in its entry, dragged 0.75 m down: the Bedroom's rows W1, W2, W3, W3.2, W4,
+W8.1 (no W3.3), W3.2 keeps 35 mm; the jog's corner banded all round, caps included; W8.1 selected:
+its stroke on the wall band, its 15 mm showing, "W8.1 · plaster: 15 mm"; W3.2 selected: "W3.2 ·
+plaster: 35 mm (int.) · 20 mm (ext.)". No console errors.
+
+Hand test, round 2 (restart the test page, core change; your capture keeps W3.3, so make the drag
+again): set the Ground floor's plaster defaults; in the Bedroom's entry give W3.2 35 mm (its
+entry), then drag it down about 0.75 m: no W3.3; the band runs round the jog, over the short
+stretches by the corner (W3's 15 mm on the one at y 3). Select any wall: the blue lies on the wall
+band, the plaster in the room stays visible; the room's outline too. The names read as agreed.
+
+Second hand test (2026-11-23, capture `state-2026-11-23T09-57-13-507Z.json`): better; three
+notes, traced headless and in core before any change:
+
+1. *The room's outline beside a selected wall in a room entry:* not new. The canvas auto-selects
+   a room when none is, so the entry's room is selected; before 2b its outline showed as a thin
+   inner line (checked on a HEAD build), round 1's plaster hid it, option A made it 3 units on the
+   wall side.
+2. *Exterior plaster missing south of W3.3:* the return's band ends at y 3.2 over open ground; that
+   end belongs to no side, and the web's rebuild gave outside plaster only to edges in line with
+   an exterior face.
+3. *W3.3 shifting right when W3 is dragged up:* caused by rule (b). With it the leftover is a cap,
+   and caps don't follow their source's drag: core slid the return to x 3 (the room lost a 0.2 m
+   strip). Without it the leftover row moves with W3 and the return stays. Plaster wrong while
+   dragging: the web read values from the saved record only and matched them to the preview's
+   walls by id.
+
+Common cause: the web rebuilt which surface belongs to which side from rows, extents and
+footprints; core already knows the sides with their resolved plaster (`side.properties`), the
+caps and the footprints, for previews too. Decided (D1 to D5, 2026-11-23): D1, plaster surfaces
+worked out in core (display only); D2, one rule for a stretch with no side of its own (in line
+first, then the same wall, then any neighbour); D3, rule (b) reverted, leftovers a later core unit
+(caps following their source's drag, then (b) again); D4, the selected room's outline only on the
+plan page and a Floor canvas; D5, 2a-2 committed on its own (`1d6920b`). Asked meanwhile: whether
+there is a cleaner approach; answer: make "surface" a core concept checked by invariants (each room
+outline covered once, every surface owned) over every plan core has, later the F4 corpus.
+
+Round 3 (to hand test):
+
+- *Core (`plaster-surfaces.js`, new; `canvas-controller.js`).* `plasterSurfaces` in the canvas
+  snapshot, previews included: the stretches of the walls' footprint edges with no wall material
+  and no opening beyond (room sides, outside faces, free walls, caps, exposed ends), overlaps on one
+  line kept once, each owned by the side whose face lies on it (the centreline, half the
+  thickness over on the side's sign) or, by D2, by the stretch it continues; with the owner side's
+  plaster (`buildingPlanSidePlaster`). Each wall row also carries `plaster` (its side's, and the
+  face across where that is the row's: an outside face, a free wall's other side). Rule (b)
+  reverted. Tests `building-plan-plaster-surfaces.test.js` (5: the example's invariants; after the
+  down drag a cap continues the return in line and the leftover row keeps its own 35 mm; after
+  down and up the return's exposed end takes an outside face; a free wall's two faces and ends; a
+  preview's surfaces, covered as the plan). Core 716 of 716.
+- *Web.* `draw/plaster-bands.js` draws core's surfaces (at least 2 px, to scale, an outside
+  corner's square filled, faded by the owner wall's footprint level); `plaster-values.js` keeps the
+  text (`formatThickness`, `plasterLabel` from the row's `plaster`); the fieldState reading and
+  the web geometry are gone. D4: no selected room outline in a room's or an element's entry.
+  Tests: `building-plan-plaster.test.js` (6, on core's surfaces). Web 422 of 429 (the worker tests
+  and the numeric-setters flake).
+
+Headless on the test page: floor defaults, W3.2 35 mm, dragged 0.75 down (W3.3 stays a row, W8.1
+the return), back up to 2.05 (the return at 2.8), then W3 0.2 up: the leftover moves with W3, the
+return stays at 2.8; every surface owned; the return's exposed end banded round its corner; no room
+outline in the entry; W3 selected: "W3 · plaster: 15 mm". No console errors.
+
+Hand test, round 3 (restart the test page, core change): as round 2, then drag W3.2 back up past
+its old line and drag W3 up: the return doesn't move; the outside plaster runs round the return's
+end. While dragging, the bands follow. In a room entry no blue room outline; on a Floor canvas a
+selected room's outline on the wall side. A leftover row (W3.3 after the down drag) still shows its
+own copied plaster: the later core unit.
+
+Hand-tested 2026-11-23 (round 3): works. Committed: form0-react `1d6920b` (2a-2), `e431aef` (2b);
+form0-core `a2f53e4` (plaster surfaces). Noted for later, not now (2026-11-23): run the surfaces'
+invariants (every surface owned, each room outline covered once) over core's corpus of floors
+from the F4 work; make surfaces part of the derive output once something besides the canvas
+needs them (lengths to the finished face, a wall front view, quantities for Reform). The D2 rule
+is display only, so the Reform derive docs (which list rules that shape the record) don't need
+it. Asked at the hand test: a selected free wall's outline covers both faces' plaster. Decided
+(2026-11-23): keep the whole body outlined (the row holds both sides, 4a-3c), drawn inside the
+body like room walls' selection; in its own entry "This side" inside too. Built after the
+commits, to hand test.
+
+### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
 mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a Floor canvas
@@ -2463,21 +2631,28 @@ clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backe
 (`a0cbf3a`); step 2 decided (above). Earlier this round: the floor below F1 to F3 and its fit,
 Save showing why (see "Next" before this one in the log).
 
-1. **Step 2** (decided, see "Step 2: decisions"): 2a the Show menu (with the floor below's switch
-   and the core pull setting), 2b the plaster band, 2c the room's lengths and a pill that doesn't
-   fit.
-2. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
-3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
+1. **A selected free wall's outline inside its body** (built 2026-11-23, to hand test, then
+   commit).
+2. **Step 2, 2c**: the room's lengths (S7 to S12) and a pill that doesn't fit (S11), with Lengths
+   in the Show menu. 2a, 2a-2 and 2b are committed.
+3. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
+4. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
-4. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
+5. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
+   over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
+   of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
+   tried and reverted 2026-11-23, made it a cap that didn't follow W3).
+6. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
+   "n issues" list inside a dialog (the open-dropdown marker).
+7. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
    line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
-5. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
-6. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
+8. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+9. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
    change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
-7. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
+10. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
    (would let the form drop its data-only comparison; changes exported records, so it needs a
    Reform impact check first).
-8. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+11. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -2723,7 +2898,7 @@ one combined core operation is the clean way.
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
 | The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns later (U6) |
 | Save with a required plan field cleared shows the validation | Done and committed |
-| Step 2 (lengths, plaster, Show menu) | Decided 2026-11-22 (S1 to S12, mockup); 2a, 2b, 2c to do |
+| Step 2 (lengths, plaster, Show menu) | 2a, 2a-2, 2b committed (2026-11-23); 2c to do |
 | Step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
