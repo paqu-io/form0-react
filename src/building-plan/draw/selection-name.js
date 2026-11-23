@@ -29,3 +29,19 @@ export function nameBeside(start, end, { size, clearance, isInside }) {
     clearance + (Math.abs(normal.x) * size.width) / 2 + (Math.abs(normal.y) * size.height) / 2;
   return { x: middle.x + normal.x * reach, y: middle.y + normal.y * reach };
 }
+
+/**
+ * A beam's name (3a, asked at the 3a-1 hand test: it stood its depth above the beam's centre,
+ * whatever its direction): beside the beam as `nameBeside` places a selected wall's, on the side
+ * its length shows while it is drawn (above a level or slanted beam, left of a plumb one), the
+ * other side when that is outside its room.
+ * @param {{ x: number, y: number }} start
+ * @param {{ x: number, y: number }} end
+ * @param {Parameters<typeof nameBeside>[2]} options
+ * @returns {{ x: number, y: number }} the name's centre
+ */
+export function nameAboveLine(start, end, options) {
+  // `nameBeside` tries the left of start→end first: up for a line running right to left.
+  const up = end.x < start.x || (end.x === start.x && end.y > start.y);
+  return up ? nameBeside(start, end, options) : nameBeside(end, start, options);
+}

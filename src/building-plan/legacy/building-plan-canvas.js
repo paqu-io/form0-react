@@ -15,7 +15,7 @@ import {
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js';
 import { drawWallFootprints } from '../draw/walls.js';
-import { nameBeside } from '../draw/selection-name.js';
+import { nameAboveLine, nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
 import { columnRatios, columnWallValues, snapColumnCentre } from '../column-placement.js';
 import { beamDragLengths, beamPreview, snapBeamEnd, snapBeamMove } from '../beam-placement.js';
@@ -4026,12 +4026,11 @@ export class BuildingPlanCanvas {
       typeof beam.index === 'number' ? beam.index + 1 : null,
       'beam'
     );
-    const labelAnchor = { x: centerPoint.x, y: centerPoint.y - lineWidth - 6 };
     beam._renderStart = startPoint;
     beam._renderEnd = endPoint;
     const widthPx = Math.max(4, metersToLength(widthMeters || DEFAULT_BEAM_WIDTH_M, this.gridSize));
 
-    return { startPoint, endPoint, centerPoint, lineWidth, widthPx, label, labelAnchor };
+    return { startPoint, endPoint, centerPoint, lineWidth, widthPx, label };
   }
 
   drawBeam(beam) {
@@ -4059,8 +4058,8 @@ export class BuildingPlanCanvas {
     ctx.restore();
 
     if ((this.shouldShowLabel('beams') || isSelected) && info.label) {
-      const labelRect = this.drawLabelBadge(info.label, info.labelAnchor, {
-        position: 'top',
+      const labelRect = this.drawLabelBadge(info.label, this.beamNameAt(beam, info, isSelected), {
+        position: 'center',
         theme: tones,
         color: isSelected ? this.planTheme.accent : null,
       });
@@ -4070,6 +4069,27 @@ export class BuildingPlanCanvas {
     } else {
       beam._labelRect = null;
     }
+  }
+
+  /**
+   * Where a beam's name goes (3a): beside it, half its width and 6 px off its side, above a level
+   * beam or left of a plumb one, the other side when that is outside its room; selected, past a
+   * gesture's lengths on that side too (S9, as a selected wall's name).
+   */
+  beamNameAt(beam, info, isSelected) {
+    const room = (this.rooms || []).find((entry) => entry.id === beam.roomId);
+    const size = this.computeLabelRect(info.label, { x: 0, y: 0 }, { position: 'center' });
+    const reach =
+      isSelected &&
+      this.nameReach &&
+      (!this.nameReach.roomId || this.nameReach.roomId === beam.roomId)
+        ? this.px(this.nameReach.pixels)
+        : 0;
+    return nameAboveLine(info.startPoint, info.endPoint, {
+      size: size || { width: 0, height: 0 },
+      clearance: info.widthPx / 2 + reach + this.px(6),
+      isInside: (point) => Boolean(room && pointInRoom(point, room)),
+    });
   }
 
   drawDraftBeam(draft) {

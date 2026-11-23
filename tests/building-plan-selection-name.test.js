@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nameBeside } from '../src/building-plan/draw/selection-name.js';
+import { nameAboveLine, nameBeside } from '../src/building-plan/draw/selection-name.js';
 import { BuildingPlanCanvas } from '../src/building-plan/legacy/building-plan-canvas.js';
 import { DEFAULT_PLAN_THEME } from '../src/building-plan/draw/plan-theme.js';
 
@@ -29,6 +29,42 @@ describe('the name of a selected wall or opening', () => {
       { size, clearance: 6, isInside: inside }
     );
     expect(centre).toEqual({ x: 26, y: 50 });
+  });
+});
+
+describe("a beam's name (3a)", () => {
+  const size = { width: 40, height: 10 };
+  const anywhere = () => true;
+
+  it('stands above a level beam, drawn either way, its half width and the gap clear', () => {
+    const [left, right] = [
+      { x: 0, y: 100 },
+      { x: 100, y: 100 },
+    ];
+    const options = { size, clearance: 7.5 + 6, isInside: anywhere };
+    expect(nameAboveLine(left, right, options)).toEqual({ x: 50, y: 81.5 });
+    expect(nameAboveLine(right, left, options)).toEqual({ x: 50, y: 81.5 });
+  });
+
+  it('left of a plumb beam; the other side when that is outside its room', () => {
+    const [top, bottom] = [
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+    ];
+    expect(nameAboveLine(bottom, top, { size, clearance: 6, isInside: anywhere })).toEqual({
+      x: 74,
+      y: 50,
+    });
+    // A level beam along the room's top face: below it.
+    const below = (point) => point.y > 0;
+    const level = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ];
+    expect(nameAboveLine(...level, { size, clearance: 6, isInside: below })).toEqual({
+      x: 50,
+      y: 11,
+    });
   });
 });
 
