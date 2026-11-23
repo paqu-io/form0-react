@@ -1668,7 +1668,9 @@ export class BuildingPlanCanvas {
       };
     const badge = this.findPinBadge(point);
     if (badge) return { type: 'pin', wallId: badge.wallId, badge };
-    const columnHit = this.findColumnHit(point);
+    // The selected beam's ends come before columns (3a): an end resting on a column's centre.
+    const selectedEnd = this.selectedBeamId && this.findBeamHandle(point, this.selectedBeamId);
+    const columnHit = selectedEnd ? null : this.findColumnHit(point);
     if (columnHit) {
       const { column } = columnHit;
       return {
@@ -1678,7 +1680,7 @@ export class BuildingPlanCanvas {
         hit: columnHit.type,
       };
     }
-    const beamHandle = this.findBeamHandle(point);
+    const beamHandle = selectedEnd || this.findBeamHandle(point);
     if (beamHandle) {
       const { beam, handle } = beamHandle;
       const start = beam._renderStart;
@@ -2053,7 +2055,9 @@ export class BuildingPlanCanvas {
         return;
       }
 
-      const columnHit = this.findColumnHit(point);
+      // The selected beam's ends come before columns (3a): an end resting on a column's centre.
+      const selectedEnd = this.selectedBeamId && this.findBeamHandle(point, this.selectedBeamId);
+      const columnHit = selectedEnd ? null : this.findColumnHit(point);
       if (columnHit) {
         this.pendingFocus = () => this.controller?.focusColumn?.(columnHit.column.id);
         if (!caps.canMoveStructural) return this.selectRoomOf(columnHit.column.roomId);
@@ -2079,7 +2083,7 @@ export class BuildingPlanCanvas {
         return;
       }
 
-      const beamHandleHit = this.findBeamHandle(point);
+      const beamHandleHit = selectedEnd || this.findBeamHandle(point);
       if (beamHandleHit) {
         this.pendingFocus = () => this.controller?.focusBeam?.(beamHandleHit.beam.id);
         if (!caps.canResize || !caps.canMoveStructural)
@@ -3294,12 +3298,13 @@ export class BuildingPlanCanvas {
     return null;
   }
 
-  findBeamHandle(point) {
+  /** A beam's end under `point` (`onlyId`: that beam's only). */
+  findBeamHandle(point, onlyId = null) {
     const tolerance = this.px(OPENING_HANDLE_RADIUS + 2);
     if (!Array.isArray(this.beams)) return null;
     for (let i = 0; i < this.beams.length; i += 1) {
       const beam = this.beams[i];
-      if (!beam) continue;
+      if (!beam || (onlyId && beam.id !== onlyId)) continue;
       if (beam.isDimmed) continue;
       const start = beam._renderStart;
       const end = beam._renderEnd;
@@ -3717,8 +3722,9 @@ export class BuildingPlanCanvas {
     this.walls.forEach((wall) => this.drawWall(wall));
     this.drawAlignmentGuides();
 
-    this.beams.forEach((beam) => this.drawBeam(beam));
+    // Beams over columns (3a): a beam is overhead, its outline shows across a column.
     this.columns.forEach((column) => this.drawColumn(column));
+    this.beams.forEach((beam) => this.drawBeam(beam));
 
     this.drawOpenings();
     drawInsertionMark(this.ctx, this);
