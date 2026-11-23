@@ -2242,3 +2242,25 @@ room's lengths), then U6, beams 3a; a drag's leftover (caps following their sour
 A selected free wall's outline (and "This side" in its own entry) clipped inside its body, so both
 faces' plaster shows: hand-tested, committed form0-react `8f50901`. A free wall's free end no longer
 takes "Other side" plaster (no owner, no plaster): core `1712721`. Next: 2c.
+
+### 2c: the room's lengths, S11 (2026-11-23, hand-tested, committed)
+
+Aligned A to E as recommended (`building-plan-ui.md`, "2c"): the sides and which row covers each
+stretch come from core; lengths follow the selected room as the canvas has it (the plan page
+always has one); the status line names the unit ("· lengths in metres", or "· zoom in to see the
+lengths"); the Lengths switch leaves a drag's lengths; nothing new for a selected free wall or
+column. Core: `sides` on each room in the canvas snapshot (`room-sides.js`, display only, previews
+included), invariant tests; core 722 of 722. Web: `draw/dimension-layout.js` (S11: past an end,
+inside the room first, else stepped out; drag lengths too), `room-lengths.js` (each side 26 px in;
+the selected element's side with its chain, the whole side at 56 px; hidden under 100 px on
+screen), the canvas (a gesture's lengths replace the room's; the selected name past the lengths,
+a drag's too), "Lengths" first in Show, the note in the status line. Web 436 of 442 (the worker
+tests); headless as described in `building-plan-ui.md`.
+
+Hand-tested 2026-11-23: works. Committed form0-core `d26df06` (room sides), form0-react `28356e2`
+(S11) and `39cec5c` (the room's lengths). Asked during the test: a height typed on a shared wall
+applies without the question a room's height asks. Not a regression: a wall's own value beats its
+rooms' defaults by design (core since `e5bf369`); the question is for inherited values that
+disagree. Decided: show that a wall is shared (how, with a quick mockup; queued); no issue for a
+wall taller than its room's height, a default that can be overridden. Next: U6, then the shared
+wall's mockup, beams 3a.

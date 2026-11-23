@@ -2636,6 +2636,102 @@ plaster there for now; a free wall's free end stays without an owner (core `plas
 the invariant excepts it). Committed: form0-core `1712721` (test in
 `building-plan-plaster-surfaces.test.js`, failing without it; core 716 of 716).
 
+### 2c: the room's lengths, S11 (2026-11-23, hand-tested, committed)
+
+Aligned (2026-11-23), all as recommended. Checked headless first: the plan page and a Floor
+canvas always have a selected room (the first at open; a click on empty ground clears it and the
+canvas selects the first again), so "none selected, none" (S8) doesn't happen.
+
+- **A**: which row covers which stretch of a side comes from core (rule: core owns the model
+  facts the canvas needs), not rebuilt in the web.
+- **B**: lengths follow the selected room as the canvas has it (they show at open on the plan
+  page and a Floor canvas, with the tinted room).
+- **C**: the status line names the unit after its hint ("· lengths in metres"), or "· zoom in to
+  see the lengths" while S12 hides them; the Show hint says "to the bare wall face".
+- **D**: the Lengths switch hides the room's lengths only; a drag's still show.
+- **E**: a selected free wall or column adds nothing (their lengths show while dragging, 3c-4).
+
+Three units, one hand test, a commit each:
+
+- *Core, room sides (`room-sides.js`, `canvas-controller.js`).* Each room in the canvas snapshot
+  has `sides`, previews included: corner to corner along its inside face (edges in line are one
+  side, 3-L2), with `normal` into the room, `pieces` (each row's stretch by face id; a cap goes to
+  the row it continues in line, of its own wall first; a side of caps alone to a row of the cap's
+  wall) and `openings` (doors and windows standing in the side's rows, by their ends along it).
+  Display only. Test `building-plan-room-sides.test.js` (6) as invariants (the sides cover the
+  outline once and turn at each; each side's pieces cover it end to end once, each a row of the
+  room; every row and every door or window on a side, each opening inside one piece) on the
+  example, W3.2's drag down (W3's cap folded in: one 2.2 m piece), the 2b hand test's leftover row
+  (a piece of its own) and down then up, a split side with two windows, a preview, a free wall, a
+  room wrapping the other's corner and an L with a free step. Core 722 of 722.
+- *Web, S11 (`draw/dimension-layout.js`, new; `draw/dimensions.js`).* `drawDimensions` draws a
+  set of lengths: lines first, pills on top. A pill fits on its line's middle with its width and
+  8 px to spare; otherwise it goes past an end on the line extended, 6 px clear (a spot inside the
+  room first, then past the chain's outer end, an end no other length in line touches), skipping
+  a spot another pill takes; else it steps 22 px further in with a leader. Pills avoid pills
+  only. Drag lengths use it too (inside: the room in scope, else any room). Test
+  `building-plan-dimension-layout.test.js` (7).
+- *Web, the room's lengths (`room-lengths.js`, new; the canvas; the Show menu; the status line).*
+  `roomLengths` from core's `sides`: each side 26 px into the room (as a drag's lengths, so they
+  stay in place when a drag replaces them, S10); the selected wall row's side, or the selected door
+  or window's (or an entry's own element), adds its chain (rows' stretches, openings, the gaps) at
+  26 px and the whole side at 56 px. `roomTooSmall`: hidden under 100 px either way on screen
+  (S12). The canvas: `planLengths` before the walls (a gesture's lengths, else the room's),
+  `lengthsTarget` (the entry's room, else the selected room; the selected element, else the
+  entry's focus), `drawLengths` at the end; the selected element's name stands past the lengths on
+  its side (`nameReach`), a drag's too (seen headless: W3.2's name lay on a drag's 2.80 pill, as on
+  HEAD). Status: `PlanStatus` takes a `noteKey` after the hint. Show: "Lengths" first, on by
+  default ("Of the selected room, to the bare wall face"; in an entry "Of this room, …"). Texts in
+  `plan-text.js`. Tests: `building-plan-room-lengths.test.js` (5, on a core plan),
+  `building-plan-show-menu.test.jsx` (Lengths first, the note, off with the dot).
+
+Web 436 of 442 (the worker tests). Headless on the test page (no console errors): the plan page
+and a Floor canvas, the first room's four sides, "Double-click an element to open it · Shift-drag
+pans · lengths in metres"; a Floor canvas selects rooms only, so sides only there. The Bedroom's
+entry: four sides; W3.2 selected: the bottom side 0.50, 0.90, 0.60 (W3 and its door) and 3.00
+(W3.2), 5.00 further in, the name past them; its wall entry the same. W3.2 dragged down: the
+drag's lengths (3.82, 2.80, 0.82, 2.20) in place of the room's, the name past them; Esc: back.
+Zoomed out to 25%: none, "· zoom in to see the lengths". Lengths off: none, no note, "some hidden"
+on Show, Esc closes the menu only. The door selected: the same chain, "D#1" past it; slid to 3 cm
+from the corner: "0.03" past the corner while dragging and at rest (no free spot inside the room,
+so past the outer end, over the wall: as the mockup). Plaster 15 mm at 249%: the band at the face,
+the lengths inside it.
+
+Hand test (restart the test page, core change): `?form=plan`, View: the Bedroom's four lengths
+on the plan page, the status line ends "· lengths in metres"; click the other room: its lengths.
+Open the Ground floor: the same on its canvas. Double-click the Bedroom: its four sides; select
+W3.2: its side's chain (0.50, 0.90, 0.60, 3.00) and 5.00 further in, the name past them; select
+the door: the same chain, "D#1" past it; select W1: one length, the name past it. Drag W3.2 down:
+the drag's lengths replace the room's, back after the drop. Slide the door close to the corner (a
+few cm): the short length goes past the corner, at rest too. Zoom out until the room is small:
+the lengths go, "zoom in to see the lengths". Show: "Lengths" first; off: gone (a drag's lengths
+still show), the dot; on again. Double-click W3.2 (its entry): the chain. With plaster set,
+zoom in: the lengths measure the bare face, the band inside them.
+
+Hand-tested 2026-11-23: works. Committed form0-core `d26df06` (room sides), form0-react `28356e2`
+(S11) and `39cec5c` (the room's lengths, Lengths in Show).
+
+### A shared wall's own height (asked during the 2c hand test, 2026-11-23)
+
+Reported: a height typed on a shared wall (W8.1 typed 5 m from the second Bedroom, the first one
+at 3 m) applies at once, while a room's height that disagrees with the other room's asks which one
+applies. Not a regression: core's rule since the shared model (`e5bf369`, 2026-11-03).
+`resolveInheritedProperty` (`inheritance.js`) asks only while a wall inherits and its rooms'
+values differ; a value typed on the wall is the wall's own and beats every default, as on a wall
+one room has. Pinned by "conflicting room defaults require one shared wall resolution" (model
+test); the question itself ends "you can still change it on the wall later". Replayed on the
+user's capture through core with the wall entry's `set_property`: applied, no question; a room set
+to 4 m while W8.1 inherits asks (about W3 first); W8.1 typed, then the room: W3 only, W8.1 keeps
+its 5 m.
+
+The gap: nothing tells that the wall is shared, so from one room's entry the edit's reach on the
+other room's side is invisible. Decided (option 1): keep the rule and show that the wall is
+shared. No issue for a wall taller than its room's height: that height is a default and can be
+overridden. How to show it is to settle with a quick mockup (queued). Candidates: a line under the
+wall entry's title naming the other room; a note on the fields both rooms share (height,
+thickness, material) and not on a side's own (plaster, finish); the other room outlined on the
+canvas while the wall is selected.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2643,12 +2739,13 @@ mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a
 (`665230e`), N2 every level a real dialog (`9c056f5`), N3 the header path (`84b53aa`); after
 their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms only (`52c9165`),
 clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
-(`a0cbf3a`); step 2 decided (above). Earlier this round: the floor below F1 to F3 and its fit,
-Save showing why (see "Next" before this one in the log).
+(`a0cbf3a`); step 2 decided (above) and built: 2a, 2a-2, 2b, 2c (core `d26df06`, web `28356e2`,
+`39cec5c`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
+before this one in the log).
 
-1. **Step 2, 2c**: the room's lengths (S7 to S12) and a pill that doesn't fit (S11), with Lengths
-   in the Show menu. 2a, 2a-2 and 2b are committed.
-2. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
+1. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
+2. **A shared wall shown as shared** (option 1, see "A shared wall's own height" above): a quick
+   mockup of how, then the build.
 3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
 4. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
@@ -2901,7 +2998,7 @@ one combined core operation is the clean way.
 | 3c-2b: a room being drawn snaps; the full chain along a side with several openings | Done and committed |
 | Undo and Redo off in an entry with nothing of its own to undo (form0-react, form0-core) | Done and committed |
 | 3c-3: lengths for room walls and corners | Done and committed |
-| A length shorter than its pill: the pill outside its segment | Decided (S11): past the end, else stepped out; with 2c |
+| A length shorter than its pill: the pill outside its segment | Done and committed with 2c (S11) |
 | A pushed wall: the neighbour's indent kept (option 2 decided) | Done (core `bcd0861`: entry return, scope plans, the canvas's preview scope; hand-tested 2026-11-22) |
 | A new entry's Undo removed its own row (core: the opening edit) | Done and committed |
 | The stray cap piece (core footprints); a floor's number in its title | Done and committed |
@@ -2911,7 +3008,8 @@ one combined core operation is the clean way.
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
 | The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns later (U6) |
 | Save with a required plan field cleared shows the validation | Done and committed |
-| Step 2 (lengths, plaster, Show menu) | 2a, 2a-2, 2b committed (2026-11-23); 2c to do |
+| Step 2 (lengths, plaster, Show menu) | Done and committed (2a, 2a-2, 2b, 2c; 2026-11-23) |
+| A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Queued, a mockup first |
 | Step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
