@@ -28,6 +28,8 @@ export const planVars = {
   symbolFaint: createVar(),
   labelFaint: createVar(),
   below: createVar(),
+  plaster: createVar(),
+  plasterFaint: createVar(),
 };
 
 export const planTokens = style({
@@ -52,5 +54,8 @@ export const planTokens = style({
     [planVars.labelFaint]: mix(foreground, 30, section),
     // The floor below's outlines (F2): quiet, between the muted text and the ground.
     [planVars.below]: mix(derived.muted, 70, background),
+    // Plaster on wall faces (step 2): sand over the room, faint outside the room in scope.
+    [planVars.plaster]: mix('#b8894a', 55, background),
+    [planVars.plasterFaint]: mix(planVars.plaster, 35, section),
   },
 });

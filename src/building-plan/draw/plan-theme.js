@@ -24,6 +24,8 @@ export const DEFAULT_PLAN_THEME = Object.freeze({
   symbolFaint: '#c0c1c4',
   labelFaint: '#b2b4b7',
   below: '#8b929d', // the floor below's outlines, under this floor (F2)
+  plaster: '#d8be9b', // plaster on wall faces, a sand band (step 2)
+  plasterFaint: '#ece3d8', // the same outside the room in scope
 });
 
 /**

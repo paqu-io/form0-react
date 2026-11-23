@@ -36,6 +36,8 @@ import {
   splitPointLengths,
 } from '../content-lengths.js';
 import { drawFloorBelow } from '../draw/floor-below.js';
+import { clipOutside, drawPlasterBands, plasterBands } from '../draw/plaster-bands.js';
+import { plasterLabel } from '../plaster-values.js';
 import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
@@ -1408,6 +1410,8 @@ export class BuildingPlanCanvas {
       this.floors = snapshot.floors || [];
       // The floor directly below, drawn under this one (F2).
       this.floorBelow = snapshot.floorBelow || null;
+      // Every visible wall face with its plaster (step 2, core), previews included.
+      this.plasterSurfaces = snapshot.plasterSurfaces || [];
       this.activeFloorIndex =
         typeof snapshot.activeFloorIndex === 'number' ? snapshot.activeFloorIndex : 0;
       this.hasFloors = this.floors.length > 0;
@@ -3749,11 +3753,28 @@ export class BuildingPlanCanvas {
       focus: this.focus,
       plan: this,
     });
+    this.selectedOutline = null;
     this.rooms.forEach((room) => this.drawRoom(room));
     // Over the room surfaces, under this floor's walls (F2).
     drawFloorBelow(this.ctx, this.shownFloorBelow(), { theme: this.planTheme, pixel: this.px(1) });
+    // Plaster bands (step 2), over the room surfaces, under the walls.
+    if (this.layers?.plaster !== false)
+      drawPlasterBands(
+        this.ctx,
+        plasterBands(this.plasterSurfaces, { unitsPerMetre: this.gridSize, pixel: this.px(1) }),
+        {
+          theme: this.planTheme,
+          levelOf: (surface) => {
+            const footprint = (this.wallFootprints || []).find(
+              (entry) => entry.id === surface.wallId
+            );
+            return footprint ? this.levelOf('footprints', footprint) : undefined;
+          },
+        }
+      );
 
     this.drawPhysicalWalls();
+    this.drawSelectedOutline();
     this.walls.forEach((wall) => this.drawWall(wall));
     this.drawAlignmentGuides();
 
@@ -4305,6 +4326,23 @@ export class BuildingPlanCanvas {
     });
   }
 
+  /** The selected room's outline (from `drawRoom`), on the walls' side of its faces. */
+  drawSelectedOutline() {
+    const vertices = this.selectedOutline;
+    if (!vertices?.length) return;
+    const ctx = this.ctx;
+    ctx.save();
+    clipOutside(ctx, vertices);
+    ctx.beginPath();
+    ctx.moveTo(vertices[0].x, vertices[0].y);
+    for (const point of vertices.slice(1)) ctx.lineTo(point.x, point.y);
+    ctx.closePath();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = this.planTheme.accent;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawRoom(room) {
     const ctx = this.ctx;
     const rect = room.previewRect || room.rect;
@@ -4344,9 +4382,22 @@ export class BuildingPlanCanvas {
     }
 
     ctx.globalAlpha = 1;
-    ctx.lineWidth = isSelected ? 3 : 1.5;
-    ctx.strokeStyle = isSelected ? theme.accent : levelTheme(theme, level).wall;
-    ctx.stroke();
+    // The selected room's outline is drawn over the walls, on their side (2b hand test); not in a
+    // room's or an element's entry, where the room is the scope (2b round 2).
+    if (isSelected && !this.controller?.scope?.roomId)
+      this.selectedOutline = vertices?.length
+        ? vertices
+        : [
+            { x: rect.x, y: rect.y },
+            { x: rect.x + rect.width, y: rect.y },
+            { x: rect.x + rect.width, y: rect.y + rect.height },
+            { x: rect.x, y: rect.y + rect.height },
+          ];
+    else {
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = levelTheme(theme, level).wall;
+      ctx.stroke();
+    }
 
     if (isSelected && !this.controller?.getCornerPlacement) {
       const handleSize = this.px(ROOM_HANDLE_SIZE);
@@ -4618,6 +4669,13 @@ export class BuildingPlanCanvas {
         : line;
     ctx.strokeStyle = heavy ? this.planTheme.accent : tones.wall;
     ctx.lineWidth = heavy ? (freeWall ? this.px(4) : 6) : 3;
+    // A selected room wall's stroke keeps to the wall's side of its face, as wide as before, so
+    // the plaster in the room shows (2b hand test).
+    const wallRoom = heavy && !freeWall && (this.rooms || []).find((r) => r.id === wall.roomId);
+    if (wallRoom?.vertices?.length && !wallRoom.previewRect) {
+      clipOutside(ctx, wallRoom.vertices);
+      ctx.lineWidth = 12;
+    }
     ctx.beginPath();
     ctx.moveTo(extent[0].x, extent[0].y);
     for (let i = 1; i < extent.length; i += 1) {
@@ -4653,17 +4711,25 @@ export class BuildingPlanCanvas {
         'wall'
       );
       if (labelText && lineStart && lineEnd && named) {
+        // With its plaster while the plaster shows (step 2, S6).
+        const plaster =
+          this.layers?.plaster !== false &&
+          plasterLabel(wall.plaster, {
+            freeWall,
+            presentation: this.presentation,
+          });
+        const nameText = plaster ? `${labelText} · ${plaster}` : labelText;
         // A free wall's name beside its body (off "This side" in its own entry).
         wall._labelRect = freeWall
           ? this.drawSelectedName(
-              labelText,
+              nameText,
               start,
               end,
               wall.roomId,
               ((wall.thickness ?? 0) * this.gridSize) / 2,
               sideMiddle
             )
-          : this.drawSelectedName(labelText, lineStart, lineEnd, wall.roomId, 0, null);
+          : this.drawSelectedName(nameText, lineStart, lineEnd, wall.roomId, 0, null);
       } else if (labelText && lineStart && lineEnd) {
         const anchor = {
           x: (lineStart.x + lineEnd.x) / 2,

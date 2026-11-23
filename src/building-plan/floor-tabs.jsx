@@ -40,6 +40,12 @@ export function FloorTabs({
   const layerItems = onLayer
     ? [
         {
+          key: 'plaster',
+          label: planText('plan.show.plaster'),
+          hint: planText('plan.show.plasterHint'),
+          on: layers.plaster !== false,
+        },
+        {
           key: 'floorBelow',
           label: planText('plan.show.floorBelow'),
           hint: below

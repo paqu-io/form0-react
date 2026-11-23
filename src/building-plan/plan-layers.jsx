@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
  * What the plan canvases show (step 2): the Show menu's switches, all on by default (S2).
  * `floorBelow` also turns the floor below's pulls on and off (S4).
  */
-export const DEFAULT_PLAN_LAYERS = Object.freeze({ floorBelow: true });
+export const DEFAULT_PLAN_LAYERS = Object.freeze({ plaster: true, floorBelow: true });
 
 const PlanLayersContext = createContext(null);
 

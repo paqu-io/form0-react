@@ -12,8 +12,7 @@ import {
 
 // Step 2, 2a (2026-11-22): "Show" in the floor row; its Floor below switch hides the floor below
 // and its name and stops its pulls, one setting for every plan canvas of the form (S1 to S4).
-// 2a-2 (2026-11-23): Floor below listed disabled where there is none; Show disabled when no
-// switch applies.
+// 2b (2026-11-23): its Plaster switch; Floor below listed disabled where there is none.
 
 const controllers = vi.hoisted(() => []);
 vi.mock('form0-core', async (importOriginal) => {
@@ -112,10 +111,20 @@ it('the Floor below switch hides the floor below and its pulls on every plan can
     />
   );
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  // The ground floor has nothing below it: Floor below is listed but doesn't apply, and with no
-  // switch that applies Show stays, disabled (2a hand test).
+  // The ground floor has nothing below it: Floor below is listed, disabled (2a hand test); Plaster
+  // switches (2b), and turned off it puts the dot on Show.
   await screen.findByRole('tab', { name: 'Ground Floor' });
-  expect(showButton(screen).disabled).toBe(true);
+  fireEvent.click(showButton(screen));
+  const none = screen.getByRole('checkbox', { name: /Floor below/ });
+  expect(none.disabled).toBe(true);
+  expect(none.closest('label').textContent).toContain('No floor below this one');
+  const plaster = screen.getByRole('checkbox', { name: /Plaster/ });
+  expect(plaster.checked).toBe(true);
+  expect(showButton(screen).getAttribute('aria-label')).not.toMatch(/some hidden/);
+  fireEvent.click(plaster);
+  await waitFor(() => expect(showButton(screen).getAttribute('aria-label')).toMatch(/some hidden/));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Plaster/ }));
+  fireEvent.keyDown(document, { key: 'Escape' });
   fireEvent.click(screen.getByRole('tab', { name: /Upper floor/ }));
   expect(await screen.findByText('Ground Floor below')).toBeTruthy();
   fireEvent.click(showButton(screen));
