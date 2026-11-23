@@ -2238,3 +2238,7 @@ form0-core `a2f53e4` (plaster surfaces). Noted for later: the surfaces' invarian
 corpus; surfaces in the derive output. Asked: a selected free wall's outline covered its plaster;
 decided to keep the whole body outlined, inside the body (built, to hand test). Next: 2c (the
 room's lengths), then U6, beams 3a; a drag's leftover (caps following their source's drag) later.
+
+A selected free wall's outline (and "This side" in its own entry) clipped inside its body, so both
+faces' plaster shows: hand-tested, committed form0-react `8f50901`. A free wall's free end no longer
+takes "Other side" plaster (no owner, no plaster): core `1712721`. Next: 2c.

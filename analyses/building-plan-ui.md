@@ -2621,6 +2621,21 @@ it. Asked at the hand test: a selected free wall's outline covers both faces' pl
 body like room walls' selection; in its own entry "This side" inside too. Built after the
 commits, to hand test.
 
+*A selected free wall inside its body (2026-11-23, hand-tested, committed).* `clipInside`
+(`draw/plaster-bands.js`): the selected free wall's outline (`drawFreeWallOutline`, 8, so 4 shows)
+and, in its own entry, its "This side" line (`px(8)`) are clipped to the wall's body, so the
+plaster on both faces shows. `building-plan-selection-name.test.js` updated (the two widths).
+Headless on the test page: a free wall across the Bedroom, selected: blue inside the body on both
+faces, the sand outside; "W9 · plaster: 15 mm (this side) · 15 mm (other side)"; its entry the same
+with "This side" under its face. Hand test (reload; web only): select a free wall, then open its
+entry: the blue stays inside the body, both faces' plaster visible.
+
+Hand-tested 2026-11-23: works. Committed: form0-react `8f50901`. Asked at the same test: a free
+wall's free end showed "Other side" plaster (D2 continued its neighbouring face). Decided: no
+plaster there for now; a free wall's free end stays without an owner (core `plaster-surfaces.js`;
+the invariant excepts it). Committed: form0-core `1712721` (test in
+`building-plan-plaster-surfaces.test.js`, failing without it; core 716 of 716).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2631,28 +2646,26 @@ clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backe
 (`a0cbf3a`); step 2 decided (above). Earlier this round: the floor below F1 to F3 and its fit,
 Save showing why (see "Next" before this one in the log).
 
-1. **A selected free wall's outline inside its body** (built 2026-11-23, to hand test, then
-   commit).
-2. **Step 2, 2c**: the room's lengths (S7 to S12) and a pill that doesn't fit (S11), with Lengths
+1. **Step 2, 2c**: the room's lengths (S7 to S12) and a pill that doesn't fit (S11), with Lengths
    in the Show menu. 2a, 2a-2 and 2b are committed.
-3. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
-4. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
+2. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
+3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
-5. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
+4. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
    tried and reverted 2026-11-23, made it a cap that didn't follow W3).
-6. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
+5. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
    "n issues" list inside a dialog (the open-dropdown marker).
-7. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
+6. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
    line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
-8. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
-9. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
+7. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+8. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
    change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
-10. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
+9. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
    (would let the form drop its data-only comparison; changes exported records, so it needs a
    Reform impact check first).
-11. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+10. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
