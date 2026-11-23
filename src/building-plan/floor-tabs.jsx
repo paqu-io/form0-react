@@ -36,18 +36,20 @@ export function FloorTabs({
   onLayer = null,
 }) {
   const belowShown = Boolean(below) && layers.floorBelow !== false;
-  // The Show menu lists the layers this floor has (step 2, S2).
-  const layerItems =
-    onLayer && below
-      ? [
-          {
-            key: 'floorBelow',
-            label: planText('plan.show.floorBelow'),
-            hint: planText('plan.show.floorBelowHint', { floor: below }),
-            on: layers.floorBelow !== false,
-          },
-        ]
-      : [];
+  // The Show menu's layers (step 2, S2); one this floor doesn't have is listed disabled.
+  const layerItems = onLayer
+    ? [
+        {
+          key: 'floorBelow',
+          label: planText('plan.show.floorBelow'),
+          hint: below
+            ? planText('plan.show.floorBelowHint', { floor: below })
+            : planText('plan.show.floorBelowNone'),
+          on: layers.floorBelow !== false,
+          disabled: !below,
+        },
+      ]
+    : [];
   const show = layerItems.length > 0;
   return (
     <div className={styles.row}>

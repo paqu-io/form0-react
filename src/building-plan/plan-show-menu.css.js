@@ -22,7 +22,8 @@ export const button = style({
   whiteSpace: 'nowrap',
   cursor: 'pointer',
   selectors: {
-    '&:hover': { background: derived.fillHover },
+    '&:hover:not(:disabled)': { background: derived.fillHover },
+    '&:disabled': { color: derived.disabledFg, cursor: 'not-allowed' },
     '&[aria-expanded="true"]': {
       background: derived.primarySoft,
       borderColor: vars.color.primary,
@@ -32,13 +33,13 @@ export const button = style({
   },
 });
 
-// A layer is off: a dot on the button's corner.
+// A layer is off: a dot on the button's corner (larger after the 2a hand test).
 export const dot = style({
   position: 'absolute',
-  top: '-4px',
-  right: '-4px',
-  width: '9px',
-  height: '9px',
+  top: '-5px',
+  right: '-5px',
+  width: '12px',
+  height: '12px',
   boxSizing: 'border-box',
   borderRadius: '50%',
   border: `2px solid ${vars.color.background}`,
@@ -72,8 +73,9 @@ export const item = style({
   fontFamily: vars.fontFamily.base,
   cursor: 'pointer',
   selectors: {
-    '&:hover': { background: derived.fillHover },
+    '&:hover:not([data-disabled])': { background: derived.fillHover },
     '&:focus-within': { outline: control.focusOutline, outlineOffset: '-2px' },
+    '&[data-disabled]': { cursor: 'not-allowed', color: derived.disabledFg },
   },
 });
 

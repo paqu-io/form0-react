@@ -6,9 +6,10 @@ import * as styles from './plan-show-menu.css.js';
 
 /**
  * "Show" in the floor row (step 2, S1): the plan's read-only layers as switches. A dot on the
- * button while one is off. Nothing shows without items.
+ * button while one that applies here is off. A switch that doesn't apply here (no floor below)
+ * is listed disabled; with none that applies the button stays, disabled (2a hand test).
  * @param {{
- *   items: Array<{ key: string, label: string, hint?: string, on: boolean }>,
+ *   items: Array<{ key: string, label: string, hint?: string, on: boolean, disabled?: boolean }>,
  *   onToggle: (key: string, on: boolean) => void,
  * }} props
  */
@@ -38,7 +39,8 @@ export function PlanShowMenu({ items, onToggle }) {
   }, [open]);
 
   if (!items.length) return null;
-  const someOff = items.some((item) => !item.on);
+  const someOff = items.some((item) => !item.on && !item.disabled);
+  const usable = items.some((item) => !item.disabled);
   const title = planText('plan.show.title');
   return (
     <div ref={rootRef} className={styles.root} {...(open ? { [OPEN_ATTRIBUTE]: '' } : {})}>
@@ -49,6 +51,7 @@ export function PlanShowMenu({ items, onToggle }) {
         aria-controls={`${id}-menu`}
         aria-label={someOff ? `${title} · ${planText('plan.show.someOff')}` : title}
         data-tooltip={title}
+        disabled={!usable}
         onClick={() => setOpen((value) => !value)}
       >
         <Layers size={15} strokeWidth={2} aria-hidden="true" />
@@ -56,14 +59,19 @@ export function PlanShowMenu({ items, onToggle }) {
         <ChevronDown size={14} strokeWidth={2.25} aria-hidden="true" />
         {someOff && <span className={styles.dot} aria-hidden="true" />}
       </button>
-      {open && (
+      {open && usable && (
         <div id={`${id}-menu`} className={styles.menu} role="group" aria-label={title}>
           {items.map((item) => (
-            <label key={item.key} className={styles.item}>
+            <label
+              key={item.key}
+              className={styles.item}
+              data-disabled={item.disabled || undefined}
+            >
               <input
                 type="checkbox"
                 className={styles.check}
                 checked={item.on}
+                disabled={item.disabled}
                 onChange={(event) => onToggle(item.key, event.target.checked)}
               />
               <span className={styles.text}>

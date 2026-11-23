@@ -12,6 +12,8 @@ import {
 
 // Step 2, 2a (2026-11-22): "Show" in the floor row; its Floor below switch hides the floor below
 // and its name and stops its pulls, one setting for every plan canvas of the form (S1 to S4).
+// 2a-2 (2026-11-23): Floor below listed disabled where there is none; Show disabled when no
+// switch applies.
 
 const controllers = vi.hoisted(() => []);
 vi.mock('form0-core', async (importOriginal) => {
@@ -110,9 +112,10 @@ it('the Floor below switch hides the floor below and its pulls on every plan can
     />
   );
   fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
-  // The ground floor has nothing below it: no layer to switch, no Show.
+  // The ground floor has nothing below it: Floor below is listed but doesn't apply, and with no
+  // switch that applies Show stays, disabled (2a hand test).
   await screen.findByRole('tab', { name: 'Ground Floor' });
-  expect(showButton(screen)).toBeNull();
+  expect(showButton(screen).disabled).toBe(true);
   fireEvent.click(screen.getByRole('tab', { name: /Upper floor/ }));
   expect(await screen.findByText('Ground Floor below')).toBeTruthy();
   fireEvent.click(showButton(screen));

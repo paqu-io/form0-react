@@ -18,6 +18,7 @@ const TEXT = {
   'plan.show.someOff': 'some hidden',
   'plan.show.floorBelow': 'Floor below',
   'plan.show.floorBelowHint': '{floor}, and the pulls to it',
+  'plan.show.floorBelowNone': 'No floor below this one',
   'plan.history.undo': 'Undo',
   'plan.history.redo': 'Redo',
   'plan.status.select': 'Drag a corner to reshape · {alt} moves it freely · {shift}-drag pans',
