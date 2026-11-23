@@ -120,19 +120,24 @@ export function drawColumnSymbol(ctx, rect, { theme, selected, pixel }) {
  * @param {{x:number,y:number}} start
  * @param {{x:number,y:number}} end
  * @param {number} width canvas units
- * @param {{ theme: Record<string,string>, selected?: boolean, pixel: number }} options
+ * @param {{ theme: Record<string,string>, selected?: boolean, pixel: number,
+ *   outline?: Array<{ x: number, y: number }> | null }} options `outline`: core's (its ends cut)
  */
-export function drawBeamSymbol(ctx, start, end, width, { theme, selected, pixel }) {
+export function drawBeamSymbol(ctx, start, end, width, { theme, selected, pixel, outline = null }) {
   const length = Math.hypot(end.x - start.x, end.y - start.y);
   if (!length) return;
   const n = { x: -(end.y - start.y) / length, y: (end.x - start.x) / length };
   const half = width / 2;
-  const corners = [
-    offset(start, n, half),
-    offset(end, n, half),
-    offset(end, n, -half),
-    offset(start, n, -half),
-  ];
+  // Core's outline when given (3a-3: its ends cut along the faces they stop on), else a band.
+  const corners =
+    outline?.length > 2
+      ? outline
+      : [
+          offset(start, n, half),
+          offset(end, n, half),
+          offset(end, n, -half),
+          offset(start, n, -half),
+        ];
   ctx.save();
   ctx.strokeStyle = selected ? theme.accent : theme.symbol;
   ctx.lineWidth = (selected ? 2 : 1.25) * pixel;

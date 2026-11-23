@@ -18,7 +18,13 @@ import { drawWallFootprints } from '../draw/walls.js';
 import { nameAboveLine, nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
 import { columnRatios, columnWallValues, snapColumnCentre } from '../column-placement.js';
-import { beamDragLengths, beamPreview, snapBeamEnd, snapBeamMove } from '../beam-placement.js';
+import {
+  beamDragLengths,
+  beamOutlineAt,
+  beamPreview,
+  snapBeamEnd,
+  snapBeamMove,
+} from '../beam-placement.js';
 import { markFromClick } from '../insertion-mark.js';
 import { columnStretch, keepInStretch } from '../opening-clear.js';
 import { addPlanElement } from '../add-elements.js';
@@ -4029,8 +4035,15 @@ export class BuildingPlanCanvas {
     beam._renderStart = startPoint;
     beam._renderEnd = endPoint;
     const widthPx = Math.max(4, metersToLength(widthMeters || DEFAULT_BEAM_WIDTH_M, this.gridSize));
+    // Its ends cut along the faces they stop on (3a-3, `beam-placement.js`).
+    const outline = beamOutlineAt(this, beam, {
+      start: startPoint,
+      end: endPoint,
+      widthPx,
+      moving: Boolean(preview),
+    });
 
-    return { startPoint, endPoint, centerPoint, lineWidth, widthPx, label };
+    return { startPoint, endPoint, centerPoint, lineWidth, widthPx, outline, label };
   }
 
   drawBeam(beam) {
@@ -4045,6 +4058,7 @@ export class BuildingPlanCanvas {
       theme: tones,
       selected: isSelected,
       pixel: 1 / this.zoomLevel,
+      outline: info.outline,
     });
 
     if (isSelected && this.showsHandles('canResize', 'canMoveStructural'))
@@ -4097,17 +4111,20 @@ export class BuildingPlanCanvas {
     // As the beam will be drawn (3a): its outline at its width, which stays in the room (not a
     // line as wide as its depth).
     const { startPoint, endPoint } = draft.preview;
-    drawBeamSymbol(
-      this.ctx,
-      startPoint,
-      endPoint,
-      metersToLength(DEFAULT_BEAM_WIDTH_M, this.gridSize),
-      {
-        theme: this.planTheme,
-        selected: false,
-        pixel: 1 / this.zoomLevel,
-      }
-    );
+    const widthPx = metersToLength(DEFAULT_BEAM_WIDTH_M, this.gridSize);
+    drawBeamSymbol(this.ctx, startPoint, endPoint, widthPx, {
+      theme: this.planTheme,
+      selected: false,
+      pixel: 1 / this.zoomLevel,
+      // Its ends cut along the faces they stop on, as it will be drawn (3a-3).
+      outline: beamOutlineAt(this, null, {
+        start: startPoint,
+        end: endPoint,
+        widthPx,
+        moving: true,
+        roomId: draft.roomId,
+      }),
+    });
   }
   renderFloorTabs() {
     if (this.onFloorTabs) {

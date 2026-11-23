@@ -8,6 +8,7 @@
  * before: each end held in the room's box and put on a wall face within reach.
  */
 
+import * as core from 'form0-core';
 import { freeWallClearances, runLength } from './content-lengths.js';
 
 /** Closer than this to a wall's face (a millimetre), a beam's end counts as on it. */
@@ -164,4 +165,30 @@ export function beamDragLengths(plan, { minLength, pixel, newWidth }) {
     return freeWallClearances(room?.vertices, points, halfWidth, { minLength });
   }
   return [runLength(points, { halfWidth, pixel, minLength })].filter(Boolean);
+}
+
+/**
+ * A beam's outline as the canvas draws it (3a-3, B6), its ends cut along the faces they stop on:
+ * core's from the snapshot at rest; through core's `buildingPlanBeamOutline` while the beam is
+ * dragged or drawn; null (a plain band) while its room moves, or with an older core.
+ * @param {object} plan the legacy canvas
+ * @param {{ roomId: string, outline?: object[] } | null} beam null for a beam being drawn
+ * @param {{ start: object, end: object, widthPx: number, moving: boolean, roomId?: string }} at
+ *   where it is drawn now; `moving`: dragged or drawn (not as core last gave it)
+ * @returns {Array<{ x: number, y: number }> | null}
+ */
+export function beamOutlineAt(plan, beam, { start, end, widthPx, moving, roomId = beam?.roomId }) {
+  const room = (plan.rooms || []).find((entry) => entry.id === roomId);
+  if (!room || room.previewRect) return null;
+  if (!moving) return beam?.outline?.length > 2 ? beam.outline : null;
+  if (typeof core.buildingPlanBeamOutline !== 'function' || !(room.vertices?.length > 2))
+    return null;
+  const outline = core.buildingPlanBeamOutline(
+    start,
+    end,
+    widthPx / 2,
+    room.vertices,
+    plan.gridSize * 1e-4
+  );
+  return outline.length > 2 ? outline : null;
 }

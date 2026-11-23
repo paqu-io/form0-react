@@ -211,9 +211,10 @@ export function refusalOutlines(plan, issues) {
   for (const beam of plan.beams || []) {
     if (!targets.beams.has(beam.id)) continue;
     const info = plan.getBeamRenderInfo?.(beam);
+    // As wide as the beam, 4 px clear of it (its depth before, asked at the 3a-1 hand test).
     if (info?.startPoint && info.endPoint)
       shapes.push({
-        points: grow(band(info.startPoint, info.endPoint, (info.lineWidth || 0) / 2), pad),
+        points: grow(band(info.startPoint, info.endPoint, (info.widthPx || 0) / 2 + pad), pad),
         closed: true,
       });
   }
