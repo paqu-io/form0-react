@@ -3011,6 +3011,56 @@ wall dragged in past a beam's end is refused with core's generic "Keep structura
 their room…" (as checked before 3a): 3a-3 names the beam, 3a-4 lets a beam touching the wall
 follow it.
 
+**3a-3 and 3a-4: a beam stays in its room, and follows what it touches (2026-11-23,
+hand-tested, committed).** One hand test, as planned (3a-3 alone would only have named the
+refusal raised at the 3a-1 hand test; 3a-4 lets a beam touching the dragged wall follow it).
+
+- *3a-3, core (`beam-body.js`, `beam-contents.js`, new; `model.js`, `derived-edit.js`,
+  `canvas-controller.js`, the exports).* `beamOutline` (a band of the beam's width, its ends cut
+  along the faces they stop on, `cutBand` and `outlineCuts`) and `beamFits` (the free wall rule).
+  `beamPlacementIssues`: an edit taking a beam out of its room is refused, named ("Beam B#1 would
+  leave its room.", `beam_outside_room`, subject `beams`). Chosen while building: a beam already
+  out before the edit doesn't refuse it, since records drawn before 3a may have half a beam over a
+  wall and would refuse every edit on the floor (columns don't have this exception). Beams leave
+  the shared model check, as columns at 4a-1: such a record still reads; today's engine has no beam
+  rule. The snapshot's beams carry `outline`; `buildingPlanBeamOutline` is exported for outlines
+  while a beam moves. Test `building-plan-beam-contents.test.js` (4: outlines as invariants on
+  accepted plans, face to face, slanted onto two faces, flush along a face, in a corner, and after
+  a wall moved; drawn out or half over a wall; a wall moved in past a beam clear of it, a width
+  typed out; an old record out of its room reads and refuses no unrelated edit), failing with
+  HEAD's files except the last (a guard).
+- *3a-3, web (`beam-placement.js`, `draw/symbols.js`, `draw/refusal-marks.js`, the canvas).*
+  `beamOutlineAt`: the snapshot's outline at rest, core's function while a beam is drawn or
+  dragged, a plain band while its room moves or with an older core; `drawBeamSymbol` takes it. A
+  refused beam's mark is as wide as the beam, 4 px clear (it used its depth). Test
+  `building-plan-beam-outline.test.js` (2), the mark failing with HEAD's `refusal-marks.js`.
+- *3a-4, core (`derive/beam-contacts.js`, `derive/follow-beams.js`, new; `follow-attached.js`,
+  `attached-contacts.js` exports, `derived-edit.js`, `beam-contents.js`).* A beam's contacts, read
+  before the edit: an end on a room face, a free wall's side or centreline, another beam's side or
+  centreline; lying along a face, a free wall's side or another beam's side. `followAttached` runs
+  beam followers with the others (4b's `place`; another beam's lines as an anchor), so a beam on a
+  beam that follows follows too; a beam lying along a face keeps that side at its width now.
+  `beam_too_short` ("Beam B#1 would be too short."). A beam resting on a column doesn't follow it.
+  Test `building-plan-beam-follow.test.js` (6), failing with HEAD's `follow-attached.js` and
+  `derived-edit.js` except the last (what doesn't follow, a guard). One 3a-3 case changed with it:
+  a beam widened to 20 cm 10 cm off a face lies flush and then keeps that side, so the refused
+  width is now tried from 18 cm. Core 748 of 748, web 454 of 460 (the worker tests).
+
+Headless on the test page (no console errors): a slanted beam onto two faces, its outline cut
+along both; W2 dragged out 50 cm, the beam ending on it followed to 5.50, one touching nothing
+stayed; dragged in past that one: stopped at 4.50, "Beam B#3 would leave its room.", the mark at
+the beam's width, the drop refused; in to 4.70: applied, the first beam followed.
+
+Hand test: face to face, W2 out and in (follows; past its other end, too short); a beam touching
+nothing, W2 in past it (refused, named, the mark at its width); slanted onto two faces (cut ends;
+W2 out keeps its height; the corner keeps its fraction); flush along the top wall (moves with it;
+300 mm wide grows into the room); a beam on that beam's side (follows); on a free wall (follows
+it); on a column flush with W2 (the column follows, the beam doesn't); `engine=current`: nothing
+follows.
+
+Hand-tested 2026-11-23: works. Committed form0-core `13dd96d` (3a-3), `8c1e312` (3a-4),
+form0-react `d9d51af` (3a-3). 3a done; next, wall beams (open question 1, a core design round).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3024,10 +3074,8 @@ web `b005511`, mobile `6166420`); a drawn free wall stacking on the wall below (
 Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
 before this one in the log).
 
-1. **Beams**: 3a today's room beams (see "3a: room beams"): 3a-1 snapping, 3a-2 lengths and the
-   hand test's four points done; next 3a-3 (rule 1 named, the outline, the refusal mark at the
-   beam's width) and 3a-4 (following). Then wall beams, a core design round (open question 1; Reform checked, no
-   blocker).
+1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
+   proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
 2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
@@ -3264,7 +3312,7 @@ one combined core operation is the clean way.
 | 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
 | Derived engine: 4b (attached contents follow their wall: free walls and columns; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | Done and committed |
 | After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
-| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | 3a: snapping (3a-1), lengths (3a-2), columns under beams, beams over columns, 15 by 30 cm, the name beside it done and committed; rule 1 named (3a-3) and following (3a-4) to do; then wall beams as a core design round (Reform checked 2026-11-22, no blocker) |
+| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | 3a done and committed (2026-11-23): snapping, lengths, columns under beams, beams over columns, 15 by 30 cm, the name beside it, rule 1 named with core's outline, following; next wall beams as a core design round (Reform checked 2026-11-22, no blocker) |
 | Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
 | Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | Gone with N2 (every level a real dialog); committed |
 | Column placement field and canvas command | Step 6 proposal |

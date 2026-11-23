@@ -2321,3 +2321,13 @@ over columns, the selected beam's ends taking a press before a column; a new bea
 a beam's name beside it (web). Core 738 of 738, web 452 of 458 (the worker tests). Checked on the
 test page. Hand-tested: works. Committed form0-core `2e34e49`, form0-react `2adb54e`, `f2cba7e`,
 `5991306`. Next: 3a-3 (rule 1 named, the outline, the refusal mark at the beam's width), 3a-4.
+
+### 3a-3 and 3a-4: beams stay in their room and follow their walls (2026-11-23, committed)
+
+Core: a beam's outline (ends cut along the faces) and rule 1, named ("Beam B#1 would leave its
+room."; a beam already out doesn't refuse an edit); beams out of the shared model check; the
+outline in the snapshot. A beam follows a face, a free wall or another beam it touches, lying
+along a face it moves with it; too short, refused, named. Web: beams drawn with core's outline,
+a refused beam marked at its width. Core 748 of 748, web 454 of 460 (the worker tests). Checked on
+the test page. Hand-tested: works. Committed form0-core `13dd96d`, `8c1e312`, form0-react
+`d9d51af`. 3a done; next, wall beams (a core design round).
