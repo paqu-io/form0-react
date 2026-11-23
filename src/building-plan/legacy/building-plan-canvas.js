@@ -18,6 +18,7 @@ import { drawWallFootprints } from '../draw/walls.js';
 import { nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
 import { columnRatios, columnWallValues, snapColumnCentre } from '../column-placement.js';
+import { beamDragLengths, beamPreview, snapBeamEnd, snapBeamMove } from '../beam-placement.js';
 import { markFromClick } from '../insertion-mark.js';
 import { columnStretch, keepInStretch } from '../opening-clear.js';
 import { addPlanElement } from '../add-elements.js';
@@ -228,16 +229,6 @@ function lengthToMeters(length, gridSize = DEFAULT_GRID_SIZE) {
 function metersToLength(meters, gridSize = DEFAULT_GRID_SIZE) {
   if (!Number.isFinite(meters)) return 0;
   return meters * gridSize;
-}
-
-function getRoomRatios(point, rect) {
-  if (!rect || rect.width === 0 || rect.height === 0) {
-    return { u: 0, v: 0 };
-  }
-  return {
-    u: clamp((point.x - rect.x) / rect.width, 0, 1),
-    v: clamp((point.y - rect.y) / rect.height, 0, 1),
-  };
 }
 
 function clampPointToRoom(point, rect) {
@@ -1963,13 +1954,14 @@ export class BuildingPlanCanvas {
       if (!roomRect) {
         return;
       }
-      const startPoint = clampPointToRoom(point, roomRect);
+      // Its first end pulled too (3a, `beam-placement.js`).
+      const startPoint = snapBeamEnd(this, point, { roomId: room.id, width: DEFAULT_BEAM_WIDTH_M });
       this.beamDraft = {
         roomId: room.id,
         start: startPoint,
         current: startPoint,
+        preview: beamPreview(this, room.id, startPoint, startPoint),
       };
-      this.updateBeamDraft(startPoint);
       this.render();
       return;
     }
@@ -2668,52 +2660,43 @@ export class BuildingPlanCanvas {
       const state = this.beamDragState;
       const beam = this.beams.find((b) => b.id === state.beamId);
       if (!beam) return;
-      const roomRect = this.getRoomRect(state.roomId || beam.roomId);
+      const roomId = state.roomId || beam.roomId;
+      const roomRect = this.getRoomRect(roomId);
       if (!roomRect) return;
+      // A click that wobbles a little is still a click: it doesn't move the beam.
+      if (!state.moved && distance(point, state.pointerStart) <= this.px(3)) return;
 
-      let startPoint;
-      let endPoint;
-
+      // Through core's beam snapping (3a, `beam-placement.js`).
+      const at = (u, v) => ({
+        x: roomRect.x + u * roomRect.width,
+        y: roomRect.y + v * roomRect.height,
+      });
+      const originalStart =
+        state.original.startPoint || at(state.original.startU, state.original.startV);
+      const originalEnd = state.original.endPoint || at(state.original.endU, state.original.endV);
+      const beamOptions = {
+        roomId,
+        beamId: beam.id,
+        width: state.original.width || DEFAULT_BEAM_WIDTH_M,
+      };
+      let startPoint = originalStart;
+      let endPoint = originalEnd;
       if (state.mode === 'move') {
-        const originalStartPoint = state.original.startPoint || {
-          x: roomRect.x + state.original.startU * roomRect.width,
-          y: roomRect.y + state.original.startV * roomRect.height,
-        };
-        const originalEndPoint = state.original.endPoint || {
-          x: roomRect.x + state.original.endU * roomRect.width,
-          y: roomRect.y + state.original.endV * roomRect.height,
-        };
-        const deltaX = point.x - state.pointerStart.x;
-        const deltaY = point.y - state.pointerStart.y;
-        startPoint = {
-          x: originalStartPoint.x + deltaX,
-          y: originalStartPoint.y + deltaY,
-        };
-        endPoint = {
-          x: originalEndPoint.x + deltaX,
-          y: originalEndPoint.y + deltaY,
-        };
-        startPoint = clampPointToRoom(startPoint, roomRect);
-        endPoint = clampPointToRoom(endPoint, roomRect);
+        const delta = { x: point.x - state.pointerStart.x, y: point.y - state.pointerStart.y };
+        [startPoint, endPoint] = snapBeamMove(
+          this,
+          [originalStart, originalEnd].map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })),
+          { ...beamOptions, originalPoints: [originalStart, originalEnd] }
+        );
       } else if (state.mode === 'resize-start') {
-        const originalEndPoint = {
-          x: roomRect.x + state.original.endU * roomRect.width,
-          y: roomRect.y + state.original.endV * roomRect.height,
-        };
-        startPoint = clampPointToRoom(point, roomRect);
-        endPoint = originalEndPoint;
+        startPoint = snapBeamEnd(this, point, { ...beamOptions, from: originalEnd });
       } else if (state.mode === 'resize-end') {
-        const originalStartPoint = {
-          x: roomRect.x + state.original.startU * roomRect.width,
-          y: roomRect.y + state.original.startV * roomRect.height,
-        };
-        startPoint = originalStartPoint;
-        endPoint = clampPointToRoom(point, roomRect);
+        endPoint = snapBeamEnd(this, point, { ...beamOptions, from: originalStart });
       } else {
         return;
       }
 
-      const preview = this.computeBeamPreview(beam.roomId, startPoint, endPoint);
+      const preview = beamPreview(this, roomId, startPoint, endPoint);
       if (preview) {
         beam.preview = preview;
         if (!state.moved) {
@@ -3284,61 +3267,13 @@ export class BuildingPlanCanvas {
     return room.previewRect || room.rect || null;
   }
 
-  computeBeamPreview(roomId, startPoint, endPoint) {
-    const roomRect = this.getRoomRect(roomId);
-    if (!roomRect) return null;
-
-    let start = clampPointToRoom(startPoint, roomRect);
-    let end = clampPointToRoom(endPoint, roomRect);
-
-    const startSnap = this.snapPointToWall(start, roomId);
-    if (startSnap) {
-      start = startSnap.point;
-    }
-    const endSnap = this.snapPointToWall(end, roomId);
-    if (endSnap) {
-      end = endSnap.point;
-    }
-
-    const startRatios = getRoomRatios(start, roomRect);
-    const endRatios = getRoomRatios(end, roomRect);
-
-    let wallSegmentIndex = -1;
-    let startRatio = 0;
-    let endRatio = 1;
-
-    if (
-      startSnap &&
-      endSnap &&
-      startSnap.wallId === endSnap.wallId &&
-      startSnap.segmentIndex === endSnap.segmentIndex
-    ) {
-      wallSegmentIndex = startSnap.segmentIndex;
-      startRatio = startSnap.ratio;
-      endRatio = endSnap.ratio;
-    }
-
-    return {
-      startU: startRatios.u,
-      startV: startRatios.v,
-      endU: endRatios.u,
-      endV: endRatios.v,
-      wallSegmentIndex,
-      startRatio,
-      endRatio,
-      startPoint: start,
-      endPoint: end,
-    };
-  }
-
   updateBeamDraft(point) {
     if (!this.beamDraft) return;
-    const roomRect = this.getRoomRect(this.beamDraft.roomId);
-    if (!roomRect) return;
-    const current = clampPointToRoom(point, roomRect);
-    const preview = this.computeBeamPreview(this.beamDraft.roomId, this.beamDraft.start, current);
+    const { roomId, start } = this.beamDraft;
+    if (!this.getRoomRect(roomId)) return;
+    const current = snapBeamEnd(this, point, { roomId, from: start, width: DEFAULT_BEAM_WIDTH_M });
     this.beamDraft.current = current;
-    this.beamDraft.preview = preview;
+    this.beamDraft.preview = beamPreview(this, roomId, start, current);
   }
 
   findColumnHit(point) {
@@ -4133,17 +4068,20 @@ export class BuildingPlanCanvas {
 
   drawDraftBeam(draft) {
     if (!draft || !draft.preview) return;
-    const preview = draft.preview;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = this.planTheme.symbol;
-    ctx.lineWidth = Math.max(4, metersToLength(DEFAULT_BEAM_HEIGHT_M, this.gridSize));
-    ctx.beginPath();
-    ctx.moveTo(preview.startPoint.x, preview.startPoint.y);
-    ctx.lineTo(preview.endPoint.x, preview.endPoint.y);
-    ctx.stroke();
-    ctx.restore();
+    // As the beam will be drawn (3a): its outline at its width, which stays in the room (not a
+    // line as wide as its depth).
+    const { startPoint, endPoint } = draft.preview;
+    drawBeamSymbol(
+      this.ctx,
+      startPoint,
+      endPoint,
+      metersToLength(DEFAULT_BEAM_WIDTH_M, this.gridSize),
+      {
+        theme: this.planTheme,
+        selected: false,
+        pixel: 1 / this.zoomLevel,
+      }
+    );
   }
   renderFloorTabs() {
     if (this.onFloorTabs) {
