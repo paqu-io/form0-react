@@ -2732,6 +2732,76 @@ wall entry's title naming the other room; a note on the fields both rooms share 
 thickness, material) and not on a side's own (plaster, finish); the other room outlined on the
 canvas while the wall is selected.
 
+### U6: free walls and columns pulled to the floor below (2026-11-23, hand-tested, committed)
+
+Aligned (2026-11-23), all as recommended: (1) a free wall's end goes onto a corner or a face
+below; a moved free wall's side goes flush with a face below running with it (stacked on the wall
+below); its ends line up with corners below. (2) A column: corners below rank with corners, faces
+below as contacts, its centre over a column below's centre with the corners (its centre only,
+whatever their sizes). (3) A ring on what a pull took below. (4) Placing at the room's centre
+("select, then add") unchanged. (5) Core, one hand test.
+
+Found headless and decided (option 1): the column's ring sat at its centre, under its 11 px grip
+(never seen); the stacked wall's under its 14 px grip below about 160%. A pull that places the
+whole element (a column over a column below, a wall stacked on a wall below) rings its grip, 4 px
+outside it; the others keep the 5 px ring on the point they took.
+
+- *Core (`floor-below-pulls.js`, new; `free-wall-snapping.js`, `column-snapping.js`,
+  `interaction.js`).* `withFloorBelow` adds to the drag paths' targets the bands' corners (where
+  the element may stand: inside the room, for a column its region), their edges and, to line up
+  with, every corner below; for a column, the centres of the columns below. Each is marked
+  `below` and comes after this floor's, so a tie goes to this floor. A face below running with a
+  moved free wall's run takes its side, not its centreline's end (else a wall over a wall below
+  lands half off it): `flushWithFacesBelow`. An end held inside the room drops a ring it took
+  outside. Rings: `belowRing(point, grip)`, the grip named for a whole-element pull; `getGuides`
+  passes `grip` on. Also from this: a column placed with the column tool (at the pointer, through
+  the drag's pulls) and a free wall's split point (pulled as an end) pull to the floor below;
+  columns line up with corners below too (as rooms, F3). `free-wall-snapping.js` past 300 lines:
+  its outline helpers moved unchanged to `free-wall-outline.js`. Test
+  `building-plan-floor-below-contents.test.js` (4: an end onto a corner, a face, lined up, Alt and
+  the switch off; a wall stacked, not its centreline on a face; a column over the column below; a
+  column's side flush, a corner into a corner), each failing on HEAD's snapping; the stacked test
+  fails without the run rule. Core 726 of 726.
+- *Web (`draw/guides.js`, new; the canvas).* The guides' drawing moved out of the legacy canvas
+  (`drawGuides`); `ringRadius`: the named grip's radius and 4 px, else 5 px. `WALL_GRIP_RADIUS`
+  moved to `draw/handles.js`. Test `building-plan-guides.test.js` (2). Web 438 of 444 (the
+  worker tests).
+
+Headless on the test page (`?state=state-u6-check.json`: the example's ground floor with a 0.4 m
+column in the Bedroom, an upper floor at 3 m with one room over all of it, free wall W5 and column
+C#1 in it; no console errors): W5 dragged up onto the shared wall below stacks on it (its
+centreline on the band's middle, both sides flush), a ring around its grip; dropped there. C#1
+dragged near the column below lands centre on centre, a ring around its grip.
+
+Asked at the hand test (capture `state-2026-11-23T17-05-35-472Z.json`): W5 stacks on the wall
+below except near the W3.2 / W8 junction, where it went above or below. Replayed in core on the
+capture: zoomed out (60%), a corner of the band took the wall's centreline end (corners ranked
+first), so the wall lay on the band's face, half off it; the door's jamb the same; zoomed in
+(150%), the junction's face crossing the wall took its end alone (one pull at a time), losing the
+stack. Fixed in core: a moved free wall takes the floor below as one move (`belowMove`): across
+onto the wall below (stacked, or a side flush), then along to a face crossing an end (within that
+face), together; corners below no longer take a moved wall (where a running face meets a crossing
+one is a corner); nearest wins against this floor's pulls by how far each moves the wall, a tie to
+this floor. On the capture, both zooms: stacked at 3.10, its end on the junction's face (3.00) or
+the jamb (3.60). Test: "a wall stacked near a junction below …" (zoom 3 and 7.5, the grip ring at
+its new middle, a small ring where its end meets the face). Core 727 of 727. Headless on the
+capture: W5 dragged near the junction stacks with its end on the junction's face, dropped there.
+The small ring at its end lies under the end's handle (as a room corner's on a corner below, F3).
+Drawing an end is unchanged: its centreline goes onto a corner or face below.
+
+Hand test (restart the test page, core change): `?form=plan&state=state-u6-check.json` (in the
+harness's `captured`), View, the upper floor, double-click its room. Drag W5 onto the shared wall
+below: it stacks, a ring around its grip; nearer a face only: its side flush. Drag an end of W5
+near a corner below and along a face below: a small ring there. Drag W5 along the wall below to the junction and to the door's jamb: it keeps the stack, its end
+on the face there. Drag C#1 over the column below:
+centre on centre, a ring around its grip; a side near a wall band below: flush, a small ring.
+Alt: no pull. Show, Floor below off: no pull to it.
+
+Hand-tested 2026-11-23 after the junction fix: works. Committed form0-core `08b7240` (the pulls,
+the one move, `free-wall-outline.js`), form0-react `21d2a4a` (rings around the grip,
+`draw/guides.js`). Queued from it: a drawn free wall stacking on the wall below (its ends pulled
+to the walls below's midlines).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2740,12 +2810,22 @@ mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a
 their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms only (`52c9165`),
 clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
 (`a0cbf3a`); step 2 decided (above) and built: 2a, 2a-2, 2b, 2c (core `d26df06`, web `28356e2`,
-`39cec5c`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
+`39cec5c`); U6 (core `08b7240`, web `21d2a4a`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
 before this one in the log).
 
-1. **The floor below, U6**: free walls and columns pulled to it (a column over the column below).
-2. **A shared wall shown as shared** (option 1, see "A shared wall's own height" above): a quick
-   mockup of how, then the build.
+1. **A shared wall shown as shared** (option 1, see "A shared wall's own height" above): a quick
+   mockup of how, then the build. Input (2026-11-23): every whole-wall field, system or the form's
+   own (a custom wall field is a side's unless the form puts it on the whole wall with
+   `building_plan: { scope: 'physical_wall' }`, as the example's "Construction material"); no new
+   space: an icon in the "Shared physical wall" tag those fields already carry
+   (`buildingPlanFieldTag`, `form-renderer.jsx`), the explanation on hover. For the mockup: the
+   icon only when another room shares the wall, naming it; on tap and keyboard focus too (touch,
+   step 5); a neutral icon, or a warning only when the wall's own value differs from what the other
+   room would give it (would need that value from core). Recommendations agreed (2026-11-23).
+2. **A drawn free wall stacking on the wall below** (core, from U6's hand test): drawing an end
+   puts its centreline onto a corner or face below, so a wall drawn over a wall below needs a move
+   to stack. Wanted: ends also pulled to the walls below's midlines (and where midlines meet), so
+   it stacks as drawn; then the second end slides along the midline.
 3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
 4. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
@@ -3006,10 +3086,11 @@ one combined core operation is the clean way.
 | 3c-4: lengths for free walls and columns | Done and committed |
 | A split point holds its wall's line; a free wall's return can be moved (core) | Done and committed |
 | Step 3 | Done (2026-11-22); see "Step 3: wrap-up" |
-| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns later (U6) |
+| The floor below (F1 a new floor's entry shows its floor, F2 drawn, F3 pulls, an empty floor fitted to it) | Done and committed, with the room tool's start preview; free walls and columns (U6) too |
+| A drawn free wall stacking on the wall below (midlines below for its ends) | Queued (from U6's hand test) |
 | Save with a required plan field cleared shows the validation | Done and committed |
 | Step 2 (lengths, plaster, Show menu) | Done and committed (2a, 2a-2, 2b, 2c; 2026-11-23) |
-| A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Queued, a mockup first |
+| A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Next: a mockup first (an icon in the "Shared physical wall" tag) |
 | Step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 

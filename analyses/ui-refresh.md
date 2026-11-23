@@ -2264,3 +2264,20 @@ rooms' defaults by design (core since `e5bf369`); the question is for inherited 
 disagree. Decided: show that a wall is shared (how, with a quick mockup; queued); no issue for a
 wall taller than its room's height, a default that can be overridden. Next: U6, then the shared
 wall's mockup, beams 3a.
+
+### U6: free walls and columns pulled to the floor below (2026-11-23, hand-tested, committed)
+
+Aligned 1 to 5 as recommended (`building-plan-ui.md`, "U6"). Core: the floor below's wall corners
+and faces join a free wall's and a column's pulls while drawn or dragged (`floor-below-pulls.js`),
+a moved free wall stacks on a wall below (its side flush with a face running with it, not its
+centreline on it), a column's centre goes over a column below's; ties go to this floor; the floor
+below's switch stops them. Found headless: rings under the move grips; decided option 1, a
+whole-element pull rings its grip (web `draw/guides.js`, moved out of the legacy canvas). Core 726
+of 726, web 438 of 444 (the worker tests). Item 2 (a shared wall shown as shared): the icon in the
+"Shared physical wall" tag, recommendations agreed; queued after U6. At the hand test: near the W3.2 / W8 junction
+the stack broke (a corner below took the wall's centreline end; zoomed in, the crossing face its
+end alone). Fixed in core: the floor below moves a free wall in one move, across onto the wall
+below and along to a face crossing its end; corners below no longer take a moved wall. Core 727 of
+727; checked on the capture. Hand-tested: works. Committed form0-core `08b7240`, form0-react
+`21d2a4a`. Queued: a drawn free wall stacking on the wall below (midlines below). Next: item 2,
+a shared wall shown as shared (mockup first).
