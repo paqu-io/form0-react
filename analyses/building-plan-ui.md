@@ -2875,6 +2875,108 @@ wall (a ring there), draw along the shared wall: it stays on its middle. Start n
 a wall below, away from corners: it starts on the middle. Set W5's thickness to 0.1 m, move it onto
 the shared wall below: centred near the middle, flush near a face.
 
+### 3a: room beams (2026-11-23)
+
+**Today (checked headless on the test page, derived engine, the Bedroom's entry).** Drawing
+(Beam: press, drag, release) held each end in the room's bounding box, then put it on a room
+face only within about 6 px (the code named 14 px; the wall finder stops at 6): no level or plumb
+lock, no 1 cm step, no pulls to corners, columns, free walls or beams, no guides, no lengths. A
+beam drawn or moved past a wall stopped with its centreline on the face, half its width over the
+wall; moved, each end was held in the box on its own. A wall moved out left a beam's end behind
+(no following); moved back past it, the drag stopped there with core's generic "Keep structural
+elements inside their room with positive, finite dimensions." (`invalid_room_element`, the
+shared model check, end points only) and the drop was refused. `beam_wall_segment_index` was -1
+even face to face.
+
+**Decided (2026-11-23), as recommended; B9 set aside.**
+
+- *B1, rule 1*: a beam's centreline and body stay inside its room's outline, touching allowed,
+  its ends cut along the face they stop on (the free wall rule, `freeWallFits`); beams over a wall
+  are the wall beams round.
+- *B2, snapping*: the free wall pulls as they are (the level and plumb lock, corners and ends,
+  lines, lining up, the 1 cm step; a whole beam keeps its direction, pulled by its ends; never out
+  of the room; Alt: the step and the room). Targets: the room's corners and faces, free walls'
+  corners, ends, sides and centrelines, columns' corners, sides and centres, other beams' corners,
+  ends, sides and centrelines; lining up with corners and ends anywhere on the floor. Pushed
+  against a parallel face, a beam stops flush. Free walls and columns don't snap to beams (revised
+  at the hand test, below); nothing of the floor below.
+- *B3, following (option b)*: a beam's end on a room face, a free wall (side or centreline) or
+  another beam (side or centreline) follows it, as 4b's D1 to D4 (transitively, as free walls); a
+  beam lying flush along a face moves with it, and keeps that side when its width is typed larger;
+  too short or turned back, refused ("Beam B#1 would be too short."). A beam resting on a column
+  snaps to it but doesn't follow it (a point anchor; free walls don't follow columns either).
+- *B4, the refusal named*: as columns at 4a-1, beams leave the shared model check and the
+  derived engine checks them (`beam_outside_room`, "Beam B#1 would leave its room."); today's
+  engine then has no beam rule (it retires at 4f-2).
+- *B5, placing*: press, drag, release, as today; a drawing starts in a room; its first end is
+  pulled too; at least 5 cm.
+- *B6, drawing*: core gives each beam's outline (ends cut) in the snapshot, display only, checked
+  by invariants; the web draws it dashed.
+- *B7, lengths while dragging*: a beam's length beside it while drawn or an end dragged; its
+  clearances while moved (3c-4's helpers).
+- *B8, stored values*: only the start and end u/v, `beam_length` and the legacy wall fields of
+  beams drawn, moved or followed change, with their meaning: both ends on one segment of a room
+  wall's face give it and their ratios, else -1, 0, 1 (the web computes them, as
+  `columnWallValues`; core doesn't rewrite them when a beam follows). No new fields.
+- *B9 (set aside)*: moving the content snapping wrappers out of core's `interaction.js` (503
+  lines).
+
+Units: hand test A, 3a-1 (snapping) and 3a-2 (lengths); hand test B, 3a-3 (rule 1 named, the
+outline in the snapshot) and 3a-4 (following).
+
+**3a-1: snapping (hand-tested 2026-11-23, committed).**
+
+- *Core (`beam-targets.js`, new; `interaction.js`, `free-wall-hold.js`,
+  `free-wall-snapping.js`).* `beamTargets`: the free wall targets plus free walls' centrelines,
+  columns' centres and the other beams in the room (corners, ends, sides, centrelines), other
+  beams' ends to line up with; the beam itself left out. `snapBeamEnd` and `snapBeamTranslation`
+  share the free wall path (`pull`). Found while testing: a 25 cm beam pushed against a parallel
+  face stopped 5 mm off it, since the hold puts the centreline back on the 1 cm step and 12.5 cm
+  isn't on it; that gap would also break "lying along a face" for B3. `holdFreeWallMove` takes
+  `flush` (beams only): no step back across what stopped it, the side settled exactly on the face
+  (`sideOntoFace`). Free walls are unchanged; they have the same gap when their half thickness is
+  off the step (a 15 cm wall) or a face is off the centimetre grid. Test
+  `building-plan-beam-snapping.test.js` (5: targets; drawing, past the room, whole centimetres;
+  onto a column's centre, a beam's side and centreline, a free wall's centreline; a whole beam
+  onto a face, flush when pushed into one, not laid flat when only near; Alt), failing with HEAD's
+  `interaction.js`, and its flush case with HEAD's hold. Core 737 of 737.
+- *Web (`beam-placement.js`, new; the legacy canvas).* Drawing, end drags and moves go through
+  core (with an older core, as before); `beamPreview` (the ends as fractions of the room's box),
+  `beamWallValues` (the legacy fields). `computeBeamPreview` moved out of the canvas. A click that
+  wobbles under 3 px doesn't move a beam. The beam being drawn shows its outline at its width (it
+  was a line as wide as its 40 cm depth). Test `building-plan-beam-placement.test.js` (4), failing
+  with HEAD's canvas.
+
+**3a-2: lengths while drawing and dragging (hand-tested 2026-11-23, committed).**
+`beamDragLengths` (in `beam-placement.js`, from the canvas's `contentDragLengths`): drawn, or an
+end dragged, its length beside it, half its width and 12 px clear; moved whole, its clearances
+along its own axes to the room's inside face, none for a side on a wall. Test
+`building-plan-beam-lengths.test.js` (2). Web 448 of 454 (the worker tests).
+
+Headless on the test page (no console errors): drawn from 5 cm off one face to 6 cm off the other,
+6 cm off level: locked level, 0 to 5.00, a guide along it, 5.00 while drawing; near nothing:
+whole centimetres (1.50 to 3.31); past the wall: stopped on the face; pushed into the top face:
+flush (centreline 0.125), its clearance along (1.53); an end dragged near a column: onto its
+centre (4.00, 2.00).
+
+Hand test: in the Bedroom's entry, draw with Beam near both faces slightly off level (locked, on
+the faces, its length, a 25 cm outline); in the middle (whole centimetres); past the wall (stops
+on the face); onto a column's centre, a beam's side or middle, a free wall's side or middle.
+Select: drag an end (the same pulls, its length); the whole beam (an end onto a face or corner,
+lining up; pushed into a parallel wall, flush; its clearances). Alt: no pulls, whole centimetres,
+inside. A click doesn't move a beam.
+
+Hand-tested 2026-11-23: works. Committed form0-core `fd51278`, form0-react `90cb160` (3a-1) and
+`d5b8c8b` (3a-2). Raised at the hand test:
+
+1. A column moved doesn't snap to a beam's ends or its centreline (B2 had columns not snapping
+   to beams; revised).
+2. A beam is drawn under columns (beams are drawn first, so a column's fill hides the beam's
+   dashed outline). Not decided before.
+3. A new beam's size: 15 cm instead of 25 cm.
+4. A beam's name stands far from it, most of all on a level beam: it sits its depth (40 cm) and
+   6 px above its centre, whatever its direction.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2888,8 +2990,10 @@ web `b005511`, mobile `6166420`); a drawn free wall stacking on the wall below (
 Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
 before this one in the log).
 
-1. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
-   core design round (open question 1; Reform checked, no blocker).
+1. **Beams**: 3a today's room beams (see "3a: room beams"): 3a-1 snapping and 3a-2 lengths
+   done; next the hand test's four points, then 3a-3 (rule 1 named, the outline) and 3a-4
+   (following). Then wall beams, a core design round (open question 1; Reform checked, no
+   blocker).
 2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
@@ -3126,7 +3230,7 @@ one combined core operation is the clean way.
 | 4a-3b (ends cut along faces, the body kept inside the room), 4a-3c (highlighted as a whole, "This side" in its own entry), 4a-4 (bending a free wall at its split point; its return centred on it) | Done and committed |
 | Derived engine: 4b (attached contents follow their wall: free walls and columns; a column keeps its placement when its wall's thickness or its size changes; a column in a corner follows a corner move) | Done and committed |
 | After the 4b hand test: the L junction (inner corners built, a selected wall drawn up to its room's corner, corner tolerance 0.1 mm); a face snapped into line carries what touches it; "Save state" keeps the open plan, the test page opens a capture with `?state=` | Done and committed |
-| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | To do: 3a room beams, then wall beams as a core design round (Reform checked 2026-11-22, no blocker) |
+| Beams: snapping, rule 1, following their wall (left out of 4b; open question 1, wall beams or room beams) | 3a: snapping (3a-1) and lengths (3a-2) done and committed; the hand test's points, rule 1 named (3a-3) and following (3a-4) to do; then wall beams as a core design round (Reform checked 2026-11-22, no blocker) |
 | Caps in the record (a face's row up to the room's corner; tried and dropped: the station at the other room's corner drives face drags) | Deferred; would need the face commands reworked |
 | Console `invalid_routing_context` on `room_walls` (found 2026-11-21: an entry opened from a canvas skips levels, so its change is sent by a row that doesn't own the list; the edit applies) | Gone with N2 (every level a real dialog); committed |
 | Column placement field and canvas command | Step 6 proposal |

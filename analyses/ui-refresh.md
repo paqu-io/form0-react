@@ -2301,3 +2301,15 @@ a drawn end snaps to them, so a wall drawn over a wall below stands on its middl
 wall may go centred on it as well as flush. Core 732 of 732, web 442 of 448 (the worker tests).
 Checked on the test page. Hand-tested: works. Committed form0-core `f872899`. Next:
 beams 3a, in a new session.
+
+### 3a-1 and 3a-2: room beams snap, their lengths (2026-11-23, hand-tested, committed)
+
+Today's beams checked headless first (`building-plan-ui.md`, "3a: room beams"); B1 to B8 decided
+as recommended, B3 option b, B9 set aside. 3a-1: core's `beam-targets.js` and `snapBeamEnd` /
+`snapBeamTranslation` (the free wall pulls with a beam's targets; flush against a face it is
+pushed into, `flush` on the hold, beams only); the web's `beam-placement.js` draws, drags and
+moves beams through them, with the legacy wall fields. 3a-2: a beam's length while drawn or an
+end dragged, its clearances while moved. Core 737 of 737, web 448 of 454 (the worker tests).
+Checked on the test page. Hand-tested: works. Committed form0-core `fd51278`, form0-react
+`90cb160`, `d5b8c8b`. Raised: columns to snap to beams' ends and centrelines, beams drawn over
+columns, a 15 cm default, the beam's name nearer it. Next: those, then 3a-3 and 3a-4.
