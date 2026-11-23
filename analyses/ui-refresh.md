@@ -2313,3 +2313,11 @@ end dragged, its clearances while moved. Core 737 of 737, web 448 of 454 (the wo
 Checked on the test page. Hand-tested: works. Committed form0-core `fd51278`, form0-react
 `90cb160`, `d5b8c8b`. Raised: columns to snap to beams' ends and centrelines, beams drawn over
 columns, a 15 cm default, the beam's name nearer it. Next: those, then 3a-3 and 3a-4.
+
+### After the 3a-1 hand test: columns under beams, beams over columns (2026-11-23, committed)
+
+Columns snap under a beam's end and onto a level or plumb beam's centreline (core); beams drawn
+over columns, the selected beam's ends taking a press before a column; a new beam 15 by 30 cm;
+a beam's name beside it (web). Core 738 of 738, web 452 of 458 (the worker tests). Checked on the
+test page. Hand-tested: works. Committed form0-core `2e34e49`, form0-react `2adb54e`, `f2cba7e`,
+`5991306`. Next: 3a-3 (rule 1 named, the outline, the refusal mark at the beam's width), 3a-4.
