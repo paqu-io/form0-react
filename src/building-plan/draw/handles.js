@@ -10,6 +10,8 @@
 export const HANDLE_RADIUS = 5;
 /** A column's four-way grip: 22 px. */
 export const COLUMN_GRIP_RADIUS = 11;
+/** The grip on a selected wall's middle: 28 px (moved from the legacy canvas, 2026-11-23). */
+export const WALL_GRIP_RADIUS = 14;
 /** A pinned wall's badge: 16 px. */
 export const PIN_BADGE_RADIUS = 8;
 

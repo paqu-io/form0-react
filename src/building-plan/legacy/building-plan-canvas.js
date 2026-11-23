@@ -38,11 +38,13 @@ import {
   splitPointLengths,
 } from '../content-lengths.js';
 import { drawFloorBelow } from '../draw/floor-below.js';
+import { drawGuides } from '../draw/guides.js';
 import { clipInside, clipOutside, drawPlasterBands, plasterBands } from '../draw/plaster-bands.js';
 import { plasterLabel } from '../plaster-values.js';
 import {
   COLUMN_GRIP_RADIUS,
   PIN_BADGE_RADIUS,
+  WALL_GRIP_RADIUS,
   drawCapsule,
   drawGrip,
   drawHandle,
@@ -94,8 +96,6 @@ const OPENING_HIT_TOLERANCE = 12;
 const OPENING_HANDLE_RADIUS = 10;
 // An opening is hit anywhere on its band through the wall, or this close to it.
 const OPENING_REACH = 6;
-// The grip on a selected wall's middle.
-const WALL_GRIP_RADIUS = 14;
 // How far into the room a dragged opening's chain of lengths stands off its side (3-L3).
 const OPENING_CHAIN_OFFSET = 26;
 const DOOR_LINE_WIDTH = 6;
@@ -1175,27 +1175,11 @@ export class BuildingPlanCanvas {
   }
 
   drawAlignmentGuides() {
-    const guides = this.controller?.interaction?.getGuides() || [];
-    if (!guides.length) return;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.strokeStyle = this.planTheme.accent;
-    ctx.lineWidth = 1.5 / this.zoomLevel;
-    ctx.setLineDash([5 / this.zoomLevel, 4 / this.zoomLevel]);
-    for (const guide of guides) {
-      ctx.beginPath();
-      ctx.moveTo(guide.from.x, guide.from.y);
-      ctx.lineTo(guide.to.x, guide.to.y);
-      ctx.stroke();
-    }
-    // A corner of the floor below that a pull took gets a small ring (F3, U7).
-    ctx.setLineDash([]);
-    for (const guide of guides.filter((entry) => entry.below)) {
-      ctx.beginPath();
-      ctx.arc(guide.from.x, guide.from.y, 5 / this.zoomLevel, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
+    // Lines from what a pull lined up with; rings on what it took below (`draw/guides.js`).
+    drawGuides(this.ctx, this.controller?.interaction?.getGuides() || [], {
+      theme: this.planTheme,
+      pixel: 1 / this.zoomLevel,
+    });
   }
 
   stopEdgePan() {
