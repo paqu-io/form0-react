@@ -124,8 +124,8 @@ const DEFAULT_WINDOW_HEIGHT = 1.2;
 const DEFAULT_WINDOW_SILL_HEIGHT = 0.9;
 const DEFAULT_COLUMN_WIDTH = 0.3;
 const DEFAULT_COLUMN_HEIGHT = 3;
-const DEFAULT_BEAM_WIDTH = 0.25;
-const DEFAULT_BEAM_HEIGHT = 0.4;
+const DEFAULT_BEAM_WIDTH = 0.15;
+const DEFAULT_BEAM_HEIGHT = 0.3;
 
 function roundCoordinate(value, decimals = ROUND_DECIMALS) {
   if (!Number.isFinite(value)) {
