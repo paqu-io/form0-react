@@ -36,7 +36,7 @@ import {
   splitPointLengths,
 } from '../content-lengths.js';
 import { drawFloorBelow } from '../draw/floor-below.js';
-import { clipOutside, drawPlasterBands, plasterBands } from '../draw/plaster-bands.js';
+import { clipInside, clipOutside, drawPlasterBands, plasterBands } from '../draw/plaster-bands.js';
 import { plasterLabel } from '../plaster-values.js';
 import {
   COLUMN_GRIP_RADIUS,
@@ -3912,8 +3912,10 @@ export class BuildingPlanCanvas {
     if (!corners.length) return null;
     const ctx = this.ctx;
     ctx.save();
+    // Inside the body, so both faces' plaster shows (2b hand test).
+    clipInside(ctx, footprint.polygons);
     ctx.strokeStyle = this.planTheme.accent;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 8;
     ctx.lineJoin = 'round';
     ctx.beginPath();
     for (const polygon of footprint.polygons) {
@@ -4675,6 +4677,13 @@ export class BuildingPlanCanvas {
     if (wallRoom?.vertices?.length && !wallRoom.previewRect) {
       clipOutside(ctx, wallRoom.vertices);
       ctx.lineWidth = 12;
+    }
+    // In its own entry a free wall's "This side" line keeps inside its body too.
+    const body =
+      heavy && freeWall && (this.wallFootprints || []).find((f) => f.id === wall.physicalWallId);
+    if (body?.polygons?.length) {
+      clipInside(ctx, body.polygons);
+      ctx.lineWidth = this.px(8);
     }
     ctx.beginPath();
     ctx.moveTo(extent[0].x, extent[0].y);

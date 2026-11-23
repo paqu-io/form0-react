@@ -82,6 +82,23 @@ export function clipOutside(ctx, vertices) {
 }
 
 /**
+ * Clips what follows to inside a wall's body: a selected free wall's outline, drawn twice as
+ * wide, then lies inside it and leaves the plaster on both its faces showing (2b hand test).
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Point[][]} polygons the body (its footprint's polygons)
+ */
+export function clipInside(ctx, polygons) {
+  ctx.beginPath();
+  for (const polygon of polygons || []) {
+    if (!polygon.length) continue;
+    ctx.moveTo(polygon[0].x, polygon[0].y);
+    for (const point of polygon.slice(1)) ctx.lineTo(point.x, point.y);
+    ctx.closePath();
+  }
+  ctx.clip();
+}
+
+/**
  * Draws the bands, faded with their wall's scope level (1e, V1).
  * @param {CanvasRenderingContext2D} ctx
  * @param {Array<{ surface: PlasterSurface, polygon: Point[] }>} bands

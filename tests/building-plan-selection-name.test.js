@@ -160,16 +160,18 @@ function freeWallCanvas(extra = {}) {
 
 it('shows a selected free wall as a whole, named beside its body (4a-3c)', () => {
   const { widths, texts } = freeWallCanvas();
-  // Its body outlined as heavy as a selected room wall's line, then the end handles; no side line.
-  expect(widths[0]).toBe(6);
-  expect(widths).not.toContain(4);
+  // Its body outlined (8, clipped inside the body so both faces' plaster shows, 2b), then the
+  // end handles; no side line.
+  expect(widths[0]).toBe(8);
+  expect(widths.filter((width) => width === 8)).toHaveLength(1);
   expect(texts.map((entry) => entry.text)).toEqual(['W9']);
   expect(texts[0].y > 100 || texts[0].y < 80).toBe(true); // clear of its body
 });
 
 it('in its own entry, a free wall shows its row’s side as "This side", its name across', () => {
   const { widths, texts } = freeWallCanvas({ focus: { collection: 'walls', id: 'w' } });
-  expect(widths[0]).toBe(4);
+  // Its row's side line, clipped inside the body (2b), then the outline.
+  expect(widths[0]).toBe(8);
   const side = texts.find((entry) => entry.text === 'This side');
   const name = texts.find((entry) => entry.text === 'W9');
   expect(side.y).toBeGreaterThan(100); // beyond its row's face
