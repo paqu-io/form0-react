@@ -12,6 +12,7 @@ import { ownsHistory, usePlanHistory } from './use-plan-history.js';
 import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { usePlanScope } from './use-plan-scope.js';
+import { usePlanLayers } from './plan-layers.jsx';
 import { mountPlanCanvas } from './canvas-host-mount.js';
 import { waitingCommands } from './add-elements.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
@@ -114,6 +115,7 @@ export function BuildingPlanCanvasHost({
     handleZoomOut,
     handleZoomReset,
   } = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
+  const { layers, setLayer, layersRef } = usePlanLayers({ canvasRef, controllerRef }); // step 2
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;
@@ -144,6 +146,7 @@ export function BuildingPlanCanvasHost({
         focusRef,
         findingMarkersRef,
         onSelectRef,
+        layersRef,
       },
       on: { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected },
     });
@@ -242,6 +245,8 @@ export function BuildingPlanCanvasHost({
               : null
           }
           viewOnly={viewOnly}
+          layers={layers}
+          onLayer={setLayer}
           issues={
             planIssues.items.length > 0 ? (
               <PlanIssueList

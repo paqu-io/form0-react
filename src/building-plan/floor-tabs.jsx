@@ -2,12 +2,15 @@ import React from 'react';
 import { Plus, Redo2, Undo2 } from 'lucide-react';
 import { planText } from './plan-text.js';
 import { planShortcut } from './plan-shortcuts.js';
+import { DEFAULT_PLAN_LAYERS } from './plan-layers.jsx';
+import { PlanShowMenu } from './plan-show-menu.jsx';
 import * as styles from './floor-tabs.css.js';
 
 /**
  * The row above the plan canvas: the floors as one segmented control (they switch the floor the
  * canvas shows), "+" to add a floor where the plan page allows it, the floor drawn under the one
- * shown (`below`, its name), the plan's issues (`issues`, "n issues" and its list) and Undo / Redo
+ * shown (`below`, its name, while its layer is on), the plan's issues (`issues`, "n issues" and
+ * its list), "Show" with the plan's layers (`layers`, switched through `onLayer`) and Undo / Redo
  * where the canvas edits. Names and shortcuts show in the plan tooltip.
  * @param {{
  *   tabs: Array<{ index: number, label: string, active: boolean }>,
@@ -17,6 +20,8 @@ import * as styles from './floor-tabs.css.js';
  *   history?: { canUndo: boolean, canRedo: boolean, onUndo: () => void, onRedo: () => void } | null,
  *   viewOnly?: boolean,
  *   issues?: React.ReactNode,
+ *   layers?: typeof DEFAULT_PLAN_LAYERS,
+ *   onLayer?: ((key: string, on: boolean) => void) | null,
  * }} props
  */
 export function FloorTabs({
@@ -27,7 +32,23 @@ export function FloorTabs({
   history = null,
   viewOnly = false,
   issues = null,
+  layers = DEFAULT_PLAN_LAYERS,
+  onLayer = null,
 }) {
+  const belowShown = Boolean(below) && layers.floorBelow !== false;
+  // The Show menu lists the layers this floor has (step 2, S2).
+  const layerItems =
+    onLayer && below
+      ? [
+          {
+            key: 'floorBelow',
+            label: planText('plan.show.floorBelow'),
+            hint: planText('plan.show.floorBelowHint', { floor: below }),
+            on: layers.floorBelow !== false,
+          },
+        ]
+      : [];
+  const show = layerItems.length > 0;
   return (
     <div className={styles.row}>
       <div className={styles.tabs} role="tablist" aria-label={planText('plan.floor.tabs')}>
@@ -56,13 +77,14 @@ export function FloorTabs({
           </button>
         )}
       </div>
-      {below && (
+      {belowShown && (
         <span className={styles.below}>{planText('plan.floor.below', { floor: below })}</span>
       )}
-      {(viewOnly || issues || history) && (
+      {(viewOnly || issues || show || history) && (
         <div className={styles.end}>
           {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
           {issues}
+          {show && <PlanShowMenu items={layerItems} onToggle={onLayer} />}
           {history && (
             <div className={styles.history}>
               <button

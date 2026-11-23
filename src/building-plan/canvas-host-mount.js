@@ -10,6 +10,7 @@ import {
   pickMetaEntry,
 } from './canvas-adapters.js';
 import { doubleClickTarget } from './entry-chain.js';
+import { DEFAULT_PLAN_LAYERS, applyPlanLayers } from './plan-layers.jsx';
 
 /**
  * Creating a plan canvas for `BuildingPlanCanvasHost` (moved out of `canvas-host.jsx`): its
@@ -63,7 +64,8 @@ function capturePlan(controller, read) {
  * @param {boolean} options.derivedCommands
  * @param {boolean} options.locked
  * @param {Record<string, { current: any }>} options.refs repeatableRef, repeatableApiRef,
- *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef
+ *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef,
+ *   layersRef (the Show menu's layers, step 2)
  * @param {Record<string, Function>} options.on setFloorTabs, setStatus, setActiveToolMode,
  *   setZoomLevel, setSelected (the selected element's collection)
  * @returns {{ controller: object, canvas: object }}
@@ -91,6 +93,7 @@ export function mountPlanCanvas({
     focusRef,
     findingMarkersRef,
     onSelectRef,
+    layersRef,
   } = refs;
   const { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected } = on;
   const metaEntry = pickMetaEntry(buildingPlanMeta, section.data_name);
@@ -185,6 +188,7 @@ export function mountPlanCanvas({
   canvas.setHighlight(highlightRef.current || null);
   canvas.setFocus(focusRef.current || null);
   canvas.setFindingMarkers(findingMarkersRef.current);
+  applyPlanLayers(layersRef?.current || DEFAULT_PLAN_LAYERS, canvas, controller);
   canvas.onSelect = (selection) => {
     onSelectRef.current?.(selection);
     setSelected?.(selection?.collection || null);

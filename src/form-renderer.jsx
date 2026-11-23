@@ -40,6 +40,7 @@ import * as styles from './form-renderer.css.js';
 import * as planEntry from './plan-entry-layout.css.js';
 import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
+import { PlanLayersProvider } from './building-plan/plan-layers.jsx';
 import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
 import { planText } from './building-plan/plan-text.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
@@ -7322,9 +7323,12 @@ function getRepeatableEntryTitle(field, instance, index, titleDescriptor) {
 export function FormRenderer({ locale = 'en', ...props }) {
   return (
     <BuildingPlanPresentationProvider schema={props.schema} locale={locale}>
-      <RecordCoordinatorProvider {...props}>
-        <FormRendererContent {...props} />
-      </RecordCoordinatorProvider>
+      {/* What every plan canvas of the form shows (step 2, the Show menu). */}
+      <PlanLayersProvider>
+        <RecordCoordinatorProvider {...props}>
+          <FormRendererContent {...props} />
+        </RecordCoordinatorProvider>
+      </PlanLayersProvider>
     </BuildingPlanPresentationProvider>
   );
 }

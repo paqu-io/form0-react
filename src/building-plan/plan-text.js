@@ -12,6 +12,12 @@ const TEXT = {
   'plan.floor.tabs': 'Floors',
   // The floor drawn under the one shown (F2), named after the floor tabs.
   'plan.floor.below': '{floor} below',
+  // "Show" in the floor row (step 2): the plan's read-only layers.
+  'plan.show.button': 'Show',
+  'plan.show.title': 'Show on the plan',
+  'plan.show.someOff': 'some hidden',
+  'plan.show.floorBelow': 'Floor below',
+  'plan.show.floorBelowHint': '{floor}, and the pulls to it',
   'plan.history.undo': 'Undo',
   'plan.history.redo': 'Redo',
   'plan.status.select': 'Drag a corner to reshape · {alt} moves it freely · {shift}-drag pans',

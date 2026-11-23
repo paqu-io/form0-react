@@ -1506,6 +1506,17 @@ export class BuildingPlanCanvas {
     this.render();
   }
 
+  /** What the plan shows (step 2): the Show menu's switches, `{ floorBelow }`. */
+  setLayers(layers) {
+    this.layers = { ...layers };
+    this.render();
+  }
+
+  /** The floor below as drawn and fitted to: none while its switch is off (step 2, S4). */
+  shownFloorBelow() {
+    return this.layers?.floorBelow === false ? null : this.floorBelow;
+  }
+
   /** How strongly an element is drawn (`draw/scope-levels.js`). */
   levelOf(collection, entry) {
     return (this.levels || NO_SCOPE).of(collection, entry);
@@ -1567,7 +1578,10 @@ export class BuildingPlanCanvas {
     // An empty floor fits to the floor below once it shows (F2): where its rooms will go.
     const points = roomPoints.length
       ? roomPoints
-      : [...(this.floorBelow?.walls || []), ...(this.floorBelow?.columns || [])].flat();
+      : [
+          ...(this.shownFloorBelow()?.walls || []),
+          ...(this.shownFloorBelow()?.columns || []),
+        ].flat();
     const { width, height } = this.getViewSize();
     if (!points.length || !(width > 0) || !(height > 0)) return false;
     const xs = points.map((point) => point.x);
@@ -3737,7 +3751,7 @@ export class BuildingPlanCanvas {
     });
     this.rooms.forEach((room) => this.drawRoom(room));
     // Over the room surfaces, under this floor's walls (F2).
-    drawFloorBelow(this.ctx, this.floorBelow, { theme: this.planTheme, pixel: this.px(1) });
+    drawFloorBelow(this.ctx, this.shownFloorBelow(), { theme: this.planTheme, pixel: this.px(1) });
 
     this.drawPhysicalWalls();
     this.walls.forEach((wall) => this.drawWall(wall));
