@@ -2281,3 +2281,14 @@ below and along to a face crossing its end; corners below no longer take a moved
 727; checked on the capture. Hand-tested: works. Committed form0-core `08b7240`, form0-react
 `21d2a4a`. Queued: a drawn free wall stacking on the wall below (midlines below). Next: item 2,
 a shared wall shown as shared (mockup first).
+
+### A shared wall shown as shared (2026-11-23, hand-tested, committed)
+
+Decided with a mockup (https://claude.ai/artifact/4ymJbXaosL8ZRSGf2tp17N): A and C
+(`building-plan-ui.md`, "A shared wall shown as shared"). Core: a whole-wall field's state names
+the other rooms sharing the wall (`sharedWith`). Web: "Whole wall", or "Shared wall" as a button
+with the icon opening a note that names them (`field-tag.js`, `plan-field-tag.jsx`); mobile: the
+same words. Core 729 of 729, web 442 of 448 (the worker tests), mobile fixtures 62 of 63 (a room
+screen's title test, failing on HEAD too). Hand-tested: works. Committed form0-core `2c6b3c8`,
+form0-react `b005511`, form0-react-native `6166420`. Next: a drawn free wall stacking on the wall
+below (midlines below), then beams 3a.

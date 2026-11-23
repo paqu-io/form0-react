@@ -2802,6 +2802,46 @@ the one move, `free-wall-outline.js`), form0-react `21d2a4a` (rings around the g
 `draw/guides.js`). Queued from it: a drawn free wall stacking on the wall below (its ends pulled
 to the walls below's midlines).
 
+### A shared wall shown as shared (2026-11-23, hand-tested, committed)
+
+Decided with a mockup (https://claude.ai/artifact/4ymJbXaosL8ZRSGf2tp17N): A, a neutral icon in
+the tag (the split square), and C, the tag's words. B (amber when the wall's own value differs from
+what the other room gives) left out: a room's height is a default a wall may override. Found while
+checking today's UI: W1, which only the Bedroom has, said "Shared physical wall" too.
+
+- *Core (`shared-value-question.js`, `transactions.js`).* A whole-wall field's state names the
+  other rooms the wall stands between (`sharedWith: [{ roomId, name }]`), named as the shared-value
+  question names them (a room's position added when two of the wall's rooms share a name:
+  "Bedroom (room 2)"); none for a side's field, a free wall or a wall one room has; a physical
+  wall's own row (no room of its own) lists every room when there are two or more. Test
+  `building-plan-shared-wall-fields.test.js` (2). Core 729 of 729.
+- *Web (`field-tag.js`, new, the tag moved out of `form-renderer.jsx`; `plan-field-tag.jsx`,
+  new; `field-renderer.jsx`, `form-renderer.jsx` wiring).* A whole-wall field says "Whole wall",
+  or "Shared wall" on a wall other rooms share; then its tag is a button (the icon, tinted) that
+  opens a note: "Shared with Bedroom (room 2)" and "This wall stands between both rooms, so a value
+  set here applies to Bedroom (room 2) too." (several rooms: "these rooms", listed). The note
+  doesn't name the field (it opens beside it; no label to lower-case for another language). A
+  click, a tap, Enter or Space opens it; a click elsewhere or Esc closes it, Esc going no further
+  (the dialog stays open, as Show's menu). Texts in `plan-text.js`. Test
+  `building-plan-field-tag.test.jsx` (4). Web 442 of 448 (the worker tests).
+- *Mobile (`form0-react-native`, `form-renderer.jsx`).* The same words ("Whole wall", "Shared
+  wall"); the note comes with step 5. Its jsdom fixtures: 62 of 63; "Native titles a room screen
+  with its position on the floor" fails ("Rooms 2" not found), on HEAD's renderer too (not traced).
+
+Headless on the test page (no console errors): W3's entry from the Bedroom: Height, Thickness and
+Construction material "Shared wall" buttons, Plaster, Finish and Observed thickness "Room side"; a
+click: the note naming Bedroom (room 2); Esc: the note closes, the entry stays. W1's entry: "Whole
+wall", plain.
+
+Hand-tested 2026-11-23: works. Committed form0-core `2c6b3c8`, form0-react `b005511`,
+form0-react-native `6166420`.
+
+Hand test (restart the test page, core change): `?form=plan`, View, Ground floor, double-click the
+Bedroom, double-click W3 (not on its door): Height, Thickness and Construction material say
+"Shared wall" with the icon; click one: the note names Bedroom (room 2); click elsewhere or Esc:
+it closes, the entry stays; Tab to it, Enter: it opens. Plaster says "Room side". Cancel, open
+W1: "Whole wall", no icon. From the other Bedroom, W3 names Bedroom (room 1).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -2810,39 +2850,32 @@ mockup (https://claude.ai/artifact/VVdRCqjjSLKYS5xtNfjfKa): N1 rooms only from a
 their hand test, Cancel about data only (`99f5674`), a Floor canvas for rooms only (`52c9165`),
 clickable breadcrumbs (`aee3e91`); the F7 note on the kept notch in reform-backend-nestjs
 (`a0cbf3a`); step 2 decided (above) and built: 2a, 2a-2, 2b, 2c (core `d26df06`, web `28356e2`,
-`39cec5c`); U6 (core `08b7240`, web `21d2a4a`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
+`39cec5c`); U6 (core `08b7240`, web `21d2a4a`); a shared wall shown as shared (core `2c6b3c8`,
+web `b005511`, mobile `6166420`). Earlier this round: the floor below F1 to F3 and its fit, Save showing why (see "Next"
 before this one in the log).
 
-1. **A shared wall shown as shared** (option 1, see "A shared wall's own height" above): a quick
-   mockup of how, then the build. Input (2026-11-23): every whole-wall field, system or the form's
-   own (a custom wall field is a side's unless the form puts it on the whole wall with
-   `building_plan: { scope: 'physical_wall' }`, as the example's "Construction material"); no new
-   space: an icon in the "Shared physical wall" tag those fields already carry
-   (`buildingPlanFieldTag`, `form-renderer.jsx`), the explanation on hover. For the mockup: the
-   icon only when another room shares the wall, naming it; on tap and keyboard focus too (touch,
-   step 5); a neutral icon, or a warning only when the wall's own value differs from what the other
-   room would give it (would need that value from core). Recommendations agreed (2026-11-23).
-2. **A drawn free wall stacking on the wall below** (core, from U6's hand test): drawing an end
+1. **A drawn free wall stacking on the wall below** (core, from U6's hand test): drawing an end
    puts its centreline onto a corner or face below, so a wall drawn over a wall below needs a move
    to stack. Wanted: ends also pulled to the walls below's midlines (and where midlines meet), so
    it stacks as drawn; then the second end slides along the midline.
-3. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
+2. **Beams**: 3a today's room beams (snapping, rule 1, following their wall); then wall beams, a
    core design round (open question 1; Reform checked, no blocker).
-4. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
+3. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
    tried and reverted 2026-11-23, made it a cap that didn't follow W3).
-5. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
-   "n issues" list inside a dialog (the open-dropdown marker).
-6. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
+4. Later: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in the
+   "n issues" list inside a dialog (the open-dropdown marker); the mobile fixture "Native titles a
+   room screen with its position on the floor" ("Rooms 2" not found, failing on HEAD too).
+5. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
    line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
-7. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
-8. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
+6. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+7. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
    change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
-9. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
+8. Deferred: core keeping its evaluation beside the record and writing canonical empty choices
    (would let the form drop its data-only comparison; changes exported records, so it needs a
    Reform impact check first).
-10. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+9. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
 
 ### Test page engine (2026-11-19)
 
@@ -3090,7 +3123,8 @@ one combined core operation is the clean way.
 | A drawn free wall stacking on the wall below (midlines below for its ends) | Queued (from U6's hand test) |
 | Save with a required plan field cleared shows the validation | Done and committed |
 | Step 2 (lengths, plaster, Show menu) | Done and committed (2a, 2a-2, 2b, 2c; 2026-11-23) |
-| A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Next: a mockup first (an icon in the "Shared physical wall" tag) |
+| A shared wall shown as shared (a wall's own height beats its rooms' by design; option 1) | Done and committed (A: the icon and note; C: "Whole wall" / "Shared wall"; mobile: the words) |
+| Mobile fixture "Native titles a room screen with its position on the floor" ("Rooms 2" not found) | Failing on HEAD too, found 2026-11-23; not traced |
 | Step 4 (with a typed value's refusal under its field and in the entry's status line), step 5 | To do |
 | Step 6 | Proposals |
 
