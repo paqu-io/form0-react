@@ -59,6 +59,16 @@ const TEXT = {
   // After a free wall's field label: a free wall stands in its room, so both sides face it.
   'plan.side.this': 'This side',
   'plan.side.other': 'Other side',
+  // A whole-wall field's tag; on a wall other rooms share, a button with a note naming them
+  // (2026-11-23, decided with a mockup).
+  'plan.tag.wholeWall': 'Whole wall',
+  'plan.tag.sharedWall': 'Shared wall',
+  'plan.tag.sharedWith': 'Shared with {rooms}',
+  'plan.tag.sharedNote.one':
+    'This wall stands between both rooms, so a value set here applies to {rooms} too.',
+  'plan.tag.sharedNote.other':
+    'This wall stands between these rooms, so a value set here applies to {rooms} too.',
+  'plan.list': '{first} and {last}',
   // Select, then add (3b): the commands, what they need, and where nothing fits.
   'plan.tool.door': 'Add door',
   'plan.tool.window': 'Add window',

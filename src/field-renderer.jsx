@@ -2,6 +2,7 @@ import { useBuildingPlanPresentation } from './building-plan/presentation.jsx';
 import React, { useMemo, useState } from 'react';
 import { Info, Image, AlertTriangle, Lock, Link2, RotateCcw } from 'lucide-react';
 import * as styles from './field-renderer.css.js';
+import { PlanFieldTag } from './building-plan/plan-field-tag.jsx';
 import {
   DescriptionDialog,
   ImageViewerDialog,
@@ -32,6 +33,7 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     showError = true,
     // Building plan fields only. All optional and presentational.
     labelTag = null, // where the field sits, e.g. "Room side"
+    labelTagNote = null, // { title, body }: the tag opens it (a shared wall's whole-wall field)
     sourceMode = null, // 'inherit' | 'override'
     sourceLabel = null, // e.g. "Floor default" or "This wall"
     onResetSource = null, // present when an overridden value can return to the inherited one
@@ -163,9 +165,12 @@ const FieldRendererBase = React.forwardRef(function FieldRenderer(
     const controls = [];
     if (labelTag) {
       controls.push(
-        <span key="label-tag" className={styles.labelTag}>
-          {labelTag}
-        </span>
+        <PlanFieldTag
+          key="label-tag"
+          text={labelTag}
+          note={labelTagNote}
+          className={styles.labelTag}
+        />
       );
     }
 
@@ -500,6 +505,8 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
       prev.error === next.error &&
       prev.showError === next.showError &&
       prev.labelTag === next.labelTag &&
+      prev.labelTagNote?.title === next.labelTagNote?.title &&
+      prev.labelTagNote?.body === next.labelTagNote?.body &&
       prev.sourceMode === next.sourceMode &&
       prev.sourceLabel === next.sourceLabel &&
       prev.onResetSource === next.onResetSource
@@ -520,6 +527,8 @@ export const FieldRenderer = React.memo(FieldRendererBase, (prev, next) => {
     prev.eventInteractions === next.eventInteractions &&
     prev.showError === next.showError &&
     prev.labelTag === next.labelTag &&
+    prev.labelTagNote?.title === next.labelTagNote?.title &&
+    prev.labelTagNote?.body === next.labelTagNote?.body &&
     prev.sourceMode === next.sourceMode &&
     prev.sourceLabel === next.sourceLabel &&
     prev.onResetSource === next.onResetSource

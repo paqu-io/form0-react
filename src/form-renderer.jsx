@@ -42,7 +42,7 @@ import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
 import { PlanLayersProvider } from './building-plan/plan-layers.jsx';
 import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
-import { planText } from './building-plan/plan-text.js';
+import { buildingPlanFieldNote, buildingPlanFieldTag } from './building-plan/field-tag.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
 import { nextEntryStep } from './building-plan/entry-chain.js';
@@ -1069,26 +1069,6 @@ function isFreeWallRow(planContext) {
   }
 }
 
-// The tag after a building plan field's label: where its value sits. Both sides of a free wall
-// face its room: "This side" (the row's) and "Other side"; nothing shares a free wall, so its own
-// fields (its thickness) carry no tag. `isFreeWall` is asked only for a tagged field.
-function buildingPlanFieldTag(propertyState, isFreeWall = () => false) {
-  const otherSide = propertyState.outside || propertyState.opposite;
-  if ((otherSide || propertyState.source) && isFreeWall()) {
-    if (otherSide) return planText('plan.side.other');
-    return propertyState.scope === 'physical_wall' ? null : planText('plan.side.this');
-  }
-  return propertyState.outside
-    ? 'Exterior'
-    : propertyState.opposite
-      ? 'Opposite face'
-      : !propertyState.source
-        ? null
-        : propertyState.scope === 'physical_wall'
-          ? 'Shared physical wall'
-          : 'Room side';
-}
-
 // In the validation lists, only the outside copy of a wall field is tagged ("Finish ·
 // Exterior"): it has the same label as the face's own field, and the lists show no other tag.
 function buildingPlanSideTag(propertyState, isFreeWall) {
@@ -1115,14 +1095,15 @@ function buildingPlanFindingTags(metadata, record, locale) {
 // the label, and inside the control either the source or the reset button.
 function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
   if (!propertyState) return null;
-  const labelTag = buildingPlanFieldTag(propertyState, () =>
-    isFreeWallRow(controller?.buildingPlan)
-  );
+  const isFreeWall = () => isFreeWallRow(controller?.buildingPlan);
+  const labelTag = buildingPlanFieldTag(propertyState, isFreeWall);
   if (!propertyState.source) return labelTag ? { labelTag } : null;
   const { mode, scope } = propertyState.source;
   const canReset = propertyState.inheritable && mode === 'override' && !readOnly;
   return {
     labelTag,
+    // A shared wall's whole-wall field: the note its tag opens (`field-tag.js`).
+    labelTagNote: buildingPlanFieldNote(propertyState, isFreeWall),
     sourceMode: mode === 'inherit' ? 'inherit' : 'override',
     sourceLabel: PLAN_SOURCE_LABELS[scope] || scope,
     onResetSource: canReset
