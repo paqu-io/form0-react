@@ -247,6 +247,7 @@ export function BuildingPlanCanvasHost({
           viewOnly={viewOnly}
           layers={layers}
           onLayer={setLayer}
+          inEntry={Boolean(scope.roomId)}
           issues={
             planIssues.items.length > 0 ? (
               <PlanIssueList
@@ -274,6 +275,7 @@ export function BuildingPlanCanvasHost({
         <div ref={containerRef} className="building-plan-canvas-panel" />
         <PlanStatus
           hintKey={status.hintKey}
+          noteKey={status.noteKey}
           messages={status.messages}
           index={status.index}
           codes={status.codes}

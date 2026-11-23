@@ -22,7 +22,8 @@ import * as styles from './floor-tabs.css.js';
  *   issues?: React.ReactNode,
  *   layers?: typeof DEFAULT_PLAN_LAYERS,
  *   onLayer?: ((key: string, on: boolean) => void) | null,
- * }} props
+ *   inEntry?: boolean,
+ * }} props `inEntry`: a room's or an element's entry (its room's lengths show)
  */
 export function FloorTabs({
   tabs,
@@ -34,11 +35,18 @@ export function FloorTabs({
   issues = null,
   layers = DEFAULT_PLAN_LAYERS,
   onLayer = null,
+  inEntry = false,
 }) {
   const belowShown = Boolean(below) && layers.floorBelow !== false;
   // The Show menu's layers (step 2, S2); one this floor doesn't have is listed disabled.
   const layerItems = onLayer
     ? [
+        {
+          key: 'lengths',
+          label: planText('plan.show.lengths'),
+          hint: planText(inEntry ? 'plan.show.lengthsHintEntry' : 'plan.show.lengthsHint'),
+          on: layers.lengths !== false,
+        },
         {
           key: 'plaster',
           label: planText('plan.show.plaster'),

@@ -179,7 +179,8 @@ export function mountPlanCanvas({
         tabs: entryFloorTabs(tabs, (controller.scope || scope)?.floorId),
         below: below || null,
       }),
-    onStatus: (hintKey) => setStatus((current) => ({ ...current, hintKey })),
+    onStatus: (hintKey, noteKey = null) =>
+      setStatus((current) => ({ ...current, hintKey, noteKey })),
     onMessages: ({ messages, index, codes }) =>
       setStatus((current) => ({ ...current, messages, index, codes })),
   });

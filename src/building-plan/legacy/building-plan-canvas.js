@@ -27,7 +27,9 @@ import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
 import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import { DIMENSION_OFFSET, drawDimensions, formatLength } from '../draw/dimensions.js';
+import { PILL_HEIGHT } from '../draw/dimension-layout.js';
 import { changedSides, draftRoomLengths, openingChain } from '../drag-lengths.js';
+import { roomLengths, roomTooSmall } from '../room-lengths.js';
 import {
   columnClearances,
   freeWallClearances,
@@ -820,12 +822,24 @@ export class BuildingPlanCanvas {
     return this.cutAllowed() ? 'plan.status.select' : 'plan.status.view';
   }
 
+  /** What the status line adds about a room's lengths (step 2: S9, S12), or null. */
+  statusNoteKey() {
+    if (this.hintOverride || this.lengthsShown) return null;
+    if (this.lengthsNote === 'hidden') return 'plan.status.lengthsHidden';
+    if (this.lengthsNote !== 'shown') return null;
+    return this.presentation?.unitFor?.() === 'ft'
+      ? 'plan.status.lengthsNote.ft'
+      : 'plan.status.lengthsNote.m';
+  }
+
   updateStatusLine() {
     if (!this.reportsStatus) return;
     const key = this.statusTextKey();
-    if (key === this.statusKey) return;
-    this.statusKey = key;
-    this.onStatus?.(key);
+    const note = this.statusNoteKey();
+    if (`${key}|${note}` === this.statusKey) return;
+    this.statusKey = `${key}|${note}`;
+    if (note) this.onStatus?.(key, note);
+    else this.onStatus?.(key);
   }
 
   /**
@@ -3773,6 +3787,12 @@ export class BuildingPlanCanvas {
         }
       );
 
+    // The lengths: a gesture's own, else the room's (step 2, 2c), worked out before the walls so
+    // the selected element's name can stand past them; drawn last.
+    const draftRoom = this.draftRoomRect();
+    const lengths = this.planLengths(draftRoom);
+    this.nameReach = lengths.reach ? { roomId: lengths.roomId, pixels: lengths.reach } : null;
+
     this.drawPhysicalWalls();
     this.drawSelectedOutline();
     this.walls.forEach((wall) => this.drawWall(wall));
@@ -3795,20 +3815,10 @@ export class BuildingPlanCanvas {
       this.drawDraftBeam(this.beamDraft);
     }
 
-    let draftRoom = null;
-    if (this.roomDraft) {
-      const rect = this.normalizeRectangle(this.roomDraft.start, this.roomDraft.current);
-      const snapped = {
-        x: this.snapCoordinate(rect.x),
-        y: this.snapCoordinate(rect.y),
-        width: this.snapSize(rect.width),
-        height: this.snapSize(rect.height),
-      };
-      this.drawDraftRoom(snapped);
-      draftRoom = snapped;
-    } else if (this.draftStart && this.mode === MODE_DRAW_ROOM)
+    if (draftRoom) this.drawDraftRoom(draftRoom);
+    else if (this.draftStart && this.mode === MODE_DRAW_ROOM)
       drawHandle(this.ctx, this.draftStart, { theme: this.planTheme, pixel: this.px(1) });
-    this.drawDragLengths(draftRoom);
+    this.drawLengths(lengths);
 
     this.drawFindings();
     this.drawRefusal();
@@ -3867,9 +3877,14 @@ export class BuildingPlanCanvas {
     // Which side of the line a point is on; `away` (a free wall's body) keeps the name off it.
     const side = (point) =>
       Math.sign((end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x));
+    // Past the lengths on its side, in the room they're about (step 2, S9); a gesture's, any room.
+    const reach =
+      this.nameReach && (!this.nameReach.roomId || this.nameReach.roomId === roomId)
+        ? this.px(this.nameReach.pixels)
+        : 0;
     const centre = nameBeside(start, end, {
       size,
-      clearance: clearance + this.px(6),
+      clearance: clearance + reach + this.px(6),
       isInside: (point) =>
         Boolean(room && pointInRoom(point, room)) && (!away || side(point) !== side(away)),
     });
@@ -4468,20 +4483,87 @@ export class BuildingPlanCanvas {
     }
   }
 
+  /** The room being drawn, snapped as it will be created (3c-2b), or null. */
+  draftRoomRect() {
+    if (!this.roomDraft) return null;
+    const rect = this.normalizeRectangle(this.roomDraft.start, this.roomDraft.current);
+    return {
+      x: this.snapCoordinate(rect.x),
+      y: this.snapCoordinate(rect.y),
+      width: this.snapSize(rect.width),
+      height: this.snapSize(rect.height),
+    };
+  }
+
   /**
-   * Lengths while dragging (step 3: 3-L1, 3-L5): what the gesture changes, drawn over the plan
-   * from what the canvas shows (a drag's preview, the room being drawn), only while it runs. The
-   * status line names their unit meanwhile (3-L4).
+   * Which lengths show. A gesture's own while it runs (step 3: 3-L1, 3-L5; the room being drawn
+   * included), and they replace the room's (S10). Otherwise, while Lengths is on, a room's (step
+   * 2: S8, S9; `room-lengths.js`), unless the room is too small on screen (S12).
    * @param {{ x: number, y: number, width: number, height: number } | null} draftRoom
    */
-  drawDragLengths(draftRoom) {
-    const dimensions = draftRoom
+  planLengths(draftRoom) {
+    const drag = draftRoom
       ? draftRoomLengths(draftRoom)
       : this.openingDragState
         ? this.openingDragLengths()
         : (this.contentDragLengths() ?? this.roomDragLengths());
-    // A pill that doesn't fit goes past its line's end, inside the room in scope first (S11).
-    const scoped = (this.rooms || []).find((room) => room.id === this.controller?.scope?.roomId);
+    const none = { drag, draft: Boolean(draftRoom), room: [], roomId: null, reach: 0, note: null };
+    // The selected element's name stands past a gesture's lengths too (S9), in any room.
+    if (drag.length) {
+      const fallback = draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET;
+      const deepest = Math.max(...drag.map((dimension) => dimension.offset ?? fallback));
+      return { ...none, reach: deepest + PILL_HEIGHT / 2 };
+    }
+    if (this.layers?.lengths === false) return none;
+    const target = this.lengthsTarget();
+    if (!target) return none;
+    if (roomTooSmall(target.room.vertices, this.zoomLevel)) return { ...none, note: 'hidden' };
+    const { dimensions, reach } = roomLengths(target.room, {
+      faceId: target.faceId,
+      openingId: target.openingId,
+      minLength: this.gridSize / 200,
+    });
+    return { ...none, room: dimensions, roomId: target.room.id, reach, note: 'shown' };
+  }
+
+  /**
+   * Whose lengths show (S8): the entry's room; else the selected room (the plan page and a Floor
+   * canvas always have one). The selected wall row, door or window (or the entry's own) adds its
+   * side's chain (S9). None for a room the canvas is moving itself (no sides for it).
+   */
+  lengthsTarget() {
+    const find = (collection, id) => (this[collection] || []).find((entry) => entry.id === id);
+    let opening = this.selectedDoorId
+      ? find('doors', this.selectedDoorId)
+      : this.selectedWindowId
+        ? find('windows', this.selectedWindowId)
+        : null;
+    let wall = !opening && this.selectedWallId ? find('walls', this.selectedWallId) : null;
+    const focus = !opening && !wall ? this.focus : null;
+    if (focus?.collection === 'walls') wall = find('walls', focus.id);
+    else if (focus?.collection === 'doors' || focus?.collection === 'windows')
+      opening = find(focus.collection, focus.id);
+    const roomId =
+      this.controller?.scope?.roomId || opening?.roomId || wall?.roomId || this.selectedRoomId;
+    const room = (this.rooms || []).find((entry) => entry.id === roomId);
+    if (!room?.sides || room.previewRect) return null;
+    return {
+      room,
+      faceId: wall && !wall.sidePoints ? wall.id : null,
+      openingId: opening ? opening.subjectId || opening.id : null,
+    };
+  }
+
+  /**
+   * Draws what `planLengths` found, over the plan. A pill that doesn't fit goes past its line's
+   * end, inside the room first (S11): the lengths' room, else the room in scope, else any. The
+   * status line names the unit (3-L4, S9), or says to zoom in while the room's are hidden (S12).
+   */
+  drawLengths(lengths) {
+    const dimensions = lengths.drag.length ? lengths.drag : lengths.room;
+    const fallback = lengths.draft ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET;
+    const roomId = lengths.roomId || this.controller?.scope?.roomId;
+    const inside = (this.rooms || []).find((room) => room.id === roomId);
     drawDimensions(
       this.ctx,
       dimensions.map((dimension) => ({
@@ -4490,18 +4572,19 @@ export class BuildingPlanCanvas {
           lengthToMeters(distance(dimension.from, dimension.to), this.gridSize),
           this.presentation
         ),
-        offset: dimension.offset ?? (draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET),
+        offset: dimension.offset ?? fallback,
       })),
       {
         theme: this.planTheme,
         pixel: this.px(1),
         isInside: (point) =>
-          scoped
-            ? pointInRoom(point, scoped)
+          inside
+            ? pointInRoom(point, inside)
             : (this.rooms || []).some((room) => pointInRoom(point, room)),
       }
     );
-    this.lengthsShown = dimensions.length > 0;
+    this.lengthsShown = lengths.drag.length > 0;
+    this.lengthsNote = lengths.note;
     this.updateStatusLine();
   }
 

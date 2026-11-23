@@ -16,6 +16,9 @@ const TEXT = {
   'plan.show.button': 'Show',
   'plan.show.title': 'Show on the plan',
   'plan.show.someOff': 'some hidden',
+  'plan.show.lengths': 'Lengths',
+  'plan.show.lengthsHint': 'Of the selected room, to the bare wall face',
+  'plan.show.lengthsHintEntry': 'Of this room, to the bare wall face',
   'plan.show.plaster': 'Plaster',
   'plan.show.plasterHint': 'On plastered wall faces, to scale',
   'plan.show.floorBelow': 'Floor below',
@@ -38,6 +41,10 @@ const TEXT = {
   // While a drag shows lengths (step 3): their unit, and which of them the drag changes.
   'plan.status.lengths.m': 'Lengths in metres · the highlighted ones are changing',
   'plan.status.lengths.ft': 'Lengths in feet · the highlighted ones are changing',
+  // After the hint while a room's lengths show (step 2, S9), or are hidden zoomed out (S12).
+  'plan.status.lengthsNote.m': 'lengths in metres',
+  'plan.status.lengthsNote.ft': 'lengths in feet',
+  'plan.status.lengthsHidden': 'zoom in to see the lengths',
   // A pinned wall's badge on the canvas (step 3).
   'plan.wall.pinned': 'Pinned: stays in place while you edit other walls',
   // A refused edit in the status line (1e): "1 of 2" steps through several messages.

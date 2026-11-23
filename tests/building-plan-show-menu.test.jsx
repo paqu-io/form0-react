@@ -13,6 +13,7 @@ import {
 // Step 2, 2a (2026-11-22): "Show" in the floor row; its Floor below switch hides the floor below
 // and its name and stops its pulls, one setting for every plan canvas of the form (S1 to S4).
 // 2b (2026-11-23): its Plaster switch; Floor below listed disabled where there is none.
+// 2c (2026-11-23): its Lengths switch, first, and the lengths' note in the status line.
 
 const controllers = vi.hoisted(() => []);
 vi.mock('form0-core', async (importOriginal) => {
@@ -154,6 +155,41 @@ it('the Floor below switch hides the floor below and its pulls on every plan can
   fireEvent.keyDown(dialog.getByRole('checkbox', { name: /Floor below/ }), { key: 'Escape' });
   await waitFor(() => expect(dialog.queryByRole('checkbox', { name: /Floor below/ })).toBeNull());
   expect(screen.getByRole('dialog')).toBeTruthy();
+});
+
+it('the Lengths switch: listed first, its note in the status line, off with the dot', async () => {
+  const f = fixture();
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      buildingPlanDerivedCommands
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await screen.findByRole('tab', { name: 'Ground Floor' });
+  // The plan page selects its first room, so its lengths show (or wait for a zoom).
+  const note = /lengths in metres|zoom in to see the lengths/;
+  const status = () =>
+    screen
+      .getAllByRole('status')
+      .map((entry) => entry.textContent)
+      .join(' ');
+  await waitFor(() => expect(status()).toMatch(note));
+  fireEvent.click(showButton(screen));
+  const lengths = screen.getAllByRole('checkbox')[0];
+  expect(lengths.closest('label').textContent).toContain('Lengths');
+  expect(lengths.closest('label').textContent).toContain(
+    'Of the selected room, to the bare wall face'
+  );
+  expect(lengths.checked).toBe(true);
+  fireEvent.click(lengths);
+  await waitFor(() => expect(showButton(screen).getAttribute('aria-label')).toMatch(/some hidden/));
+  await waitFor(() => expect(status()).not.toMatch(note));
+  fireEvent.click(screen.getAllByRole('checkbox')[0]);
+  await waitFor(() => expect(status()).toMatch(note));
 });
 
 it('the canvas draws and fits to the floor below only while it shows', () => {

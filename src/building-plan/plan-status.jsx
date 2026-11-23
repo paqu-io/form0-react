@@ -5,15 +5,23 @@ import { isMacPlatform } from './plan-shortcuts.js';
 import * as styles from './plan-status.css.js';
 
 /** The status line before the canvas reports anything. */
-export const NO_STATUS = Object.freeze({ hintKey: null, messages: [], index: 0, codes: [] });
+export const NO_STATUS = Object.freeze({
+  hintKey: null,
+  noteKey: null,
+  messages: [],
+  index: 0,
+  codes: [],
+});
 
 /**
  * The line over the canvas's bottom-left corner: what the current tool does, or, when core has
  * refused an edit, why. A refusal is red, with "1 of 2" to step through several messages and ×
  * to dismiss them; the canvas draws its ghost and outline meanwhile. One live region throughout,
- * so a screen reader hears each change.
+ * so a screen reader hears each change. A note follows the hint (step 2: the room's lengths'
+ * unit, or that they show when zoomed in).
  * @param {{
  *   hintKey?: string | null,
+ *   noteKey?: string | null,
  *   messages?: string[],
  *   index?: number,
  *   codes?: string[],
@@ -23,6 +31,7 @@ export const NO_STATUS = Object.freeze({ hintKey: null, messages: [], index: 0, 
  */
 export function PlanStatus({
   hintKey = null,
+  noteKey = null,
   messages = [],
   index = 0,
   codes = [],
@@ -63,17 +72,24 @@ export function PlanStatus({
         </button>
       </>
     );
-  } else if (hintKey) {
+  } else if (hintKey || noteKey) {
     const mac = isMacPlatform();
     const caps = { alt: mac ? '⌥' : 'Alt', shift: mac ? '⇧' : 'Shift' };
-    content = planTextParts(hintKey).map((part, i) =>
-      part.key ? (
-        <kbd key={i} className={styles.kbd}>
-          {caps[part.key] || part.key}
-        </kbd>
-      ) : (
-        <React.Fragment key={i}>{part.text}</React.Fragment>
-      )
+    const note = noteKey ? planText(noteKey) : '';
+    content = (
+      <>
+        {hintKey &&
+          planTextParts(hintKey).map((part, i) =>
+            part.key ? (
+              <kbd key={i} className={styles.kbd}>
+                {caps[part.key] || part.key}
+              </kbd>
+            ) : (
+              <React.Fragment key={i}>{part.text}</React.Fragment>
+            )
+          )}
+        {note && (hintKey ? ` · ${note}` : note.charAt(0).toUpperCase() + note.slice(1))}
+      </>
     );
   }
   return (
