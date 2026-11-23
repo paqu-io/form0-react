@@ -8,6 +8,8 @@
  * before: each end held in the room's box and put on a wall face within reach.
  */
 
+import { freeWallClearances, runLength } from './content-lengths.js';
+
 /** Closer than this to a wall's face (a millimetre), a beam's end counts as on it. */
 const ON_FACE_M = 0.001;
 
@@ -135,4 +137,31 @@ export function beamPreview(plan, roomId, start, end) {
     startPoint: start,
     endPoint: end,
   };
+}
+
+/**
+ * Lengths while a beam is drawn or dragged (3a, B7; as a free wall's, 3c-4): drawn, or an end
+ * dragged, its length beside it, clear of its side; moved whole, its clearances along its own
+ * axes (across from the middle of each side, along from each end) to the room's inside face.
+ * Null when no beam gesture runs.
+ * @param {object} plan the legacy canvas
+ * @param {{ minLength: number, pixel: number, newWidth: number }} options canvas units;
+ *   `newWidth`: a beam being drawn's width, in metres
+ * @returns {Array<object> | null}
+ */
+export function beamDragLengths(plan, { minLength, pixel, newWidth }) {
+  const draft = plan.beamDraft;
+  const state = plan.beamDragState;
+  if (!draft && !state) return null;
+  const halfOf = (width) => ((width || newWidth) * plan.gridSize) / 2;
+  const beam = state && (plan.beams || []).find((entry) => entry.id === state.beamId);
+  const preview = draft ? draft.preview : state.moved && beam?.preview;
+  if (!preview) return [];
+  const points = [preview.startPoint, preview.endPoint];
+  const halfWidth = halfOf(draft ? newWidth : beam.width);
+  if (state?.mode === 'move') {
+    const room = (plan.rooms || []).find((entry) => entry.id === beam.roomId);
+    return freeWallClearances(room?.vertices, points, halfWidth, { minLength });
+  }
+  return [runLength(points, { halfWidth, pixel, minLength })].filter(Boolean);
 }

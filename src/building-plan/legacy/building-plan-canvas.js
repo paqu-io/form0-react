@@ -4513,11 +4513,14 @@ export class BuildingPlanCanvas {
   /**
    * A drag of the room's contents (3c-4), from what the canvas draws: a free wall's end, its
    * run's length; a free wall's split point, both runs; a free wall or a column moved, its
-   * clearances to the room's inside face. Null for any other gesture.
+   * clearances to the room's inside face; a beam the same (3a). Null for any other gesture.
    * @returns {Array<object> | null}
    */
   contentDragLengths() {
     const limits = { minLength: this.gridSize / 200, pixel: this.px(1) };
+    // A beam drawn or dragged (3a): its length, or its clearances.
+    const beam = beamDragLengths(this, { ...limits, newWidth: DEFAULT_BEAM_WIDTH_M });
+    if (beam) return beam;
     const roomOf = (roomId) => (this.rooms || []).find((room) => room.id === roomId)?.vertices;
     const column = this.columnDragState;
     if (column) {
