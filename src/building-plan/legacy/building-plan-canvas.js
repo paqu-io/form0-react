@@ -26,7 +26,7 @@ import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
 import { ownsPlanKeyboard } from '../plan-keyboard.js';
-import { DIMENSION_OFFSET, drawDimension, formatLength } from '../draw/dimensions.js';
+import { DIMENSION_OFFSET, drawDimensions, formatLength } from '../draw/dimensions.js';
 import { changedSides, draftRoomLengths, openingChain } from '../drag-lengths.js';
 import {
   columnClearances,
@@ -4480,19 +4480,27 @@ export class BuildingPlanCanvas {
       : this.openingDragState
         ? this.openingDragLengths()
         : (this.contentDragLengths() ?? this.roomDragLengths());
-    const style = { theme: this.planTheme, pixel: this.px(1) };
-    for (const dimension of dimensions) {
-      const metres = lengthToMeters(distance(dimension.from, dimension.to), this.gridSize);
-      drawDimension(
-        this.ctx,
-        {
-          ...dimension,
-          text: formatLength(metres, this.presentation),
-          offset: dimension.offset ?? (draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET),
-        },
-        style
-      );
-    }
+    // A pill that doesn't fit goes past its line's end, inside the room in scope first (S11).
+    const scoped = (this.rooms || []).find((room) => room.id === this.controller?.scope?.roomId);
+    drawDimensions(
+      this.ctx,
+      dimensions.map((dimension) => ({
+        ...dimension,
+        text: formatLength(
+          lengthToMeters(distance(dimension.from, dimension.to), this.gridSize),
+          this.presentation
+        ),
+        offset: dimension.offset ?? (draftRoom ? DIMENSION_OFFSET : OPENING_CHAIN_OFFSET),
+      })),
+      {
+        theme: this.planTheme,
+        pixel: this.px(1),
+        isInside: (point) =>
+          scoped
+            ? pointInRoom(point, scoped)
+            : (this.rooms || []).some((room) => pointInRoom(point, room)),
+      }
+    );
     this.lengthsShown = dimensions.length > 0;
     this.updateStatusLine();
   }
