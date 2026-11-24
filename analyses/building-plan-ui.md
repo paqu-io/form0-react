@@ -3541,7 +3541,52 @@ Spanish the words are translated.
 Hand-tested 2026-11-24: works. Committed form0-core `72ad993`. Asked: the hand test said a wall set
 to No reads "This wall"; an overridden value that can return to the floor's shows Reset instead
 (`field-renderer.jsx`), so Reset and Whole wall is right. Asked too: what a wall's No does to its
-band row once unit 2 keeps them (aligning).
+band row once unit 2 keeps them. Decided (A): the answers stay visible and the rows follow them
+both ways: No removes the row, Yes or Reset brings a fresh one, removing the row answers No; No
+asks first only when the row has something of its own (unit 4, with the clash question). The
+band kind (`wall_beam_band`) tells band rows from beams added by hand.
+
+**Bands unit 2: band rows kept in step (core, hand-tested 2026-11-24, committed).**
+
+- *`band-rows.js` (new), `keepBandRows` after every derived write (`derived-edit.js`: commands,
+  data operations, a re-derived floor).* Per wall segment and band answered Yes: one row of that
+  band (found by its kind and segment, else created), over the whole segment (offset 0, its
+  length), as wide as the wall, at the floor's underside and depth, live (unit 3 lets a row set
+  its own); while the floor's are blank, 2.1 m (a new window's head) and 0.3 m, the sill band's
+  top at 0.9 m; the ring beam's top at its wall's top. Rows of a band answered No go; a second row
+  of one band on a segment (a Rejoin of differing parts) goes too.
+- *Removing a band row (`opening-operations.js`)* sets the wall's answer to No (an override), so
+  the engine doesn't bring it back; a typed place, size or height on it is refused: "The lintel
+  band spans its whole wall at the floor's height." The form shows those fields read-only on a
+  band row (`read_only_conditions` on the band kind).
+- *Names.* A band row is named by its band in the editor's language ("Lintel band", "Fascia
+  architravi"; `default-names.js`), refusals too (`nameOf`); beams added by hand keep B#n.
+- *Record.* The band kind is internal, so not among a row's plain answers: read and written
+  explicitly (`wall-beam-records.js`); room copies carry it.
+- *Left for later.* Band rows aren't pushed by openings (unit 3) or checked against them (unit 4).
+
+Tests `building-plan-band-rows.test.js` (new, 5: every wall, free walls too, one row at the
+floor's values, following them, the ring beam at the top; No, Reset, removing the row; typed
+place refused, a beam by hand beside it; Split and Rejoin; names in Italian, the record and room
+copies), all failing with HEAD's files. Core 788 of 788 and the plain test scripts; web 456 of
+462 (the worker tests; "keeps numeric setters numeric" failed once more under the full run,
+passing alone).
+
+Headless on the test page (no console errors): "Every wall has a lintel band" gave each of the
+nine walls a "Lintel band" row over its length at 2.1 m (the floor's underside blank); W1's Beams
+list shows it; its entry is titled "Lintel band", its distance and length read-only.
+
+Hand test (bands unit 2; restart the test page): on the floor, "Every wall has a lintel band",
+its underside 2.2 and depth 250 mm; open a room's wall: its Beams list has "Lintel band", over the
+whole wall at 2.2, its place and size read-only; change the floor's underside: the rows follow;
+the wall's Lintel band set to No: the row goes; Reset: it's back; remove the row from the list:
+the wall's answer reads No (with Reset); "Every wall has a ring beam": a "Ring beam" row at the
+top of each wall; change a wall's height: it stays at the top; Split a wall: each piece has its
+rows; Rejoin: one again.
+
+Hand-tested 2026-11-24: works. Committed form0-core `c723306`. Asked: a band row shows every value
+read-only (Beam ID aside); how to change them? Wanted as plaster: where the value comes from,
+override, Reset (unit 3, aligning).
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3559,7 +3604,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`). Next: floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`). Next: floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

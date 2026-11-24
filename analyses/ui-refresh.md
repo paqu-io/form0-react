@@ -2426,3 +2426,12 @@ inherits Yes / No in its own section, overridden and reset as plaster; inherited
 the receiving field's words (plaster too); wall beams get an internal band-kind field. Words in
 fr / it / es. Core 783 of 783; web 456 of 462 (the worker tests). Checked on the test page. Hand-tested:
 works. Committed form0-core `72ad993`.
+
+### Bands unit 2: band rows kept in step (2026-11-24, hand-tested, committed)
+
+Core: a wall answering Yes to a band has one row of it in its Beams list, kept after every edit:
+over the whole wall, as wide as it, at the floor's underside and depth (live), the ring beam at
+the wall's top; No removes it, removing it answers No; its place and size are read-only; named
+by its band in the editor's language; the band kind goes through the record. Core 788 of 788;
+web 456 of 462 (the worker tests). Checked on the test page. Hand-tested: works. Committed
+form0-core `c723306`.
