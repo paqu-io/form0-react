@@ -6660,7 +6660,8 @@ function RepeatableEntryModal({
           aria-modal={isTopModal ? 'true' : undefined}
           aria-label={modalTitle}
         >
-          {buildingPlanIssues.length > 0 && (
+          {/* An entry with a canvas shows them in its status line (wall beams, 2026-11-24). */}
+          {buildingPlanIssues.length > 0 && !buildingPlanModalContext && (
             <div role="status" className={styles.buildingPlanConflict}>
               {buildingPlanIssues.map((issue) => issue.message).join(' ')}
             </div>
@@ -6740,6 +6741,7 @@ function RepeatableEntryModal({
                     onSelectElement={planListKey ? markPlanRow : undefined}
                     select={planChainSelect}
                     findingScope={buildingPlanModalContext.findingScope || null}
+                    issues={buildingPlanIssues}
                   />
                 </div>
               )}

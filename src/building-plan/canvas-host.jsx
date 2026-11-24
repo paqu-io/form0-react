@@ -12,6 +12,7 @@ import { ownsHistory, usePlanHistory } from './use-plan-history.js';
 import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { usePlanScope } from './use-plan-scope.js';
+import { useEntryIssues } from './use-entry-issues.js';
 import { usePlanLayers } from './plan-layers.jsx';
 import { mountPlanCanvas } from './canvas-host-mount.js';
 import { waitingCommands } from './add-elements.js';
@@ -47,6 +48,8 @@ export function BuildingPlanCanvasHost({
   // The rows whose validation findings this canvas shows (an id path: an entry's floor or room);
   // without it, the floor shown.
   findingScope = null,
+  // Refusals of values typed in the entry's form, shown in the status line (wall beams, 2026-11-24).
+  issues = null,
 }) {
   const onSelectRef = useRef(onSelectElement);
   onSelectRef.current = onSelectElement;
@@ -188,6 +191,7 @@ export function BuildingPlanCanvasHost({
   }, [toolbarState]);
 
   usePlanScope({ scope, select, controllerRef, canvasRef });
+  useEntryIssues({ canvasRef, issues });
 
   // Undo / Redo of the entry's plan edits (floor and room entries carry an editor).
   const { editor, undo, redo } = usePlanHistory({
