@@ -3453,10 +3453,42 @@ heights from the bands when there are any (a door's height and a window's head a
 band's underside, a window's sill at the sill band's top), else today's defaults (door 2 m;
 window sill 0.9 m, height 1.2 m).
 
-Open: "push, never pull" (raised at the 2d hand test): a beam moves only when something runs into
-it (a head rising pushes a beam above up, a sill dropping pushes a beam below down; lowering a
-head or raising a sill leaves it), for local beams and band rows, the wall's top and a room's
-clear height too; the ring beam stays at its wall's top.
+Decided 2026-11-24: "push, never pull" (raised at the 2d hand test): a beam moves only when
+something runs into it (a head rising pushes a beam above up, a sill dropping pushes a beam below
+down; lowering a head or raising a sill leaves it), for local beams and band rows, the wall's top
+and a room's clear height too; the ring beam stays at its wall's top. Built as 2e.
+
+**Unit 2e: push, never pull (core, hand-tested 2026-11-24, committed).**
+
+- *`derive/follow-beam-heights.js`, rewritten.* For a wall beam whose underside the edit didn't
+  type, the openings under or above it before the edit and still overlapping it along the wall:
+  a head rising past its underside pushes it up (the highest); a sill dropping past its top pushes
+  it down (the lowest); else the wall's top come down past it (the wall lowered, or the beam made
+  deeper) pushes it down, when it stood within the wall before. A room beam: the same with the
+  room's structural clear height. Lowered heads, raised sills, raised walls and ceilings leave
+  beams where they are (2b made lintels and top beams follow both ways).
+- *`wall-beam-placement.js`.* Pushed below the floor: "Beam B#1 would go below the floor."
+  (`beam_below_floor`); past the wall's top, the existing refusal.
+
+Tests: `building-plan-wall-beam-push.test.js` (4: one edit as two; past the top refused, lowered
+the beam stays; a sill dropping pushes it down, raised it stays, below the floor refused; moved
+along refused), `building-plan-wall-beam-follow.test.js`'s heights case rewritten (a lintel pushed
+by its door; a top beam deeper grows down, the wall raised leaves it, lowered pushes it; a room
+beam by the ceiling, the same), the three failing with HEAD's files. Core 778 of 778 and the plain
+test scripts; web 456 of 462 (the worker tests). Not checked on the test page.
+
+Hand test (unit 2e; restart the test page): a window on W1 (sill 0.9, height 1.4) and a beam over
+it at 2.4 (depth 200 mm): raise the window to 1.6: the beam 2.5; lower it to 1.2: the beam stays
+2.5. A beam under the window with its top at the sill (underside 0.7, depth 200 mm): type the
+sill 0.8: the beam 0.6; type 1.0: it stays 0.6; type 0.1: "Beam B#n would go below the floor.". A
+beam flush with W1's top (underside 2.7, depth 300 mm): W1's height 3.2: it stays 2.7; 2.9: it
+reads 2.6. A room beam at the ceiling: the floor's clear height raised, it stays; lowered, it's
+pushed down.
+
+Hand-tested 2026-11-24: works. Committed form0-core `beb7c67`. Asked: step 4's B#3 stayed at 2.7 with
+the floor's height at 2.5: B#3 is a wall beam on W1, whose height is set on the wall (3 m), so the
+floor's height doesn't reach it; the capture had no room beam. The floor field sends
+`set_provider`, the operation the core test covers.
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3474,7 +3506,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`). Next: "push, never pull" (aligning); floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Next: floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

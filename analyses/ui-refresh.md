@@ -2408,3 +2408,12 @@ child's stored length as it does its offset. Core 777 of 777; web 456 of 462 (th
 form0-core `1651924`. Raised: a beam shouldn't come down with a lowered window; "push, never pull"
 proposed. Decided: bands as band rows (B) with three wall answers, clashes asked then shown as
 errors, the role starter field dropped, new openings' heights from the bands.
+
+### Wall beams unit 2e: push, never pull (2026-11-24, hand-tested, committed)
+
+Core: a beam moves only when something runs into it: a rising head pushes a wall beam above it
+up, a dropping sill pushes one below it down (below the floor refused, named), a lowered wall's
+top pushes a wall beam down and a lowered clear height a room beam; lowering a head, raising a
+sill, a wall or a ceiling leave beams where they are. Core 778 of 778; web 456 of 462 (the worker
+tests). Hand-tested: works (step 4's beam was a wall beam on a wall with its own height).
+Committed form0-core `beb7c67`.
