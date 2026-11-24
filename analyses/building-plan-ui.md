@@ -3586,7 +3586,50 @@ rows; Rejoin: one again.
 
 Hand-tested 2026-11-24: works. Committed form0-core `c723306`. Asked: a band row shows every value
 read-only (Beam ID aside); how to change them? Wanted as plaster: where the value comes from,
-override, Reset (unit 3, aligning).
+override, Reset (unit 3, aligning). Decided: a band row's underside and depth from the floor, its width from its
+wall's thickness, each overridable with Reset; the ring beam's underside stays its wall's top less
+its depth; distance and length stay the whole wall (a partial band: the wall's band No, beams
+added by hand); openings push lintel and sill band rows as the row's own height.
+
+**Bands unit 3: a band row's own values (core and web, hand-tested 2026-11-24, committed).**
+
+- *Own values (`band-rows.js`).* A band row lists the values it sets itself (`ownValues`, in its
+  row's model): underside, depth, width; `keepBandRows` keeps those and fills the rest (the
+  floor's underside and depth, the wall's thickness). A typed underside, depth or width becomes
+  the row's own; `update_opening`'s `reset: [...]` gives it back (`opening-operations.js`). The
+  ring beam's underside typed is refused: "The ring beam's top is its wall's top: change its depth
+  instead."; a typed distance or length: "The lintel band spans its whole wall."
+- *Pushed (`follow-beam-heights.js`).* Lintel and sill band rows are pushed as other beams (2e),
+  the pushed underside becoming the row's own; the ring beam isn't.
+- *The form (`band-field-state.js`, new; wired in `transactions.js`).* A band row's underside and
+  depth show "Floor default", its width "This wall", Reset once set on the row (the ring beam's
+  underside, read-only, shows none); a Reset on a wall child's value is sent as `reset`
+  (`transactions.js`). No position tag (`untagged`; web `field-tag.js`): a beam's fields had none.
+  The form's read-only rules: distance and length on a band row, the underside on the ring beam.
+
+Tests `building-plan-band-values.test.js` (new, 4: own values kept when the floor's change, Reset,
+the record; the ring beam's depth and its refused underside; a window pushing a lintel band; the
+form's sources and Reset through the editor), all failing with HEAD's files;
+`building-plan-band-rows.test.js`'s refusal wording; web `building-plan-field-tag.test.jsx` (an
+untagged state), failing with HEAD's `field-tag.js`. Core 792 of 792 and the plain test scripts;
+web 456 of 462 (the worker tests).
+
+Headless on the test page (no console errors): W1's Lintel band entry shows "Floor default" on
+its underside and depth, "This wall" on its width, no tags; its underside typed 2.35: Reset in
+its place. Seen in a replay: a lintel band pushed up can come to overlap the ring beam (bands
+aren't checked against each other; unit 4).
+
+Hand test (bands unit 3; restart the test page): on the floor, lintel band and ring beam on every
+wall (lintel underside 2.2, depth 250 mm); open a wall's Lintel band: underside and depth "Floor
+default", width "This wall"; type its underside 2.4: Reset shows; change the floor's lintel
+underside to 2.3: this row stays 2.4, the other walls' read 2.3; Reset: 2.3; type its width 150
+mm: kept when the wall's thickness changes; open the Ring beam: its underside read-only; its
+depth 400 mm: its underside drops so its top stays at the wall's top; a window under the lintel
+band raised into it: the band goes up on that wall only, with Reset.
+
+Hand-tested 2026-11-24: works. Committed form0-core `ae65a18`, form0-react `371496d`. Asked (aligning):
+why width shows "This wall" and distance and length nothing; why "This wall" looks like an
+inherited value; how to record a ring beam over part of a wall.
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3604,7 +3647,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`). Next: floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`). Next: floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

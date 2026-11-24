@@ -2435,3 +2435,12 @@ the wall's top; No removes it, removing it answers No; its place and size are re
 by its band in the editor's language; the band kind goes through the record. Core 788 of 788;
 web 456 of 462 (the worker tests). Checked on the test page. Hand-tested: works. Committed
 form0-core `c723306`.
+
+### Bands unit 3: a band row's own values (2026-11-24, hand-tested, committed)
+
+Core: a band row's underside and depth come from the floor and its width from its wall, unless
+set on the row (typed, or pushed by an opening); Reset returns them; the form shows "Floor
+default" or "This wall", then Reset, as plaster; the ring beam's underside stays at its wall's
+top less its depth. Web: a band value shows no position tag. Core 792 of 792; web 456 of 462 (the
+worker tests). Checked on the test page. Hand-tested: works. Committed form0-core `ae65a18`,
+form0-react `371496d`.
