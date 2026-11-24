@@ -3371,6 +3371,37 @@ named); one edit or two give the same result; a beam lowered into an opening is 
 Replayed on the example before the change: 1.55 in one edit refused; 1.5 then 1.55 applied, the
 beam at 2.45; lowered to 1.2, the beam came down to 2.1.
 
+**Unit 2d: openings push beams up; lengths stored without float noise (core, hand-tested
+2026-11-24, committed).**
+
+- *(a), `derive/follow-beam-heights.js`.* The openings under a beam before the edit and still
+  under it along the wall: when one it rested on moves, or one rises past its underside, the beam
+  comes to rest on the highest head among them. So a window raised into a beam pushes it (one
+  edit or two alike); lowered again, the beam comes down with it, stopping on another opening's
+  head under it if higher. Past the wall's top: "Beam B#1 would stand above its wall." (the
+  existing message). An opening moved along the wall into a beam is still refused, as is a beam
+  typed into an opening.
+- *Lengths, `derive/stored-walls.js`.* The write-back cleans a wall child's reach as it does its
+  offset (`cleanLength`), and keeps its span field in step.
+
+Tests `building-plan-wall-beam-push.test.js` (new, 3: one edit as two; past the top refused,
+lowered onto the highest head; moved along into it refused, a guard), a case in
+`building-plan-wall-beam-split.test.js` (divided parts' lengths clean), the first two and the
+lengths failing with HEAD's files; `building-plan-wall-beam-follow.test.js`'s raise-refused
+assertion moved to the push file. Core 777 of 777 and the plain test scripts; web 456 of 462 (the
+worker tests). Not checked on the test page.
+
+Hand test (unit 2d; restart the test page): a window on W1 (sill 0.9, height 1.4) and a beam
+over it at 2.4 (depth 200 mm): type the window's height 1.55 at once: the beam's underside reads
+2.45; raise it to 2.0: "Beam B#1 would stand above its wall."; lower it to 1.2: the beam comes
+down to 2.1. Split a wall through a beam at an odd distance: the parts' lengths in the record have
+no long decimals (Save state).
+
+Hand-tested 2026-11-24: works. Committed form0-core `1651924`. Raised: pushing up is right, but
+pulling down isn't: a beam resting on a window comes down when the window is lowered, so there's
+no way to detach it except retyping its underside. Proposed "push, never pull" (aligning, see
+"Floor defaults for bands").
+
 ### Floor defaults for bands (asked 2026-11-24, aligning)
 
 Asked: two floor questions setting defaults (beams on top of all walls; lintel and sill bands on
@@ -3396,9 +3427,36 @@ Decided so far:
   floor's System fields inline section.
 - **F5: one answer for every wall**, free walls included, overridden per wall.
 
-Open: what happens when a band meets an opening (asked: errors to fix before saving, or a
-question offering to adjust the openings); a sill band and doors; new openings' default heights
-under a lintel band.
+**F1 revised 2026-11-24: B, band rows.** A band seen on the canvas but missing from the Beams
+list reads wrong; everything drawn is a row. Each physical wall keeps three answers (Ring beam,
+Lintel band, Sill band), inherited from the floor and visible in its "Ring beam and bands"
+section; the engine keeps one band row per yes in the wall's Beams list (as a room's outline
+keeps its wall rows). A band row:
+
+- has a band-kind system field (ring, lintel, sill; empty on a local beam), is titled by its kind
+  (no B#), spans its whole wall (distance and length locked, its ends following the wall, 2b);
+- inherits its underside and depth from the floor, overridable on the row with Reset; the ring
+  beam's top is its wall's top;
+- divides on a Split and joins on a Rejoin (2c); parts whose values differ ask which applies (the
+  joining walls' question), since a wall has one band of each kind;
+- removed from the list, sets the wall's answer to No ("set here"); Reset brings it back;
+- the sill band: one row over the whole wall; doors pass through it, never a clash.
+
+Clashes (asked 2026-11-24, V and Q together): an edit of a band (a floor answer, a band row's
+underside or depth, a height moving the ring beam) that runs it into openings asks first: adjust
+the openings (sills up to the sill band's top, heads down to a lintel band's or ring beam's
+underside), fix them myself (applied; each clash an error on the opening and the band, blocking
+Save), or Cancel. An opening edit running into a band applies and shows the error.
+
+Decided too: the role starter field is dropped (the band kind covers it); new openings take their
+heights from the bands when there are any (a door's height and a window's head at the lintel
+band's underside, a window's sill at the sill band's top), else today's defaults (door 2 m;
+window sill 0.9 m, height 1.2 m).
+
+Open: "push, never pull" (raised at the 2d hand test): a beam moves only when something runs into
+it (a head rising pushes a beam above up, a sill dropping pushes a beam below down; lowering a
+head or raising a sill leaves it), for local beams and band rows, the wall's top and a room's
+clear height too; the ring beam stays at its wall's top.
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3416,9 +3474,10 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   (a) openings push beams up, with the length's float noise; floor defaults for bands (aligning,
-   see "Floor defaults for bands"); then the drawing unit (D1, bands and local beams), the front
-   view (A, read-only), the role starter field.
+   2d (`1651924`). Next: "push, never pull" (aligning); floor defaults for bands, B (see "Floor
+   defaults for bands": the floor and wall answers, band rows kept in step, their values
+   inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
+   beams) and the front view (A, read-only). The role starter field is dropped.
 2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),

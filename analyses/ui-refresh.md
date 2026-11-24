@@ -2398,3 +2398,13 @@ a ring beam, lintel band and sill band by default, overridden per wall as plaste
 to F5 (`building-plan-ui.md`, "Floor defaults for bands"): wall answers inherited from the floor,
 not beam rows; spanning the whole wall; three single choices; undersides; a depth per band in an
 inline Section; every wall. Open: a band meeting an opening, sill bands and doors.
+
+### Wall beams unit 2d: openings push beams up; lengths stored clean (2026-11-24, hand-tested, committed)
+
+Core: a beam comes to rest on the highest head of the openings under it when one it rested on
+moves or one rises past it, so a window raised into a beam pushes it up in one edit as in two,
+past the wall's top refused; moved along into a beam still refused. The write-back cleans a wall
+child's stored length as it does its offset. Core 777 of 777; web 456 of 462 (the worker tests). Hand-tested: works. Committed
+form0-core `1651924`. Raised: a beam shouldn't come down with a lowered window; "push, never pull"
+proposed. Decided: bands as band rows (B) with three wall answers, clashes asked then shown as
+errors, the role starter field dropped, new openings' heights from the bands.
