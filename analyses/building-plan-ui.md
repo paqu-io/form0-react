@@ -3118,7 +3118,8 @@ form0-react `d9d51af` (3a-3). 3a done; next, wall beams (open question 1, a core
   follows it, a beam that no longer fits is refused, named; removed with its room: goes with the
   wall; a room moved away: stays on the wall that stays; Rejoin: moves to the surviving wall;
   Split across a beam: refused, named, as doors (dividing it later if the hand test finds it in
-  the way).
+  the way). Revised 2026-11-24 (2c): a Split that crosses no door or window divides the wall and
+  every beam across it.
 - *WB9*: the legacy room beam fields move to the plan system fields review (queue 5), with the
   new wall beam fields and Reform's doc's different names (`beam_cross_section_width_m` …).
 - *WB10, the canvas*: no drawing tool or drag in the plan; beams are added and edited in the wall's
@@ -3279,6 +3280,126 @@ refusals), `6518675` (the test moved), form0-react `8dcc854` (typed refusals on 
 Asked: a wall beam can't be split (WB8 (a), refused as doors); dividing it at a cut put back as
 a choice.
 
+**Unit 2b: ends follow their wall, heights follow what they touch, clashes refused (core,
+hand-tested, committed).** The outline for drawing moves to the drawing unit (core and web, one hand test).
+
+- *Ends (WB8), `derive/wall-beam-ends.js` (new).* Before a geometry command, a wall beam touching
+  an end of its wall's stretch (its row) is replaced by a point at its free end
+  (`holdWallBeamEnds`), carried as a door's edge is, so no edit boundary cuts it; after it, the
+  beam is rebuilt to the stretch's new end(s) (`releaseWallBeamEnds`). Found while building: a
+  wall end moved past the free end made the command refuse the point as "This edit cuts through
+  B#1… remove" (the doors' question); it reads "Beam B#1 would be too short." now
+  (`heldBeamRefusal`, as room beams, 3a-4; under 1 cm too). Split and Rejoin don't hold: a cut
+  across a beam is still refused. Thickness changes hold as well.
+- *Heights (P2), `derive/follow-beam-heights.js` (new), after the write-back against the floor
+  before the edit.* A beam resting on an opening's head (their stretches overlapping) follows the
+  head (several: the highest); else one flush with its wall's top stays flush (deeper, it grows
+  down); a room beam whose top was at the clear height stays there. An underside typed in the
+  edit is kept.
+- *Clashes, `wall-beam-placement.js` (new), in `derivedCandidateIssues`.* A beam above its wall:
+  "Beam B#1 would stand above its wall."; an opening and a beam overlapping along the wall and in
+  height: "Window 1 would run into Beam B#1." (or "Beam B#1 would run into Window 1." when the
+  beam moved); resting on a head or under a sill is allowed; a clash already there refuses no
+  unrelated edit.
+
+Test `building-plan-wall-beam-follow.test.js` (5: ends out and in, the free end in place; one
+end, too short; heights by a door, the wall's top and depth, a typed one kept, a room beam by the
+floor's height; the clashes, named; an old clash (a guard)), the first four failing with HEAD's
+`derived-edit.js`. Core 768 of 768 and the plain test scripts; web 456 of 462 (the worker tests).
+
+Headless on the test page (no console errors): a beam added on W1 (0, 5); W2 dragged out to
+5.714 m: the beam 5.71405 long; its underside typed 2.9: "Beam B#1 would stand above its wall."
+in the canvas status line.
+
+Hand test (unit 2b; restart the test page): in W1's entry add a beam (the whole wall); drag W2
+out and W4 in: reopen it, its length follows; a beam 0 to 1 m on W1: drag W4 in past 1 m: "Beam
+B#2 would be too short."; on W3 a lintel over the door (distance 0.35, length 1.2, underside 2,
+depth 250 mm), then the door's height typed 2.1: the lintel's underside 2.1; W1's height typed
+3.2: the whole-wall beam's underside 2.9; a window on W1 and a beam over it at 2.4: the window's
+height raised past it: "Window 1 would run into Beam B#n."; a beam's underside typed into the
+window or above the wall: refused, named; a room beam, then the floor's height changed: its
+underside follows.
+
+Hand-tested 2026-11-24: works. Committed form0-core `3af639f`. Raised: step 5's window wasn't
+refused (the capture: its head 2.3, the beam 30 cm above at 2.4; replayed, a head past 2.4 is
+refused, touching 2.4 is allowed); asked why a door raising its lintel isn't refused: the lintel
+rested on the door's head (touching), so it follows; a beam with a gap stays and the opening may
+not run into it (WB6). A consequence: raised to touch it first, the window then carries the beam.
+Decided: a Split that crosses no door or window divides the wall and every beam across it, as
+the wall divides (option b, all beams across the cut); lengths shown rounded to 2 decimals.
+
+**Unit 2c: a Split divides the beams across it; lengths shown to the centimetre (core,
+hand-tested 2026-11-24, committed).**
+
+- *Dividing (`derive/beam-divisions.js`, new).* A cut is refused only by a door or window
+  (`cut-commands.js`); a wall dividing (a Split, or a room's adjacency dividing it) divides each
+  beam across its pieces (`divideBeamsOnPieces` in `divideSubjects`): the part on the piece that
+  keeps the wall keeps the beam's identity (else the first along the wall); the others are new
+  beams with the same size, height, answers and custom rows (new row IDs), unnamed, so they get
+  the next B#. A free wall's cut divides them too (`divideBeamsAtCut`). Rejoin
+  (`mergeMeetingBeams`, `cut-rejoin.js`, both paths): beams meeting end to end on the floor (their
+  rows may be in different rooms) become one when size, height and answers match, the one of the
+  wall the Split divided surviving; otherwise they stay two.
+- *Lengths shown (`presentation.js`).* `toDisplay` rounds as the canvas shows lengths: metres to
+  the centimetre, millimetres whole, feet to the hundredth, inches to the tenth. Stored values
+  keep their precision (a beam following a wall keeps touching its end); a field only writes what
+  is typed. Applies to every plan length (a door's distance read 1.19014 in the capture too).
+
+Tests `building-plan-wall-beam-split.test.js` (4: two beams across a cut divided, named B#3 and
+B#4 with their answers, one again after Rejoin; parts that no longer match stay two; a free wall;
+a door still refusing (a guard)), a case in `building-plan-measures.test.js`, the first three and
+the rounding failing with HEAD's files; `building-plan-named-refusals.test.js` and
+`building-plan-wall-beams.test.js` updated (a Split across a beam no longer refused). Core 773 of
+773 and the plain test scripts; web 456 of 462 (the worker tests; "keeps numeric setters
+numeric" failed once under the full run's load, passing twice alone).
+
+Hand test (unit 2c; restart the test page): a beam over the whole of W1 and a shorter one; Split
+W1 through both: four beams, the new parts B#3 and B#4 with the same heights; Rejoin: two again.
+Change one part's underside, then Rejoin: they stay two. Split W3 through the door: refused,
+naming the door. A beam's length after a wall drag shows to the centimetre (5.71).
+
+Hand-tested 2026-11-24: works. Committed form0-core `25bfdfc` (lengths shown), `6e8068e`
+(dividing). Asked: step 3 left three beams on W1. Expected: the capture's whole-wall parts matched
+and became B#1 again; the shorter beam's parts (B#2 at 1.5, B#4 changed to 0.9) stay two. Seen in
+the capture: a divided part's stored length carries float noise (0.9862663009999999); the offset
+goes through `cleanLength`, the length doesn't yet (next unit).
+
+Decided after it (step 5's path): one edit raising a window past a beam was refused, two (touching
+first, then past) carried the beam, and once touching it stayed stuck to the window. **(a)**: an
+opening rising into a beam above it pushes the beam up, as far as the wall's top (beyond, refused,
+named); one edit or two give the same result; a beam lowered into an opening is still refused.
+Replayed on the example before the change: 1.55 in one edit refused; 1.5 then 1.55 applied, the
+beam at 2.45; lowered to 1.2, the beam came down to 2.1.
+
+### Floor defaults for bands (asked 2026-11-24, aligning)
+
+Asked: two floor questions setting defaults (beams on top of all walls; lintel and sill bands on
+all walls, with their default heights), overridable per wall as plaster is, so a surveyor doesn't
+add each ring, lintel or sill band to every wall of every room.
+
+Decided so far:
+
+- **F1: bands are wall answers (A), not rows in each wall's Beams list (B).** Each physical wall
+  has Ring beam, Lintel band and Sill band answers, inherited from the floor through
+  `FLOOR_SYSTEM_ROUTES` (scope `physical_wall`, copied on a split), set on a wall to override,
+  with "Reset to inheritance". No beam rows are created; a wall's row stores the answers it ends
+  up with, marked from the floor or set here (as wall height and plaster). The Beams list keeps
+  local beams only (a lintel over one window, a beam over part of a wall). A band spans its
+  whole wall (decided: it doesn't stop at openings; a broken band is made per wall, with local
+  beams). B's cost: rows the engine keeps in sync, tombstones for deleted ones, a sill band in
+  pieces between doors re-created as doors move.
+- **F2: three single choices** like plaster ("Every wall has a lintel band" / "No wall has a
+  lintel band"), one floor answer to one wall answer, a band overridden alone.
+- **F3: heights are undersides** (lintel and sill); the ring beam's top is its wall's top. The
+  sill band's measuring point may change later if it reads wrong.
+- **F4: a depth per band** (three more floor questions), grouped in an inline Section inside the
+  floor's System fields inline section.
+- **F5: one answer for every wall**, free walls included, overridden per wall.
+
+Open: what happens when a band meets an opening (asked: errors to fix before saving, or a
+question offering to adjust the openings); a sill band and doors; new openings' default heights
+under a lintel band.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3294,8 +3415,10 @@ before this one in the log).
 
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
-   Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0 and 3 to hand test; the mockup
-   choice and the front view open.
+   Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
+   (a) openings push beams up, with the length's float noise; floor defaults for bands (aligning,
+   see "Floor defaults for bands"); then the drawing unit (D1, bands and local beams), the front
+   view (A, read-only), the role starter field.
 2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),

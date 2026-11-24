@@ -2363,10 +2363,38 @@ Checked on the test page. Hand-tested: works. Committed form0-core `4fbfd03`. Ra
 refusal above the form, not on the canvas; a Split across the (undrawn) beam said "door or
 window". Decided: round the offsets' float noise; names at rest as columns; a Beams switch in Show.
 
-### Wall beams unit 2a: named refusals, offsets as typed, typed refusals on the canvas (2026-11-24, to hand test)
+### Wall beams unit 2a: named refusals, offsets as typed, typed refusals on the canvas (2026-11-24, hand-tested, committed)
 
 Core: refusals name the door, window or beam in the way (`nameOf`); the derived write-back rounds
 recomputed offsets (`cleanLength`, a typed 0.3 was stored 0.2999999999999998). Web: an entry's
 refusals for typed values in its canvas's status line (`use-entry-issues.js`), the banner only
 without a canvas. Core 763 of 763; web 456 of 462 (the worker tests). Checked on the test page.
 Hand-tested: works. Committed form0-core `581e4ad`, `e460399`, `6518675`, form0-react `8dcc854`.
+
+### Wall beams unit 2b: ends and heights follow, clashes refused (2026-11-24, hand-tested, committed)
+
+Core: a wall beam's end at its wall's end follows it (held as a point through geometry commands,
+rebuilt after; past its free end, "Beam B#1 would be too short."); heights follow what a beam
+touches (an opening's head, the wall's top, a room beam's top at the clear height); an opening
+running into a beam, or a beam above its wall, refuses the edit, named. Core 768 of 768; web 456
+of 462 (the worker tests). Checked on the test page. Hand-tested: works. Committed form0-core
+`3af639f`. Step 5's window: under the beam (head 2.3, beam 2.4), so not refused; the door's lintel
+rested on it, so it followed.
+
+### Wall beams unit 2c: a Split divides the beams across it; lengths to the centimetre (2026-11-24, hand-tested, committed)
+
+Core: a cut is refused only by a door or window; a wall dividing divides every beam across it (the
+part on the kept piece keeps the beam, the others new, the next B#); Rejoin makes matching parts
+one again; free walls too. Plan lengths shown to the centimetre, sizes to the millimetre (stored
+precision kept). Core 773 of 773; web 456 of 462 (the worker tests). Hand-tested: works (step 3's
+three beams expected: the whole-wall parts joined, the changed ones stayed two). Committed
+form0-core `25bfdfc`, `6e8068e`.
+
+### Wall beams: openings push beams up; floor defaults for bands (2026-11-24, aligning)
+
+Decided (a): an opening rising into a beam above it pushes it up to the wall's top (one edit or
+two the same; before, one was refused and two carried it). Asked: floor questions giving every wall
+a ring beam, lintel band and sill band by default, overridden per wall as plaster is. Decided F1
+to F5 (`building-plan-ui.md`, "Floor defaults for bands"): wall answers inherited from the floor,
+not beam rows; spanning the whole wall; three single choices; undersides; a depth per band in an
+inline Section; every wall. Open: a band meeting an opening, sill bands and doors.
