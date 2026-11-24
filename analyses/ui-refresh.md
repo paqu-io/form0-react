@@ -2417,3 +2417,12 @@ top pushes a wall beam down and a lowered clear height a room beam; lowering a h
 sill, a wall or a ceiling leave beams where they are. Core 778 of 778; web 456 of 462 (the worker
 tests). Hand-tested: works (step 4's beam was a wall beam on a wall with its own height).
 Committed form0-core `beb7c67`.
+
+### Bands unit 1: the floor's and the wall's answers, the band kind (2026-11-24, hand-tested, committed)
+
+Core: the floor's System fields gain a "Ring beam and bands" inline section (ring beam, lintel
+band, sill band: every wall or none, with undersides and depths shown on yes); each physical wall
+inherits Yes / No in its own section, overridden and reset as plaster; inherited choices read in
+the receiving field's words (plaster too); wall beams get an internal band-kind field. Words in
+fr / it / es. Core 783 of 783; web 456 of 462 (the worker tests). Checked on the test page. Hand-tested:
+works. Committed form0-core `72ad993`.

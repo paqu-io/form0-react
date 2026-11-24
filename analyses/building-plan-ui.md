@@ -3490,6 +3490,59 @@ the floor's height at 2.5: B#3 is a wall beam on W1, whose height is set on the 
 floor's height doesn't reach it; the capture had no room beam. The floor field sends
 `set_provider`, the operation the core test covers.
 
+**Bands unit 1: the floor's and the wall's answers, the band kind (core, hand-tested
+2026-11-24, committed).**
+
+- *Floor (`building-plan-floors.js`).* Eight system fields after plaster: Ring beam, its depth;
+  Lintel band, its underside and depth; Sill band, its underside and depth. Each band is a single
+  choice ("Every wall has a lintel band" / "No wall has a lintel band", values `yes` / `no`, not
+  required); its underside (m) and depth (mm) show, and are required, only on `yes`, as plaster's
+  thickness. Long data names: `floor_ring_beam_depth`, `floor_lintel_band_distance_from_floor`,
+  `floor_lintel_band_depth`, `floor_sill_band_*` (cut short when scoped, as plaster's already
+  are). `BAND_KINDS` lists the three (kind, title, floor and wall names).
+- *Routes.* Each band answer routes to a physical wall property (`wall_ring_beam`,
+  `wall_lintel_band`, `wall_sill_band`; every wall, free walls too; a split's pieces copy it).
+  The undersides and depths route nowhere yet (unit 3, into the band rows). The contract labels
+  the wall's answers by the band, choices Yes / No, not required.
+- *Grouping (`building-plan-expander.js`).* A node's `system_groups` gather some system fields in
+  an inline Section of their own inside System fields, where the first of them stood: the floor's
+  eight, and the wall's three (physical wall and a room's wall row), "Ring beam and bands". The
+  blueprint keeps the fields flat, so every lookup by name still works.
+- *Inherited choices in the receiving words (`inheritance.js`).* A wall inheriting the floor's
+  "Every wall has a lintel band" reads "Yes" (values unchanged); plaster too ("All the interior
+  walls are plastered" reads "Plastered" on a wall side). Changes stored labels of inherited
+  plaster (not published).
+- *Band kind (`building-plan-wall-beams.js`).* `wall_beam_band` (ring / lintel / sill), internal
+  (hidden, read-only; system fields of child nodes are normalised to required and visible unless
+  internal); the engine fills it on band rows in unit 2, whose title shows the kind.
+- *Words.* fr / it / es in `presentation-band-texts.js` (new; `presentation.js` is past 300
+  lines), merged into the lookup. Measures: undersides `length`, depths `thickness`.
+
+Tests `building-plan-band-answers.test.js` (new, 5: the floor's section and its conditions, the
+walls' and room walls' answers, the band kind; every wall inheriting in its own words, a wall
+overriding and resetting; a split's pieces keeping it; plaster inherited in the wall's words; the
+words translated with their measure), all failing with HEAD's files; `building-plan-v2.test.js`'s
+catalog check exempts the band answers (optional, as plaster). Core 783 of 783 and the plain test
+scripts; web 456 of 462 (the worker tests).
+
+Headless on the test page (no console errors): the floor entry's navigation shows System fields >
+Ring beam and bands; "Every wall has a lintel band" shows its underside and depth, required;
+W1's entry (from the Bedroom) shows the section with Lintel band "Yes · Floor default", the others
+"Form default". Seen: a nested section highlighted from the navigation gets a border with no
+inner padding, so its labels touch it (an existing style of nested sections, not changed here).
+
+Hand test (bands unit 1; restart the test page): open the floor; in System fields, Ring beam and
+bands: choose "Every wall has a lintel band": its underside and depth appear, required; open a
+room's wall: Lintel band reads Yes (Floor default); set it to No: a Reset button in its place;
+Reset: Yes again;
+the floor's answer back to "No wall has a lintel band": the walls follow; in French, Italian or
+Spanish the words are translated.
+
+Hand-tested 2026-11-24: works. Committed form0-core `72ad993`. Asked: the hand test said a wall set
+to No reads "This wall"; an overridden value that can return to the floor's shows Reset instead
+(`field-renderer.jsx`), so Reset and Whole wall is right. Asked too: what a wall's No does to its
+band row once unit 2 keeps them (aligning).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3506,7 +3559,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Next: floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`). Next: floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
