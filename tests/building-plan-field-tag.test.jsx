@@ -35,6 +35,10 @@ describe('a building plan field’s tag', () => {
     expect(buildingPlanFieldTag({ scope: 'wall_face', outside: true })).toBe('Exterior');
     // A free wall's own field: no tag (nothing shares it).
     expect(buildingPlanFieldTag(whole(), () => true)).toBeNull();
+    // A band row's value (bands unit 3): its source shows, no position tag.
+    expect(
+      buildingPlanFieldTag({ source: { mode: 'inherit', scope: 'floor' }, untagged: true })
+    ).toBeNull();
   });
 
   it('opens a note naming the rooms that share the wall, and only then', () => {

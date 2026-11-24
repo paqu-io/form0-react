@@ -22,6 +22,8 @@ const sharedRooms = (propertyState) => propertyState.sharedWith || [];
  * @returns {string | null}
  */
 export function buildingPlanFieldTag(propertyState, isFreeWall = () => false) {
+  // A band row's value shows where it comes from without a position tag (bands unit 3).
+  if (propertyState.untagged) return null;
   const otherSide = propertyState.outside || propertyState.opposite;
   if ((otherSide || propertyState.source) && isFreeWall()) {
     if (otherSide) return planText('plan.side.other');
