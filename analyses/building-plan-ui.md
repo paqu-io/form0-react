@@ -3174,6 +3174,111 @@ Raised: the Split tool's distance box acts on the wall under the pointer and eac
 it, so a distance can't really be typed, though the status line offers it ("…or type a distance
 from its 0 end"); to rework with lengths editable from the canvas (step 4, queue 4).
 
+**After the units 0 and 3 hand test (2026-11-24).** Mockup picks: D1 (beams drawn over their
+wall's band, the one whose entry is open on top in the accent colour); the front view built,
+read-only first, reached by A (a Plan | Front switch in entries about a wall), after unit 2.
+Still to choose: beam names at rest, a Beams switch in Show. Unit 1 also takes "carried by every
+edit" (from unit 2): stored beams that an edit didn't carry would be lost.
+
+**Unit 1: wall beams stored, added from a wall's list, carried by every edit (core,
+hand-tested, committed).**
+
+- *Schema.* `building-plan-wall-beams.js` (new): the `wall_beams` node (a child of Wall, "Beams",
+  in the blueprint so authors can add fields to it) with `wall_beam_identifier`, `_offset`,
+  `_length`, `_distance_from_floor` ("Underside from floor"), `_width`, `_depth` (mm on screen),
+  `_wall_reference` (hidden); room beams gain `beam_distance_from_floor`. The contract puts
+  `wall_beams` under the physical wall and a `face_beams` copy in each room's wall row; the
+  measures and the fr/it/es texts.
+- *Model and record.* Walls hold `beams`; `wall_beam_outside_wall` when one doesn't fit its wall
+  (beams may lie over openings and each other). `wall-beam-records.js` (new) reads and writes a
+  beam row; `wall-children.js` (new) is the one table of what a wall carries (doors, windows,
+  beams: collection, copy, list, offset and span fields), used by `records.js` (copies with each
+  room's own left end, WB3; links), `transactions.js` (an edit in a beam's row), `editor.js` and
+  the opening operations.
+- *Operations.* `create_opening` with `kind: 'beam'`, `update_opening`, `remove_opening`; the
+  confirm-removal flow and partial cuts know beams ("This edit cuts through B#1"). Added from a
+  wall's list (`beam-defaults.js`, new): the stretch of the wall that room faces, as wide as the
+  wall, 30 cm deep, its top at the wall's top. A room beam added from its list: 15 by 30 cm; any
+  new room beam's underside at the room's clear height minus its depth. Room and wall beams share
+  B#n per floor.
+- *Derived engine.* `derive/along-wall.js` (new): beams ride `subject.openings` with their length
+  as their span (WB2); `extract-subjects.js` and `stored-walls.js` convert; material and caps
+  read the stored doors and windows, so beams aren't holes.
+- Not yet (unit 2): Split across a beam is refused with the doors' wording; a wall shortened under
+  a beam is refused as "does not fit" unnamed; ends at a wall's end don't follow it; heights don't
+  follow by contact; nothing drawn.
+- Found: a derived write-back stores an opening's offset with float noise (a typed 0.3 stored as
+  0.2999999999999998; the form shows 0.3, core's presentation rounds to 14 digits); exported
+  records carry it. Pre-existing for doors and windows; noted, not changed.
+
+Test `building-plan-wall-beams.test.js` (7: the schema and a custom field on wall beams; `[]` on
+every physical wall in the exported record; added from Room 2's W3 entry with its defaults; a
+room beam's underside and 15 by 30 cm from its list, numbering shared; carried in place through a
+wall moved, Split and Rejoin, Room 2 removed, Split across refused; each room's copy, a distance
+and a length typed in Room 2's; a beam that doesn't fit, refused), all failing with HEAD's
+files. Core 760 of 760 and the plain test scripts; web 454 of 460 (the worker tests).
+
+Headless on the test page: the Bedroom's W3 entry has Beams; Add: B#1, distance 0, length 2,
+underside 2.7, width 200 mm, depth 300 mm; 0.2 and 1.5 typed and saved: stored 0.2 and 1.5, Room
+2's copy 0.3 in the live record (not reopened from Room 2's entry: the driver reloads the page
+between rooms).
+
+Hand test (unit 1; restart the test page): in the Bedroom's entry, double-click W3 between the
+right corner and the door, Beams, Add: the defaults above; type 0.2 and 1.5, Save up to the
+floor; Room 2's W3 entry, Beams: B#1 at 0.3; type 0.5 there and Save: the Bedroom's copy shows 0.
+Then on the canvas: drag W3, Split W3 between the beam's end and the corner of the W3 stretch
+and Rejoin, remove Room 2: the beam stays, its distances unchanged. A length longer than the
+wall: refused. A room beam drawn with the Beam tool: Underside from floor 2.7; one added from the
+room's Beams list: 150 by 300 mm, the next B#.
+
+Hand-tested 2026-11-24: works. Committed form0-core `4fbfd03`. Raised: a distance typed while the
+beam still spans the whole wall showed "The beam does not fit on its wall…" above the form, not
+on the canvas as other refusals; a Split between the door's left edge and W3's end said "This cut
+crosses a door or window" (replayed on the capture: it crossed the beam, which isn't drawn yet).
+Decided: round the float noise though it changes stored door values (plans aren't published);
+wall beams' names at rest as columns' and room beams' (a badge at rest, accent when selected;
+walls, doors and windows name only the selected one); a Beams switch in Show (web unit).
+
+**Unit 2a: refusals name what's in the way; offsets stored as typed (core); typed refusals on the
+canvas (web) (hand-tested, committed).**
+
+- *Named refusals (core).* `nameOf` (`wall-children.js`): "Beam B#1", or a door's or window's
+  label. Split across one: "This cut crosses Beam B#1. Choose a position outside it, or shorten
+  the beam first." (a door: "This cut crosses Shared door. Choose an opening edge or another
+  position."); the other edits that an opening or beam is in the way of name it too (corner and
+  stretch edits, room resizes, partition returns, an adjacency boundary, a removed portion, a
+  typed size that doesn't fit, the model's fit checks: "Beam B#1 does not fit on its wall.
+  Shorten or move it.").
+- *Offsets stored as typed (core).* `cleanLength` (`geometry.js`, as `cleanPoint`): the derived
+  write-back rounds an opening's or beam's recomputed offset to 1e-9 m (a typed 0.3 was stored
+  as 0.2999999999999998); `opening-sides.js` and `beam-defaults.js` use it.
+- *Typed refusals on the canvas (web).* `use-entry-issues.js` (new): an entry's refusals for
+  typed values go to its canvas's status line (`BuildingPlanCanvasHost`'s `issues`); the banner
+  above the form stays only for an entry without a canvas (`form-renderer.jsx`, wiring).
+- The wall beams test's room-copy case moved to `building-plan-wall-beam-copies.test.js` (it was
+  310 lines).
+
+Tests: `building-plan-named-refusals.test.js` (2: a Split across a beam and across a door; a
+beam typed past its wall), `building-plan-opening-offsets.test.js` (1: 0.3, 0.2, 0.7 stored as
+typed for a door and a beam, through a wall move), all failing with HEAD's files;
+`building-plan-entry-issues.test.jsx` (web, 2). Core 763 of 763 and the plain test scripts; web
+456 of 462 (the worker tests).
+
+Headless on the test page (no console errors): a new beam's distance typed 0.2: "Beam B#1 does
+not fit on its wall. Shorten or move it." in the canvas status line, no banner; 1.5 typed: gone;
+saved up to the Bedroom, Split at x = 3.4 (on the beam, clear of the door): "This cut crosses
+Beam B#1. Choose a position outside it, or shorten the beam first."
+
+Hand test (unit 2a; restart the test page): in a new beam's entry type 0.2 first: the refusal
+names B#1 in the canvas status line, not above the form; then 1.5: gone. Split W3 on the beam: the
+message names it; on the door: names the door. Type 0.3 as a door's distance, Save, export or
+Save state: stored 0.3.
+
+Hand-tested 2026-11-24: works. Committed form0-core `581e4ad` (offsets), `e460399` (named
+refusals), `6518675` (the test moved), form0-react `8dcc854` (typed refusals on the canvas).
+Asked: a wall beam can't be split (WB8 (a), refused as doors); dividing it at a cut put back as
+a choice.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

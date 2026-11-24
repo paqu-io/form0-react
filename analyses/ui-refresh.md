@@ -2350,3 +2350,23 @@ change. Checked on the test page. Hand-tested: works. Committed form0-core `6621
 noted for step 4. WB6 confirmed (heights follow by contact); the role field decided (wall beams,
 Ring beam, Lintel beam, Sill beam, Other allowed). Next: the front view's access in the mockup,
 then unit 1.
+
+### Wall beams unit 1: stored, added from a wall's list, carried by every edit (2026-11-24, hand-tested, committed)
+
+Mockup picks: D1 and the front view by A (built after unit 2). Core: the `wall_beams` node and
+its `face_beams` copies, the room beam's underside field; walls hold beams (checked to fit);
+`wall-children.js` (one table of doors, windows and beams), `wall-beam-records.js`,
+`beam-defaults.js` (a beam added from a wall's list: that stretch, the wall's width, 30 cm deep,
+on top; room beams 15 by 30 cm, underside at the clear height), `derive/along-wall.js` (beams
+ride with openings in the derived engine). Core 760 of 760; web 454 of 460 (the worker tests).
+Checked on the test page. Hand-tested: works. Committed form0-core `4fbfd03`. Raised: a typed
+refusal above the form, not on the canvas; a Split across the (undrawn) beam said "door or
+window". Decided: round the offsets' float noise; names at rest as columns; a Beams switch in Show.
+
+### Wall beams unit 2a: named refusals, offsets as typed, typed refusals on the canvas (2026-11-24, to hand test)
+
+Core: refusals name the door, window or beam in the way (`nameOf`); the derived write-back rounds
+recomputed offsets (`cleanLength`, a typed 0.3 was stored 0.2999999999999998). Web: an entry's
+refusals for typed values in its canvas's status line (`use-entry-issues.js`), the banner only
+without a canvas. Core 763 of 763; web 456 of 462 (the worker tests). Checked on the test page.
+Hand-tested: works. Committed form0-core `581e4ad`, `e460399`, `6518675`, form0-react `8dcc854`.
