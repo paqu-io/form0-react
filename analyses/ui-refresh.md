@@ -2331,3 +2331,22 @@ along a face it moves with it; too short, refused, named. Web: beams drawn with 
 a refused beam marked at its width. Core 748 of 748, web 454 of 460 (the worker tests). Checked on
 the test page. Hand-tested: works. Committed form0-core `13dd96d`, `8c1e312`, form0-react
 `d9d51af`. 3a done; next, wall beams (a core design round).
+
+### Wall beams: decided; units 0 and 3 (2026-11-24, hand-tested, committed)
+
+Today checked first (`building-plan-ui.md`, "Wall beams"): empty collections are written as `[]`;
+a shared door's entry showed the same distance in both rooms (from Room 2's right end); a Split
+before an opening then Rejoin moved it (derived engine only); the legacy beam wall fields are
+always -1/0/1. Decided WB1 to WB10: wall beams under the physical wall, carried with openings in
+the derived engine; the height is the truth (P2: one underside field, core keeps touching beams in
+step, no position field, no opening reference); each room counts from its own left end; no plan
+drawing tool, how they show to choose from a mockup (https://claude.ai/artifact/VTrTopfPtKR3GivVhnWq4S);
+the legacy fields go to the system fields review; a role starter field later; the front view
+still open. Unit 0 (core): openings keep their place across Split and Rejoin (`joinEdges`).
+Unit 3 (core, WB3): each room's copy of an opening counts from its own left end
+(`opening-sides.js`; the stored value, and the exported record, unchanged). Core 753 of 753; no web
+change. Checked on the test page. Hand-tested: works. Committed form0-core `6621a77`,
+`8a790c1`. Raised: Split's typed distance doesn't work in practice (the box follows the pointer);
+noted for step 4. WB6 confirmed (heights follow by contact); the role field decided (wall beams,
+Ring beam, Lintel beam, Sill beam, Other allowed). Next: the front view's access in the mockup,
+then unit 1.

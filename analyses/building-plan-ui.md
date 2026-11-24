@@ -3061,6 +3061,119 @@ follows.
 Hand-tested 2026-11-23: works. Committed form0-core `13dd96d` (3a-3), `8c1e312` (3a-4),
 form0-react `d9d51af` (3a-3). 3a done; next, wall beams (open question 1, a core design round).
 
+### Wall beams (2026-11-24)
+
+**Today (checked in node on the derived engine, and headless on the test page).**
+
+- Exported records write an empty collection as `[]`, not left out: every physical wall carries
+  `doors: []` and `windows: []`, every room `beams: []`. A room's copies of its doors and windows
+  (`face_doors`, `face_windows`) are left out of stored records by design
+  (`getBuildingPlanProjectionNames`): an opening is stored once, under its physical wall. So
+  `wall_beams` will show as `[]` on every physical wall (additive).
+- `door_offset` counts along the wall from its start, the left end seen from the reference room.
+  On the test page the shared door's entry showed "Distance from wall start" 0.5 from both rooms,
+  while Room 2's own lengths along W3 read 0.60 | 0.90 | 0.50 from its left end.
+- Openings through edits: a moved wall keeps them in place; Split across one: refused
+  (`opening_crosses_cut`); a room moved so the shared stretch cuts one: asks, confirmed removes
+  it; Room 2 moved away or removed: the door stays on the Bedroom's wall; Room 1 removed: it
+  stays, its offset rewritten for the turned wall.
+- Bug: a Split before an opening then Rejoin moved it by the cut's distance (the shared door
+  30 cm; a window 2 m along W1 to 1 m); today's engine kept it. Fixed by unit 0 below.
+- The legacy room beam fields: a beam dragged flush along W1 (centreline 7.5 cm off the face) was
+  stored with `beam_wall_segment_index` -1, ratios 0 and 1; since 3a no beam's centreline comes
+  within the 1 mm reach of a face, and the index never named a wall. Nothing reads them (core,
+  web, Reform repos).
+- Data names are unique across a form (only generated copies repeat): wall beam fields need their
+  own names. "Elevation" already means story elevation (`room_elevation`).
+- A room beam added from the Beams list gets 25 × 40 cm from core (`editor.js`), the canvas 15 ×
+  30 since 3a (read from code; to confirm with unit 1's test).
+
+**Decided (2026-11-24).** Mockup for WB10: https://claude.ai/artifact/VTrTopfPtKR3GivVhnWq4S
+
+- *WB1, home*: children of the physical wall, like doors and windows (`wall_beams`), stored once,
+  a copy in each room's wall entry (the twin row on a shared wall comes with it).
+- *WB2, how core carries them*: in `subject.openings` (about 18 derive files carry it), so every
+  edit carries them as doors; places where an opening is a hole (wall material, caps, plaster,
+  column clearance, opening snapping) skip them; an invariant test (every beam survives every
+  accepted edit, in place). No rename. Derived engine only; `engine=current` needn't work (the
+  switch is soon).
+- *WB3, which end*: each room's copy counts from that room's own left end, for doors, windows and
+  wall beams; stored values and exported records don't change. Unit 3 below (openings).
+- *WB4 and WB5, P2*: the height is the truth: one stored field, the underside from the floor
+  (`wall_beam_distance_from_floor`, "Underside from floor (m)"; room beams get
+  `beam_distance_from_floor`, required, filled by core at creation); no position field, no opening
+  reference, only the wall reference. Core fills the height once when a beam is added (from a
+  wall's list: the top of the wall, wall height − depth) and keeps a beam touching what it rests
+  on or under in step (top flush with the wall's top follows the wall's height; underside on an
+  opening's head follows that head); an edit that would make an opening run into a beam, or a
+  beam stand above its wall, is refused, named. Other fields: identifier (B#n, one numbering per
+  floor with room beams), offset (≥ 0, default 0), length (editable, offset + length ≤ the wall,
+  default the rest of the wall), width (default the wall's thickness, centred on its axis), depth
+  (default 30 cm), a hidden wall reference.
+- *WB6*: a beam doesn't follow an opening along the wall; the person adjusts it (an opening moved
+  under a beam lower than its head is refused, named). Heights still follow by contact (P2),
+  confirmed.
+- *WB7*: when the opening a beam rests on goes, the beam stays where it is.
+- *WB8, its wall changes*: moved: keeps its offset; shorter or longer: an end at the wall's end
+  follows it, a beam that no longer fits is refused, named; removed with its room: goes with the
+  wall; a room moved away: stays on the wall that stays; Rejoin: moves to the surviving wall;
+  Split across a beam: refused, named, as doors (dividing it later if the hand test finds it in
+  the way).
+- *WB9*: the legacy room beam fields move to the plan system fields review (queue 5), with the
+  new wall beam fields and Reform's doc's different names (`beam_cross_section_width_m` …).
+- *WB10, the canvas*: no drawing tool or drag in the plan; beams are added and edited in the wall's
+  entry (Walls › W1 › Beams). Read-only in the plan, how they show to choose from the mockup (D1
+  over the wall, D2 lanes inside the face, D3 only on focus; names at rest; a Beams switch in
+  Show).
+- *Role*: wall beams only, a custom field left to authors and included in the starter
+  (form0-cli's templates, the web and mobile templates' `building-condition-survey`, Reform's
+  doc): a SingleChoiceField "Role" (Ring beam, Lintel beam, Sill beam; Other allowed), the beam's
+  own answer, stored once and the same from both rooms, as a door's fields. Its own unit after
+  unit 1.
+- *Defaults*: core's list-added room beam becomes 15 × 30 cm, as the canvas (unit 1).
+- Open: the front view of a wall, how it would be reached (A a Plan | Front switch in entries
+  about a wall, B both at once, C a shortcut from any plan canvas) added to the mockup.
+
+Units (one hand test each; core first): **0** openings keep their place across Split and Rejoin;
+**1** the `wall_beams` collection and its copies, the fields, the room beam's height field,
+defaults when added from a list; **2** carried by every edit, the fit rule and refusals, contact
+following for heights, the snapshot for drawing, the invariant test; **3** per-room offsets (WB3);
+**4** web, after the mockup: drawn read-only, highlighted with its lengths when its entry is open;
+then the role starter field. 0 and 3 share one hand test (both about today's openings).
+
+**Unit 0: openings keep their place across Split and Rejoin (core, hand-tested, committed).**
+`joinEdges` (`derive/cut-edges.js`) moves the second edge's rows onto the first, their stations
+shifted by its length; the openings anchored to those rows count from their row's edge start and
+weren't shifted. They are now. Test: a case in `building-plan-derived-cut-commands.test.js` (the
+shared door split 0.3 m before it, a window split 1 m before it; each in place after Split and
+after Rejoin), failing on HEAD (the door at 3.9..4.8). Headless on the test page: W3 split at x =
+4.78, the door 3.6..4.5 after the Split and after the Rejoin.
+
+**Unit 3: each room's copy counts from its own left end (WB3; core, hand-tested, committed).**
+`opening-sides.js` (new): a room on its segment's side -1 sees the segment run right to left, so
+its copy shows `length - offset - width`; `storedOpeningEdit` converts a typed distance back (a
+width typed alone keeps that room's distance: the opening grows to its right as that room sees
+it). Wiring: `records.js` (`refreshBuildingPlanProjections` writes the copy's value; a reversed
+copy's offset leaves the links to the stored row, so the record evaluator's mirror refresh
+doesn't overwrite it), `transactions.js` (an edit from a room's copy). Test
+`building-plan-opening-sides.test.js` (4: the copies 0.5 and 0.6 with the stored row unchanged; a
+distance typed in Room 2 and in the Bedroom; a width typed in each; the links and a full
+evaluation keeping 0.6), failing with HEAD's `records.js` and `transactions.js`. Core 753 of 753.
+Headless on the test page: the Bedroom's door entry 0.5, Room 2's 0.6; 1 typed in Room 2's and
+saved: stored 0.1, Room 2's lengths 1.00 | 0.90 | 0.10, its entry reopened 1.
+
+Hand test (units 0 and 3; restart the test page for the core changes): in Room 2's entry,
+double-click the shared door: Distance from wall start 0.6 (the Bedroom's: 0.5); type 1, Save: the
+door moves to 1.00 from Room 2's left end, the Bedroom's entry shows 0.1; type a width in Room 2's
+entry: the door grows to the right as Room 2 sees it. In the Bedroom's entry, Split W3 between the
+right corner and the door, then Rejoin there: the door stays. A window on W1: Split before it,
+Rejoin: it stays.
+
+Hand-tested 2026-11-24: works. Committed form0-core `6621a77` (unit 0), `8a790c1` (unit 3).
+Raised: the Split tool's distance box acts on the wall under the pointer and each hover rewrites
+it, so a distance can't really be typed, though the status line offers it ("…or type a distance
+from its 0 end"); to rework with lengths editable from the canvas (step 4, queue 4).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3076,6 +3189,8 @@ before this one in the log).
 
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
+   Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0 and 3 to hand test; the mockup
+   choice and the front view open.
 2. **A drag's leftover** (core): the part of a dragged row the drag can't take (W3.2's last 20 cm
    over Room 2's wall corner) stays a row of its own with the row's copied answers. Wanted: part
    of the wall in line with it. Needs caps to follow their source wall's drags first (rule (b),
@@ -3084,7 +3199,9 @@ before this one in the log).
    "n issues" list inside a dialog (the open-dropdown marker); the mobile fixture "Native titles a
    room screen with its position on the floor" ("Rooms 2" not found, failing on HEAD too).
 4. Step 4 (typed lengths, a typed value's refusal under its field and in the entry's status
-   line), step 5 (mobile), step 6 proposals (column placement field and canvas command).
+   line), step 5 (mobile), step 6 proposals (column placement field and canvas command). With
+   step 4: rework Split's typed distance (pick the wall first, then type the distance from its 0
+   end or click a length; today the box follows the pointer; hand test 2026-11-24).
 5. To review: plan system fields with `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
 6. Open, small: an untouched new row's Cancel still asks (it compares as before; data-only would
    change every RepeatableSection's Add then Cancel). Kept as is unless you decide otherwise.
@@ -3352,6 +3469,8 @@ one combined core operation is the clean way.
    once (the beam keeps its number). Following needs to know which opening; the beam's own span
    could tell (the opening under it). Reform impact checked 2026-11-22: additive, no blocker
    (see "Step 2: decisions", beams); to settle in the wall beams design round after 3a.
+   Decided 2026-11-24: under the physical wall, the height stored (P2) and kept in step by
+   contact, no opening reference (see "Wall beams").
 2. Plaster: answered 2026-11-19. The recorded wall thickness is the wall only; plaster is
    additional, so its band is drawn on the face, into the room.
 3. Same label on both faces of a wall field (found at M2). Agreed 2026-11-19, done (see
