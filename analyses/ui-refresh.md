@@ -2554,3 +2554,13 @@ the Show switches. Found: room beams aren't named at rest today (only rooms are)
 "named at rest as room beams" needs a choice. Core 824 of 824; web 472 of 478 (the worker tests).
 Checked on the test page. Details in `building-plan-ui.md`, "D1a" and "D1b". Hand-tested: works.
 Decided: no beam names at rest. Committed form0-core `69ab451`, form0-react `458824b`.
+
+### D1c: an open beam or band entry, problems on bands (2026-11-25, hand-tested, committed)
+
+An open beam or band entry draws it on top in the accent colour with its lengths (its side's rows
+and its own ends) and "Lintel band · 2.45 m from floor"; other beams fade. A band with a problem
+is drawn in the error colour whatever the switches; the marker stays where an opening runs into
+it; selecting the problem selects the band (the lower of two overlapping). Core: room sides list
+their beams; problems give `paths` (the band) and `markPaths`. Core 826 of 826; web 476 of 482
+(the worker tests). Checked on the test page. Details in `building-plan-ui.md`, "D1c".
+Hand-tested: works. Committed form0-core `0c79f86`, form0-react `cc8dcf9`.

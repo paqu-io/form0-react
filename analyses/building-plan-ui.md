@@ -4164,6 +4164,64 @@ every wall's bands; Beams off: B#1 and the room beam gone (the room beam can't b
 
 Hand-tested 2026-11-25: works. Committed form0-core `69ab451`, form0-react `458824b`.
 
+**D1c decided (2026-11-25).** An open beam or band entry (or a hovered Beams list row): on top in
+the accent colour whatever the switches, other drawn beams faded; its room side's chain through
+the side's ends, where rows meet and the beam's own ends (not the openings'), so its distance and
+length read as its fields (a band: its wall's length); beside it, "Lintel band · 2.45 m from
+floor". Problems: an opening into a band marked at the opening, other band problems at the band's
+middle; the band in the error colour whatever the switches; selecting the problem selects the
+band (the lower of two overlapping, named first).
+
+**D1c: an open beam or band entry, problems on bands (core and web, 2026-11-25, hand-tested,
+committed).**
+
+- *Core, `room-sides.js`.* Each side lists its rows' wall beams and bands (`beams`: subject id,
+  ends along the side of the stretch the rows cover; one stretch for a beam over two rows).
+- *Core, `plan-problems.js`.* `problemRowPaths`: `paths` (to select) are the band's copies in the
+  wall rows facing it (`face_beams`; the lower band of two, named first); `markPaths` (where the
+  marker stands) the opening's copies when one runs into the band, else the same rows. Without a
+  `face_beams` node, the wall rows as before.
+- *Web, `draw/wall-beams.js`.* `shownWallBeams` gives each a tone: `accent` (selected, or the
+  entry's own), `error` (a band with a problem), `faint` (the others while one is selected),
+  `plain`; the accent and error ones whatever the switches, the accent one last and drawn for its
+  own face. `drawWallBeams`: accent and error on a halo of the room colour, 2 px; faint at 35%.
+- *Web, `room-lengths.js`.* `beamId`: the beam's side chained through its rows and its own ends.
+- *Web, `draw/issue-markers.js`, `plan-problems.js`.* Wall beams found by path (a marker at their
+  stretch's middle); a canvas's markers stand on `markPaths`, its items select `paths[0]`.
+- *Web, legacy canvas (wiring).* `selectedWallBeamId` (selected from a problem or a list row,
+  never by a press; cleared by the next press on an editable canvas), reported as `wallBeams`;
+  the entry's own from the canvas's focus; the snapshot's `problems` for the error tone; the
+  selected one's name and height (`plan.beam.height`) beside it in its room; its lengths.
+- *Web, `form-renderer.jsx`.* A wall beam's entry (`face_beams`, `wall_beams`) marks
+  `{ collection: 'wallBeams', id: face:beam }`, as doors and windows.
+
+Tests: core `building-plan-room-sides.test.js` (a side's beams from both rooms), and
+`building-plan-plan-problems.test.js` (the band selected, the door marked; a band of its own; two
+bands overlapping, the lower selected), failing with HEAD's two files; web
+`building-plan-wall-beams-draw.test.js` (tones; selected from a problem: reported, named with its
+height, its lengths, the entry's own the same; a marker on a band; a problem's item and markers)
+and `building-plan-room-lengths.test.js` (a beam's chain without the door's ends), failing with
+HEAD's five files. The entry mapping in `form-renderer.jsx` was checked on the test page. Core 826
+of 826 and the plain test scripts; web 476 of 482 (the worker tests).
+
+Headless on the test page (no console errors): W3's entry, Beams, B#1: B#1 in accent, "B#1 · 2.00
+m from floor", the bottom side 3.00 | 0.45 | 1.20 | 0.35 (its distance from W3's start as the
+Bedroom counts it, 0.35), the room at half strength; W1's Lintel band: along W1 in accent, "Lintel
+band · 2.45 m from floor", 5.00, B#1 faint. From `captured/state-d1c-problem.json` (the floor's
+lintel band at 1.9, kept): W3's band red with the marker at the Shared door, Bands off; "1 issue",
+its item: the band in accent, "Lintel band · 1.90 m from floor", 3.00 | 2.00, the marker kept.
+
+Hand test (restart the test page; light and dark): open
+`?state=state-d1-bands.json&form=plan&show=page&width=wide`, the Bedroom; double-click W3 (away
+from the door), Beams, B#1: B#1 in the accent colour with "B#1 · 2.00 m from floor" and its
+lengths; back, W1's Lintel band: the band along W1 with its height, B#1 faded; hover the rows of a
+Beams list: each highlighted. Then `?state=state-d1c-problem.json&…`: the Bedroom shows W3's band
+red with the marker at the door (Bands off); "1 issue", its item: the band selected with its
+lengths and height; a press elsewhere clears it; the floor entry's Save: Validation lists it, a
+click selects the band.
+
+Hand-tested 2026-11-25: works. Committed form0-core `0c79f86`, form0-react `cc8dcf9`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
