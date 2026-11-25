@@ -1100,18 +1100,22 @@ function buildingPlanFindingTags(metadata, record, locale) {
 }
 
 // How a building plan field presents its position and the source of its value: a tag after
-// the label, and inside the control either the source or the reset button.
-function buildingPlanFieldPresentation(propertyState, readOnly, controller) {
+// the label, and inside the control either the source or the reset button. A value the plan
+// refused shows neither (2026-11-25): the source is the plan's, not the typed value's, and Reset
+// only ever returns an inherited value.
+function buildingPlanFieldPresentation(propertyState, readOnly, controller, refused = false) {
   if (!propertyState) return null;
   const isFreeWall = () => isFreeWallRow(controller?.buildingPlan);
   const labelTag = buildingPlanFieldTag(propertyState, isFreeWall);
   if (!propertyState.source) return labelTag ? { labelTag } : null;
+  // A shared wall's whole-wall field: the note its tag opens (`field-tag.js`).
+  const labelTagNote = buildingPlanFieldNote(propertyState, isFreeWall);
+  if (refused) return { labelTag, labelTagNote };
   const { mode, scope } = propertyState.source;
   const canReset = propertyState.inheritable && mode === 'override' && !readOnly;
   return {
     labelTag,
-    // A shared wall's whole-wall field: the note its tag opens (`field-tag.js`).
-    labelTagNote: buildingPlanFieldNote(propertyState, isFreeWall),
+    labelTagNote,
     sourceMode: mode === 'inherit' ? 'inherit' : 'override',
     sourceLabel: PLAN_SOURCE_LABELS[scope] || scope,
     onResetSource: canReset
@@ -6860,6 +6864,7 @@ function RepeatableEntryModal({
                             required: entryRequired,
                             read_only: entryReadOnlyState,
                             errors: withPlanRefusals(entryErrors, planRefusals),
+                            refused: planRefusals,
                           }}
                           setValue={setEntryValue}
                           engineStore={entryEngineStore}
@@ -7356,7 +7361,12 @@ function RepeatableEntryForm({
         <FieldRenderer
           key={field.key || dataName}
           ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
-          {...buildingPlanFieldPresentation(propertyState, fieldReadOnly, controller)}
+          {...buildingPlanFieldPresentation(
+            propertyState,
+            fieldReadOnly,
+            controller,
+            Boolean(state.refused?.[dataName])
+          )}
           field={shownField}
           value={fieldValue}
           readOnly={fieldReadOnly}

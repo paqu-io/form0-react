@@ -11,7 +11,8 @@ import {
 
 // Refused typed values as field errors (decided 2026-11-25): a band row's underside typed above
 // its wall stayed in the field with no mark and Save did nothing visible. Now the field shows the
-// refusal at once; Save stops, opening Validation on it; a valid value clears it and Save works.
+// refusal at once, without its source tag; Save stops, opening Validation on it; a valid value
+// clears it and Save works.
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -121,11 +122,18 @@ it("a refused typed value is its field's error, and Save stops on it", async () 
   await open('Beams');
   await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(4));
   const entry = within(screen.getAllByRole('dialog').at(-1));
-  const underside = await entry.findByLabelText(/Underside from floor/);
-  fireEvent.change(underside, { target: { value: '3.5' } });
-  fireEvent.blur(underside);
-  await waitFor(() => expect(underside.getAttribute('aria-invalid')).toBe('true'));
+  await entry.findByLabelText(/Underside from floor/);
+  // Found again each time: the field's wrapper changes with its source tag.
+  const underside = () => entry.getByLabelText(/Underside from floor/);
+  // Its source tag: inherited, none while refused (the plan still inherits; Reset only returns
+  // an inherited value), then Reset once the plan holds a value of the row's own.
+  const source = () => underside().closest('[data-adornment="source"]')?.dataset.source ?? null;
+  expect(source()).toBe('inherit');
+  fireEvent.change(underside(), { target: { value: '3.5' } });
+  fireEvent.blur(underside());
+  await waitFor(() => expect(underside().getAttribute('aria-invalid')).toBe('true'));
   expect(entry.getAllByText(REFUSAL).length).toBeGreaterThan(0);
+  expect(source()).toBeNull();
 
   const save = () => entry.getByRole('button', { name: /^Save/ });
   fireEvent.click(save());
@@ -139,9 +147,10 @@ it("a refused typed value is its field's error, and Save stops on it", async () 
   expect(finding.textContent).toMatch(/Underside from floor/);
   await waitFor(() => expect(document.activeElement).toBe(finding));
 
-  fireEvent.change(underside, { target: { value: '2.4' } });
-  fireEvent.blur(underside);
-  await waitFor(() => expect(underside.getAttribute('aria-invalid')).toBeNull());
+  fireEvent.change(underside(), { target: { value: '2.4' } });
+  fireEvent.blur(underside());
+  await waitFor(() => expect(underside().getAttribute('aria-invalid')).toBeNull());
+  await waitFor(() => expect(source()).toBe('override'));
   fireEvent.click(save());
   await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
 });
