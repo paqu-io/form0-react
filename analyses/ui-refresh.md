@@ -2520,3 +2520,15 @@ opening edits don't ask. Web: a cancelled plan question puts the typed value bac
 (the shared-value question too). Core 812 of 812; web 464 of 471 (the worker tests and the flake).
 Checked on the test page. Details in `building-plan-ui.md`, "Bands unit 4b". Hand-tested: works. Committed form0-core
 `c8d9805`, form0-react `ccb6abb`.
+
+### Bands unit 4c: band rows' own values not lost unasked (2026-11-25, hand-tested, committed)
+
+Core: a No that removes band rows with values of their own (a wall's, or the floor's) asks:
+remove them, or cancel; on the floor's No, also keep those walls' bands (their own Yes). A Rejoin
+or join whose walls' band rows differ adds them to the joining walls' question (before, the
+second row was dropped). Core 815 of 815; web 464 of 471 (the worker tests and the flake).
+Checked on the test page. Details in `building-plan-ui.md`, "Bands unit 4c". Hand-tested: works;
+the band values stay in ordinary joins' question too. Committed form0-core `3337647`. Noted for
+after the planned items (mobile included): a question naming plan elements highlights them on the
+canvas behind it.
+

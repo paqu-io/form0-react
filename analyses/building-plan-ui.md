@@ -3951,6 +3951,60 @@ its top is 1.1 and Window 1's sill went to 1.1 (the hand test's 1.0 assumed 20 c
 staying at 2.1; then raised to a head of 2.6, W1's lintel band followed to 2.6 (its own), the
 other walls' at 2.1; no problems. Committed form0-core `c8d9805`, form0-react `ccb6abb`.
 
+**4c decided (2026-11-25).** A No that removes band rows with values of their own (typed, or
+pushed: what shows Reset) asks: a wall's No or its Reset to the floor's No, and the floor's No;
+removing a row from the Beams list keeps its usual confirmation. "W1's Lintel band has values of
+its own (underside 2.6 m). Remove it?": Remove / Cancel, and on the floor's No "Keep those walls'
+bands" (those walls get their own Yes). A Rejoin, or a join, whose walls' band rows give a value
+differently, one of them its own, adds it to the joining walls' question (one choice per value).
+
+**Bands unit 4c: band rows' own values not lost unasked (core, 2026-11-25, hand-tested,
+committed).**
+
+- *A No (`band-removal-question.js`, new).* `removedOwnBands(before, after, operation)`: rows
+  with own values the edit removed from a wall still there whose answer isn't Yes (not when the
+  edit is `remove_opening`); the question lists them with their own values; "Keep those walls'
+  bands", offered when every such wall follows the floor, gives each its own Yes and puts its
+  row back as it was.
+- *Both band questions (`band-questions.js`, new; `session.js` calls it, replacing 4b's
+  wiring).* The removal question first, then 4b's; answers recorded on the prepared edit and
+  applied to its candidate (one Undo).
+- *Joins (`derive/band-join-values.js`, new; wired in `value-choices.js`,
+  `shared-value-choices.js`, `shared-value-question.js`).* `bandDifferences`: band rows of a kind
+  giving a value differently, one of them its own, become `{ kind: 'band', band, key }` entries;
+  an option's mark says whether that wall's row set it itself; the answer writes the chosen value
+  to the surviving wall's rows, own or inherited as chosen. Words: "Lintel band underside", with
+  units. Before, the second row of a band was dropped, its values lost.
+- *Web.* Nothing new: the questions show in the managed dialog, and Cancel puts a typed value
+  back (4b).
+
+Tests: core `building-plan-band-own-values.test.js` (3: a wall's No, Remove and Cancel, a No
+without own values and a removal from the list not asking; the floor's No listing two walls, keep
+them (their own Yes, one Undo) and Remove; a Rejoin choosing either part, matching parts not
+asking), all failing with HEAD's files. Core 815 of 815 and the plain test scripts; web 464 of 471
+(the worker tests and the numeric-setters flake).
+
+Headless on the test page (no console errors): the floor's lintel band on every wall; the
+Bedroom's W1 Lintel band underside 2.6, saved up to the floor; "No wall has a lintel band":
+"W1's Lintel band has values of its own (underside 2.6 m). Remove it?" with "Keep this wall's
+band"; kept: W1's band alone, at 2.6.
+
+Hand test (restart the test page): every wall's lintel band; on W1's Lintel band type the
+underside 2.6, Save up to the floor; on W1's entry set Lintel band to No: the question (Remove it /
+Cancel); Cancel: W1's answer back to Yes, its band at 2.6; on the floor, "No wall has a lintel
+band": the question with "Keep this wall's band"; keep: W1 keeps its band (its answer Yes on the
+wall), the others have none; Undo: all back. Split W1, type 2.6 on W1.1's band only, Rejoin: the
+question offers "W1: 2.1 m" and "W1.1: 2.6 m".
+
+Hand-tested 2026-11-25: works. The band values stay in ordinary joins' question too (a room moved
+against another), not only Rejoin's. Committed form0-core `3337647`.
+
+*Noted for later (2026-11-25), after the planned items, mobile included.* A question that names
+plan elements ("W1: 2.1 m" or "W1.1: 2.6 m", the openings in the way) could highlight them on the
+canvas behind it, in a colour of their own, so the choice reads against the drawing. They may be
+out of view at the current zoom; what to do then (fit them into view, a marker at the canvas
+edge, or nothing) is to decide when we take it up.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3967,7 +4021,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); then 4c. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); 4c (core `3337647`); then unit 5 (new openings' heights from the bands), D1, A. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
@@ -3989,6 +4043,9 @@ before this one in the log).
    (would let the form drop its data-only comparison; changes exported records, so it needs a
    Reform impact check first).
 8. Later, if needed: dragging rows to reorder a RepeatableSection (general feature).
+9. After the planned items, mobile included: a question naming plan elements highlights them on
+   the canvas behind it; what to do when they're out of view to decide then (see "Bands unit
+   4c").
 
 ### Test page engine (2026-11-19)
 

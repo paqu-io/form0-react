@@ -50,7 +50,11 @@ form0-cli's own preview renderer, which has its own translations.
   names, band names) are in the editor's language. The problems leave lengths out because core's
   canvas snapshot doesn't know the measurement system; agreed (4a) to add translated messages and
   lengths in the units shown ("Window 1's head (2.30 m) is above the lintel band's underside
-  (2.10 m).") with this task: a code and params per message, as validation findings.
+  (2.10 m).") with this task: a code and params per message, as validation findings. The plan's
+  questions are English too (bands 4b and 4c, `band-clash-question.js`,
+  `band-removal-question.js`: "Openings in the way", "Bands with values of their own", their
+  messages with lengths in metres, their buttons), as are the joining walls' question's words
+  ("Lintel band underside"); they go with the same task.
 - **Inventory (rough).** form0-react about 180 texts in 30 files (most in
   `building-plan/legacy/building-plan-canvas.js`, `form-renderer.jsx`,
   `field-components/signature-field.jsx`, `utils/managed-events.js`, `navigation-tree.jsx`);
