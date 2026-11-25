@@ -2491,3 +2491,14 @@ header band carries the accent bar. Found: the Validation list's items were unre
 mode (no text colour); fixed. The panel's list moved to `validation-panel.jsx`. Web 461 of 468
 (the worker tests and the flake). Checked on the test page, light and dark. Details in
 `building-plan-ui.md`, "Stopped Save feedback". Next: refused typed values as field errors. Hand-tested: works. Committed `d2e2f5b`.
+
+### Refused typed values as field errors (2026-11-25, hand-tested, committed)
+
+A plan value core refuses (a band's underside above its wall) is now its field's error at once,
+listed in Validation once Save was tried, and stops Save with the feedback above. Core names the
+refused fields (`refusedFields` from `completeRow`, each changed field tried alone: `completeRow`
+sends every field changed since the row opened, so a refused value was sent again with each later
+edit). Core 806 of 806; web 463 of 469 (the worker tests). Checked on the test page. Details in
+`building-plan-ui.md`, "Refused typed values as field errors". Hand-tested: works. Committed form0-core `9e629fb`,
+form0-react `d510a5d`. Aligning: the source tag while a value is refused; whether rows should
+apply their accepted fields beside a refused one.

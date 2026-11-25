@@ -3823,6 +3823,51 @@ Submit with a required field empty: the same. An entry with nothing wrong: Save 
 Hand-tested 2026-11-25: works. Committed form0-react `d2e2f5b`; 4a's were form0-core `c86fc2c`,
 form0-react `bfdd66c`.
 
+**Refused typed values as field errors (core and web, hand-tested 2026-11-25, committed).**
+
+- *Found while building.* Core's `completeRow` sends every field changed since the row opened, so
+  a refused value is sent again with each later edit of the entry (and blocks it), and a refusal
+  can't be tied to the field blurred. The web can't tell which field core refused.
+- *Core, `refused-fields.js` (new; wiring in `editor.js`).* On a refusal, `completeRow` returns
+  `refusedFields`: each changed field tried alone (a preview, nothing applies), those refused
+  alone with their own issues; refused only together, every changed field with the refusal. One
+  changed field: that field.
+- *Web, `plan-refusals.js` (new; wiring in `form-renderer.jsx`).* The entry keeps the refusals by
+  field from each completion (cleared once the row applies, is back to its values, or the plan
+  publishes, its values replacing the form's); they go in front of the field's own error (red
+  border, the message under it, at once); once Save was tried, Validation lists them after the
+  plan's problems (the field's label as the plan presents it, a click focuses it); Save stops on
+  a refusal as on an invalid value (the feedback of `d2e2f5b`). A refusal core ties to no field
+  is listed under "Plan". The canvas status line keeps the message.
+- *Seen, not changed.* While a refused value shows, its source tag still reads "Floor default":
+  the plan keeps the inherited value until the refusal is fixed.
+
+Tests: core `building-plan-refused-fields.test.js` (4: one field; a refused field beside a fine
+one; refused only together; applied, none), three failing with HEAD's `editor.js`; web
+`building-plan-plan-refusals.test.jsx` (a band row's underside 3.5: the field's error at once;
+Save stops, the Validation tab on it, focused; 2.4: cleared, Save closes the entry), failing with
+HEAD's `form-renderer.jsx`. Core 806 of 806 and the plain test scripts; web 463 of 469 (the
+worker tests).
+
+Headless on the test page (no console errors): the Bedroom's W1 Lintel band, underside 3.5: red,
+"Lintel band would stand above its wall." under it and in the status line; Save: the entry stays,
+Validation 1 on "Underside from floor [m]", focused, Save marked; 2.4: cleared, Save closes it.
+
+Hand test (restart the test page): open a wall's Lintel band (with "Every wall has a lintel
+band"); type its underside 3.5 and leave the field: red, the refusal under it; type the width 150
+and leave it: the underside stays the one marked; Save: Validation opens on the underside, a
+click on it focuses the field; type 2.4: the mark goes, Save works. The Ring beam's depth 3500 mm:
+the same on its depth.
+
+Hand-tested 2026-11-25: works. Committed form0-core `9e629fb`, form0-react `d510a5d`. Asked
+(aligning): a typed value normally shows Reset in place of its source tag; why "Floor default"
+here? (The same tag: Reset shows once the plan holds a value of the row's own; a refused value
+never reached the plan, which still inherits.) And whether `completeRow` sending every changed
+field is a core defect to fix (not changed: `refusedFields` only names the fields; the row
+still applies whole, so a valid edit made beside a refused one waits until the refusal is fixed).
+`completeRow` is also used by form0-react-native and form0-cli's preview server; the new
+property only appears on refusals, so they're unaffected.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3839,7 +3884,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); next refused typed values as field errors, then 4b, 4c. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); then 4b, 4c. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
