@@ -67,7 +67,8 @@ function capturePlan(controller, read) {
  *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef,
  *   layersRef (the Show menu's layers, step 2)
  * @param {Record<string, Function>} options.on setFloorTabs, setStatus, setActiveToolMode,
- *   setZoomLevel, setSelected (the selected element's collection)
+ *   setZoomLevel, setSelected (the selected element's collection), reportProblems (the
+ *   snapshot's problems to fix before saving, bands 4a)
  * @returns {{ controller: object, canvas: object }}
  */
 export function mountPlanCanvas({
@@ -95,7 +96,8 @@ export function mountPlanCanvas({
     onSelectRef,
     layersRef,
   } = refs;
-  const { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected } = on;
+  const { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected, reportProblems } =
+    on;
   const metaEntry = pickMetaEntry(buildingPlanMeta, section.data_name);
   const keyLookup = createRepeatableKeyLookup(metaEntry);
   repeatableRef.current = repeatableState;
@@ -164,6 +166,8 @@ export function mountPlanCanvas({
       controller.emitUpdate();
     };
     controller.scope = scope;
+    // Problems to fix before saving (bands 4a), from every snapshot (previews too).
+    controller.subscribe((view) => reportProblems?.(view.problems || []));
   }
 
   canvas = new LegacyBuildingPlanCanvas({

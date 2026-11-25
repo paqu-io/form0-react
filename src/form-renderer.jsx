@@ -42,6 +42,7 @@ import { BuildingPlanSectionView } from './building-plan/section-view.jsx';
 import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx';
 import { PlanLayersProvider } from './building-plan/plan-layers.jsx';
 import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
+import { floorPlanProblems, planProblemIssues } from './building-plan/plan-problems.js';
 import { buildingPlanFieldNote, buildingPlanFieldTag } from './building-plan/field-tag.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
@@ -5578,6 +5579,18 @@ function RepeatableEntryModal({
       modal.buildingPlan,
     ]
   );
+  // A floor entry's problems to fix in the plan (bands 4a): listed first once Save was tried.
+  const floorProblems = useMemo(
+    () => floorPlanProblems(buildingPlanModalContext),
+    [buildingPlanModalContext, buildingPlanRevision]
+  );
+  const modalIssues = useMemo(
+    () =>
+      entrySubmitCount > 0 && floorProblems.length
+        ? [...planProblemIssues(floorProblems), ...modalValidationIssues]
+        : modalValidationIssues,
+    [entrySubmitCount, floorProblems, modalValidationIssues]
+  );
 
   // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing
   useEffect(() => {
@@ -6081,6 +6094,11 @@ function RepeatableEntryModal({
       return;
     }
     setEntrySubmitCount((count) => count + 1);
+    // Problems to fix in the plan (bands 4a) keep a floor entry open; read after its values.
+    if (floorPlanProblems(buildingPlanModalContext).length) {
+      submissionReporter.blocked('Row save');
+      return;
+    }
     if (rowEvents.record || rowEvents.lifecycle) {
       const closeTarget = rowEvents.captureClose();
       let stage = 'preparation';
@@ -6117,6 +6135,7 @@ function RepeatableEntryModal({
       updated_at_server: timestampSnapshot?.updated_at_server ?? null,
     });
   }, [
+    buildingPlanModalContext,
     entryRepeatable,
     entryTimestampsRef,
     entryValidationSummary,
@@ -6225,6 +6244,8 @@ function RepeatableEntryModal({
 
   const handleModalValidationIssueSelect = useCallback(
     (issue) => {
+      // A problem in the plan (bands 4a): its element selected on the canvas.
+      if (issue?.planProblem?.paths?.length) setPlanChainSelect([...issue.planProblem.paths[0]]);
       if (!issue || !issue.fieldName) {
         return;
       }
@@ -6707,7 +6728,7 @@ function RepeatableEntryModal({
                     highlightedSections={modalHighlightedSections}
                     activeSectionId={modalActiveSectionId}
                     onNavigate={handleModalNavigate}
-                    validationIssues={modalValidationIssues}
+                    validationIssues={modalIssues}
                     validationEnabled={entrySubmitCount > 0}
                     onSelectValidationIssue={handleModalValidationIssueSelect}
                     forceRender

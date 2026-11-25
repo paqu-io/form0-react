@@ -19,7 +19,6 @@ import { waitingCommands } from './add-elements.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
 import { useThemeClass } from '../theme-context.jsx';
-import { pickMetaEntry } from './canvas-adapters.js';
 import './canvas-host.css.js';
 
 export function BuildingPlanCanvasHost({
@@ -92,21 +91,17 @@ export function BuildingPlanCanvasHost({
   const waitingRef = useRef(waiting);
   waitingRef.current = waiting;
 
-  // Validation findings (1e, M2): listed from the floor row, marked on their elements.
-  const floorsKey = useMemo(
-    () =>
-      pickMetaEntry(buildingPlanMeta, section?.data_name)?.repeatablesByNodeKey?.floors
-        ?.preferredKey || null,
-    [buildingPlanMeta, section]
-  );
-  const shownFloor = floorTabs.tabs.find((tab) => tab.active);
+  // The plan's problems (bands 4a) and validation findings (1e, M2): listed from the floor row,
+  // marked on their elements.
   const planIssues = usePlanIssues({
-    scopePath:
-      findingScope ||
-      (floorsKey && shownFloor?.rowId ? [{ key: floorsKey, id: shownFloor.rowId }] : null),
+    findingScope,
+    buildingPlanMeta,
+    section,
+    floorTabs,
     repeatable: repeatableState,
     draft: Boolean(repeatableApi.editor),
   });
+  const { reportProblems } = planIssues;
   const findingMarkersRef = useRef(planIssues.markers);
   findingMarkersRef.current = planIssues.markers;
 
@@ -151,7 +146,7 @@ export function BuildingPlanCanvasHost({
         onSelectRef,
         layersRef,
       },
-      on: { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected },
+      on: { setFloorTabs, setStatus, setActiveToolMode, setZoomLevel, setSelected, reportProblems },
     });
 
     controllerRef.current = controller;

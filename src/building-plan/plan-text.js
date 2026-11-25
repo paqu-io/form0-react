@@ -56,6 +56,9 @@ const TEXT = {
   'plan.issues.other': '{count} issues',
   'plan.issues.list': 'Issues',
   'plan.issues.open': 'Double-click to open',
+  // Problems to fix in the plan before saving its floor (bands 4a): the tag after their names.
+  'plan.problem.tag': 'Plan',
+  'plan.problem.pair': '{first} and {second}',
   // After a free wall's field label: a free wall stands in its room, so both sides face it.
   'plan.side.this': 'This side',
   'plan.side.other': 'Other side',
