@@ -4963,6 +4963,26 @@ function RepeatableEntryModal({
         .evaluate(context.evaluator, context.evaluationValues)
         .catch((error) => setBuildingPlanIssues([{ message: error.message }]));
   }, [domainRevision, modal.buildingPlan]);
+  // The plan's values in the form: after each plan change, and after a plan question cancelled
+  // (bands 4b, 2026-11-25: Cancel puts a typed value back).
+  const adoptPlanRow = useCallback(() => {
+    const context = modal.buildingPlan;
+    // Opening a child also publishes; browsing a readonly row is not a value write.
+    if (!context || isEntryReadOnly || !context.editor.hasEditor(context.scopeId)) return;
+    const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
+    if (!row) return;
+    const own = pickOwnedValues(modal.repInfo?.fields, row.values);
+    planIncomingValues.current = JSON.stringify(own);
+    setEntryValues(own);
+    for (const [key, rows] of Object.entries(row.repeatable || {}))
+      setEntryRepeatableInstances(key, rows, []);
+  }, [
+    modal.buildingPlan,
+    modal.repInfo,
+    setEntryValues,
+    setEntryRepeatableInstances,
+    isEntryReadOnly,
+  ]);
   useEffect(() => {
     const context = modal.buildingPlan;
     if (!context) return;
@@ -4971,23 +4991,9 @@ function RepeatableEntryModal({
       setBuildingPlanIssues([]);
       // The plan's values replace the form's below, a refused one included.
       setPlanRefusals(NO_PLAN_REFUSALS);
-      // Opening a child also publishes; browsing a readonly row is not a value write.
-      if (isEntryReadOnly || !context.editor.hasEditor(context.scopeId)) return;
-      const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
-      if (!row) return;
-      const own = pickOwnedValues(modal.repInfo?.fields, row.values);
-      planIncomingValues.current = JSON.stringify(own);
-      setEntryValues(own);
-      for (const [key, rows] of Object.entries(row.repeatable || {}))
-        setEntryRepeatableInstances(key, rows, []);
+      adoptPlanRow();
     });
-  }, [
-    modal.buildingPlan,
-    modal.repInfo,
-    setEntryValues,
-    setEntryRepeatableInstances,
-    isEntryReadOnly,
-  ]);
+  }, [modal.buildingPlan, adoptPlanRow]);
   useEffect(() => {
     const editor = modal.buildingPlan?.editor;
     if (isEntryReadOnly) editor?.cancelUIRequests();
@@ -5023,11 +5029,14 @@ function RepeatableEntryModal({
             ...state,
             repeatable: planDraft.current.repeatable,
           };
+          const asked = context.editor.completeRow(context.scopeId, row, { fieldName, finishAll });
           const result = await settleBuildingPlanQuestions(
             context.editor,
-            context.editor.completeRow(context.scopeId, row, { fieldName, finishAll }),
+            asked,
             modal.engineOptions?.onMessageBox
           );
+          // A plan question cancelled leaves the plan as it was: the form takes its values back.
+          if (asked.status === 'pending' && result.status === 'unchanged') adoptPlanRow();
           setPlanRefusals((current) => nextPlanRefusals(current, result));
           if (!['draft', 'unchanged', 'invalid'].includes(result.status))
             setBuildingPlanIssues(result.issues);
@@ -5041,7 +5050,7 @@ function RepeatableEntryModal({
       pendingPlanCompletion.current = pendingPlanCompletion.current.then(run, run);
       return pendingPlanCompletion.current;
     },
-    [modal.buildingPlan, modal.engineOptions, getEventBinding]
+    [modal.buildingPlan, modal.engineOptions, getEventBinding, adoptPlanRow]
   );
   useEffect(() => {
     completePlanRow();
