@@ -2564,3 +2564,12 @@ it; selecting the problem selects the band (the lower of two overlapping). Core:
 their beams; problems give `paths` (the band) and `markPaths`. Core 826 of 826; web 476 of 482
 (the worker tests). Checked on the test page. Details in `building-plan-ui.md`, "D1c".
 Hand-tested: works. Committed form0-core `0c79f86`, form0-react `cc8dcf9`.
+
+### A: the read-only front view (aligning, 2026-11-25)
+
+Mockup round 3 (front view in wall, room and element entries). Agreed: levels on the left and a
+chain of partial heights on the right (H1), short partials stepping aside, the bottom chain as the
+plan's selected wall, element entries in A (last unit), Show hidden in Front, unknown heights with
+a dashed top, free walls included. Proposed, to confirm: the switch always in view (disabled where
+unused), "W1 · 1 of 1" kept as an overlay, beams and bands opening on Front, one scale per room.
+Details in `building-plan-ui.md`, "A: the read-only front view".

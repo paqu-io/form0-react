@@ -4222,6 +4222,57 @@ click selects the band.
 
 Hand-tested 2026-11-25: works. Committed form0-core `0c79f86`, form0-react `cc8dcf9`.
 
+### A: the read-only front view (aligning 2026-11-25)
+
+Mockup round 3: https://claude.ai/artifact/VTrTopfPtKR3GivVhnWq4S (W1's entry, the Bedroom's
+entry with arrows, W#1's entry, W4 of unknown height; H1 and H2).
+
+Agreed (2026-11-25):
+
+1. *Heights: H1.* Levels from the floor on the left; on the right a chain of partial lengths
+   through every level of the shown wall (its top, each band's and beam's underside and top, each
+   opening's sill and head; W1: 0.80 / 0.20 / 1.45 / 0.25 / 0.30), the whole height outside it.
+2. *Short partials* (a pill longer than its stretch) step aside, alternating, with a leader.
+3. *Along the bottom:* the shown wall's rows and openings, from the wall's own left end (WB3),
+   the whole side under them (as the plan's selected wall).
+4. *Element entries* (door, window, wall beam or band) get Front too, the element in the accent
+   colour, the rest at half strength, its own lengths only (its ends; its sill, head and the top).
+   In A, as its last unit.
+5. *Show is hidden in Front*: bands, beams and lengths always show there.
+6. *A wall of unknown height:* drawn with a dashed top and "Height unknown", no top level in the
+   chain, no ring beam (its top is the wall's). It happens: the floor's height is required only on
+   enclosed levels (an open level's parapets), and on a floor not filled in yet.
+7. *Free walls are in* (asked by the user; proposed below): a free wall's entry shows it from its
+   row's side ("This side"), its own length (no corners to run to); the room's arrows step
+   through the Walls list's rows, free walls included.
+
+Proposed after the user's comments (2026-11-25), to confirm at the start of A:
+
+- *The Plan | Front switch is always in view*, disabled where there is no wall to show (the plan
+  page and floor entries), its tooltip saying where it works; nothing appears or disappears.
+- *The wall line is always there in Front*: "W1 · 1 of 1" with the arrows disabled in a wall's or
+  an element's entry; drawn inside the view (an overlay at its top, as the zoom controls are at
+  its bottom), so switching Plan and Front doesn't change the panel's size.
+- *Which view an entry opens on*: a wall beam's or band's entry opens on Front (in plan it is
+  only a dashed outline; its heights are its fields); every other entry on Plan (doors and
+  windows read best in plan; Front is a click away). Per dialog, not remembered.
+- *One scale per room*: fitted so the room's longest wall side and tallest wall fit the panel,
+  kept while stepping through its walls and the same in that room's wall and element entries;
+  text at a fixed screen size; refitted only when the panel changes size. Plan and Front keep
+  their own zoom.
+- *Unknown height's drawing*: to the floor's height when it has one; else to the highest level on
+  the wall plus 0.5 m (at least 1 m).
+
+How (proposed): core gives the facts (a new module: the front view of one room face, in metres
+from the room's own left end: the side's walls with their heights, openings, wall beams and
+bands, problem overlaps, the levels; the canvas controller exposes it for the wall shown,
+computed on demand); the web draws it with a new SVG component (read-only, sharp text at fixed
+screen sizes, the theme's tokens, testable in jsdom), not in the legacy canvas. Units: **A1**
+core (free walls included); **A2** web: the view and the switch in wall entries (disabled
+elsewhere), the wall line "1 of 1"; **A3** the room entry's arrows (Alt+Shift+← / →, free in the
+plan's shortcuts); **A4** element entries, beams and bands opening on Front. Web only; mobile with
+step 5.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -4238,7 +4289,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); 4c (core `3337647`); unit 5 (core `2f592bc`, web `aad7606`); then D1, A. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); 4c (core `3337647`); unit 5 (core `2f592bc`, web `aad7606`); D1a/D1b (core `69ab451`, web `458824b`), D1c (core `0c79f86`, web `cc8dcf9`); A aligning (see "A: the read-only front view"). floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
