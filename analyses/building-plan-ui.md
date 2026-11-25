@@ -3675,6 +3675,36 @@ the problems and the blocked Save; 4b the question on a band edit that would cau
 (lower the openings, fix them myself, Cancel); 4c a No removing a band row with values of its own
 asks first, a Rejoin of parts that differ asks which value.
 
+Hand-tested 2026-11-25 (unit 3b): works (a Lintel band's Distance and Length, the Ring beam's
+underside, a beam added by hand with the usual descriptions).
+
+**4a details (aligned 2026-11-25).**
+
+- *When.* Canvas markers and the "n issues" list follow core's snapshot live; the Validation panel
+  lists the problems after a Save attempt, as other errors.
+- *Where.* The floor entry: markers, the list, the panel (problems first), Save blocked. Room and
+  wall entries: markers and the list in their scope, Save not blocked, so a problem can be fixed
+  across entries (the band row in one, the opening in another) before the floor is saved. The
+  plan page: markers; the form's Submit not blocked. Web only (mobile with step 5).
+- *Pairs.* Any two bands on one wall overlapping in height (so a sill band into the ring beam on a
+  wall without a lintel band too).
+- *Openings.* A problem only when an opening and a band overlap in height, as local beams'
+  clashes (`wall-beam-placement.js`): touching is allowed, unknown heights aren't judged, doors
+  pass through sill bands. A window wholly above the lintel band or a vent wholly below the sill
+  band isn't flagged.
+- *Words.* Core writes the message in the editor's language, as refusals ("Window 1's head (2.30
+  m) is above the lintel band's underside (2.10 m)."), lengths rounded as the canvas shows them;
+  the panel's item reads "Window 1 and Lintel band · Plan", the wall in its path. Only new web
+  words ("Plan") go in `plan-text.js`.
+- *Invariants* over the example plans with bands on: every problem names elements on its wall; no
+  bands, no problems; a wall moved, Split and Rejoin keep the same problems when no height moves.
+- *Proposed, to confirm.* Marking: an opening's problem marks and selects the opening, a band
+  against a band the wall; D1 moves both to the band once bands are drawn. A band beyond its
+  wall (checked in node: a band row's underside typed 3.5 or -1 on a 3 m wall, the floor's lintel
+  underside 3.4, the floor's sill underside 3.2 all applied silently; a wall lowered pushes its
+  bands down, 2e): typed on the band row itself, refused as local beams ("Lintel band would stand
+  above its wall."); from the floor's values or an opening pushing it, a problem.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3691,7 +3721,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`). Next: 4a. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). Next: 4a (details aligned, see "4a details"). floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

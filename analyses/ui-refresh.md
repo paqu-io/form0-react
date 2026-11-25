@@ -2445,7 +2445,7 @@ top less its depth. Web: a band value shows no position tag. Core 792 of 792; we
 worker tests). Checked on the test page. Hand-tested: works. Committed form0-core `ae65a18`,
 form0-react `371496d`.
 
-### Bands unit 3b: a band row's read-only values say why (2026-11-24, committed)
+### Bands unit 3b: a band row's read-only values say why (2026-11-24, hand-tested 2026-11-25, committed)
 
 Core: a band row's distance and length (and the ring beam's underside) report a description per
 row, in the editor's language: why it's read-only and what to do for part of a wall. Web: the
@@ -2453,4 +2453,15 @@ field shows it as its subtext. First built as note fields, reworked before the h
 fields' own description, on each read-only value). Core 793 of 793; web 457 of 463 (the worker
 tests). Checked on the test page. Committed form0-core `e39cf31`, form0-react `f8a87fd`; its hand test
 moves to the next chat. Unit 4 decided: problems listed with a "Plan" tag, the floor's Save
-blocked.
+blocked. Hand-tested 2026-11-25: works.
+
+### Bands unit 4a: details (2026-11-25, aligning)
+
+Agreed: markers and "n issues" live, the Validation panel after a Save attempt; the floor entry
+alone blocks Save (room and wall entries show markers and the list, so problems can be fixed
+across entries); any two bands overlapping in height; an opening only when it overlaps a band in
+height (touching allowed, doors through sill bands); core writes the messages, "Plan" in
+`plan-text.js`; invariants over the example plans. Found in node: a band row can be typed above
+its wall or below the floor, and the floor's undersides can put bands above every wall, all
+applied silently. To confirm: refusing that on the row, a problem otherwise; markers on the
+opening or the wall until D1 draws bands. Details in `building-plan-ui.md`, "4a details".
