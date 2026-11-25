@@ -6,10 +6,18 @@ import * as styles from './plan-show-menu.css.js';
 
 /**
  * "Show" in the floor row (step 2, S1): the plan's read-only layers as switches. A dot on the
- * button while one that applies here is off. A switch that doesn't apply here (no floor below)
- * is listed disabled; with none that applies the button stays, disabled (2a hand test).
+ * button while one that applies here and is on by default is off (bands are off by default, D1b).
+ * A switch that doesn't apply here (no floor below) is listed disabled; with none that applies the
+ * button stays, disabled (2a hand test).
  * @param {{
- *   items: Array<{ key: string, label: string, hint?: string, on: boolean, disabled?: boolean }>,
+ *   items: Array<{
+ *     key: string,
+ *     label: string,
+ *     hint?: string,
+ *     on: boolean,
+ *     disabled?: boolean,
+ *     offByDefault?: boolean,
+ *   }>,
  *   onToggle: (key: string, on: boolean) => void,
  * }} props
  */
@@ -39,7 +47,7 @@ export function PlanShowMenu({ items, onToggle }) {
   }, [open]);
 
   if (!items.length) return null;
-  const someOff = items.some((item) => !item.on && !item.disabled);
+  const someOff = items.some((item) => !item.on && !item.disabled && !item.offByDefault);
   const usable = items.some((item) => !item.disabled);
   const title = planText('plan.show.title');
   return (

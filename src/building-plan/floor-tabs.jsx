@@ -62,6 +62,19 @@ export function FloorTabs({
           on: layers.floorBelow !== false,
           disabled: !below,
         },
+        {
+          key: 'beams',
+          label: planText('plan.show.beams'),
+          hint: planText('plan.show.beamsHint'),
+          on: layers.beams !== false,
+        },
+        {
+          key: 'bands',
+          label: planText('plan.show.bands'),
+          hint: planText('plan.show.bandsHint'),
+          on: layers.bands === true,
+          offByDefault: true,
+        },
       ]
     : [];
   const show = layerItems.length > 0;

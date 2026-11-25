@@ -24,6 +24,11 @@ const TEXT = {
   'plan.show.floorBelow': 'Floor below',
   'plan.show.floorBelowHint': '{floor}, and the pulls to it',
   'plan.show.floorBelowNone': 'No floor below this one',
+  // Beams and bands (D1b): bands off by default; a selected wall shows its own either way.
+  'plan.show.beams': 'Beams',
+  'plan.show.beamsHint': 'Room beams and beams added to walls',
+  'plan.show.bands': 'Bands',
+  'plan.show.bandsHint': "Every wall's ring beam, lintel and sill bands",
   // With the selected wall's name (step 2, S6): its face's plaster and the face across.
   'plan.plaster.label': 'plaster: {faces}',
   'plan.plaster.none': 'none',

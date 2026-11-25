@@ -1,14 +1,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * What the plan canvases show (step 2): the Show menu's switches, all on by default (S2).
- * `lengths` is a room's lengths (a drag's always show); `floorBelow` also turns the floor
- * below's pulls on and off (S4).
+ * What the plan canvases show (step 2): the Show menu's switches, on by default (S2) but bands
+ * (D1b). `lengths` is a room's lengths (a drag's always show); `floorBelow` also turns the floor
+ * below's pulls on and off (S4); `beams` room beams and beams added to walls; `bands` every
+ * wall's ring beam, lintel and sill bands (a selected wall shows its own either way).
  */
 export const DEFAULT_PLAN_LAYERS = Object.freeze({
   lengths: true,
   plaster: true,
   floorBelow: true,
+  beams: true,
+  bands: false,
 });
 
 const PlanLayersContext = createContext(null);

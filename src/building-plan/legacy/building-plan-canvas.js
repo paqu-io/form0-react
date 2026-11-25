@@ -14,6 +14,12 @@ import {
 } from '../draw/refusal-marks.js';
 import { drawGrid as drawPlanGrid } from '../draw/grid.js';
 import { NO_SCOPE, OUT, levelTheme, scopeLevels } from '../draw/scope-levels.js';
+import {
+  drawWallBeams,
+  shownWallBeams,
+  wallBeamLines,
+  wallBeamNameAt,
+} from '../draw/wall-beams.js';
 import { drawWallFootprints } from '../draw/walls.js';
 import { nameAboveLine, nameBeside } from '../draw/selection-name.js';
 import { snapOpeningRatios } from '../opening-snap.js';
@@ -382,6 +388,8 @@ export class BuildingPlanCanvas {
     this.windows = [];
     this.columns = [];
     this.beams = [];
+    this.wallBeams = [];
+    this.physicalOpenings = [];
     this.floors = [];
     this.activeFloorIndex = 0;
     this.hasFloors = false;
@@ -1398,6 +1406,9 @@ export class BuildingPlanCanvas {
       this.editingCuts = snapshot.editingCuts || [];
       this.columns = snapshot.columns || [];
       this.beams = snapshot.beams || [];
+      // Wall beams and bands per room face (D1a), and the openings' gaps they pass over.
+      this.wallBeams = snapshot.wallBeams || [];
+      this.physicalOpenings = snapshot.physicalOpenings || [];
       this.doors = snapshot.doors || [];
       this.windows = snapshot.windows || [];
       this.floors = snapshot.floors || [];
@@ -3305,7 +3316,7 @@ export class BuildingPlanCanvas {
     for (let i = 0; i < this.beams.length; i += 1) {
       const beam = this.beams[i];
       if (!beam || (onlyId && beam.id !== onlyId)) continue;
-      if (beam.isDimmed) continue;
+      if (beam.isDimmed || !this.roomBeamShown(beam)) continue;
       const start = beam._renderStart;
       const end = beam._renderEnd;
       if (start && distance(point, start) <= tolerance) {
@@ -3324,7 +3335,7 @@ export class BuildingPlanCanvas {
     for (let i = this.beams.length - 1; i >= 0; i -= 1) {
       const beam = this.beams[i];
       if (!beam) continue;
-      if (beam.isDimmed) continue;
+      if (beam.isDimmed || !this.roomBeamShown(beam)) continue;
       const start = beam._renderStart;
       const end = beam._renderEnd;
       if (start && end) {
@@ -3724,9 +3735,11 @@ export class BuildingPlanCanvas {
 
     // Beams over columns (3a): a beam is overhead, its outline shows across a column.
     this.columns.forEach((column) => this.drawColumn(column));
-    this.beams.forEach((beam) => this.drawBeam(beam));
+    this.beams.filter((beam) => this.roomBeamShown(beam)).forEach((beam) => this.drawBeam(beam));
 
     this.drawOpenings();
+    // Wall beams and bands (D1b), over the openings' gaps.
+    this.drawWallBeams();
     drawInsertionMark(this.ctx, this);
     this.drawEditingCuts();
     this.drawCornerControls();
@@ -3795,10 +3808,17 @@ export class BuildingPlanCanvas {
    * colour (`draw/selection-name.js`). `clearance`: from the line to the room (half a wall's
    * thickness for an opening drawn on the wall's axis). Returns its rectangle, for hit testing.
    */
-  drawSelectedName(text, start, end, roomId, clearance = 0, away = null) {
+  drawSelectedName(text, start, end, roomId, clearance = 0, away = null, lines = []) {
     const room = (this.rooms || []).find((entry) => entry.id === roomId);
     const size = this.computeLabelRect(text, { x: 0, y: 0 }, { position: 'center' });
     if (!size) return null;
+    // A selected wall's bands and beams under its name (D1b), placed with it as one block.
+    const row = { position: 'center', paddingY: 1 };
+    const rows = lines.map((line) => this.computeLabelRect(line, { x: 0, y: 0 }, row));
+    const block = {
+      width: Math.max(size.width, ...rows.map((entry) => entry?.width || 0)),
+      height: size.height + rows.reduce((sum, entry) => sum + (entry?.height || 0), 0),
+    };
     // Which side of the line a point is on; `away` (a free wall's body) keeps the name off it.
     const side = (point) =>
       Math.sign((end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x));
@@ -3808,12 +3828,24 @@ export class BuildingPlanCanvas {
         ? this.px(this.nameReach.pixels)
         : 0;
     const centre = nameBeside(start, end, {
-      size,
+      size: block,
       clearance: clearance + reach + this.px(6),
       isInside: (point) =>
         Boolean(room && pointInRoom(point, room)) && (!away || side(point) !== side(away)),
     });
-    return this.drawLabelBadge(text, centre, { position: 'center', color: this.planTheme.accent });
+    let top = centre.y - block.height / 2;
+    const rect = this.drawLabelBadge(
+      text,
+      { x: centre.x, y: top + size.height / 2 },
+      { position: 'center', color: this.planTheme.accent }
+    );
+    top += size.height;
+    for (const [index, line] of lines.entries()) {
+      const height = rows[index]?.height || 0;
+      this.drawLabelBadge(line, { x: centre.x, y: top + height / 2 }, row);
+      top += height;
+    }
+    return rect;
   }
 
   /**
@@ -4038,6 +4070,50 @@ export class BuildingPlanCanvas {
     });
 
     return { startPoint, endPoint, centerPoint, lineWidth, widthPx, outline, label };
+  }
+
+  /** Room beams show while Show › Beams is on (D1b); the selected one always. */
+  roomBeamShown(beam) {
+    return this.layers?.beams !== false || beam.id === this.selectedBeamId;
+  }
+
+  /** Wall beams and bands (D1b, `draw/wall-beams.js`), and the names of beams added by hand. */
+  drawWallBeams() {
+    const items = shownWallBeams({
+      wallBeams: this.wallBeams,
+      walls: this.walls,
+      layers: this.layers,
+      selectedWallId: this.selectedWallId,
+      levelOf: (collection, entry) => this.levelOf(collection, entry),
+    });
+    const gaps = new Map();
+    for (const opening of this.physicalOpenings || [])
+      gaps.set(opening.wallId, [...(gaps.get(opening.wallId) || []), opening.polygon || []]);
+    drawWallBeams(this.ctx, items, {
+      theme: this.planTheme,
+      pixel: this.px(1),
+      gapsOf: (wallId) => gaps.get(wallId) || [],
+    });
+    if (!this.shouldShowLabel('beams')) return;
+    for (const { entry, face, level } of items) {
+      if (entry.band) continue;
+      const room = (this.rooms || []).find((candidate) => candidate.id === face.roomId);
+      const size = this.computeLabelRect(
+        entry.displayLabel,
+        { x: 0, y: 0 },
+        { position: 'center' }
+      );
+      if (!size) continue;
+      const centre = wallBeamNameAt(entry, {
+        size,
+        pixel: this.px(1),
+        inRoom: (point) => Boolean(room && pointInRoom(point, room)),
+      });
+      this.drawLabelBadge(entry.displayLabel, centre, {
+        position: 'center',
+        theme: levelTheme(this.planTheme, level),
+      });
+    }
   }
 
   drawBeam(beam) {
@@ -4781,6 +4857,10 @@ export class BuildingPlanCanvas {
             presentation: this.presentation,
           });
         const nameText = plaster ? `${labelText} · ${plaster}` : labelText;
+        // Its bands and beams, top to bottom by height (D1b).
+        const lines = wallBeamLines(wall, this.wallBeams, (metres) =>
+          formatLength(metres, this.presentation)
+        );
         // A free wall's name beside its body (off "This side" in its own entry).
         wall._labelRect = freeWall
           ? this.drawSelectedName(
@@ -4789,9 +4869,10 @@ export class BuildingPlanCanvas {
               end,
               wall.roomId,
               ((wall.thickness ?? 0) * this.gridSize) / 2,
-              sideMiddle
+              sideMiddle,
+              lines
             )
-          : this.drawSelectedName(nameText, lineStart, lineEnd, wall.roomId, 0, null);
+          : this.drawSelectedName(nameText, lineStart, lineEnd, wall.roomId, 0, null, lines);
       } else if (labelText && lineStart && lineEnd) {
         const anchor = {
           x: (lineStart.x + lineEnd.x) / 2,

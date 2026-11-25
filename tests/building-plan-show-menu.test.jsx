@@ -192,6 +192,36 @@ it('the Lengths switch: listed first, its note in the status line, off with the 
   await waitFor(() => expect(status()).toMatch(note));
 });
 
+it('Beams on and Bands off by default; the dot only for a switch off that is on by default', async () => {
+  // D1b (2026-11-25): beams added by hand show at rest, bands with Show › Bands.
+  const f = fixture();
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      buildingPlanDerivedCommands
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  await screen.findByRole('tab', { name: 'Ground Floor' });
+  fireEvent.click(showButton(screen));
+  const beams = screen.getByRole('checkbox', { name: /^Beams/ });
+  const bands = screen.getByRole('checkbox', { name: /^Bands/ });
+  expect(beams.closest('label').textContent).toContain('Room beams and beams added to walls');
+  expect(bands.closest('label').textContent).toContain(
+    "Every wall's ring beam, lintel and sill bands"
+  );
+  expect([beams.checked, bands.checked]).toEqual([true, false]);
+  expect(showButton(screen).getAttribute('aria-label')).not.toMatch(/some hidden/);
+  fireEvent.click(bands);
+  await waitFor(() => expect(screen.getByRole('checkbox', { name: /^Bands/ }).checked).toBe(true));
+  expect(showButton(screen).getAttribute('aria-label')).not.toMatch(/some hidden/);
+  fireEvent.click(screen.getByRole('checkbox', { name: /^Beams/ }));
+  await waitFor(() => expect(showButton(screen).getAttribute('aria-label')).toMatch(/some hidden/));
+});
+
 it('the canvas draws and fits to the floor below only while it shows', () => {
   const floorBelow = { walls: [[{ x: 0, y: 0 }]], columns: [], label: 'Ground Floor' };
   const canvas = Object.assign(Object.create(BuildingPlanCanvas.prototype), {
