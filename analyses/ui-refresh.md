@@ -2444,3 +2444,13 @@ default" or "This wall", then Reset, as plaster; the ring beam's underside stays
 top less its depth. Web: a band value shows no position tag. Core 792 of 792; web 456 of 462 (the
 worker tests). Checked on the test page. Hand-tested: works. Committed form0-core `ae65a18`,
 form0-react `371496d`.
+
+### Bands unit 3b: a band row's read-only values say why (2026-11-24, committed)
+
+Core: a band row's distance and length (and the ring beam's underside) report a description per
+row, in the editor's language: why it's read-only and what to do for part of a wall. Web: the
+field shows it as its subtext. First built as note fields, reworked before the hand test (the
+fields' own description, on each read-only value). Core 793 of 793; web 457 of 463 (the worker
+tests). Checked on the test page. Committed form0-core `e39cf31`, form0-react `f8a87fd`; its hand test
+moves to the next chat. Unit 4 decided: problems listed with a "Plan" tag, the floor's Save
+blocked.

@@ -3629,7 +3629,51 @@ band raised into it: the band goes up on that wall only, with Reset.
 
 Hand-tested 2026-11-24: works. Committed form0-core `ae65a18`, form0-react `371496d`. Asked (aligning):
 why width shows "This wall" and distance and length nothing; why "This wall" looks like an
-inherited value; how to record a ring beam over part of a wall.
+inherited value; how to record a ring beam over part of a wall. Decided: badges as they are (no new
+variants); a short note on band rows says why their place is read-only and what to do for part of
+a wall; no type field for beams added by hand (informative only).
+
+**Bands unit 3b: a band row's read-only values say why (core and web, committed 2026-11-25).**
+
+First built as two note fields (LabelField) under Beam ID; asked before the hand test: use the
+fields' own description, as other notes, and on every value that can't be edited, even repeated.
+Reworked so: a field's description is the same on every row, and distance and length are
+editable on a beam added by hand, so the band row's description comes per row from core.
+
+- *Core (`band-field-state.js`).* For a band row, distance and length report no source and the
+  description "Spans the whole wall. For part of it, set it to No on the wall and add the beam
+  yourself."; the ring beam's underside "The ring beam's top is the wall's top: change its depth
+  instead." In the editor's language (`getBuildingPlanFieldState` takes the record session's
+  locale; fr / it / es in `presentation-band-texts.js`). The row writer (`transactions.js`) skips
+  display-only fields (an author's note would have refused the row: "the target must be an input
+  field"; found with the first version).
+- *Web (`form-renderer.jsx`, wiring).* A field whose state carries a description shows it as its
+  subtext in place of the field's own.
+
+Tests: a case in `building-plan-band-values.test.js` (distance, length and the ring beam's
+underside described on band rows, in Italian too; a beam by hand not), failing with HEAD's files;
+web `building-plan-band-description.test.jsx` (new: a band row opened from the room's wall, the
+description twice, the field's own gone), failing with HEAD's `form-renderer.jsx`. Core 793 of
+793 and the plain test scripts; web 457 of 463 (the worker tests).
+
+Headless on the test page (no console errors): W1's Lintel band entry shows the description under
+Distance and under Length, the field's own gone.
+
+Hand test (unit 3b, with unit 4): open a wall's Lintel band: Distance and Length say why; the Ring
+beam: its underside says why too; a beam added by hand: the usual descriptions.
+
+Committed form0-core `e39cf31`, form0-react `f8a87fd` (asked to commit before the hand test, which moves
+to the next chat with 4a). Asked: does this change how core handles field descriptions? No: the
+description comes from the building plan's field state (`getBuildingPlanFieldState`), which only
+plan entries ask; schemas, the engine and other forms are unchanged.
+
+Unit 4 decided (2026-11-25): problems to fix (a band and an opening reaching into each other,
+bands overlapping) never refuse an edit; they're marked on the canvas, listed in the Validation
+panel first, each with a "Plan" tag (the "Exterior" tag's style) naming both elements, a click
+selecting it on the canvas; they block the floor entry's Save only (inside the plan). Order: 4a
+the problems and the blocked Save; 4b the question on a band edit that would cause problems
+(lower the openings, fix them myself, Cancel); 4c a No removing a band row with values of its own
+asks first, a Rejoin of parts that differ asks which value.
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3647,7 +3691,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`). Next: floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`). Next: 4a. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
