@@ -43,6 +43,12 @@ import { PlanFindingsProvider } from './building-plan/plan-findings-context.jsx'
 import { PlanLayersProvider } from './building-plan/plan-layers.jsx';
 import { buildingPlanFindings, planSideStates } from './building-plan/plan-findings.js';
 import { floorPlanProblems, planProblemIssues } from './building-plan/plan-problems.js';
+import {
+  NO_PLAN_REFUSALS,
+  nextPlanRefusals,
+  planRefusalIssues,
+  withPlanRefusals,
+} from './building-plan/plan-refusals.js';
 import { buildingPlanFieldNote, buildingPlanFieldTag } from './building-plan/field-tag.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
@@ -4942,6 +4948,8 @@ function RepeatableEntryModal({
   const failSave = useCallback(() => setEntryFailedSaves((count) => count + 1), []);
   const [buildingPlanRevision, setBuildingPlanRevision] = useState(0);
   const [buildingPlanIssues, setBuildingPlanIssues] = useState([]);
+  // Typed values the plan refused, by field (refused values as field errors, 2026-11-25).
+  const [planRefusals, setPlanRefusals] = useState(NO_PLAN_REFUSALS);
   const planIncomingValues = useRef(null);
   const domainRevision = modal.buildingPlan?.editor.getState().revision;
   useEffect(() => {
@@ -4957,6 +4965,8 @@ function RepeatableEntryModal({
     return context.editor.subscribe(() => {
       setBuildingPlanRevision(context.editor.getRevision());
       setBuildingPlanIssues([]);
+      // The plan's values replace the form's below, a refused one included.
+      setPlanRefusals(NO_PLAN_REFUSALS);
       // Opening a child also publishes; browsing a readonly row is not a value write.
       if (isEntryReadOnly || !context.editor.hasEditor(context.scopeId)) return;
       const row = resolveBuildingPlanRow(context.editor.getRecord(), context.path);
@@ -5014,6 +5024,7 @@ function RepeatableEntryModal({
             context.editor.completeRow(context.scopeId, row, { fieldName, finishAll }),
             modal.engineOptions?.onMessageBox
           );
+          setPlanRefusals((current) => nextPlanRefusals(current, result));
           if (!['draft', 'unchanged', 'invalid'].includes(result.status))
             setBuildingPlanIssues(result.issues);
           return result;
@@ -5601,10 +5612,26 @@ function RepeatableEntryModal({
   );
   const modalIssues = useMemo(
     () =>
-      entrySubmitCount > 0 && floorProblems.length
-        ? [...planProblemIssues(floorProblems), ...modalValidationIssues]
+      entrySubmitCount > 0
+        ? [
+            ...planProblemIssues(floorProblems),
+            ...planRefusalIssues(planRefusals, {
+              fieldLookup: modalFieldLookup,
+              presentField: modalPresentation.field,
+              fieldToSectionPath: modalFieldToSectionPath,
+            }),
+            ...modalValidationIssues,
+          ]
         : modalValidationIssues,
-    [entrySubmitCount, floorProblems, modalValidationIssues]
+    [
+      entrySubmitCount,
+      floorProblems,
+      planRefusals,
+      modalFieldLookup,
+      modalPresentation,
+      modalFieldToSectionPath,
+      modalValidationIssues,
+    ]
   );
 
   // Auto-seed perimeter walls for BuildingPlan rooms inside the modal if missing
@@ -6105,7 +6132,8 @@ function RepeatableEntryModal({
       // A field the plan can't take yet (a required one cleared, an invalid number): the form's
       // own validation says why, so the attempt counts and its errors show (hand test
       // 2026-11-22: Save did nothing, and showed nothing).
-      if (completion.status === 'invalid') {
+      // A value the form rejects ('invalid') or the plan refused ('conflict'): stopped.
+      if (['invalid', 'conflict'].includes(completion.status)) {
         setEntrySubmitCount((count) => count + 1);
         failSave();
       }
@@ -6831,7 +6859,7 @@ function RepeatableEntryModal({
                             visible: entryVisible,
                             required: entryRequired,
                             read_only: entryReadOnlyState,
-                            errors: entryErrors,
+                            errors: withPlanRefusals(entryErrors, planRefusals),
                           }}
                           setValue={setEntryValue}
                           engineStore={entryEngineStore}
