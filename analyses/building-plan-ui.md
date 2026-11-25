@@ -3902,6 +3902,55 @@ Cancel puts the field back to the plan's value, for this question and the shared
 cancelled plan question left the typed value in the field, unapplied, and Save asked again). The
 edit and the fitted openings are one Undo. English for now, as the other core questions.
 
+**Bands unit 4b: a band edit running bands into openings asks (core and web, hand-tested
+2026-11-25, committed).**
+
+- *Core, `band-clash-question.js` (new; wiring in `session.js`'s commit, after the other
+  questions).* `newBandClashes(before, after)`: the opening-band problems (4a) the edit made,
+  compared by opening and band kind (a Split's new band rows aren't new clashes), leaving out
+  openings the edit placed or moved. `bandClashQuestion`: "Openings in the way", the message, the
+  three buttons, the openings that would keep no height named. `fitOpenings`: a head down to the
+  lowest band above it, a window's sill up to the sill band's top, lengths cleaned; changed in
+  the candidate, so the edit and the fit are one Undo. Keep: applied as it is; Cancel: unchanged
+  (the session's existing cancel).
+- *Web, `form-renderer.jsx` (wiring).* The code putting the plan's row into the form moved to
+  `adoptPlanRow` (used on each plan change, as before); a completion whose question was cancelled
+  (asked, then unchanged) calls it, so the typed value goes back. Applies to the shared-value
+  question too.
+- *Tests changed by the question.* 4a's tests make clashes with floor values: they answer Keep
+  now (`keep` in `tests/helpers/building-plan-bands.js`; the web fixture, moved to
+  `tests/fixtures/plan-window-band.jsx`, does the same; 4a's web test answers Keep in the dialog).
+- *Seen, not changed (from before).* A plan change puts the plan's row into the form: a value
+  typed in another field while the previous field's completion is still running is overwritten
+  (seen only with the driver typing two fields with no pause; a completion takes milliseconds).
+  Deferred (2026-11-25): not on the queue for now.
+
+Tests: core `building-plan-band-clash-question.test.js` (6: the floor's lintel band lowered into
+the Shared door, Fit and one Undo; Keep, a deeper band and a Split not asking again, Cancel; opening
+edits not asking; a sill band raised into a window; a wall lowered bringing the ring beam down; an
+opening keeping no height, named and left), five failing with HEAD's `session.js` (the opening
+edits one passes either way); web `building-plan-band-clash.test.jsx` (2: Cancel puts 2.4 back,
+Fit then Save closes; Keep leaves "1 issue"), the Cancel one failing with HEAD's
+`form-renderer.jsx`. Core 812 of 812 and the plain test scripts; web 464 of 471 (the worker tests
+and the numeric-setters flake, passing alone).
+
+Headless on the test page (no console errors): the floor's lintel band at 2.1 (250 mm), then 1.9:
+"Openings in the way", "This edit runs Lintel band into 1 opening: Shared door (W3)."; Cancel:
+2.1 back; again, Fit: the door 1.9, no issues; Save closes the floor.
+
+Hand test (restart the test page): on the floor, "Every wall has a lintel band", underside 2.1,
+depth 250 mm; type 1.9: the question names the Shared door; Cancel: 2.1 is back. Type 1.9, Fit:
+the door's height reads 1.9 (its entry), no issues; Undo once: the band and the door both back.
+Type 1.9 again, Keep: "1 issue". A window on W1 (sill 0.9, height 1.2) and "Every wall has a
+sill band" at 0.8: the question; Fit: its sill 1.0, its head where it was. A window raised into
+the lintel band: no question (the band is pushed).
+
+Hand-tested 2026-11-25: works. Steps 5 and 6 checked on the capture
+(`captured/state-2026-11-25T12-41-06-391Z.json`): the sill band's depth left blank takes 30 cm, so
+its top is 1.1 and Window 1's sill went to 1.1 (the hand test's 1.0 assumed 20 cm), its head
+staying at 2.1; then raised to a head of 2.6, W1's lintel band followed to 2.6 (its own), the
+other walls' at 2.1; no problems. Committed form0-core `c8d9805`, form0-react `ccb6abb`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3918,7 +3967,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); then 4b, 4c. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); then 4c. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

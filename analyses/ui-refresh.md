@@ -2510,3 +2510,13 @@ no Reset), since the tag tells the plan's value and Reset only returns inherited
 still apply whole (a note on applying the accepted fields beside a refused one is in
 `building-plan-ui.md`). Web 463 of 469 (the worker tests). Hand-tested: works. Committed `7efad5d`. 4b decided (see
 `building-plan-ui.md`, "4b decided").
+
+### Bands unit 4b: a band edit running bands into openings asks (2026-11-25, hand-tested, committed)
+
+Core: an edit that runs bands into openings (the floor's band values, a band row's height, a wall
+lowered under its ring beam) asks "Openings in the way": Fit the openings (heads down, sills up;
+one Undo with the edit), Keep them (problems to fix, 4a), or Cancel. Clashes already there and
+opening edits don't ask. Web: a cancelled plan question puts the typed value back in its field
+(the shared-value question too). Core 812 of 812; web 464 of 471 (the worker tests and the flake).
+Checked on the test page. Details in `building-plan-ui.md`, "Bands unit 4b". Hand-tested: works. Committed form0-core
+`c8d9805`, form0-react `ccb6abb`.
