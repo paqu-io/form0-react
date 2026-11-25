@@ -4005,6 +4005,78 @@ canvas behind it, in a colour of their own, so the choice reads against the draw
 out of view at the current zoom; what to do then (fit them into view, a marker at the canvas
 edge, or nothing) is to decide when we take it up.
 
+**Unit 5 aligned (2026-11-25).** New openings take their heights from the bands (decided
+2026-11-24); points agreed:
+
+1. *Which band.* The band row on the segment the opening is placed on, as it stands there: the
+   wall's own value (W1's own 2.6, a pushed one) or the floor's (2.1 while the floor's underside is
+   blank). A wall answered No has no row: today's defaults.
+2. *One band only.* Each edge on its own: the head at the lintel band's underside, else 2.1 (a
+   door's 2 m); a window's sill at the sill band's top, else 0.9. A lintel band at 2.6 alone: a
+   window 0.9 to 2.6; a sill band's top at 1.1 alone: 1.1 to 2.1. Bands that leave no height (head
+   at or under the sill): today's defaults, listed as a problem (4a).
+3. *The ring beam* sets no height, but 4b's Fit applies (a head down to the lowest band above it),
+   so a new opening never starts inside the ring beam on a low wall. Asked: one rule with 4b, no
+   new exceptions.
+4. *Plain values*, no source tag: a band moved later doesn't carry them (4b asks), no new badge.
+5. *Core helper* called by the editor (Add in a Doors or Windows list) and the canvas controller;
+   `create_opening` keeps a missing height meaning unknown.
+6. *Found while aligning, fixed here.* The canvas controller filled today's defaults on every
+   edit too, so a window with blank heights dragged along its wall came back 1.2 / 0.9 (checked in
+   node through the controller). Heights are only filled when an opening is created.
+
+Found too: the web canvas sent its own constants (2, 1.2, 0.9) with every new door or window, so
+core's defaults were never reached from the web; it now sends where and how wide only. Mobile
+already did. The v1 controller (`legacy/building-plan-controller.js`, plans with version 1 metadata,
+not the engine switch) keeps its own defaults, the same values.
+
+**Bands unit 5: new openings take their heights from the bands (core and web, 2026-11-25,
+hand-tested, committed).**
+
+- *Core, `opening-heights.js` (new).* `newOpeningHeights(floor, { wallId, segmentId, kind })`:
+  the bands on the segment (doors leave the sill band out), the edges as above, then 4b's
+  `fitToBands` (exported from `band-clash-question.js`, was `fitted`) for the bands the opening
+  would run into. Wiring: `editor.js` (a new row in a wall's Doors or Windows list),
+  `canvas-controller.js` (a new door or window; a typed height or sill still wins; an edit sends the
+  opening's own heights, blank ones included).
+- *Web, `legacy/building-plan-canvas.js` and `add-elements.js`.* "Add door" and "Add window" (and
+  the legacy placing mode, unused here) send the width and place only; the height constants are
+  gone.
+- *Mobile.* Nothing: the touch controller sends the width only, so core's heights apply.
+
+Tests: core `building-plan-new-opening-heights.test.js` (6: today's heights without bands, the
+floor's lintel and sill bands, a door through the sill band; the wall's own band row and a wall
+answered No; a sill band alone, the ring beam capping a head on a 2.2 m wall; bands leaving no
+height, listed as a problem; a typed height winning and a moved opening keeping blank heights; the
+editor's Add in the Windows and Doors lists), five failing with HEAD's `editor.js` and
+`canvas-controller.js` (the no-height case gives today's either way); web
+`building-plan-add-elements.test.js` (no height sent), failing with HEAD's two files. Core 821 of
+821 and the plain test scripts; web 464 of 471 (the worker tests and the numeric-setters flake).
+
+Headless on the test page (no console errors), from a plan built in node
+(`captured/state-unit5-bands.json`: lintel band 2.3 / 250 mm on every wall, W1's own 2.6, sill band
+0.8 / 200 mm): in the Bedroom's entry, W1 selected and "Add window": sill 1.0, height 1.6 (head
+2.6); W4 and "Add door": 2.3; W2 and "Add window": sill 1.0, height 1.3.
+
+Hand test (restart the test page): on the floor, "Every wall has a lintel band" (underside 2.3,
+depth 250 mm) and "Every wall has a sill band" (underside 0.8, depth 200 mm); on W1's Lintel band
+type the underside 2.6; Save up to the floor. In the Bedroom, select W1, "Add window": its entry
+reads sill 1.0, height 1.6; select W4, "Add door": height 2.3; from W2's entry (Walls › W2),
+Windows, Add: sill 1.0, height 1.3. Set W3.2's Lintel band to No and add a window there: sill 1.0
+(the sill band), height 1.1 (the head at 2.1). Without any band (a fresh page): door 2, window 0.9
+/ 1.2 as before. The same plan can be opened
+with `?state=state-unit5-bands.json&form=plan&show=page&width=wide`.
+
+Hand-tested 2026-11-25: works. Committed form0-core `2f592bc`, form0-react `aad7606`.
+
+**Asked 2026-11-25, for D1 and A.** D1 to D3 are drawing only (WB10: wall beams aren't picked or
+dragged in the plan); lengths typed on the canvas are step 4 (queue 4), for openings, columns,
+room beams and wall lengths, its first part (refused values as field errors) done; the front
+view's typed lengths would join it. The main mockups page's "Handles · lengths (3)" is step 4's
+starting point. The front view from a room's entry too, a wall at a time with left and right
+arrows to the next wall (user's idea): to sketch in the WB10 mockup with the band scenes (bands
+on every wall, a wall's own band, a local beam, a problem on a band).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -4021,7 +4093,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); 4c (core `3337647`); then unit 5 (new openings' heights from the bands), D1, A. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); refused typed values as field errors (core `9e629fb`, web `d510a5d`); no source tag on a refused value (`7efad5d`); 4b (core `c8d9805`, web `ccb6abb`); 4c (core `3337647`); unit 5 (core `2f592bc`, web `aad7606`); then D1, A. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

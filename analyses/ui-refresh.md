@@ -2532,3 +2532,14 @@ the band values stay in ordinary joins' question too. Committed form0-core `3337
 after the planned items (mobile included): a question naming plan elements highlights them on the
 canvas behind it.
 
+
+### Bands unit 5: new openings take their heights from the bands (2026-11-25, hand-tested, committed)
+
+Core: a new door or window (the canvas's "Add door" / "Add window", or Add in a wall's Doors or
+Windows list) takes its heights from the bands on its segment: the head at the lintel band's
+underside (the wall's own row, else the floor's), a window's sill at the sill band's top, an edge
+without a band at today's place (door 2 m; window 0.9 to 2.1 m), then 4b's Fit (never inside the
+ring beam). Plain values. An edit of an opening no longer fills blank heights with the defaults.
+Web: the canvas stops sending its own heights. Core 821 of 821; web 464 of 471 (the worker tests
+and the flake). Checked on the test page. Details in `building-plan-ui.md`, "Bands unit 5".
+Hand-tested: works. Committed form0-core `2f592bc`, form0-react `aad7606`.
