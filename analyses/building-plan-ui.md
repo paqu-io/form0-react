@@ -3868,6 +3868,40 @@ still applies whole, so a valid edit made beside a refused one waits until the r
 `completeRow` is also used by form0-react-native and form0-cli's preview server; the new
 property only appears on refusals, so they're unaffected.
 
+Decided 2026-11-25: (B) a refused value's field shows no source tag (no "Floor default", no
+Reset): Reset only ever returns an inherited value, so it isn't used to drop a refused one. And
+rows stay whole: kept as is.
+
+*Note for later, rows applied whole.* Today a row's completion applies every field changed since
+its last applied state, or none: while a refused value stays in the form, a valid edit beside it
+waits (nothing is lost; both apply once the refusal is fixed). If it gets in the way: on a
+refusal, apply the fields core accepts alone (`refusedFields` already tells them apart) and keep
+only the refused ones pending. Costs: a row's edit is no longer all or nothing (two values meant
+together could land apart), each partial apply is an undo step of its own, and it changes every
+plan entry on web, mobile and form0-cli's preview server, which all call `completeRow`.
+
+**No source tag on a refused value (web, hand-tested 2026-11-25, committed).**
+`buildingPlanFieldPresentation` (`form-renderer.jsx`) takes `refused` and leaves the source and
+Reset out (the position tag and its note stay); the entry passes its refusals in the form's
+state (`refused`, beside the errors). Test: `building-plan-plan-refusals.test.jsx` (the
+underside's tag: inherited, none while refused, Reset once 2.4 is applied), failing with HEAD's
+`form-renderer.jsx`. Web 463 of 469 (the worker tests). Hand test: a Lintel band's underside
+3.5: red, no "Floor default"; 2.4: Reset in its place. Hand-tested: works. Committed `7efad5d`.
+
+**4b decided (2026-11-25).** A band edit that makes new clashes between openings and bands asks
+first (the floor's band answers and values, a wall's band answer or its Reset, a band row's
+underside or depth, a wall's height or the ring beam's depth bringing the ring beam down); clashes
+already there don't ask; opening edits never ask (they push lintel and sill bands; into the ring
+beam, applied and listed). Other new problems (bands overlapping, a band beyond its wall) don't
+ask. The question (core, as the shared-value one): "This edit runs the Lintel band into 3
+openings: Window 1 (W1), …", "Fit the openings" / "Keep them, I'll fix them" / "Cancel". Fit:
+openings shrink, their other edge staying: a head down to the underside of the lowest band
+above it, a window's sill up to the sill band's top (doors pass sill bands); one that would keep
+no height isn't touched, stays a problem, and the question says so. Keep: applied, listed (4a).
+Cancel puts the field back to the plan's value, for this question and the shared-value one (a
+cancelled plan question left the typed value in the field, unapplied, and Save asked again). The
+edit and the fitted openings are one Undo. English for now, as the other core questions.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

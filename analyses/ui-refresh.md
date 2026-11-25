@@ -2502,3 +2502,11 @@ edit). Core 806 of 806; web 463 of 469 (the worker tests). Checked on the test p
 `building-plan-ui.md`, "Refused typed values as field errors". Hand-tested: works. Committed form0-core `9e629fb`,
 form0-react `d510a5d`. Aligning: the source tag while a value is refused; whether rows should
 apply their accepted fields beside a refused one.
+
+### A refused value shows no source tag (2026-11-25, hand-tested, committed)
+
+Decided: while a field holds a value the plan refused, it shows no source tag (no "Floor default",
+no Reset), since the tag tells the plan's value and Reset only returns inherited values. Rows
+still apply whole (a note on applying the accepted fields beside a refused one is in
+`building-plan-ui.md`). Web 463 of 469 (the worker tests). Hand-tested: works. Committed `7efad5d`. 4b decided (see
+`building-plan-ui.md`, "4b decided").
