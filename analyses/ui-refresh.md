@@ -2543,3 +2543,14 @@ ring beam). Plain values. An edit of an opening no longer fills blank heights wi
 Web: the canvas stops sending its own heights. Core 821 of 821; web 464 of 471 (the worker tests
 and the flake). Checked on the test page. Details in `building-plan-ui.md`, "Bands unit 5".
 Hand-tested: works. Committed form0-core `2f592bc`, form0-react `aad7606`.
+
+### D1a and D1b: wall beams and bands on the plan (2026-11-25, hand-tested, committed)
+
+Decided with the mockup's round 2 (R2): beams added by hand drawn at rest over their wall, bands
+with Show › Bands or their wall selected; a selected wall lists its bands and beams under its
+name, top to bottom by height; Show gets "Beams" (on) and "Bands" (off). Core (D1a): the canvas
+snapshot's `wallBeams`, per room face. Web (D1b): `draw/wall-beams.js`, wired in the legacy canvas;
+the Show switches. Found: room beams aren't named at rest today (only rooms are), so the agreed
+"named at rest as room beams" needs a choice. Core 824 of 824; web 472 of 478 (the worker tests).
+Checked on the test page. Details in `building-plan-ui.md`, "D1a" and "D1b". Hand-tested: works.
+Decided: no beam names at rest. Committed form0-core `69ab451`, form0-react `458824b`.

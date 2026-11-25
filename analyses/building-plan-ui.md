@@ -4077,6 +4077,93 @@ starting point. The front view from a room's entry too, a wall at a time with le
 arrows to the next wall (user's idea): to sketch in the WB10 mockup with the band scenes (bands
 on every wall, a wall's own band, a local beam, a problem on a band).
 
+**D1 decided (2026-11-25, mockup round 2: https://claude.ai/artifact/VTrTopfPtKR3GivVhnWq4S).**
+
+1. *Bands at rest: R2.* Beams added by hand are drawn at rest (D1: over their wall, dashed, at
+   their width); bands only with focus: their wall selected, their entry open, a problem, or
+   Show › Bands.
+2. *Names at rest:* beams added by hand named at rest (as room beams); bands never at rest. A
+   selected wall lists its bands and beams inside the room, top to bottom by height.
+3. *Show:* "Beams" (on; room beams and beams added to walls) and "Bands" (off).
+4. *Problems on bands:* the band drawn in the error colour, the marker at the clash; selecting
+   the problem selects the band (replaces 4a's marker on the opening).
+5. *Front view (A):* the Plan | Front switch in a room's entry, a wall at a time with arrows in
+   the Walls list's order (starting on the selected wall, wrapping; a split side drawn whole, the
+   other wall faded; free walls later). In a wall's entry: that wall only, no arrows. Asked too
+   (to settle with A): a door's, window's or beam's entry showing the front view with that element
+   highlighted (round 1 proposed it); heights as a vertical chain of partial lengths beside the
+   levels (W1: 0.80, 0.20, 1.45, 0.25, 0.30), as lengths along the bottom are.
+
+Units: **D1a** (core) wall beams and bands in the canvas snapshot, per room face as doors and
+windows; **D1b** (web) drawn as decided (1 to 3), the Show switches, names, the selected wall's
+list; **D1c** (core and web) an open beam or band entry on top in the accent colour with its
+length and height, problems marked on and selecting the band. D1a and D1b share a hand test. Web
+only; mobile with step 5.
+
+*Correction (found while building D1b, checked headless).* Room beams are not named at rest today:
+the plan canvases name rooms only (`canvas-host-mount.js`, `LABEL_SETTINGS`; walls, openings,
+columns and beams are named when selected). Point 2's "as room beams" was wrong; the mockup drew
+B#1 named at rest. Built as the canvas names room beams (by the same setting), so no beam is
+named at rest on the plan. Decided 2026-11-25: no beam names at rest (as every element but
+rooms); the selected wall's list tells its beams apart.
+
+**D1a: wall beams and bands in the canvas snapshot (core, 2026-11-25, hand-tested, committed).**
+
+- *`canvas-wall-beams.js` (new; wired in `canvas-controller.js`).* Per room face, each beam of its
+  physical wall over the stretch of its segment the face covers: `wallBeams` entries (id
+  `face:beam`, `subjectId`, `wallId`, `physicalWallId`, `roomId`, the `face_beams` copy's `path`,
+  `segmentIndex`, `startRatio` and `endRatio` along the face's binding, `length`, `width`,
+  `depth`, `underside`, `band` (ring, lintel, sill or null), `points` (its outline at its width,
+  centred on the wall's axis), `axisPoints`, `label`, `displayLabel` (its identifier: "Lintel
+  band" in the editor's language, B#n)); each wall lists its own (`wall.wallBeams`). Both faces of
+  a wall give the same outline. Display only.
+
+Tests: `building-plan-canvas-wall-beams.test.js` (3: W1's ring beam and lintel band along it, as
+wide as the wall on its axis, the path to the face's copy; a beam on the shared W3 from both rooms,
+counted from each room's end, the same outline; every beam on each face of its wall through a
+Split, none for a wall answered No), all failing with HEAD's `canvas-controller.js`. Core 824 of
+824 and the plain test scripts.
+
+**D1b: wall beams and bands drawn, the Show switches (web, 2026-11-25, hand-tested,
+committed).**
+
+- *`draw/wall-beams.js` (new).* `shownWallBeams`: beams added by hand while Show › Beams is on,
+  bands while Show › Bands is on, the selected wall's own always; one per beam and stretch (both
+  faces give it), at the strongest scope level of its faces. `drawWallBeams`: the outline 2.5 px
+  inside the beam's own, dashed 5/3, in the room colour, then in the symbol colour inside the
+  wall's openings' gaps (as the mockup). `wallBeamLines`: a selected wall's bands and beams, top
+  to bottom by height ("Ring beam 2.70"), in the plan's lengths. `wallBeamNameAt`: a beam's name
+  outside the room it is drawn for (used only where beam names show at rest; see the correction).
+- *Legacy canvas (wiring).* The snapshot's `wallBeams` and `physicalOpenings`; drawn over the
+  openings; room beams drawn and hit only while Beams is on (the selected one always); the
+  selected wall's name placed with its list as one block (`drawSelectedName` takes `lines`).
+- *Show menu.* "Beams" (on, "Room beams and beams added to walls") and "Bands" (off, "Every wall's
+  ring beam, lintel and sill bands"), after Floor below (`plan-layers.jsx`, `floor-tabs.jsx`,
+  `plan-text.js`). The dot on Show means a switch that is on by default is off
+  (`plan-show-menu.jsx`), so Bands off by default doesn't show it.
+
+Tests: web `building-plan-wall-beams-draw.test.js` (6: which show, at rest, with Bands, with
+Beams off, the selected wall's; the list's order; the two colours and the clip; a name outside
+the room; the canvas drawing them and hiding room beams; the selected wall's block), the canvas
+ones failing with HEAD's canvas; `building-plan-show-menu.test.jsx` (the two switches, the dot),
+failing with HEAD's four files. Web 472 of 478 (the worker tests).
+
+Headless on the test page (no console errors), from `captured/state-d1-bands.json` (ring beam,
+lintel band 2.30, sill band 0.80 on every wall; W1's lintel 2.45; W4 no lintel band; B#1 over the
+Shared door on W3; a room beam across the Bedroom): the plan page and the Bedroom draw B#1 once,
+dashed, dark over the door's gap, no bands; W1 selected: its bands drawn, "Ring beam 2.70 /
+Lintel band 2.45 / Sill band 0.80" under its name; W3: "… B#1 2.00 …"; Bands on and Beams off:
+every wall's bands, B#1 and the room beam gone, the dot on Show.
+
+Hand test (D1a and D1b; restart the test page; light and dark): open
+`?state=state-d1-bands.json&form=plan&show=page&width=wide` (or set the floor's three bands, W1's
+lintel band 2.45, W4's lintel band No, and add a beam from W3's Beams list); View: B#1 over the
+Shared door, no bands; open the Bedroom; select W1: its bands drawn and listed under its name, top
+to bottom; W3: B#1 among them; W4: no lintel band. Show: Beams on, Bands off, no dot; Bands on:
+every wall's bands; Beams off: B#1 and the room beam gone (the room beam can't be clicked), the dot.
+
+Hand-tested 2026-11-25: works. Committed form0-core `69ab451`, form0-react `458824b`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
