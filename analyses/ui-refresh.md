@@ -2479,3 +2479,15 @@ to the aligned wording. Core 802 of 802; web 458 of 465 (the worker tests and th
 on the test page. Details and the hand test in `building-plan-ui.md`, "Bands unit 4a". Hand-tested: works; translation and lengths noted in `localization.md`. Asked: clearer feedback
 on a failed Save or Submit, a nested section's highlight border, refused typed values on their
 field and in Validation (aligning).
+
+### A stopped Save or Submit made visible; a nested section's highlight (2026-11-25, hand-tested, committed)
+
+Asked at the bands 4a hand test: a Save stopped by validation only changed the Validation badge's
+number. Now (root form and every entry, web) the Validation tab opens with its first finding
+focused, a status line tells screen readers why, the badge turns red, and Save or Submit shows a
+red ring with an alert icon in its icon's place (no layout shift) until the findings are fixed.
+A highlighted nested section no longer draws a ring against its fields and over its header: its
+header band carries the accent bar. Found: the Validation list's items were unreadable in dark
+mode (no text colour); fixed. The panel's list moved to `validation-panel.jsx`. Web 461 of 468
+(the worker tests and the flake). Checked on the test page, light and dark. Details in
+`building-plan-ui.md`, "Stopped Save feedback". Next: refused typed values as field errors. Hand-tested: works. Committed `d2e2f5b`.

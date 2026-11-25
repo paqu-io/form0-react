@@ -3766,6 +3766,63 @@ notice (only the Validation badge's number changes); a highlighted nested sectio
 over its header and against the inputs; a refused typed value (a band's underside 3.5) isn't
 marked on its field nor listed in Validation (aligning).
 
+**After the 4a hand test (decided 2026-11-25).** Order: (2) and (1) as one unit, then (3), then
+4b.
+
+1. *A stopped Save or Submit* (root form and every entry; web only, mobile with step 5): the
+   Validation tab opens with its first finding focused, screen readers hear "Not saved: n issues
+   to fix.", the Validation badge turns red while findings are left after an attempt, and the
+   button gets a red ring with an alert icon in place of its own (no layout shift: a button
+   without an icon gets the ring only) until the findings are fixed. No toast (hosts like Reform
+   show their own), no shake.
+2. *A highlighted nested section*: no ring of its own; its header band carries the accent bar,
+   as an open drill-down section's.
+3. *A refused typed value* (checked headless: a band row's underside typed 3.5 stays in the field
+   while the plan keeps 2.2, no red border, the message only in the canvas status line, and Save
+   does nothing visible: the entry stays, Validation 0): a field error like the engine's (red
+   border, the message under it at once), listed in Validation (a click focuses the field), Save
+   stopped as in (1), the status line too; a valid value or Reset clears it. Step 4's first part.
+
+**Stopped Save feedback and the nested section's highlight (web, hand-tested 2026-11-25,
+committed).**
+
+- *`navigation-tree.jsx`*: `failedAttempt` (a count of stopped attempts) opens the Validation
+  tab once per attempt when its findings are there, asks the list to focus its first finding,
+  and sets a visually hidden status line ("Not saved: 2 issues to fix."); the badge has
+  `data-tone="error"` while findings are shown. The list, its pager and a finding moved to
+  `validation-panel.jsx` (new; the tree was 327 lines, now 254); the pager's page now starts again
+  on the first when the tab is reopened.
+- *`form-renderer.jsx`* (wiring): counts the attempts validation stopped (root: the plain path's
+  findings, the managed path's preparation not eligible with validation errors; an entry: the
+  plan row it can't take, the floor's problems, the managed and plain paths' errors); Submit and
+  Save carry `failed` while findings are left after one, their icon `CircleAlert` in place of
+  `SendHorizontal` or `Save`; both header renderers write `data-failed`.
+- *Styles*: `data-failed` on a header button: the error border and `control.errorRing`; a
+  highlighted nested section: no box shadow, the accent bar in its header band.
+- *Found on the way*: the Validation list's items had no text colour (a button's is the
+  browser's black), unreadable in dark mode; they take the foreground colour now.
+
+Tests: `failed-save-feedback.test.jsx` (new, 3: a Submit stopped, lifecycle on and off; an
+entry's Save stopped; each: the tab opens, the badge's tone, the first finding focused, the
+status line, the button marked, then fixed: unmarked), failing with HEAD's four files;
+`submission-reporting.test.jsx` (the required message now shows twice: under the field and in the
+opened tab) and `validation-pagination.test.jsx` (its style mock lists `visuallyHidden`)
+updated. Web 461 of 468 (the worker tests and the numeric-setters flake, passing alone).
+
+Headless on the test page, light and dark (no console errors): the floor entry, a field of "Ring
+beam and bands" focused: the header band's accent bar, no rectangle; Save with the lintel band's
+underside and depth blank: the Validation tab open, its first finding focused, "Not saved: 2
+issues to fix.", the badge red, Save with a red ring and an alert icon.
+
+Hand test (restart the test page; light and dark): on the floor, focus a field in "Ring beam and
+bands": the band's accent bar, no blue rectangle; choose "Every wall has a lintel band" and Save
+with its values blank: the Validation tab opens on its first finding, the badge is red, Save has
+a red ring and an alert icon, its width unchanged; fill both: the ring goes. The plan page's
+Submit with a required field empty: the same. An entry with nothing wrong: Save as before.
+
+Hand-tested 2026-11-25: works. Committed form0-react `d2e2f5b`; 4a's were form0-core `c86fc2c`,
+form0-react `bfdd66c`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -3782,7 +3839,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); then 4b, 4c. floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); a stopped Save's feedback and the nested section's highlight (`d2e2f5b`); next refused typed values as field errors, then 4b, 4c. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.
