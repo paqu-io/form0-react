@@ -7271,6 +7271,10 @@ function RepeatableEntryForm({
               setValue(dataName, value);
             }
           };
+    // A plan value core explains for this row (a band row's read-only place, 2026-11-24).
+    const shownField = propertyState?.description
+      ? { ...field, description: propertyState.description, description_mode: 'subtext' }
+      : field;
 
     return (
       <React.Fragment key={field.key || dataName}>
@@ -7278,7 +7282,7 @@ function RepeatableEntryForm({
           key={field.key || dataName}
           ref={dataName ? (node) => registerFieldNode(dataName, node) : null}
           {...buildingPlanFieldPresentation(propertyState, fieldReadOnly, controller)}
-          field={field}
+          field={shownField}
           value={fieldValue}
           readOnly={fieldReadOnly}
           required={fieldRequired}
