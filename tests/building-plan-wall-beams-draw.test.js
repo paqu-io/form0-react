@@ -7,6 +7,8 @@ import {
   wallBeamLines,
   wallBeamNameAt,
 } from '../src/building-plan/draw/wall-beams.js';
+import { findingMarkerAnchors } from '../src/building-plan/draw/issue-markers.js';
+import { planProblemView } from '../src/building-plan/plan-problems.js';
 
 // D1b (decided 2026-11-25, mockup round 2, R2): beams added by hand drawn at rest while Show ›
 // Beams is on, bands while Show › Bands is on, the selected wall's own always; each stretch
@@ -124,6 +126,7 @@ const theme = {
   accent: '#00f',
   wallHalf: '#999',
   symbolHalf: '#888',
+  error: '#c00',
 };
 
 it('dashed in the room colour over the wall, again in the symbol colour inside a gap', () => {
@@ -210,4 +213,101 @@ it("a selected wall's name has its bands and beams under it, in one block", () =
   expect(ys[0]).toBeGreaterThan(0);
   expect(ys).toEqual([...ys].sort((a, b) => a - b));
   expect(new Set(labels.map((label) => label.anchor.x)).size).toBe(1);
+});
+
+// D1c (2026-11-25): the one whose entry is open, or selected from a problem, on top in the accent
+// colour, the others faint; a band with a problem in the error colour; both whatever the
+// switches. Its name and height beside it, its side's lengths through its own ends; a problem
+// selects the band, its marker standing where an opening runs into it.
+
+it('the selected one on top in the accent colour, the others faint; a band with a problem', () => {
+  const tones = (options) =>
+    shownWallBeams({ wallBeams, walls, levelOf, ...options }).map(
+      ({ entry, tone }) => `${entry.id} ${tone}`
+    );
+  expect(tones({ layers: { beams: false, bands: false }, selectedWallBeamId: 'w3:b5' })).toEqual([
+    'w3:b5 accent',
+  ]);
+  expect(tones({ layers: { beams: true, bands: true }, selectedWallBeamId: 'w1:lintel' })).toEqual([
+    'w1:ring faint',
+    'w1:sill faint',
+    'w3:b5 faint',
+    'w1:lintel accent',
+  ]);
+  expect(tones({ layers: { beams: true, bands: false }, problemIds: new Set(['lintel']) })).toEqual(
+    ['w3:b5 plain', 'w1:lintel error']
+  );
+  const { ctx, calls } = recorder();
+  drawWallBeams(
+    ctx,
+    shownWallBeams({ wallBeams, walls, levelOf, layers: {}, selectedWallBeamId: 'w1:lintel' }),
+    { theme, pixel: 1, gapsOf: () => [] }
+  );
+  const accent = calls.findIndex(([name, value]) => name === '=strokeStyle' && value === '#00f');
+  expect(
+    calls.slice(0, accent).some(([name, value]) => name === '=strokeStyle' && value === '#fff')
+  ).toBe(true);
+  expect(calls.slice(accent).some(([name]) => name === 'stroke')).toBe(true);
+});
+
+it('selected from a problem: reported, named with its height, its side chained', () => {
+  const { plan } = canvas({ beams: true, bands: false });
+  const entries = wallBeams.map((entry, index) => ({
+    ...entry,
+    roomId: walls.find((wall) => wall.id === entry.wallId).roomId,
+    path: [{ key: 'beam', index }],
+  }));
+  Object.assign(plan, {
+    wallBeams: entries,
+    rooms: [{ ...room, sides: [] }],
+    controller: { scope: { roomId: 'bedroom' } },
+    onSelect: vi.fn(),
+    updateButtonStates: () => {},
+    render: () => {},
+  });
+  const named = [];
+  plan.drawSelectedName = (text, start, end, roomId) => named.push([text, roomId]);
+  expect(plan.selectRow([{ key: 'beam', index: 1 }])).toBe(true);
+  expect(plan.selectedWallBeamId).toBe('w1:lintel');
+  plan.reportSelection();
+  expect(plan.onSelect).toHaveBeenLastCalledWith({ collection: 'wallBeams', entry: entries[1] });
+  plan.drawWallBeams();
+  expect(named).toEqual([['Lintel band · 2.45 m from floor', 'bedroom']]);
+  expect(plan.lengthsTarget()).toMatchObject({ faceId: null, openingId: null, beamId: 'lintel' });
+  // Its entry open (the canvas's focus), nothing selected: the same.
+  plan.selectedWallBeamId = null;
+  plan.focus = { collection: 'wallBeams', id: 'w3:b5' };
+  expect(plan.lengthsTarget()).toMatchObject({ beamId: 'b5' });
+  // A problem's marker on a band: the middle of its stretch.
+  expect(findingMarkerAnchors(plan, [[{ key: 'beam', index: 3 }]])).toEqual([{ x: 405, y: 310 }]);
+});
+
+it("a problem's item selects the band; its markers stand where the opening runs into it", () => {
+  const band = [
+    { key: 'walls', index: 0 },
+    { key: 'beams', index: 0 },
+  ];
+  const door = [
+    { key: 'walls', index: 0 },
+    { key: 'doors', index: 0 },
+  ];
+  const { items, markers } = planProblemView(
+    [
+      {
+        id: 'p',
+        code: 'opening_into_band',
+        message: 'Shared door runs into Lintel band.',
+        wallName: 'W3',
+        elements: [
+          { type: 'door', id: 'd', name: 'Shared door' },
+          { type: 'beam', id: 'l', name: 'Lintel band' },
+        ],
+        paths: [band],
+        markPaths: [door],
+      },
+    ],
+    [{ key: 'walls', index: 0 }]
+  );
+  expect(items.map((item) => item.indexPath)).toEqual([band]);
+  expect(markers).toEqual([door]);
 });

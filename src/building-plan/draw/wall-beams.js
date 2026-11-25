@@ -9,43 +9,72 @@ import { nameBeside } from './selection-name.js';
  * selected wall's own always. Core gives each one per room face (`wallBeams` in the canvas
  * snapshot, D1a); both faces of a wall give the same outline, so each stretch is drawn once, at
  * the strongest level of its faces. The plan doesn't pick or drag them (WB10).
+ *
+ * D1c: the one whose entry is open (or selected from a problem) is drawn on top in the accent
+ * colour, the others faded; a band with a problem in the error colour; both whatever the switches.
  */
 
 const RANK = { [OUT]: 0, [HALF]: 1, [FULL]: 2 };
+const TONE_ORDER = { faint: 0, plain: 1, error: 2, accent: 3 };
 /** Screen px: the dashes, their width, and how far inside the beam's outline they run. */
 const DASH = [5, 3];
 const LINE = 1.4;
 const INSET = 2.5;
+/** The other beams' strength while one is selected. */
+const FAINT = 0.35;
 
 const placeKey = (entry) =>
   `${entry.subjectId}|${entry.points.map((p) => `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`).join(';')}`;
 
 /**
- * The wall beams the plan draws, each with the face it is drawn for and its level.
+ * The wall beams the plan draws, each with the face it is drawn for, its level and its tone
+ * (`accent` the selected one, `error` a band with a problem, `faint` the others while one is
+ * selected, else `plain`), the accent one last.
  * @param {{
  *   wallBeams: object[],
  *   walls: object[],
  *   layers: { beams?: boolean, bands?: boolean } | null,
  *   selectedWallId: string | null,
+ *   selectedWallBeamId?: string | null,
+ *   problemIds?: Set<string>,
  *   levelOf: (collection: string, entry: object) => string,
- * }} plan
- * @returns {Array<{ entry: object, face: object, level: string }>}
+ * }} plan `selectedWallBeamId`: a `wallBeams` entry's id; `problemIds`: beams with a problem
+ * @returns {Array<{ entry: object, face: object, level: string, tone: string }>}
  */
-export function shownWallBeams({ wallBeams, walls, layers, selectedWallId, levelOf }) {
+export function shownWallBeams({
+  wallBeams,
+  walls,
+  layers,
+  selectedWallId,
+  selectedWallBeamId = null,
+  problemIds = new Set(),
+  levelOf,
+}) {
   const faces = new Map((walls || []).map((wall) => [wall.id, wall]));
   const own = faces.get(selectedWallId)?.physicalWallId || null;
+  const selected = (wallBeams || []).find((entry) => entry.id === selectedWallBeamId) || null;
   const kept = new Map();
   for (const entry of wallBeams || []) {
+    const tone =
+      selected && entry.subjectId === selected.subjectId
+        ? 'accent'
+        : problemIds.has(entry.subjectId)
+          ? 'error'
+          : selected
+            ? 'faint'
+            : 'plain';
     const on = entry.band ? layers?.bands === true : layers?.beams !== false;
-    if (!on && entry.physicalWallId !== own) continue;
+    if (!on && entry.physicalWallId !== own && (tone === 'plain' || tone === 'faint')) continue;
     const face = faces.get(entry.wallId);
     if (!face) continue;
-    const level = levelOf('walls', face);
+    // The selected one is drawn for its own face (its room's lengths and name).
+    const level = entry.id === selected?.id ? FULL : levelOf('walls', face);
     const key = placeKey(entry);
     const previous = kept.get(key);
-    if (!previous || RANK[level] > RANK[previous.level]) kept.set(key, { entry, face, level });
+    if (!previous || RANK[level] > RANK[previous.level])
+      kept.set(key, { entry, face, level, tone });
   }
-  return [...kept.values()];
+  return [...kept.values()].sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]);
 }
 
 /** The beam's outline drawn `inset` inside its own, so the dashes lie on the wall. */
@@ -82,11 +111,27 @@ function trace(ctx, points) {
  * }} style `pixel`: canvas units per screen pixel; `gapsOf`: the gaps of a wall's openings
  */
 export function drawWallBeams(ctx, items, { theme, pixel, gapsOf }) {
-  for (const { entry, level } of items) {
+  for (const { entry, level, tone } of items) {
     const outline = insetOutline(entry, INSET * pixel);
     if (!outline) continue;
     const tones = levelTheme(theme, level);
     ctx.save();
+    if (tone === 'accent' || tone === 'error') {
+      // On a halo of the room colour, in the selection's or the problem's colour (D1c).
+      ctx.lineJoin = 'miter';
+      ctx.beginPath();
+      trace(ctx, outline);
+      ctx.lineWidth = 4 * pixel;
+      ctx.strokeStyle = tones.room;
+      ctx.stroke();
+      ctx.setLineDash(DASH.map((value) => value * pixel));
+      ctx.lineWidth = 2 * pixel;
+      ctx.strokeStyle = tone === 'accent' ? theme.accent : theme.error;
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+    if (tone === 'faint') ctx.globalAlpha = FAINT;
     ctx.setLineDash(DASH.map((value) => value * pixel));
     ctx.lineWidth = LINE * pixel;
     ctx.lineJoin = 'miter';

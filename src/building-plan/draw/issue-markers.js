@@ -25,7 +25,7 @@ function polylineMiddle(points) {
   return points[0];
 }
 
-const COLLECTIONS = ['rooms', 'walls', 'doors', 'windows', 'columns', 'beams'];
+const COLLECTIONS = ['rooms', 'walls', 'doors', 'windows', 'columns', 'beams', 'wallBeams'];
 
 /**
  * The element the canvas shows for a row: the entry whose index path (`path`, from the floor)
@@ -74,6 +74,9 @@ export function findingMarkerAnchors(plan, paths) {
       anchor = plan.getOpeningGeometry?.(entry)?.centerPoint;
     else if (collection === 'columns') anchor = plan.getColumnRenderInfo?.(entry)?.center;
     else if (collection === 'beams') anchor = plan.getBeamRenderInfo?.(entry)?.centerPoint;
+    // A wall beam or band (D1c): the middle of its stretch.
+    else if (collection === 'wallBeams' && entry.axisPoints?.length === 2)
+      anchor = polylineMiddle(entry.axisPoints);
     if (anchor) anchors.push(anchor);
   }
   return anchors;

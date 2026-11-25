@@ -146,6 +146,8 @@ const HIGHLIGHT_FIELDS = {
   windows: 'selectedWindowId',
   columns: 'selectedColumnId',
   beams: 'selectedBeamId',
+  // A wall beam or band (D1c): selected from its entry or a problem, never by a press.
+  wallBeams: 'selectedWallBeamId',
 };
 
 const DEFAULT_LABEL_SETTINGS = {
@@ -399,6 +401,7 @@ export class BuildingPlanCanvas {
     this.selectedWindowId = null;
     this.selectedColumnId = null;
     this.selectedBeamId = null;
+    this.selectedWallBeamId = null;
 
     this.dragState = null;
     this.wallDragState = null;
@@ -1409,6 +1412,8 @@ export class BuildingPlanCanvas {
       // Wall beams and bands per room face (D1a), and the openings' gaps they pass over.
       this.wallBeams = snapshot.wallBeams || [];
       this.physicalOpenings = snapshot.physicalOpenings || [];
+      // Problems to fix (4a): a band with one is drawn in the error colour (D1c).
+      this.problems = snapshot.problems || [];
       this.doors = snapshot.doors || [];
       this.windows = snapshot.windows || [];
       this.floors = snapshot.floors || [];
@@ -1471,6 +1476,11 @@ export class BuildingPlanCanvas {
         if (this.selectedBeamId && !this.beams.find((beam) => beam.id === this.selectedBeamId)) {
           this.selectedBeamId = null;
         }
+        if (
+          this.selectedWallBeamId &&
+          !this.wallBeams.find((entry) => entry.id === this.selectedWallBeamId)
+        )
+          this.selectedWallBeamId = null;
       }
 
       this.applyHighlight();
@@ -1486,6 +1496,7 @@ export class BuildingPlanCanvas {
   reportSelection() {
     if (typeof this.onSelect !== 'function') return;
     const pick = [
+      ['wallBeams', 'selectedWallBeamId'],
       ['doors', 'selectedDoorId'],
       ['windows', 'selectedWindowId'],
       ['columns', 'selectedColumnId'],
@@ -1824,6 +1835,7 @@ export class BuildingPlanCanvas {
     this.selectedWindowId = null;
     this.selectedColumnId = null;
     this.selectedBeamId = null;
+    this.selectedWallBeamId = null;
     this.wallDragState = null;
     this.openingDragState = null;
     this.columnDragState = null;
@@ -1910,6 +1922,8 @@ export class BuildingPlanCanvas {
 
     const caps = getCapabilities(this.controller);
     const point = this.getCanvasPoint(event);
+    // A wall beam selected from a problem stays until the next press (D1c).
+    this.selectedWallBeamId = null;
     if (this.mode === 'pin') {
       this.pendingFocus = null;
       this.pinTarget = this.cutAllowed()
@@ -4077,13 +4091,28 @@ export class BuildingPlanCanvas {
     return this.layers?.beams !== false || beam.id === this.selectedBeamId;
   }
 
+  /** The wall beam or band whose entry is open (D1c), as the canvas knows it, or null. */
+  focusedWallBeamId() {
+    return this.focus?.collection === 'wallBeams' &&
+      (this.wallBeams || []).some((entry) => entry.id === this.focus.id)
+      ? this.focus.id
+      : null;
+  }
+
   /** Wall beams and bands (D1b, `draw/wall-beams.js`), and the names of beams added by hand. */
   drawWallBeams() {
+    const problemIds = new Set(
+      (this.problems || []).flatMap((problem) =>
+        problem.elements.filter((element) => element.type === 'beam').map((element) => element.id)
+      )
+    );
     const items = shownWallBeams({
       wallBeams: this.wallBeams,
       walls: this.walls,
       layers: this.layers,
       selectedWallId: this.selectedWallId,
+      selectedWallBeamId: this.selectedWallBeamId || this.focusedWallBeamId(),
+      problemIds,
       levelOf: (collection, entry) => this.levelOf(collection, entry),
     });
     const gaps = new Map();
@@ -4094,6 +4123,25 @@ export class BuildingPlanCanvas {
       pixel: this.px(1),
       gapsOf: (wallId) => gaps.get(wallId) || [],
     });
+    // The selected one's name and height beside it, in its room (D1c).
+    const selected = items.find((item) => item.tone === 'accent');
+    if (selected) {
+      const { entry, face } = selected;
+      const [p0, , , p3] = entry.points;
+      const height = Number.isFinite(entry.underside)
+        ? `${formatLength(entry.underside, this.presentation)} ${this.presentation?.unitFor?.() || 'm'}`
+        : null;
+      const text = height
+        ? planText('plan.beam.height', { name: entry.displayLabel, height })
+        : entry.displayLabel;
+      this.drawSelectedName(
+        text,
+        entry.axisPoints[0],
+        entry.axisPoints[1],
+        face.roomId,
+        Math.hypot(p0.x - p3.x, p0.y - p3.y) / 2
+      );
+    }
     if (!this.shouldShowLabel('beams')) return;
     for (const { entry, face, level } of items) {
       if (entry.band) continue;
@@ -4556,6 +4604,7 @@ export class BuildingPlanCanvas {
     const { dimensions, reach } = roomLengths(target.room, {
       faceId: target.faceId,
       openingId: target.openingId,
+      beamId: target.beamId,
       minLength: this.gridSize / 200,
     });
     return { ...none, room: dimensions, roomId: target.room.id, reach, note: 'shown' };
@@ -4574,18 +4623,28 @@ export class BuildingPlanCanvas {
         ? find('windows', this.selectedWindowId)
         : null;
     let wall = !opening && this.selectedWallId ? find('walls', this.selectedWallId) : null;
-    const focus = !opening && !wall ? this.focus : null;
+    // A wall beam or band (D1c): selected, else the entry's own.
+    const beam =
+      !opening && !wall
+        ? find('wallBeams', this.selectedWallBeamId || this.focusedWallBeamId())
+        : null;
+    const focus = !opening && !wall && !beam ? this.focus : null;
     if (focus?.collection === 'walls') wall = find('walls', focus.id);
     else if (focus?.collection === 'doors' || focus?.collection === 'windows')
       opening = find(focus.collection, focus.id);
     const roomId =
-      this.controller?.scope?.roomId || opening?.roomId || wall?.roomId || this.selectedRoomId;
+      this.controller?.scope?.roomId ||
+      opening?.roomId ||
+      wall?.roomId ||
+      beam?.roomId ||
+      this.selectedRoomId;
     const room = (this.rooms || []).find((entry) => entry.id === roomId);
     if (!room?.sides || room.previewRect) return null;
     return {
       room,
       faceId: wall && !wall.sidePoints ? wall.id : null,
       openingId: opening ? opening.subjectId || opening.id : null,
+      beamId: beam ? beam.subjectId : null,
     };
   }
 

@@ -5,8 +5,9 @@ import { PILL_HEIGHT } from './draw/dimension-layout.js';
  * snapshot (`sides`: corner to corner along the bare wall face, with the rows and openings on
  * them). Each side is one length inside the room (S9); the selected wall's side, or the side of
  * the selected door or window, adds its chain (each row's stretch, each opening, the gaps
- * between) and the whole side steps further in. Pure geometry: canvas units, offsets in screen
- * pixels.
+ * between) and the whole side steps further in. A selected wall beam or band's side (D1c) has
+ * each row's stretch and the beam's own ends, not the openings', so its distance from the wall's
+ * start and its length read as its fields. Pure geometry: canvas units, offsets in screen pixels.
  */
 
 /** How far a side's length stands into the room, as a drag's lengths do (so S10 keeps them in place). */
@@ -20,7 +21,8 @@ export const ROOM_MIN_PIXELS = 100;
 /**
  * @typedef {{ start: Point, end: Point, normal: Point,
  *   pieces: Array<{ from: Point, to: Point, faceId: string | null }>,
- *   openings: Array<{ subjectId: string, from: Point, to: Point }> }} RoomSide
+ *   openings: Array<{ subjectId: string, from: Point, to: Point }>,
+ *   beams?: Array<{ subjectId: string, from: Point, to: Point }> }} RoomSide
  */
 /** @typedef {{ from: Point, to: Point, normal: Point, offset: number, changing: boolean }} Dimension */
 
@@ -28,13 +30,17 @@ const gap = (p, q) => Math.hypot(q.x - p.x, q.y - p.y);
 
 /**
  * @param {{ sides?: RoomSide[] } | null | undefined} room
- * @param {{ faceId?: string | null, openingId?: string | null, minLength: number }} options the
- *   selected wall row (its id) or door or window (its subject id), whose side shows its chain;
- *   the shortest length worth drawing, in canvas units
+ * @param {{
+ *   faceId?: string | null,
+ *   openingId?: string | null,
+ *   beamId?: string | null,
+ *   minLength: number,
+ * }} options the selected wall row (its id), door, window or wall beam (its subject id), whose
+ *   side shows its chain; the shortest length worth drawing, in canvas units
  * @returns {{ dimensions: Dimension[], reach: number }} `reach`: how far into the room, in screen
  *   pixels, the selected element's side has lengths (0 when none), for its name to stand past them
  */
-export function roomLengths(room, { faceId = null, openingId = null, minLength }) {
+export function roomLengths(room, { faceId = null, openingId = null, beamId = null, minLength }) {
   const dimensions = [];
   let reach = 0;
   for (const side of room?.sides || []) {
@@ -44,10 +50,13 @@ export function roomLengths(room, { faceId = null, openingId = null, minLength }
     const along = (point) => (point.x - side.start.x) * u.x + (point.y - side.start.y) * u.y;
     const at = (value) => ({ x: side.start.x + u.x * value, y: side.start.y + u.y * value });
     const base = { normal: side.normal, changing: false };
+    const beam =
+      beamId != null ? (side.beams || []).find((entry) => entry.subjectId === beamId) : null;
     const selected =
       (faceId != null && side.pieces.some((piece) => piece.faceId === faceId)) ||
-      (openingId != null && side.openings.some((opening) => opening.subjectId === openingId));
-    const stations = selected ? chainStations(side, along, length, minLength) : [0, length];
+      (openingId != null && side.openings.some((opening) => opening.subjectId === openingId)) ||
+      Boolean(beam);
+    const stations = selected ? chainStations(side, along, length, minLength, beam) : [0, length];
     if (stations.length > 2) {
       for (let index = 1; index < stations.length; index += 1)
         dimensions.push({
@@ -73,11 +82,12 @@ export function roomLengths(room, { faceId = null, openingId = null, minLength }
 }
 
 // Where the chain breaks along a side: its ends, where one row's stretch meets the next, and each
-// opening's ends; two closer than `minLength` count once.
-function chainStations(side, along, length, minLength) {
+// opening's ends, or a selected beam's own; two closer than `minLength` count once.
+function chainStations(side, along, length, minLength, beam = null) {
   const values = [0, length];
   for (const piece of side.pieces) values.push(along(piece.from), along(piece.to));
-  for (const opening of side.openings) values.push(along(opening.from), along(opening.to));
+  for (const opening of beam ? [beam] : side.openings)
+    values.push(along(opening.from), along(opening.to));
   const stations = [];
   for (const value of values
     .map((entry) => Math.min(Math.max(entry, 0), length))

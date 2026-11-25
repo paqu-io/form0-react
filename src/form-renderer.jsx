@@ -790,8 +790,9 @@ function buildFieldLookup(elements) {
 }
 
 /**
- * The canvas element a plan entry is about, to mark it: a wall by its face, a door or window by
- * its face and opening, a column or beam by its own id. Objects are not drawn.
+ * The canvas element a plan entry is about, to mark it: a wall by its face, a door, window or
+ * wall beam by its face and its own id, a column or room beam by its own id. Objects are not
+ * drawn.
  * @returns {{ collection: string, id: string } | null}
  */
 function buildingPlanEntryHighlight(nodeKey, selected) {
@@ -803,6 +804,9 @@ function buildingPlanEntryHighlight(nodeKey, selected) {
   if (nodeKey === 'windows' || nodeKey === 'face_windows')
     return selected.faceId ? { collection: 'windows', id: `${selected.faceId}:${id}` } : null;
   if (nodeKey === 'columns' || nodeKey === 'beams') return { collection: nodeKey, id };
+  // A wall beam or band (D1c), by its face as doors and windows.
+  if (nodeKey === 'wall_beams' || nodeKey === 'face_beams')
+    return selected.faceId ? { collection: 'wallBeams', id: `${selected.faceId}:${id}` } : null;
   return null;
 }
 

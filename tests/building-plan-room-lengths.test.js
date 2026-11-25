@@ -16,8 +16,11 @@ import {
 // corner to corner inside the room (S9); the selected wall row's or opening's side with its chain,
 // the whole side further in; hidden when the room is small on screen (S12).
 
-/** A 5 × 3.6 m room, its top wall split at 3 m with a door 1 m from the left, 0.9 m wide. */
-function room() {
+/**
+ * A 5 × 3.6 m room, its top wall split at 3 m with a door 1 m from the left, 0.9 m wide; with
+ * `beam`, a wall beam over it from 0.8 to 2.2 m (D1c).
+ */
+function room({ beam = false } = {}) {
   const schema = {
     form: {
       name: 'B',
@@ -66,6 +69,20 @@ function room() {
     height: 2.1,
   });
   expect(door.status).toBe('applied');
+  if (beam) {
+    const forward = top.segments[0].start.x < top.segments[0].end.x;
+    const created = session.apply({
+      type: 'create_opening',
+      floorId,
+      wallId: top.id,
+      kind: 'beam',
+      offset: forward ? 0.8 : 2.8,
+      length: 1.4,
+      depth: 0.25,
+      underside: 2.1,
+    });
+    expect(created.status).toBe('applied');
+  }
   const face = floor().rooms[0].faces.find((entry) => entry.wallId === top.id);
   expect(session.apply({ type: 'split_face', floorId, faceId: face.id, offset: 3 }).status).toBe(
     'applied'
@@ -120,6 +137,15 @@ describe('a room’s lengths (S9)', () => {
     const door = snapshot.doors.find((entry) => entry.roomId === r.id);
     const { dimensions } = roomLengths(r, { openingId: door.subjectId, minLength: 0.5 });
     expect(topChain(dimensions, SIDE_OFFSET)).toEqual([100, 90, 110, 200]);
+  });
+
+  it('a selected wall beam’s chain: its rows and its own ends, not the openings’ (D1c)', () => {
+    const { snapshot, room: r } = room({ beam: true });
+    const beam = snapshot.wallBeams.find((entry) => entry.roomId === r.id);
+    const { dimensions } = roomLengths(r, { beamId: beam.subjectId, minLength: 0.5 });
+    // Corner to the beam, the beam, on to the split, the other row.
+    expect(topChain(dimensions, SIDE_OFFSET)).toEqual([80, 140, 80, 200]);
+    expect(topChain(dimensions, SIDE_OFFSET + 30)).toEqual([500]);
   });
 
   it('a selected wall alone on its side: one length, the name past it', () => {

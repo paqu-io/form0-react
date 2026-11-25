@@ -29,6 +29,8 @@ const TEXT = {
   'plan.show.beamsHint': 'Room beams and beams added to walls',
   'plan.show.bands': 'Bands',
   'plan.show.bandsHint': "Every wall's ring beam, lintel and sill bands",
+  // A selected wall beam or band's name and height (D1c): "Lintel band · 2.45 m from floor".
+  'plan.beam.height': '{name} · {height} from floor',
   // With the selected wall's name (step 2, S6): its face's plaster and the face across.
   'plan.plaster.label': 'plaster: {faces}',
   'plan.plaster.none': 'none',

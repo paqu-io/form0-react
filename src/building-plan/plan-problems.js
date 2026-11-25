@@ -16,6 +16,7 @@ import { planText } from './plan-text.js';
  *   wallName: string,
  *   elements: Array<{ type: string, id: string, name: string }>,
  *   paths?: Array<Array<{ key: string, index: number }>>,
+ *   markPaths?: Array<Array<{ key: string, index: number }>>,
  * }} PlanProblem
  */
 
@@ -73,7 +74,8 @@ const startsWith = (path, prefix) =>
 
 /**
  * A canvas's "n issues" items and markers for the problems in its scope: those with a row under
- * it, marked on each such row; an item selects the first.
+ * it; an item selects the first (a band, D1c), the markers stand on its `markPaths` (where an
+ * opening runs into it; else the band).
  * @param {PlanProblem[]} problems the canvas snapshot's
  * @param {Array<{ key: string, index: number }> | null} scope the index path of the entry's floor
  *   or room (the plan page: its floor)
@@ -92,7 +94,8 @@ export function planProblemView(problems, scope) {
       indexPath: paths[0],
       fieldName: null,
     });
-    markers.push(...paths);
+    const marks = (problem.markPaths || problem.paths).filter((path) => startsWith(path, scope));
+    markers.push(...marks);
   }
   return { items, markers };
 }
