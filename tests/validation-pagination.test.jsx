@@ -11,6 +11,7 @@ vi.mock('../src/navigation-tree.css.js', () =>
       'navigationTabs',
       'navigationTabButton',
       'navigationTabBadge',
+      'visuallyHidden',
       'navigationTabPanel',
       'navigationTabButtonActive',
       'validationList',

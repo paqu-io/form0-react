@@ -202,6 +202,12 @@ export const formNameActionButton = style({
       color: vars.color.primary,
       borderColor: vars.color.primary,
     },
+    // A Save or Submit validation stopped (4a hand test, 2026-11-25): a red ring, its icon an
+    // alert in the same place, so nothing moves.
+    '&[data-failed="true"]': {
+      borderColor: vars.color.error,
+      boxShadow: control.errorRing,
+    },
     '&[data-variant="edit"]:hover:not(:disabled)': {
       background: derived.primarySoft,
     },
@@ -1166,6 +1172,24 @@ globalStyle(
     fontSize: vars.fontSize.base,
   }
 );
+// A highlighted nested section has no ring of its own: flat, it would run against its fields and
+// cross its header band. The band carries the accent bar, as an open drill-down section's (4a
+// hand test, 2026-11-25).
+globalStyle(`${repeatableModalSection} ${repeatableModalSectionHighlighted}`, {
+  boxShadow: 'none',
+});
+const nestedTitleHighlighted = `${repeatableModalSection} ${repeatableModalSectionHighlighted} > ${repeatableModalSectionTitle}`;
+globalStyle(nestedTitleHighlighted, { position: 'relative' });
+globalStyle(`${nestedTitleHighlighted}::before`, {
+  content: '""',
+  position: 'absolute',
+  left: '0.375rem',
+  top: '0.5rem',
+  bottom: '0.5rem',
+  width: '4px',
+  borderRadius: '2px',
+  background: vars.color.primary,
+});
 
 // An expanded drill-down section carries the accent bar in its header band.
 globalStyle(`${drilldownActive} > ${sectionHeader}`, {

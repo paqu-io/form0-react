@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronsRight } from 'lucide-react';
 import * as styles from './navigation-tree.css.js';
-import { getValidationPage, VALIDATION_PAGE_SIZE } from './utils/validation-pagination.js';
+import { ValidationPanel } from './validation-panel.jsx';
 
 const NAVIGATION_INDENT_STEP = 14;
 
@@ -132,10 +132,9 @@ export function NavigationTree({
   onSelectValidationIssue,
   onResolveHiddenValue,
   forceRender = false,
+  // Counts the Saves or Submits that validation stopped (4a hand test, 2026-11-25).
+  failedAttempt = 0,
 }) {
-  const [issueOffset, setIssueOffset] = useState(0);
-  const page = getValidationPage(issueOffset, validationIssues.length);
-  useEffect(() => setIssueOffset(page.offset), [page.offset]);
   const sectionTree = useMemo(() => {
     if (!sections || sections.length === 0) return [];
     return sections;
@@ -154,6 +153,20 @@ export function NavigationTree({
       setActiveTab('navigation');
     }
   }, [activeTab, hasSections, validationEnabled]);
+
+  // A Save or Submit validation stopped: the Validation tab opens, its first finding takes the
+  // focus, and screen readers hear why. Once per attempt, when its findings are there.
+  const [focusFirst, setFocusFirst] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const handledAttempt = useRef(failedAttempt);
+  useEffect(() => {
+    if (failedAttempt === handledAttempt.current || !hasValidationIssues) return;
+    handledAttempt.current = failedAttempt;
+    const count = validationIssues.length;
+    setActiveTab('validation');
+    setFocusFirst(true);
+    setAnnouncement(`Not saved: ${count} ${count === 1 ? 'issue' : 'issues'} to fix.`);
+  }, [failedAttempt, hasValidationIssues]);
 
   if (!shouldRenderNavigation) {
     return null;
@@ -174,59 +187,6 @@ export function NavigationTree({
             onNavigate={onNavigate}
           />
         ))}
-      </ul>
-    );
-  };
-
-  const renderValidation = () => {
-    if (!validationEnabled) {
-      return (
-        <div className={styles.validationEmptyState}>
-          Submit or validate the form to view validation results.
-        </div>
-      );
-    }
-    if (!hasValidationIssues) {
-      return <div className={styles.validationEmptyState}>No validation issues.</div>;
-    }
-    return (
-      <ul className={styles.validationList}>
-        {validationIssues.slice(page.offset, page.end).map((issue) => (
-          <li key={issue.id} className={styles.validationItem}>
-            <ValidationFinding
-              issue={issue}
-              onSelect={onSelectValidationIssue}
-              onResolve={onResolveHiddenValue}
-            />
-          </li>
-        ))}
-        {page.hasPages && (
-          <li className={styles.validationPager}>
-            <button
-              type="button"
-              className={styles.validationPageButton}
-              aria-label="Previous"
-              title="Previous findings"
-              disabled={!page.hasPrevious}
-              onClick={() => setIssueOffset(page.offset - VALIDATION_PAGE_SIZE)}
-            >
-              <span aria-hidden="true">‹</span>
-            </button>
-            <span className={styles.validationPageCount} aria-live="polite">
-              {page.offset + 1}–{page.end} of {validationIssues.length}
-            </span>
-            <button
-              type="button"
-              className={styles.validationPageButton}
-              aria-label="Next"
-              title="Next findings"
-              disabled={!page.hasNext}
-              onClick={() => setIssueOffset(page.offset + VALIDATION_PAGE_SIZE)}
-            >
-              <span aria-hidden="true">›</span>
-            </button>
-          </li>
-        )}
       </ul>
     );
   };
@@ -264,64 +224,31 @@ export function NavigationTree({
           data-active={activeTab === 'validation' ? 'true' : 'false'}
         >
           <span>Validation</span>
-          <span className={styles.navigationTabBadge}>{validationCount}</span>
+          <span
+            className={styles.navigationTabBadge}
+            data-tone={validationEnabled && validationCount > 0 ? 'error' : undefined}
+          >
+            {validationCount}
+          </span>
         </button>
       </div>
       <div className={styles.navigationTabPanel}>
-        {activeTab === 'validation' ? renderValidation() : renderNavigation()}
+        {activeTab === 'validation' ? (
+          <ValidationPanel
+            issues={validationIssues}
+            enabled={validationEnabled}
+            onSelect={onSelectValidationIssue}
+            onResolve={onResolveHiddenValue}
+            focusFirst={focusFirst}
+            onFocused={() => setFocusFirst(false)}
+          />
+        ) : (
+          renderNavigation()
+        )}
+      </div>
+      <div className={styles.visuallyHidden} role="status">
+        {announcement}
       </div>
     </nav>
-  );
-}
-
-function ValidationFinding({ issue, onSelect, onResolve }) {
-  const [busy, setBusy] = useState(false);
-  const content = (
-    <>
-      <div className={styles.validationHeader}>
-        <span>{issue.label}</span>
-        <span className={styles.validationField}>
-          {[issue.recordPathLabel, issue.planField ? null : issue.fieldName || 'Record']
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
-      </div>
-      <div className={styles.validationMessage}>
-        {(issue.messages?.length ? issue.messages : ['Validation error']).map((message, index) => (
-          <span key={index}>{message}</span>
-        ))}
-      </div>
-    </>
-  );
-  if (!issue.hidden)
-    return (
-      <button type="button" className={styles.validationButton} onClick={() => onSelect?.(issue)}>
-        {content}
-      </button>
-    );
-  return (
-    <div className={styles.validationButton}>
-      {content}
-      <p>
-        This value is hidden. Make the field visible to correct it, or ask the application to
-        resolve it.
-      </p>
-      {onResolve ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await onResolve(issue);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? 'Resolving…' : 'Resolve hidden value'}
-        </button>
-      ) : null}
-    </div>
   );
 }

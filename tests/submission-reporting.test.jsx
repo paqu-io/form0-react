@@ -118,7 +118,8 @@ for (const lifecycle of [true, false]) {
       );
       await act(async () => submit());
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(await screen.findByText(/required/i)).toBeTruthy();
+      // Under the field, and in the Validation tab a stopped Submit opens (4a hand test).
+      expect((await screen.findAllByText(/required/i)).length).toBeGreaterThan(0);
       expect(errorLog).not.toHaveBeenCalled();
       expect(validationLog.mock.calls).toEqual(
         validationBlocks ? [['[form0-react] Submit blocked by validation.']] : []

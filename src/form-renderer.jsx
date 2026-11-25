@@ -68,6 +68,7 @@ import { isFieldValueEmpty } from './helpers/is-field-value-empty.js';
 import {
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Pencil,
   Plus,
   Save,
@@ -1260,6 +1261,8 @@ function FormRendererContent({
   const touchedFieldsRef = useRef(new Set());
   const [, setTouchVersion] = useState(0);
   const [submitCount, setSubmitCount] = useState(0);
+  // Submits that validation stopped: the Validation tab opens on each (4a hand test, 2026-11-25).
+  const [failedSubmits, setFailedSubmits] = useState(0);
   const [hiddenValueRecoveryError, setHiddenValueRecoveryError] = useState(null);
   const [alertQueue, setAlertQueue] = useState([]);
   const [activeAlert, setActiveAlert] = useState(null);
@@ -2769,6 +2772,9 @@ function FormRendererContent({
         try {
           const prepared = await submissionReview.prepare('submit');
           submissionReporter.result('Submit', stage, prepared);
+          // Validation stopped it (a cancelled or failed preparation is not that).
+          if (!prepared.eligible && prepared.validationSummary?.hasErrors)
+            setFailedSubmits((count) => count + 1);
           if (!prepared.eligible || typeof onSubmit !== 'function') return;
           stage = 'onSubmit';
           await onSubmit(prepared.payload, prepared.meta);
@@ -2793,6 +2799,7 @@ function FormRendererContent({
       const validationSummary = rootValidationSummary;
       if (validationSummary?.hasErrors) {
         submissionReporter.blocked('Submit');
+        setFailedSubmits((count) => count + 1);
         return;
       }
       if (onSubmit) {
@@ -3524,6 +3531,7 @@ function FormRendererContent({
     handleRootCancel();
   }, [handleRootCancel]);
 
+  const rootSubmitFailed = failedSubmits > 0 && rootValidationIssues.length > 0;
   const headerActions = useMemo(() => {
     const disableRootCancel = !discardPromptEnabled;
     const primaryActionsAllowed = showPrimaryActionsInViewMode || !isReadOnlyMode;
@@ -3576,7 +3584,8 @@ function FormRendererContent({
       rightAction = {
         id: 'submit',
         label: 'Submit',
-        icon: SendHorizontal,
+        icon: rootSubmitFailed ? CircleAlert : SendHorizontal,
+        failed: rootSubmitFailed,
         variant: 'primary',
         disabled: !canSubmitForm,
         onClick: canSubmitForm ? submitFromHeader : undefined,
@@ -3622,6 +3631,7 @@ function FormRendererContent({
     readOnlyEditToggleDisabledReason,
     showPrimaryActionsInViewMode,
     requestRootCancel,
+    rootSubmitFailed,
     submitFromHeader,
   ]);
 
@@ -3863,6 +3873,7 @@ function FormRendererContent({
                   className={styles.formNameActionButton}
                   data-variant={action.variant || 'ghost'}
                   data-action={action.id}
+                  data-failed={action.failed ? 'true' : undefined}
                   onClick={action.onClick}
                   disabled={action.disabled}
                   title={action.title || undefined}
@@ -4667,6 +4678,7 @@ function FormRendererContent({
               activeSectionId={activeNavigationSectionId}
               onNavigate={handleNavigate}
               validationIssues={rootValidationIssues}
+              failedAttempt={failedSubmits}
               onResolveHiddenValue={
                 interactionMode === 'edit' && typeof onResolveHiddenValue === 'function'
                   ? async (issue) => {
@@ -4925,6 +4937,9 @@ function RepeatableEntryModal({
   });
 
   const [entrySubmitCount, setEntrySubmitCount] = useState(0);
+  // Saves that validation stopped: the Validation tab opens on each (4a hand test, 2026-11-25).
+  const [entryFailedSaves, setEntryFailedSaves] = useState(0);
+  const failSave = useCallback(() => setEntryFailedSaves((count) => count + 1), []);
   const [buildingPlanRevision, setBuildingPlanRevision] = useState(0);
   const [buildingPlanIssues, setBuildingPlanIssues] = useState([]);
   const planIncomingValues = useRef(null);
@@ -6090,13 +6105,17 @@ function RepeatableEntryModal({
       // A field the plan can't take yet (a required one cleared, an invalid number): the form's
       // own validation says why, so the attempt counts and its errors show (hand test
       // 2026-11-22: Save did nothing, and showed nothing).
-      if (completion.status === 'invalid') setEntrySubmitCount((count) => count + 1);
+      if (completion.status === 'invalid') {
+        setEntrySubmitCount((count) => count + 1);
+        failSave();
+      }
       return;
     }
     setEntrySubmitCount((count) => count + 1);
     // Problems to fix in the plan (bands 4a) keep a floor entry open; read after its values.
     if (floorPlanProblems(buildingPlanModalContext).length) {
       submissionReporter.blocked('Row save');
+      failSave();
       return;
     }
     if (rowEvents.record || rowEvents.lifecycle) {
@@ -6105,6 +6124,7 @@ function RepeatableEntryModal({
       try {
         const prepared = await rowEvents.prepare('submit');
         submissionReporter.result('Row save', stage, prepared);
+        if (!prepared.eligible && prepared.validationSummary?.hasErrors) failSave();
         if (prepared.eligible) {
           stage = 'row acceptance';
           await onSave(modal, prepared.payload, closeTarget);
@@ -6117,6 +6137,7 @@ function RepeatableEntryModal({
     const validationSummary = entryValidationSummary;
     if (validationSummary?.hasErrors) {
       submissionReporter.blocked('Row save');
+      failSave();
       return;
     }
     const submissionTimestamp = new Date().toISOString();
@@ -6136,6 +6157,7 @@ function RepeatableEntryModal({
     });
   }, [
     buildingPlanModalContext,
+    failSave,
     entryRepeatable,
     entryTimestampsRef,
     entryValidationSummary,
@@ -6448,10 +6470,12 @@ function RepeatableEntryModal({
       disabled: readOnly,
     };
   } else if (modalPrimaryActionsAllowed && !modalDrilldownActive) {
+    const saveFailed = entryFailedSaves > 0 && modalIssues.length > 0;
     modalRightAction = {
       id: 'save',
       label: 'Save',
-      icon: Save,
+      icon: saveFailed ? CircleAlert : Save,
+      failed: saveFailed,
       onClick: readOnly ? undefined : handleSave,
       shortcutLabel: getAltShortcutLabel('s'),
       variant: 'primary',
@@ -6642,6 +6666,7 @@ function RepeatableEntryModal({
                 className={styles.formNameActionButton}
                 data-variant={action.variant || 'ghost'}
                 data-action={action.id}
+                data-failed={action.failed ? 'true' : undefined}
                 onClick={disabled ? undefined : action.onClick}
                 disabled={disabled}
               >
@@ -6729,6 +6754,7 @@ function RepeatableEntryModal({
                     activeSectionId={modalActiveSectionId}
                     onNavigate={handleModalNavigate}
                     validationIssues={modalIssues}
+                    failedAttempt={entryFailedSaves}
                     validationEnabled={entrySubmitCount > 0}
                     onSelectValidationIssue={handleModalValidationIssueSelect}
                     forceRender

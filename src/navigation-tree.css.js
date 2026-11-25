@@ -275,6 +275,10 @@ export const navigationTabBadge = style({
   borderRadius: '999px',
   background: derived.primarySoft,
   color: vars.color.primary,
+  selectors: {
+    // Findings left after a Save or Submit, in the plan's "n issues" colours (4a hand test).
+    '&[data-tone="error"]': { background: derived.errorSoft, color: vars.color.error },
+  },
 });
 
 export const navigationTabPanel = style({
@@ -308,6 +312,8 @@ export const validationButton = style({
   borderRadius: vars.borderRadius,
   padding: vars.spacing.sm,
   background: vars.color.section,
+  // A button's own text colour is the browser's black: unreadable in dark mode (seen 2026-11-25).
+  color: vars.color.foreground,
   cursor: 'pointer',
   display: 'flex',
   flexDirection: 'column',
