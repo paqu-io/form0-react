@@ -2465,3 +2465,17 @@ height (touching allowed, doors through sill bands); core writes the messages, "
 its wall or below the floor, and the floor's undersides can put bands above every wall, all
 applied silently. To confirm: refusing that on the row, a problem otherwise; markers on the
 opening or the wall until D1 draws bands. Details in `building-plan-ui.md`, "4a details".
+
+### Bands unit 4a: problems to fix before saving (2026-11-25, hand-tested, committed)
+
+Core: `plan-problems.js` lists a floor's problems (an opening reaching into a band, bands
+overlapping, a band beyond its wall) with the rows that show them, in the canvas snapshot and for
+an editor's plan; a band row's own value typed beyond its wall is refused. Web: every plan canvas
+marks them live and lists them first in "n issues"; the floor entry lists them first in its
+Validation panel ("Shared door and Lintel band · Plan"), a click selects the element, and its
+Save waits until none is left; room entries save. Messages read as refusals (English, no lengths:
+core's refusals aren't translated yet and the snapshot has no measurement system), a correction
+to the aligned wording. Core 802 of 802; web 458 of 465 (the worker tests and the flake). Checked
+on the test page. Details and the hand test in `building-plan-ui.md`, "Bands unit 4a". Hand-tested: works; translation and lengths noted in `localization.md`. Asked: clearer feedback
+on a failed Save or Submit, a nested section's highlight border, refused typed values on their
+field and in Validation (aligning).

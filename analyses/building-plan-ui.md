@@ -3698,12 +3698,73 @@ underside, a beam added by hand with the usual descriptions).
   words ("Plan") go in `plan-text.js`.
 - *Invariants* over the example plans with bands on: every problem names elements on its wall; no
   bands, no problems; a wall moved, Split and Rejoin keep the same problems when no height moves.
-- *Proposed, to confirm.* Marking: an opening's problem marks and selects the opening, a band
+- *Confirmed 2026-11-25.* Marking: an opening's problem marks and selects the opening, a band
   against a band the wall; D1 moves both to the band once bands are drawn. A band beyond its
   wall (checked in node: a band row's underside typed 3.5 or -1 on a 3 m wall, the floor's lintel
   underside 3.4, the floor's sill underside 3.2 all applied silently; a wall lowered pushes its
   bands down, 2e): typed on the band row itself, refused as local beams ("Lintel band would stand
-  above its wall."); from the floor's values or an opening pushing it, a problem.
+  above its wall."); from the floor's values or an opening pushing it, a problem. To revisit if it
+  feels too invasive after some use.
+
+**Bands unit 4a: problems to fix before saving (core and web, hand-tested 2026-11-25, committed).**
+
+- *Core, `plan-problems.js` (new).* `buildingPlanProblems(floor)` lists per wall
+  `opening_into_band`, `bands_overlap`, `band_above_wall`, `band_below_floor`, each with its
+  elements (type, id, name), wall and segment, the wall's name and a message; `problemRowPaths`
+  gives the rows that show each (an opening's copy in each room's wall row, else the wall rows
+  facing the band's segment), from the record as canvas entries carry them. The canvas snapshot
+  has `problems` (active floor); `getBuildingPlanProblems(plan, floorId, { meta, record })` is
+  exported for an editor's plan. Wiring only in `canvas-controller.js`.
+- *Core, refused on the row (`opening-operations.js`).* A band row's underside or depth typed
+  beyond its wall: "Lintel band would stand above its wall." / "… would go below the floor." (the
+  ring beam by its depth).
+- *Words, a correction to "4a details".* Core's refusals are English sentences today (only names
+  are in the editor's language), and the snapshot doesn't know the measurement system, so the
+  messages read as the refusals, without lengths: "Shared door runs into Lintel band.", "Lintel
+  band runs into Ring beam.", "Lintel band stands above its wall.". Both go with the localization
+  task; lengths can come back then.
+- *Web.* `plan-problems.js` (new): the panel items ("Shared door and Lintel band · Plan", the
+  wall's name in its path, the message), the canvas list items and markers in scope, the floor
+  entry's problems read from its editor. `use-plan-issues.js` takes the canvas's problems
+  (`canvas-host-mount.js` subscribes to the controller) and lists them first, live, with markers;
+  it now also works out the scope (moved from `canvas-host.jsx`). `form-renderer.jsx` (wiring):
+  the floor entry's panel lists them first once Save was tried, a click selects the element
+  (`planChainSelect`), Save reads them after the entry's values are applied and stops. Room and
+  wall entries mark and list them, and save. "Plan" and "{first} and {second}" in `plan-text.js`.
+
+Tests: core `building-plan-plan-problems.test.js` (4: openings and bands, touching and clear
+cases; bands overlapping, a sill band into the ring beam; beyond the wall, refused on the row, a
+problem from the floor's values and from a push; the canvas rows, the editor route giving the
+same), `building-plan-plan-problem-invariants.test.js` (5 plans through a wall moved, Split and
+Rejoin), with `tests/helpers/building-plan-bands.js`; failing with HEAD's files (the refusal case
+with HEAD's `opening-operations.js` alone). Web `building-plan-plan-problems.test.jsx` (2: a floor
+value typed and saved at once is blocked, listed first with its tag, the canvas list; fixed, Save
+closes; a room entry lists it and saves), failing with HEAD's four wired files. Core 802 of 802
+and the plain test scripts; web 458 of 465 (the worker tests and the numeric-setters flake,
+passing alone).
+
+Headless on the test page (no console errors): the floor entry, "Every wall has a lintel band",
+underside 1.9: "1 issue" at once, the "!" on the Shared door; Save: the entry stays, Validation 2
+(the problem first, "Shared door and Lintel band · Plan", W3, "Shared door runs into Lintel
+band."; then the floor's lintel depth, required and blank); a click on the problem selects D#1;
+underside 2 and depth 250: the chip goes, Save closes the entry.
+
+Hand test (unit 4a; restart the test page): open the floor, "Every wall has
+a lintel band", depth 250 mm, underside 1.9: "1 issue" and a "!" on the Shared door at once; Save:
+the entry stays; Validation lists "Shared door and Lintel band · Plan" first; click it: the door
+is selected. Open the Bedroom from the floor: its canvas lists the problem too; Save the room: it
+saves. Underside 2: the problem goes, Save closes the floor. Then: lintel underside 2.6 with "Every
+wall has a ring beam": "Lintel band runs into Ring beam." on every wall, marked on the walls; the
+floor's sill band at 3.2: "Sill band stands above its wall."; a wall's Lintel band row, underside
+typed 3.5: refused ("Lintel band would stand above its wall."); the Ring beam's depth 3500 mm:
+refused ("… would go below the floor."); a window raised into the lintel band with no ring beam,
+until the band is pushed past the top: applied, listed as a problem.
+
+Hand-tested 2026-11-25: works. The messages' translation and lengths are noted in
+`localization.md` (agreed: with the localization task). Asked: a failed Save or Submit is hard to
+notice (only the Validation badge's number changes); a highlighted nested section draws a border
+over its header and against the inputs; a refused typed value (a band's underside 3.5) isn't
+marked on its field nor listed in Validation (aligning).
 
 ### Next (queue, updated 2026-11-23)
 
@@ -3721,7 +3782,7 @@ before this one in the log).
 1. **Wall beams**, a core design round (open question 1; Reform checked, no blocker; see "Data
    proposals", beams on walls). 3a (today's room beams) is done: see "3a: room beams".
    Decided 2026-11-24 (WB1 to WB10, see "Wall beams"); units 0, 1, 2a, 2b, 2c and 3 done. Next:
-   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). Next: 4a (details aligned, see "4a details"). floor defaults for bands, B (see "Floor
+   2d (`1651924`), 2e (`beb7c67`). Bands unit 1 (`72ad993`), unit 2 (`c723306`), unit 3 (`ae65a18`, web `371496d`), 3b (`e39cf31`, web `f8a87fd`; hand-tested 2026-11-25). 4a hand-tested and committed (see "Bands unit 4a"); then 4b, 4c. floor defaults for bands, B (see "Floor
    defaults for bands": the floor and wall answers, band rows kept in step, their values
    inherited, clashes, new openings' heights); then the drawing unit (D1, bands and local
    beams) and the front view (A, read-only). The role starter field is dropped.

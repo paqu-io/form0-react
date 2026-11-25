@@ -44,6 +44,13 @@ form0-cli's own preview renderer, which has its own translations.
   `kind` ('required' | 'error' | 'custom') and an English `message` ("This field is required");
   value rules in `src/schema/field-value-registry.js` return English sentences (about 16 "must
   be …" messages) built with the field's data name.
+- **Building plan messages (noted 2026-11-25).** Core's refusals ("Beam B#1 would stand above its
+  wall.") and the plan's problems to fix before saving (bands unit 4a, `plan-problems.js`:
+  "Shared door runs into Lintel band.") are English sentences; only element names (default
+  names, band names) are in the editor's language. The problems leave lengths out because core's
+  canvas snapshot doesn't know the measurement system; agreed (4a) to add translated messages and
+  lengths in the units shown ("Window 1's head (2.30 m) is above the lintel band's underside
+  (2.10 m).") with this task: a code and params per message, as validation findings.
 - **Inventory (rough).** form0-react about 180 texts in 30 files (most in
   `building-plan/legacy/building-plan-canvas.js`, `form-renderer.jsx`,
   `field-components/signature-field.jsx`, `utils/managed-events.js`, `navigation-tree.jsx`);
