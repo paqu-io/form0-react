@@ -115,11 +115,9 @@ const labelFont = (scale = 1, size = LABEL_FONT_SIZE) =>
 const LABEL_PADDING_X = 6;
 const LABEL_PADDING_Y = 4;
 const STRUCTURAL_SNAP_TOLERANCE = 14;
+// A new door's or window's heights come from core (the bands on its wall, bands unit 5).
 const DEFAULT_DOOR_WIDTH_M = 0.9;
-const DEFAULT_DOOR_HEIGHT_M = 2;
 const DEFAULT_WINDOW_WIDTH_M = 1.2;
-const DEFAULT_WINDOW_HEIGHT_M = 1.2;
-const DEFAULT_WINDOW_SILL_HEIGHT_M = 0.9;
 const DEFAULT_COLUMN_WIDTH_M = 0.3;
 const DEFAULT_COLUMN_HEIGHT_M = 0.3;
 const DEFAULT_COLUMN_VERTICAL_HEIGHT_M = 3;
@@ -3114,12 +3112,8 @@ export class BuildingPlanCanvas {
    */
   async addElement(kind) {
     const result = await addPlanElement(this, kind, {
-      door: { width: DEFAULT_DOOR_WIDTH_M, height: DEFAULT_DOOR_HEIGHT_M },
-      window: {
-        width: DEFAULT_WINDOW_WIDTH_M,
-        height: DEFAULT_WINDOW_HEIGHT_M,
-        sill: DEFAULT_WINDOW_SILL_HEIGHT_M,
-      },
+      door: { width: DEFAULT_DOOR_WIDTH_M },
+      window: { width: DEFAULT_WINDOW_WIDTH_M },
       column: {
         width: DEFAULT_COLUMN_WIDTH_M,
         height: DEFAULT_COLUMN_HEIGHT_M,
@@ -5167,8 +5161,6 @@ export class BuildingPlanCanvas {
     if (segmentLength === 0) return null;
 
     const defaultWidthMeters = type === 'door' ? DEFAULT_DOOR_WIDTH_M : DEFAULT_WINDOW_WIDTH_M;
-    const defaultHeightMeters = type === 'door' ? DEFAULT_DOOR_HEIGHT_M : DEFAULT_WINDOW_HEIGHT_M;
-    const defaultDistanceFromFloor = type === 'window' ? DEFAULT_WINDOW_SILL_HEIGHT_M : undefined;
 
     const desiredSpanPixels = metersToLength(defaultWidthMeters, this.gridSize);
     let spanRatio = desiredSpanPixels / segmentLength;
@@ -5198,7 +5190,6 @@ export class BuildingPlanCanvas {
         startRatio,
         endRatio,
         width,
-        height: defaultHeightMeters,
       });
       if (result) {
         this.selectedDoorId = result.id;
@@ -5218,8 +5209,6 @@ export class BuildingPlanCanvas {
         startRatio,
         endRatio,
         width,
-        height: defaultHeightMeters,
-        distanceFromFloor: defaultDistanceFromFloor,
       });
       if (result) {
         this.selectedWindowId = result.id;

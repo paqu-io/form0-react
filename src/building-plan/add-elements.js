@@ -45,7 +45,8 @@ function selectedWall(plan, roomId) {
  * @param {object} plan the legacy canvas
  * @param {'door' | 'window' | 'column'} kind
  * @param {{ door: object, window: object, column: object }} sizes metres: door and window
- *   `{ width, height }` (a window also `sill`); column `{ width, height, vertical }`
+ *   `{ width }` (their heights come from core, from the bands on the wall); column
+ *   `{ width, height, vertical }`
  * @returns {Promise<{ status: 'added', id: string } | { status: 'needs', hintKey: string }
  *   | { status: 'refused', messageKey: string } | { status: 'unavailable' }>}
  */
@@ -99,8 +100,6 @@ export async function addPlanElement(plan, kind, sizes) {
     startRatio: placed.startRatio,
     endRatio: placed.endRatio,
     width: placed.width,
-    height: size.height,
-    ...(kind === 'window' ? { distanceFromFloor: size.sill } : {}),
   };
   const created = await (kind === 'door'
     ? controller.createDoor?.(wall.id, options)

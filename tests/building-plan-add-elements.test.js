@@ -128,7 +128,9 @@ it('"Add door" without a wall says what to select; with one, adds at the mark', 
   await c.addElement('door');
   const [wallId, options] = c.controller.createDoor.mock.calls[0];
   expect(wallId).toBe('bottom');
-  expect(options).toMatchObject({ segmentIndex: 0, width: 0.9, height: 2 });
+  expect(options).toMatchObject({ segmentIndex: 0, width: 0.9 });
+  // Its heights come from core, from the bands on the wall (bands unit 5).
+  expect(options).not.toHaveProperty('height');
   expect(options.startRatio).toBeCloseTo(0.42, 9);
   expect(options.endRatio).toBeCloseTo(0.51, 9);
   expect(c.selectedDoorId).toBe('new-door');
