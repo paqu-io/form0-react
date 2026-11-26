@@ -36,42 +36,47 @@ function roomHandleCursor(handle) {
  */
 
 /**
- * The cursor for what the pointer is over, with no gesture running: the arrow where a press
- * drags nothing (a column on a Floor canvas, anything on the plan page, the ground).
+ * The cursor for what the pointer is over, with no gesture running (C1, decided 2026-11-26: one
+ * meaning each): `grab`, `move` or a resize arrow where a press drags; the pointing hand where a
+ * press only selects and a double-click opens (`opens`: a Floor canvas or the plan page, which
+ * open the room of anything inside it); the arrow where a press does nothing (the ground, faded
+ * elements, a room's floor in its own entry, where a click marks a place).
  * @param {{ type: string, handle?: string, direction?: { x: number, y: number },
  *   free?: boolean } | null} hover the canvas's hover state; `direction` is the element's (an
  *   opening's wall, a beam) or, for a room wall's grip, its normal
  * @param {CanvasCapabilities} can
+ * @param {{ opens?: boolean }} [options]
  * @returns {string}
  */
-export function hoverCursor(hover, can) {
+export function hoverCursor(hover, can, { opens = false } = {}) {
   const structure = Boolean(can.canMoveStructural);
   const resize = Boolean(can.canResize);
+  const still = opens ? 'pointer' : 'default';
   switch (hover?.type) {
     case 'corner':
       return 'move';
     case 'wall-grip':
       return hover.free ? 'move' : resizeCursor(hover.direction);
     case 'wall-handle':
-      return resize && structure ? 'move' : 'default';
+      return resize && structure ? 'move' : still;
     case 'column':
-      return structure ? 'move' : 'default';
+      return structure ? 'move' : still;
     case 'beam-handle':
-      return resize && structure ? resizeCursor(hover.direction) : 'default';
+      return resize && structure ? resizeCursor(hover.direction) : still;
     case 'beam':
     case 'wall':
     case 'pin':
-      return structure ? 'grab' : 'default';
+      return structure ? 'grab' : still;
     case 'opening-handle':
       // An end that can't resize the opening moves it, as its body does.
       if (hover.handle !== 'center' && resize) return resizeCursor(hover.direction);
-      return can.canMove ? 'grab' : 'default';
+      return can.canMove ? 'grab' : still;
     case 'opening':
-      return can.canMove ? 'grab' : 'default';
+      return can.canMove ? 'grab' : still;
     case 'room':
-      return can.canMoveRoom ? 'grab' : 'default';
+      return can.canMoveRoom ? 'grab' : still;
     case 'room-handle':
-      return resize ? roomHandleCursor(hover.handle) : 'default';
+      return resize ? roomHandleCursor(hover.handle) : still;
     default:
       // Faded elements and the ground.
       return 'default';

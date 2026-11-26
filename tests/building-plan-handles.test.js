@@ -41,22 +41,25 @@ describe('plan canvas cursors (step 3, 3-H3)', () => {
     expect(hoverCursor(null, ROOM)).toBe('default');
   });
 
-  it('promises only what the canvas lets a press drag', () => {
-    // A Floor canvas moves rooms only (2026-11-22); openings, walls, columns and beams stay.
-    expect(hoverCursor({ type: 'room' }, FLOOR)).toBe('grab');
-    expect(hoverCursor({ type: 'opening' }, FLOOR)).toBe('default');
-    for (const type of ['column', 'wall-handle', 'beam-handle'])
-      expect(hoverCursor({ type }, FLOOR)).toBe('default');
-    for (const type of ['beam', 'wall', 'pin'])
-      expect(hoverCursor({ type }, FLOOR)).toBe('default');
+  it('promises only what the canvas lets a press drag; the pointing hand where it opens', () => {
+    // A Floor canvas moves rooms only (2026-11-22); the rest only selects and opens its room by
+    // double-click: the pointing hand (C1, 2026-11-26).
+    const opens = { opens: true };
+    expect(hoverCursor({ type: 'room' }, FLOOR, opens)).toBe('grab');
+    expect(hoverCursor({ type: 'opening' }, FLOOR, opens)).toBe('pointer');
+    for (const type of ['column', 'wall-handle', 'beam-handle', 'beam', 'wall', 'pin'])
+      expect(hoverCursor({ type }, FLOOR, opens)).toBe('pointer');
     // An opening's end that can't resize it moves it, as its body does, where openings move.
     const end = { type: 'opening-handle', handle: 'end', direction: { x: 1, y: 0 } };
-    expect(hoverCursor(end, FLOOR)).toBe('default');
+    expect(hoverCursor(end, FLOOR, opens)).toBe('pointer');
     expect(hoverCursor(end, { ...ROOM, canResize: false })).toBe('grab');
-    // The plan page drags nothing.
+    // The plan page drags nothing: the pointing hand over all it opens.
     for (const type of ['room', 'opening', 'wall', 'column'])
-      expect(hoverCursor({ type }, PAGE)).toBe('default');
-    expect(hoverCursor(end, PAGE)).toBe('default');
+      expect(hoverCursor({ type }, PAGE, opens)).toBe('pointer');
+    expect(hoverCursor(end, PAGE, opens)).toBe('pointer');
+    // The ground and faded elements: the arrow, a press does nothing there.
+    expect(hoverCursor(null, PAGE, opens)).toBe('default');
+    expect(hoverCursor({ type: 'faded' }, FLOOR, opens)).toBe('default');
   });
 
   it('keeps the cursor a gesture started on, a grab turned into grabbing', () => {

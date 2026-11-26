@@ -174,3 +174,31 @@ it('with picks off, a click selects nothing and an issue is selected as before',
   canvas.applyHighlight();
   assert.deepEqual(selected(canvas), { selectedRoomId: 'R1', selectedWallId: 'W1' });
 });
+
+// The cursor on a locked canvas (C1, decided 2026-11-26): the pointing hand where a double-click
+// opens or says where it opens, the arrow where it does nothing.
+it('shows the pointing hand over what a double-click opens, the arrow elsewhere', () => {
+  const canvas = lockedCanvas();
+  canvas.focus = { collection: 'walls', id: 'W1' };
+  canvas.canvas = { style: {} };
+  canvas.mode = 'select';
+  const over = (hits) => {
+    canvas.hits = hits;
+    canvas.handleMouseMove({ x: 10, y: 10 });
+    return canvas.canvas.style.cursor;
+  };
+  assert.equal(over({ door: 'W1:D1' }), 'pointer', 'its door opens');
+  assert.equal(over({ column: 'C1' }), 'pointer', 'says where it opens');
+  assert.equal(over({ wall: 'W2' }), 'pointer');
+  assert.equal(over({ wall: 'W1' }), 'default', 'the entry’s own wall');
+  assert.equal(over({ room: 'R1' }), 'default', 'its room’s floor');
+  assert.equal(over({ faded: true, wall: 'W9' }), 'default');
+  assert.equal(over({}), 'default', 'the ground');
+  // A read-only record's floor opens the room under the pointer.
+  const floor = lockedCanvas({ roomId: null, highlight: null });
+  floor.canvas = { style: {} };
+  floor.mode = 'select';
+  floor.hits = { room: 'R1' };
+  floor.handleMouseMove({ x: 10, y: 10 });
+  assert.equal(floor.canvas.style.cursor, 'pointer');
+});

@@ -218,13 +218,16 @@ describe('canvas', () => {
     expect(c.isFadedAt({ x: 250, y: 50 })).toBe(false);
   });
 
+  // A view-only canvas only opens: the pointing hand where a double-click does something, the
+  // arrow elsewhere (C1, 2026-11-26; V1's grab hand before, the cases in the locked-pick test).
   it('shows a plain arrow over faded elements, also on a view-only canvas', () => {
     const c = canvas({ readOnly: true, getCanvasPoint: (point) => point });
     c.levels = scopeLevels({ roomId: 'k', focus: null, plan: c });
     c.handleMouseMove({ x: 150, y: 50 });
     expect(c.canvas.style.cursor).toBe('default');
+    // Its own room's floor: a double-click opens nothing there.
     c.handleMouseMove({ x: 50, y: 50 });
-    expect(c.canvas.style.cursor).toBe('grab');
+    expect(c.canvas.style.cursor).toBe('default');
   });
 
   it('draws a faded room without its surface, its outline faint', () => {

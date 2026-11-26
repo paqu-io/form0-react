@@ -61,21 +61,37 @@ export function lockedPress(canvas, point) {
   return { target: picked ? { collection: hit.collection, id: hit.id } : null, open };
 }
 
+/**
+ * The cursor on a locked canvas (C1, decided 2026-11-26): the pointing hand over what a
+ * double-click opens or says where it opens; the arrow where it does nothing: the ground, faded
+ * elements, the entry's own element and, on a canvas scoped to a room, the room's floor.
+ * @returns {'pointer' | 'default'}
+ */
+export function lockedCursor(canvas, point) {
+  if (canvas.isFadedAt?.(point)) return 'default';
+  const hit = hitAt(canvas, point);
+  if (!hit) return 'default';
+  if (hit.collection === 'rooms' && canvas.controller?.scope?.roomId) return 'default';
+  const own = canvas.focus;
+  if (own && own.collection === hit.collection && own.id === hit.id) return 'default';
+  return 'pointer';
+}
+
 function hitAt(canvas, point) {
   const roomOf = (collection, id) =>
     (canvas[collection] || []).find((entry) => entry.id === id)?.roomId || null;
-  const opening = canvas.findOpeningNearPoint(point);
+  const opening = canvas.findOpeningNearPoint?.(point);
   if (opening) {
     const collection = opening.type === 'door' ? 'doors' : 'windows';
     return { collection, id: opening.openingId, roomId: roomOf(collection, opening.openingId) };
   }
-  const column = canvas.findColumnHit(point)?.column;
+  const column = canvas.findColumnHit?.(point)?.column;
   if (column) return { collection: 'columns', id: column.id, roomId: column.roomId || null };
-  const beam = canvas.findBeamHit(point)?.beam;
+  const beam = canvas.findBeamHit?.(point)?.beam;
   if (beam) return { collection: 'beams', id: beam.id, roomId: beam.roomId || null };
-  const wall = canvas.findWallNearPoint(point)?.wall;
+  const wall = canvas.findWallNearPoint?.(point)?.wall;
   if (wall) return { collection: 'walls', id: wall.id, roomId: wall.roomId || null };
-  const room = canvas.findRoomAtPoint(point);
+  const room = canvas.findRoomAtPoint?.(point);
   return room ? { collection: 'rooms', id: room.id, roomId: room.id } : null;
 }
 

@@ -55,6 +55,7 @@ import { drawGuides } from '../draw/guides.js';
 import {
   HIGHLIGHT_FIELDS,
   applyMarks,
+  lockedCursor,
   lockedPress,
   pickElement,
   picksOn,
@@ -1625,14 +1626,17 @@ export class BuildingPlanCanvas {
       this.canvas.style.cursor = 'crosshair';
       return;
     }
-    // A view-only canvas only opens elements: the arrow over faded ones, grab elsewhere (V1).
+    // A locked canvas only opens elements: the pointing hand where a double-click does something
+    // (`lockedCursor`), the arrow elsewhere (C1, 2026-11-26; was V1's grab).
     if (this.readOnly) {
-      this.canvas.style.cursor = this.hoverState?.type === 'faded' ? 'default' : 'grab';
+      this.canvas.style.cursor = this.lockedHover || 'default';
       return;
     }
+    // A Floor canvas and the plan page open the room of anything inside it (2026-11-22).
+    const opens = !this.controller?.scope?.roomId;
     this.canvas.style.cursor = this.gestureRunning()
       ? dragCursor(this.pressCursor)
-      : hoverCursor(this.hoverState, getCapabilities(this.controller));
+      : hoverCursor(this.hoverState, getCapabilities(this.controller), { opens });
   }
 
   /**
@@ -2291,8 +2295,13 @@ export class BuildingPlanCanvas {
 
     // Block edits while retaining the existing pan gesture in every tool.
     if (this.readOnly || this.mode === 'pin') {
-      if (this.mode === MODE_SELECT)
-        this.setHoverState(this.isFadedAt(this.getCanvasPoint(event)) ? FADED_HOVER : null);
+      if (this.mode === MODE_SELECT) {
+        const point = this.getCanvasPoint(event);
+        // What a double-click there does, for the cursor (`canvas-selection.js`, C1).
+        this.lockedHover = lockedCursor(this, point);
+        this.setHoverState(this.isFadedAt(point) ? FADED_HOVER : null);
+        this.updateCursor();
+      }
       return;
     }
 
