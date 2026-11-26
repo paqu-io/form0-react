@@ -176,6 +176,18 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
   expect(entry.getByText('W1', { selector: 'span' }).parentElement.textContent).toBe('W1 · 1 of 1');
   expect(entry.getByRole('button', { name: 'Previous wall' }).disabled).toBe(true);
   expect(entry.getByRole('button', { name: 'Next wall' }).disabled).toBe(true);
+  // The mini-map (2026-11-26): the Bedroom's walls, W1 from its 0 end (its left, the plan's
+  // left), the ring there, the cone it is seen from.
+  const map = entry.getByRole('img', { name: 'Where W1 is seen from' });
+  const shown = map.querySelector('[data-map="shown"]');
+  const zero = map.querySelector('[data-map="zero"]');
+  expect(Number(shown.getAttribute('x1'))).toBeLessThan(Number(shown.getAttribute('x2')));
+  expect([zero.getAttribute('cx'), zero.getAttribute('cy')]).toEqual([
+    shown.getAttribute('x1'),
+    shown.getAttribute('y1'),
+  ]);
+  expect(map.querySelector('[data-map="cone"]').getAttribute('d')).toMatch(/^M.+Z$/);
+  expect(map.querySelector('[data-map="walls"]').getAttribute('d')).toMatch(/^M.+Z$/);
   // Its bands, its window and its lengths: the wall's 3.00 m, the window's 1.00 m along it.
   const texts = () => [...svg.querySelectorAll('text')].map((text) => text.textContent);
   expect(texts()).toEqual(expect.arrayContaining(['Lintel band', 'Window A', '3.00', '1.00']));

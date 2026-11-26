@@ -6,8 +6,11 @@
  */
 
 /** Room around the wall, in px: levels on the left, the height chains on the right, the wall
- * line overlay above, the lengths along the bottom. */
-export const FRONT_MARGIN = Object.freeze({ left: 64, right: 200, top: 48, bottom: 100 });
+ * line overlay above, the lengths along the bottom. The mini-map's card (2026-11-26,
+ * `front-map.js`) sits in the bottom-left corner above the status line: the left margin keeps the
+ * wall 14 px right of it (wider than the levels' 64), the bottom one its floor line 4 px above it
+ * (and the side's length clear of the status line). */
+export const FRONT_MARGIN = Object.freeze({ left: 160, right: 200, top: 48, bottom: 136 });
 /** Zoom relative to the fit. */
 export const FRONT_ZOOM = Object.freeze({ min: 0.5, max: 8, step: 1.25 });
 export const FRONT_FIT = Object.freeze({ zoom: 1, pan: Object.freeze({ x: 0, y: 0 }) });

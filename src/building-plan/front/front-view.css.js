@@ -109,6 +109,45 @@ export const wallLine = style({
   whiteSpace: 'nowrap',
 });
 export const wallName = style({ color: vars.color.foreground, fontWeight: 700 });
+
+// The mini-map's card (2026-11-26), bottom left above the status line (its place from
+// `FRONT_MAP`), framed as the wall line; the fit keeps the wall clear of it.
+export const map = style({
+  position: 'absolute',
+  borderRadius: '8px',
+  border: `1px solid ${vars.color.border}`,
+  background: vars.color.background,
+  boxShadow: '0 1px 2px rgb(0 0 0 / 0.08)',
+  overflow: 'hidden',
+});
+export const mapSvg = style({ display: 'block' });
+export const mapFloor = style({ fill: planVars.room });
+// The walls lighter than the plan's, as in the mockup, so the shown row stands out.
+export const mapWalls = style({ fill: planVars.wallFaint });
+export const mapLine = style({ stroke: planVars.wallHalf, strokeWidth: 1.5 });
+export const mapOther = style({
+  stroke: planVars.labelMuted,
+  strokeWidth: 2,
+  strokeLinecap: 'round',
+});
+export const mapShown = style({
+  stroke: planVars.accent,
+  strokeWidth: 3.5,
+  strokeLinecap: 'round',
+});
+export const mapCone = style({
+  fill: planVars.accent,
+  fillOpacity: 0.16,
+  stroke: planVars.accent,
+  strokeOpacity: 0.5,
+  strokeWidth: 1,
+});
+export const mapEye = style({ fill: planVars.accent });
+export const mapZero = style({
+  fill: vars.color.background,
+  stroke: planVars.accent,
+  strokeWidth: 1.5,
+});
 export const step = style({
   display: 'inline-flex',
   alignItems: 'center',

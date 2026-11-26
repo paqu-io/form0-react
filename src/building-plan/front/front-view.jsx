@@ -5,6 +5,7 @@ import { frontTransform, frontZoomed, frontCentre } from './front-camera.js';
 import { frontShapes } from './front-shapes.js';
 import { frontChains } from './front-chains.js';
 import { FrontSvg } from './front-svg.jsx';
+import { FrontMap } from './front-map-svg.jsx';
 import * as styles from './front-view.css.js';
 
 /**
@@ -13,7 +14,7 @@ import * as styles from './front-view.css.js';
  * Zoom (wheel, the zoom pill) and pan (Shift-drag, the middle button) are its own; a
  * double-click opens a part's entry as on the plan; the plan's selected element and its issues'
  * markers show here too. The wall line names the row: "W1 · 1 of 1" (its arrows step through a
- * room's walls, A3).
+ * room's walls, A3); the mini-map, bottom left, shows where it is seen from (2026-11-26).
  */
 
 const WHEEL = 0.002; // as the plan canvas
@@ -177,6 +178,7 @@ export function FrontView({
         <FrontSvg shapes={shapes} chains={chains} openable={openable} />
       </svg>
       <WallLine label={own?.label || ''} index={1} total={1} />
+      <FrontMap map={view.map} wall={own?.label || ''} />
     </div>
   );
 }

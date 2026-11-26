@@ -5,11 +5,12 @@ import { frontChains } from '../src/building-plan/front/front-chains.js';
 
 // A2 (decided 2026-11-26): the front view's layout in px, from core's front view in metres. W1
 // from the Bedroom as core gives it with the floor's bands (sill 0.6–0.9, lintel 2.1–2.4, ring
-// 2.7–3) and a window 1.9–3.1 m along it, 0.9–2.1 m up. A panel of 864 × 448 px less its margins
-// (64 left, 200 right, 48 top, 100 bottom) is 600 × 300 px: the room's 5 × 3 m fit at 100 px/m,
-// its middle at (364, 198), so W1 runs x 114..614 and the floor is at y 348, its top at 48.
+// 2.7–3) and a window 1.9–3.1 m along it, 0.9–2.1 m up. A panel of 960 × 484 px less its margins
+// (160 left and 136 bottom with the mini-map's card, 200 right, 48 top) is 600 × 300 px: the room's
+// 5 × 3 m fit at 100 px/m, its middle at (460, 198), so W1 runs x 210..710 and the floor is at
+// y 348, its top at 48.
 
-const BOX = { width: 864, height: 448 };
+const BOX = { width: 960, height: 484 };
 const format = (metres) => metres.toFixed(2);
 const path = (...indexes) =>
   indexes.map((index, i) => ({ key: ['floors', 'rooms', 'walls', 'face_windows'][i], index }));
@@ -76,21 +77,21 @@ describe('the camera: one scale per room, zoom and pan of its own', () => {
   it('fits the room in the panel less its margins, the view centred', () => {
     const t = frontTransform(w1(), BOX);
     expect(t.scale).toBe(100);
-    expect([t.x(0), t.x(5), t.y(0), t.y(3)]).toEqual([114, 614, 348, 48]);
+    expect([t.x(0), t.x(5), t.y(0), t.y(3)]).toEqual([210, 710, 348, 48]);
   });
 
   it('keeps the room scale for a shorter wall of the room, on the same floor line', () => {
     const t = frontTransform(w1({ length: 3 }), BOX);
     expect(t.scale).toBe(100);
-    expect([t.x(0), t.x(3), t.y(0)]).toEqual([214, 514, 348]);
+    expect([t.x(0), t.x(3), t.y(0)]).toEqual([310, 610, 348]);
   });
 
   it('zooms about a point, keeping what is under it, within its limits', () => {
     const view = w1();
-    // The window's top right corner, 3.1 m along and 2.1 m up: (424, 138), (60, -60) from the middle.
+    // The window's top right corner, 3.1 m along and 2.1 m up: (520, 138), (60, -60) from the middle.
     const camera = frontZoomed(FRONT_FIT, 2, { x: 60, y: -60 });
     const t = frontTransform(view, BOX, camera);
-    expect([round(t.x(3.1)), round(t.y(2.1))]).toEqual([424, 138]);
+    expect([round(t.x(3.1)), round(t.y(2.1))]).toEqual([520, 138]);
     expect(t.scale).toBe(200);
     expect(frontZoomed(camera, 100).zoom).toBe(8);
     expect(frontZoomed(FRONT_FIT, 0.01).zoom).toBe(0.5);
@@ -102,21 +103,21 @@ describe('the camera: one scale per room, zoom and pan of its own', () => {
 describe('the shapes', () => {
   it('draws the wall, its bands and its window to scale, bands named inside', () => {
     const s = frontShapes(w1(), frontTransform(w1(), BOX));
-    expect(s.pieces.map(box)).toEqual([[114, 48, 500, 300]]);
+    expect(s.pieces.map(box)).toEqual([[210, 48, 500, 300]]);
     expect(s.pieces[0].shown).toBe(true);
     expect(s.beams.map(box)).toEqual([
-      [114, 258, 500, 30],
-      [114, 108, 500, 30],
-      [114, 48, 500, 30],
+      [210, 258, 500, 30],
+      [210, 108, 500, 30],
+      [210, 48, 500, 30],
     ]);
     expect(s.beams.map((beam) => beam.label && [beam.label.x, beam.label.anchor])).toEqual([
-      [608, 'end'],
-      [608, 'end'],
-      [608, 'end'],
+      [704, 'end'],
+      [704, 'end'],
+      [704, 'end'],
     ]);
-    expect(s.openings.map(box)).toEqual([[304, 138, 120, 120]]);
-    expect(s.openings[0].label).toEqual({ x: 364, y: 202, anchor: 'middle' });
-    expect(s.floor).toEqual({ x0: 90, x1: 638, y: 348 });
+    expect(s.openings.map(box)).toEqual([[400, 138, 120, 120]]);
+    expect(s.openings[0].label).toEqual({ x: 460, y: 202, anchor: 'middle' });
+    expect(s.floor).toEqual({ x0: 186, x1: 734, y: 348 });
     expect(s.unknown).toBeNull();
   });
 
@@ -129,7 +130,7 @@ describe('the shapes', () => {
     });
     const s = frontShapes(thin, frontTransform(thin, BOX));
     expect(s.beams[0].label).toBeNull();
-    expect(s.beams[1].label).toEqual({ x: 274, y: 126.5, anchor: 'middle' });
+    expect(s.beams[1].label).toEqual({ x: 370, y: 126.5, anchor: 'middle' });
   });
 
   it("fades the side's other rows and their elements", () => {
@@ -154,10 +155,10 @@ describe('the shapes', () => {
     });
     expect(s.openings[0].selected).toBe(true);
     expect(s.beams.some((beam) => beam.selected)).toBe(false);
-    // The window's top right (424, 138) and the wall's (614, 48), 11 px up and right.
+    // The window's top right (520, 138) and the wall's (710, 48), 11 px up and right.
     expect(s.markers.map((marker) => [marker.x, marker.y])).toEqual([
-      [625, 37],
-      [435, 127],
+      [721, 37],
+      [531, 127],
     ]);
   });
 
@@ -168,8 +169,8 @@ describe('the shapes', () => {
     });
     const s = frontShapes(view, frontTransform(view, BOX));
     expect(s.pieces[0].unknown).toBe(true);
-    expect(box(s.pieces[0])).toEqual([114, 58, 500, 290]);
-    expect(s.unknown).toEqual({ x: 122, y: 74 });
+    expect(box(s.pieces[0])).toEqual([210, 58, 500, 290]);
+    expect(s.unknown).toEqual({ x: 218, y: 74 });
   });
 
   it('marks folds and clash areas', () => {
@@ -188,8 +189,8 @@ describe('the shapes', () => {
       ],
     });
     const s = frontShapes(view, frontTransform(view, BOX));
-    expect(s.folds.map((fold) => [fold.x, fold.y0, fold.y1])).toEqual([[314, 348, 48]]);
-    expect(s.problems.map(box)).toEqual([[304, 138, 120, 20]]);
+    expect(s.folds.map((fold) => [fold.x, fold.y0, fold.y1])).toEqual([[410, 348, 48]]);
+    expect(s.problems.map(box)).toEqual([[400, 138, 120, 20]]);
   });
 });
 
@@ -204,12 +205,12 @@ describe('the lengths (H1)', () => {
       ['2.70', 78, 82],
       ['3.00', 48, 52],
     ]);
-    expect(c.levels[0].x).toBe(96);
+    expect(c.levels[0].x).toBe(192);
   });
 
   it("chains the partial lengths right of the side, and the wall's height outside", () => {
     const c = frontChains(w1(), frontTransform(w1(), BOX), format);
-    expect(c.height.x).toBe(642);
+    expect(c.height.x).toBe(738);
     expect(c.height.pills.map((pill) => [pill.text, round(pill.y), pill.leader])).toEqual([
       ['0.60', 318, null],
       ['0.30', 273, null],
@@ -229,10 +230,10 @@ describe('the lengths (H1)', () => {
     const aside = c.height.pills.filter((pill) => pill.leader);
     expect(aside.map((pill) => pill.text)).toEqual(['0.15', '0.10', '0.15']);
     const edges = aside.map((pill) => pill.leader.x1);
-    expect(edges[0]).toBe(669);
+    expect(edges[0]).toBe(765);
     expect(edges[1]).toBeGreaterThan(edges[0] + 30);
     expect(edges[2]).toBe(edges[0]);
-    expect(aside.every((pill) => pill.leader.x0 === 642)).toBe(true);
+    expect(aside.every((pill) => pill.leader.x0 === 738)).toBe(true);
   });
 
   it('has no whole height for a wall of unknown height', () => {
@@ -244,11 +245,11 @@ describe('the lengths (H1)', () => {
     const c = frontChains(w1(), frontTransform(w1(), BOX), format);
     expect(c.bottom.y).toBe(382);
     expect(c.bottom.pills.map((pill) => [pill.text, pill.x, pill.y])).toEqual([
-      ['1.90', 209, 382],
-      ['1.20', 364, 382],
-      ['1.90', 519, 382],
+      ['1.90', 305, 382],
+      ['1.20', 460, 382],
+      ['1.90', 615, 382],
     ]);
-    expect(c.side.pill).toMatchObject({ text: '5.00', x: 364, y: 426 });
+    expect(c.side.pill).toMatchObject({ text: '5.00', x: 460, y: 426 });
   });
 
   it("leaves out the whole side when the row's ends are all there is", () => {
@@ -352,14 +353,14 @@ describe('columns and room beams against the wall', () => {
       selection: { collection: 'columns', id: 'c1' },
     });
     expect(s.columns.map(box)).toEqual([
-      [199, 48, 30, 300],
-      [574, 48, 40, 300],
+      [295, 48, 30, 300],
+      [670, 48, 40, 300],
     ]);
     expect(s.columns.map((c) => [c.faded, c.selected, c.unknown])).toEqual([
       [false, true, false],
       [true, false, true],
     ]);
-    expect(s.columns[0].label).toEqual({ x: 214, y: 62, anchor: 'middle' });
+    expect(s.columns[0].label).toEqual({ x: 310, y: 62, anchor: 'middle' });
   });
 
   it('draws room beams at their height: one end on named above it, one along named inside', () => {
@@ -368,14 +369,14 @@ describe('columns and room beams against the wall', () => {
       markers: [at('beams', 0)],
     });
     expect(s.roomBeams.map((b) => [...box(b), b.endOn])).toEqual([
-      [354, 48, 20, 30, true],
-      [134, 173, 140, 25, false],
+      [450, 48, 20, 30, true],
+      [230, 173, 140, 25, false],
     ]);
-    expect(s.roomBeams[0].label).toEqual({ x: 364, y: 44, anchor: 'middle' });
+    expect(s.roomBeams[0].label).toEqual({ x: 460, y: 44, anchor: 'middle' });
     const label = s.roomBeams[1].label;
-    expect([round(label.x), round(label.y), label.anchor]).toEqual([204, 189, 'middle']);
+    expect([round(label.x), round(label.y), label.anchor]).toEqual([300, 189, 'middle']);
     // The end-on beam's "!" at its top right.
-    expect(s.markers.map((m) => [m.x, m.y])).toEqual([[385, 37]]);
+    expect(s.markers.map((m) => [m.x, m.y])).toEqual([[481, 37]]);
   });
 
   it("adds the shown row's columns' edges to the bottom chain, no levels", () => {

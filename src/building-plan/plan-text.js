@@ -19,6 +19,8 @@ const TEXT = {
   'plan.front.previous': 'Previous wall',
   'plan.front.next': 'Next wall',
   'plan.front.heightUnknown': 'Height unknown',
+  // The mini-map in Front (2026-11-26).
+  'plan.front.map': 'Where {wall} is seen from',
   'plan.viewOnly': 'View only',
   'plan.floor.add': 'Add floor',
   'plan.floor.none': 'No floors yet',
