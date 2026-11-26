@@ -9,7 +9,8 @@ import { fixture, listRows, mockCanvas } from './building-plan-front-fixture.js'
 // it is the room's, else the Walls list's first row; the wall line's arrows and Alt+Shift+←/→ step
 // through the list's rows, round from the last to the first, "W2 · 2 of 4"; a click on a wall on
 // the mini-map shows it; showing a wall selects it on the plan. The tool rail stays, disabled,
-// saying "Switch to Plan to edit", and the Select tool comes back.
+// saying "Switch to Plan to edit", and the Select tool comes back. A double-click in Front opens the
+// entry on Front (decided 2026-11-26, done after A3's hand test).
 
 afterEach(cleanup);
 beforeEach(mockCanvas);
@@ -92,6 +93,15 @@ it("Front in a room's entry steps through its walls, selecting each, the tools d
   step('ArrowLeft');
   await entry.findByRole('img', { name: 'Front view of W2' });
 
+  // A hovered Walls row lights its wall on the mini-map (2026-11-26).
+  const lit = () =>
+    entry.getByRole('img', { name: /^Where .* is seen from$/ }).querySelector('[data-map="lit"]');
+  const w3Row = (await listRows('Walls')).find((row) => /^W3\b/.test(row.textContent));
+  fireEvent.pointerEnter(w3Row.closest('li'));
+  await waitFor(() => expect(lit()).not.toBeNull());
+  fireEvent.pointerLeave(w3Row.closest('li'));
+  await waitFor(() => expect(lit()).toBeNull());
+
   // A click on a wall on the mini-map shows it.
   const map = entry.getByRole('img', { name: 'Where W2 is seen from' });
   fireEvent.click(map.querySelector('[data-map="row"][data-label="W4"]'));
@@ -109,4 +119,13 @@ it("Front in a room's entry steps through its walls, selecting each, the tools d
   fireEvent.click(front);
   await entry.findByRole('img', { name: 'Front view of W4' });
   expect(line(entry)).toBe('W4 · 4 of 4');
+
+  // A double-click on the wall in Front opens its entry on Front (from the Walls list: on Plan).
+  fireEvent.doubleClick(shown(entry).querySelector('[data-part="0"]'));
+  await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
+  const wall = within(screen.getAllByRole('dialog').at(-1));
+  await wall.findByRole('img', { name: 'Front view of W4' });
+  const switches = within(wall.getByRole('group', { name: 'View' }));
+  expect(switches.getByRole('button', { name: 'Front' }).getAttribute('aria-pressed')).toBe('true');
+  expect(line(wall)).toBe('W4 · 1 of 1');
 });

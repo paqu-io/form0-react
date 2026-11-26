@@ -20,11 +20,14 @@ const RING = 3.2;
  *   wall: string,
  *   rows?: Array<{ faceId: string, label: string }>,
  *   onShow?: ((faceId: string) => void) | null,
- * }} props `map`: the front view's; `rows`: its rows' labels (the view's `rows`)
+ *   lit?: string | null,
+ * }} props `map`: the front view's; `rows`: its rows' labels (the view's `rows`); `lit`: a wall
+ *   to light, as a hovered one (a hovered Walls row's, 2026-11-26)
  */
-export function FrontMap({ map, wall, rows = [], onShow = null }) {
+export function FrontMap({ map, wall, rows = [], onShow = null, lit = null }) {
   if (!map) return null;
   const m = frontMapLayout(map);
+  const litRow = lit && m.rows.find((row) => row.faceId === lit);
   return (
     <div className={styles.map} style={{ left: FRONT_MAP.left, bottom: FRONT_MAP.bottom }}>
       <svg
@@ -51,6 +54,13 @@ export function FrontMap({ map, wall, rows = [], onShow = null }) {
         ))}
         <circle className={styles.mapEye} cx={m.eye.x} cy={m.eye.y} r={EYE} data-map="eye" />
         <circle className={styles.mapZero} cx={m.zero.x} cy={m.zero.y} r={RING} data-map="zero" />
+        {litRow && (
+          <g className={styles.mapLit} data-map="lit">
+            {litRow.segments.map((line, i) => (
+              <line key={i} {...line} />
+            ))}
+          </g>
+        )}
         {onShow &&
           m.rows.map((row) => (
             <g

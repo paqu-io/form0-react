@@ -145,6 +145,14 @@ export const mapCone = style({
 // What Front shows beside the row (the side's other rows), lighter, under the row's cone.
 export const mapSideCone = style({ fill: planVars.accent, fillOpacity: 0.07 });
 export const mapEye = style({ fill: planVars.accent });
+// A wall named by a hovered Walls row (2026-11-26), lit as a hovered target.
+export const mapLit = style({
+  stroke: planVars.accent,
+  strokeOpacity: 0.3,
+  strokeWidth: 12,
+  strokeLinecap: 'round',
+  pointerEvents: 'none',
+});
 // A wall to show, in a room's entry (A3): a wide target, lit when hovered.
 export const mapRow = style({
   cursor: 'pointer',

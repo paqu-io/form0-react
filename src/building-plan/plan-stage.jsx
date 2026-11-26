@@ -6,6 +6,17 @@ import { planText } from './plan-text.js';
 import { FrontView } from './front/front-view.jsx';
 import { FRONT_ZOOM } from './front/front-camera.js';
 
+/** Opens a part's entry from Front: the canvas marks the double-click's view while it runs. */
+function openFromFront(canvasRef, controllerRef, ref) {
+  const canvas = canvasRef.current;
+  if (canvas) canvas.openingFrom = 'front';
+  try {
+    controllerRef.current?.focus?.(ref.collection, ref.id);
+  } finally {
+    if (canvas) canvas.openingFrom = null;
+  }
+}
+
 /**
  * The plan canvas's panel with what lies over it (moved out of `canvas-host.jsx`): the front view
  * in Front (A2), the canvas kept under it, hidden, so the plan keeps its zoom; the status line;
@@ -57,12 +68,14 @@ export function PlanStage({
             selection={selection}
             markers={markers}
             format={format}
-            // A double-click opens a part's entry as on the plan; a click selects it.
-            onOpen={(ref) => controllerRef.current?.focus?.(ref.collection, ref.id)}
+            // A double-click opens a part's entry as on the plan, on Front (every dialog on the
+            // way too, 2026-11-26); a click selects it.
+            onOpen={(ref) => openFromFront(canvasRef, controllerRef, ref)}
             onPick={(ref) =>
               canvasRef.current?.pickElement?.(ref && { collection: ref.collection, id: ref.id })
             }
             position={front.position}
+            lit={front.lit}
             onStep={front.step}
             onShow={front.show}
           />

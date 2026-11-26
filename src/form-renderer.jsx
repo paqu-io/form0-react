@@ -5285,7 +5285,8 @@ function RepeatableEntryModal({
               editor.apply(operation, { scopeId }),
               modal.engineOptions?.onMessageBox
             ),
-          focusRow: (indexPath, { validationFocus = null, chained = false } = {}) => {
+          // `view`: double-clicked in Front, every dialog on the way opens on Front (2026-11-26).
+          focusRow: (indexPath, { validationFocus = null, chained = false, view = null } = {}) => {
             const record = editor.getRecord();
             let row = record;
             const rows = [];
@@ -5327,6 +5328,7 @@ function RepeatableEntryModal({
                 engineOptions: modal.engineOptions,
                 parentValues: entryController.buildParentValues([]),
                 initialInstance: cloneDeepSafe(rows[step.depth]),
+                ...(view ? { buildingPlanView: view } : {}),
                 ...(step.more
                   ? { buildingPlanFocusPath: indexPath, buildingPlanFocusIssue: validationFocus }
                   : validationFocus
@@ -6040,6 +6042,7 @@ function RepeatableEntryModal({
     buildingPlanModalContext.repeatableApi.focusRow?.(modal.buildingPlanFocusPath, {
       validationFocus: modal.buildingPlanFocusIssue || null,
       chained: true,
+      view: modal.buildingPlanView || null,
     });
   }, [
     modal.modalId,
@@ -6851,6 +6854,7 @@ function RepeatableEntryModal({
                     derivedCommands={modal.buildingPlanDerivedCommands === true}
                     lockedSelection={modal.buildingPlanLockedSelection === true}
                     viewOnly={buildingPlanModalContext.viewOnly === true}
+                    initialView={modal.buildingPlanView || null}
                     highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
                     focus={buildingPlanModalContext.highlight || null}
                     onSelectElement={planListKey ? markPlanRow : undefined}

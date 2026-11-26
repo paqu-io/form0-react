@@ -43,6 +43,7 @@ export function BuildingPlanCanvasHost({
   // The entry's own element, { collection, id }: drawn in full, the rest of its room at half
   // strength, the rest faded (scope levels, 1e V1).
   focus = null,
+  initialView = null, // 'front': opened by a double-click in Front (2026-11-26)
   // Told the element selected on the canvas, { collection, entry } or null (to mark its row).
   onSelectElement,
   // An element to select, an index path (a dialog opened on the way to a row, 2026-11-22).
@@ -117,9 +118,9 @@ export function BuildingPlanCanvasHost({
   const tools = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
   const { layers, setLayer, layersRef } = usePlanLayers({ canvasRef, controllerRef }); // step 2
   // Front (A2), stepping through a room's rows (A3); turning it on brings back the Select tool.
-  const frontOptions = { controllerRef, canvasRef, focus, scope, selected, section };
+  const frontOptions = { controllerRef, canvasRef, focus, scope, selected, highlight, section };
   const onEnter = () => tools.handleModeChange(TOOL_MODES.SELECT);
-  const front = useFrontView({ ...frontOptions, buildingPlanMeta, onEnter });
+  const front = useFrontView({ ...frontOptions, buildingPlanMeta, onEnter, initialView });
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;

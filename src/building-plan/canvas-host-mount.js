@@ -131,9 +131,12 @@ export function mountPlanCanvas({
           writeRecord: (record, command) =>
             repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
           // A double-click: on a Floor canvas or the plan page, rooms only (2026-11-22). One the
-          // entry can't open says where it opens (2026-11-26).
+          // entry can't open says where it opens (2026-11-26); one in Front opens on Front.
           focusRow: (path) => {
-            const result = repeatableApiRef.current.focusRow?.(doubleClickTarget(path, mode));
+            const view = canvas?.openingFrom || null;
+            const result = repeatableApiRef.current.focusRow?.(doubleClickTarget(path, mode), {
+              view,
+            });
             if (result?.elsewhere)
               canvas?.showHint?.('plan.status.openElsewhere', result.elsewhere);
           },

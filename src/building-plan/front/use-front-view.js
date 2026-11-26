@@ -22,13 +22,17 @@ import { isAtPath } from './front-shapes.js';
  *   focus: { collection: string, id: string } | null,
  *   scope?: { roomId?: string } | null,
  *   selected?: { collection: string, id: string } | null,
+ *   highlight?: { collection: string, id: string } | null,
  *   buildingPlanMeta: object[],
  *   section: object,
  *   onEnter?: () => void,
+ *   initialView?: 'front' | null,
  * }} options `focus`: the entry's own element (none in a room's entry, which edits the plan; the
  *   room in a read-only record's); `scope`: the canvas's (a room's entry: its room);
- *   `selected`: the plan's selected element; `onEnter`: Front turned on (the tools go back to
- *   Select)
+ *   `selected`: the plan's selected element; `highlight`: a hovered list row's (a Walls row lights
+ *   its wall on the mini-map, 2026-11-26); `onEnter`: Front turned on (the tools go back to
+ *   Select); `initialView`: 'front' for a dialog opened by a double-click in Front (2026-11-26),
+ *   which opens on Front where it has it
  */
 export function useFrontView({
   controllerRef,
@@ -36,9 +40,11 @@ export function useFrontView({
   focus,
   scope = null,
   selected = null,
+  highlight = null,
   buildingPlanMeta,
   section,
   onEnter = () => {},
+  initialView = null,
 }) {
   const derived = useMemo(
     () => pickMetaEntry(buildingPlanMeta, section?.data_name)?.version === 2,
@@ -87,6 +93,15 @@ export function useFrontView({
     [roomId, roomRows, selected, onEnter]
   );
 
+  // Opened by a double-click in Front: on Front at once, where this canvas has it.
+  const started = useRef(false);
+  const available = Boolean(wallFace || roomId);
+  useEffect(() => {
+    if (started.current || initialView !== 'front' || !available) return;
+    started.current = true;
+    setOn(true);
+  }, [available, initialView, setOn]);
+
   const shown = on ? view : null;
   const rows = roomId && shown?.rows?.length ? shown.rows : null;
   const index = rows ? rows.findIndex((row) => row.faceId === shown.faceId) : 0;
@@ -119,7 +134,7 @@ export function useFrontView({
 
   const zoomBy = useCallback((factor) => setCamera((current) => frontZoomed(current, factor)), []);
   return {
-    available: Boolean(wallFace || roomId),
+    available,
     on,
     setOn,
     view: shown,
@@ -128,6 +143,8 @@ export function useFrontView({
     zoomIn: () => zoomBy(FRONT_ZOOM.step),
     zoomOut: () => zoomBy(1 / FRONT_ZOOM.step),
     fit: () => setCamera(FRONT_FIT),
+    /** The wall a hovered Walls row names, lit on the mini-map. */
+    lit: highlight?.collection === 'walls' ? highlight.id : null,
     /** The wall line's "n of N" (1 of 1 outside a room's entry). */
     position: rows ? { index: index + 1, total: rows.length } : { index: 1, total: 1 },
     /** Steps by ±1 through the room's rows; null where Front doesn't step. */

@@ -89,8 +89,10 @@ function WallLine({ label, index, total, onStep }) {
  *   position?: { index: number, total: number },
  *   onStep?: ((by: number) => void) | null,
  *   onShow?: ((faceId: string) => void) | null,
+ *   lit?: string | null,
  * }} props `onPick`: a click on a part selects it, on nothing the entry's own (2026-11-26);
- *   `position`, `onStep`, `onShow`: a room's entry steps through its rows (A3)
+ *   `position`, `onStep`, `onShow`: a room's entry steps through its rows (A3); `lit`: the wall
+ *   a hovered Walls row names, lit on the mini-map
  */
 export function FrontView({
   view,
@@ -104,6 +106,7 @@ export function FrontView({
   position = { index: 1, total: 1 },
   onStep = null,
   onShow = null,
+  lit = null,
 }) {
   const rootRef = useRef(null);
   const box = useBoxSize(rootRef);
@@ -191,7 +194,7 @@ export function FrontView({
         <FrontSvg shapes={shapes} chains={chains} openable={openable} />
       </svg>
       <WallLine label={own?.label || ''} {...position} onStep={onStep} />
-      <FrontMap map={view.map} wall={own?.label || ''} rows={view.rows} onShow={onShow} />
+      <FrontMap map={view.map} wall={own?.label || ''} rows={view.rows} onShow={onShow} lit={lit} />
     </div>
   );
 }
