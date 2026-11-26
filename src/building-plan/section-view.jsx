@@ -23,6 +23,7 @@ export function BuildingPlanSectionView({
   onRemoveFloor,
   readOnly = false,
   derivedCommands = false,
+  lockedSelection = false,
 }) {
   const dataName = section?.data_name || null;
 
@@ -58,6 +59,7 @@ export function BuildingPlanSectionView({
             scope={controller?.scope || {}}
             readOnly={readOnly}
             derivedCommands={derivedCommands}
+            lockedSelection={lockedSelection}
           />
 
           {/* The floors' list panel, as every repeatable list: adding stays in the page header

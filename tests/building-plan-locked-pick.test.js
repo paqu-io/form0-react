@@ -21,6 +21,8 @@ const FIELDS = [
 function lockedCanvas({ roomId = 'R1', highlight = { collection: 'walls', id: 'W1' } } = {}) {
   const canvas = Object.assign(Object.create(BuildingPlanCanvas.prototype), {
     readOnly: true,
+    // The option on (`FormRenderer`'s `buildingPlanLockedSelection`; off by default).
+    lockedSelection: true,
     zoomLevel: 1,
     hits: {},
     rooms: [{ id: 'R1' }, { id: 'R2' }],
@@ -151,4 +153,24 @@ it('the double-click still opens what the press hit', async () => {
     ['column', 'C1'],
     ['wall', 'W9'],
   ]);
+});
+
+// The option off, its default (decided 2026-11-26): `FormRenderer`'s `buildingPlanLockedSelection`
+// false gives the old behaviour: a click selects nothing, an issue's selection isn't kept, the
+// double-click still opens.
+it('with picks off, a click selects nothing and an issue is selected as before', async () => {
+  const opened = [];
+  const canvas = lockedCanvas();
+  canvas.lockedSelection = false;
+  canvas.controller.focusDoor = (id) => opened.push(['door', id]);
+  await click(canvas, { door: 'W1:D1' });
+  assert.deepEqual(selected(canvas), { selectedWallId: 'W1' });
+  canvas.pendingFocus?.();
+  assert.deepEqual(opened, [['door', 'W1:D1']]);
+  assert.equal(canvas.pickElement({ collection: 'doors', id: 'W1:D1' }), false);
+  assert.deepEqual(selected(canvas), { selectedWallId: 'W1' });
+  canvas.selectElement({ collection: 'wallBeams', id: 'W1:B1' });
+  assert.deepEqual(selected(canvas), { selectedRoomId: 'R1', selectedWallBeamId: 'W1:B1' });
+  canvas.applyHighlight();
+  assert.deepEqual(selected(canvas), { selectedRoomId: 'R1', selectedWallId: 'W1' });
 });

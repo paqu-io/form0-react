@@ -63,6 +63,8 @@ function capturePlan(controller, read) {
  * @param {object} options.toolbarState
  * @param {boolean} options.derivedCommands
  * @param {boolean} options.locked
+ * @param {boolean} [options.lockedSelection] true: a click selects on a locked canvas
+ *   (`canvas-selection.js`; an option, off by default)
  * @param {Record<string, { current: any }>} options.refs repeatableRef, repeatableApiRef,
  *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef,
  *   layersRef (the Show menu's layers, step 2)
@@ -82,6 +84,7 @@ export function mountPlanCanvas({
   toolbarState,
   derivedCommands,
   locked,
+  lockedSelection = false,
   refs,
   on,
 }) {
@@ -127,8 +130,13 @@ export function mountPlanCanvas({
           readRecord: () => ({ values: {}, repeatable: repeatableRef.current }),
           writeRecord: (record, command) =>
             repeatableApiRef.current.writeBuildingPlan?.(record, command) ?? false,
-          // A double-click: on a Floor canvas or the plan page, rooms only (2026-11-22).
-          focusRow: (path) => repeatableApiRef.current.focusRow?.(doubleClickTarget(path, mode)),
+          // A double-click: on a Floor canvas or the plan page, rooms only (2026-11-22). One the
+          // entry can't open says where it opens (2026-11-26).
+          focusRow: (path) => {
+            const result = repeatableApiRef.current.focusRow?.(doubleClickTarget(path, mode));
+            if (result?.elsewhere)
+              canvas?.showHint?.('plan.status.openElsewhere', result.elsewhere);
+          },
           reportIssues: (issues) => {
             if (canvas) canvas.receiveIssues(issues);
             else earlyIssues = issues;
@@ -183,12 +191,13 @@ export function mountPlanCanvas({
         tabs: entryFloorTabs(tabs, (controller.scope || scope)?.floorId),
         below: below || null,
       }),
-    onStatus: (hintKey, noteKey = null) =>
-      setStatus((current) => ({ ...current, hintKey, noteKey })),
+    onStatus: (hintKey, noteKey = null, hintParams = null) =>
+      setStatus((current) => ({ ...current, hintKey, noteKey, hintParams })),
     onMessages: ({ messages, index, codes }) =>
       setStatus((current) => ({ ...current, messages, index, codes })),
   });
   if (earlyIssues) canvas.receiveIssues(earlyIssues);
+  canvas.lockedSelection = lockedSelection === true;
   canvas.setTheme(resolvePlanTheme(host, planVars));
   canvas.setHighlight(highlightRef.current || null);
   canvas.setFocus(focusRef.current || null);

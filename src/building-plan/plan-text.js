@@ -59,6 +59,8 @@ const TEXT = {
   'plan.status.split': 'Point at a wall and click, or type a distance from its 0 end',
   'plan.status.rejoin': 'Click an editing node to rejoin aligned portions',
   'plan.status.pin': 'Click a wall to pin or unpin it, then go back to Select',
+  // A double-click on what the entry can't open (2026-11-26): where it opens instead.
+  'plan.status.openElsewhere': "{name} belongs to {owner}: open it from {owner}'s entry",
   // While a drag shows lengths (step 3): their unit, and which of them the drag changes.
   'plan.status.lengths.m': 'Lengths in metres · the highlighted ones are changing',
   'plan.status.lengths.ft': 'Lengths in feet · the highlighted ones are changing',

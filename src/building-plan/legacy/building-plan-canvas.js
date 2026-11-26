@@ -57,6 +57,7 @@ import {
   applyMarks,
   lockedPress,
   pickElement,
+  picksOn,
   releaseLockedPress,
   setMarks,
 } from '../canvas-selection.js';
@@ -838,9 +839,12 @@ export class BuildingPlanCanvas {
     if (!this.reportsStatus) return;
     const key = this.statusTextKey();
     const note = this.statusNoteKey();
-    if (`${key}|${note}` === this.statusKey) return;
-    this.statusKey = `${key}|${note}`;
-    if (note) this.onStatus?.(key, note);
+    const params = this.hintOverride ? this.hintParams || null : null;
+    const status = `${key}|${note}|${JSON.stringify(params)}`;
+    if (status === this.statusKey) return;
+    this.statusKey = status;
+    if (params) this.onStatus?.(key, note, params);
+    else if (note) this.onStatus?.(key, note);
     else this.onStatus?.(key);
   }
 
@@ -925,8 +929,8 @@ export class BuildingPlanCanvas {
    * @returns {boolean} false when the canvas doesn't show it
    */
   selectElement(target) {
-    // A locked canvas keeps it as a click's pick (`canvas-selection.js`).
-    if (this.readOnly) return pickElement(this, target);
+    // A locked canvas keeps it as a click's pick (`canvas-selection.js`), unless picks are off.
+    if (picksOn(this)) return pickElement(this, target);
     const field = target && HIGHLIGHT_FIELDS[target.collection];
     const entry = field && (this[target.collection] || []).find((item) => item.id === target.id);
     if (!entry) return false;
@@ -1563,7 +1567,7 @@ export class BuildingPlanCanvas {
 
   /** The front view's click (A2): picks an element, or none (the entry's own again). */
   pickElement(target) {
-    if (this.readOnly) return pickElement(this, target);
+    if (this.readOnly) return picksOn(this) && pickElement(this, target);
     return target ? this.selectElement(target) : false;
   }
 
@@ -3152,9 +3156,13 @@ export class BuildingPlanCanvas {
     ].some((state) => state?.moved);
   }
 
-  /** Shows a hint in the status line (a command waiting for a selection) until the next press. */
-  showHint(key) {
+  /**
+   * Shows a hint in the status line (a command waiting for a selection; a double-click on what the
+   * entry can't open, with its `params`) until the next press.
+   */
+  showHint(key, params = null) {
     this.hintOverride = key;
+    this.hintParams = params;
     this.updateStatusLine();
   }
 

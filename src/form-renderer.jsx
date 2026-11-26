@@ -52,7 +52,7 @@ import {
 import { buildingPlanFieldNote, buildingPlanFieldTag } from './building-plan/field-tag.js';
 import { PLAN_WIDE_WIDTH } from './building-plan/plan-width.js';
 import { BuildingPlanCanvasHost } from './building-plan/canvas-host.jsx';
-import { nextEntryStep } from './building-plan/entry-chain.js';
+import { isElsewhere, nextEntryStep } from './building-plan/entry-chain.js';
 import { DialogPath } from './dialog-path.jsx';
 import { dialogPathParts } from './dialog-path-parts.js';
 import { sameEntryData } from './utils/entry-data.js';
@@ -1257,6 +1257,11 @@ function FormRendererContent({
   buildingPlanPageWidthOverride = null,
   // BuildingPlan geometry engine: the derived core when true (under test until the switch).
   buildingPlanDerivedCommands = false,
+  // OPTION, off by default (decided 2026-11-26): true makes a click select on locked plan canvases
+  // (view-only entries, read-only records) as in a room's entry, Front included; off, a click there
+  // selects nothing, as before (a selectable element looked openable). Code only, no UI; the test
+  // page turns it on with `&lockedSelection=on`. See `building-plan/canvas-selection.js`.
+  buildingPlanLockedSelection = false,
   ...rest
 }) {
   // Automatic names of new plan rows (Room 1, Door 1) follow the renderer's language.
@@ -1894,6 +1899,7 @@ function FormRendererContent({
           buildingPlan,
           buildingPlanMeta,
           buildingPlanDerivedCommands,
+          buildingPlanLockedSelection,
           layoutOverrides: buildModalLayoutOverrides(repeatableKey),
         },
       ]);
@@ -1902,6 +1908,7 @@ function FormRendererContent({
       buildModalLayoutOverrides,
       buildingPlanMeta,
       buildingPlanDerivedCommands,
+      buildingPlanLockedSelection,
       buildingPlanLocale,
       formRepeatableController,
       repeatableMetadata,
@@ -4446,6 +4453,7 @@ function FormRendererContent({
         onRemoveFloor={handleRemoveFloor}
         readOnly={isReadOnlyMode}
         derivedCommands={buildingPlanDerivedCommands}
+        lockedSelection={buildingPlanLockedSelection}
       />
     );
   }
@@ -5286,9 +5294,21 @@ function RepeatableEntryModal({
               rows.push(row);
               return { key: part.key, id: row.id };
             });
-            // Only this entry's own rows open from its canvas (not a wall of another room).
+            // Only this entry's own rows open from its canvas (not a wall of another room); one
+            // outside its reach says where it opens (its row's parent, 2026-11-26).
             const step = nextEntryStep(path, idPath);
-            if (!step) return;
+            if (!step) {
+              if (!isElsewhere(path, idPath) || rows.length < 2) return undefined;
+              const title = (depth) =>
+                buildingPlanRowTitle({
+                  metadata: [meta],
+                  repeatableKey: indexPath[depth].key,
+                  row: rows[depth],
+                });
+              return {
+                elsewhere: { name: title(rows.length - 1), owner: title(rows.length - 2) },
+              };
+            }
             const info = entryController.metadata?.byPreferredKey?.get(step.next.key);
             if (!info) return;
             // Every level opens as a real dialog (2026-11-22): the row one level below, which
@@ -5896,9 +5916,12 @@ function RepeatableEntryModal({
       const listed = inEntry ? idPath[context.path.length] : null;
       // The entry's own element marks none of its rows (a click on nothing in a view-only entry;
       // its pick now stays through updates, 2026-11-26, so nothing reselects it on the way).
+      // Without picks a view-only entry selects its element again on every update, which would
+      // drop the row marked on the way: it keeps it, as before.
+      if (inEntry && !listed && modal.buildingPlanLockedSelection !== true) return;
       setPlanMarkedRowId(listed?.key === planListKey ? listed.id : null);
     },
-    [modal.buildingPlan, planListKey]
+    [modal.buildingPlan, modal.buildingPlanLockedSelection, planListKey]
   );
 
   useEffect(() => {
@@ -6826,6 +6849,7 @@ function RepeatableEntryModal({
                     toolbarState={buildingPlanModalController?.toolbarState}
                     readOnly={readOnly}
                     derivedCommands={modal.buildingPlanDerivedCommands === true}
+                    lockedSelection={modal.buildingPlanLockedSelection === true}
                     viewOnly={buildingPlanModalContext.viewOnly === true}
                     highlight={planRowHighlight || buildingPlanModalContext.highlight || null}
                     focus={buildingPlanModalContext.highlight || null}

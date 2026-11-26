@@ -31,6 +31,7 @@ export const NO_STATUS = Object.freeze({
  */
 export function PlanStatus({
   hintKey = null,
+  hintParams = null,
   noteKey = null,
   messages = [],
   index = 0,
@@ -80,7 +81,10 @@ export function PlanStatus({
       <>
         {hintKey &&
           planTextParts(hintKey).map((part, i) =>
-            part.key ? (
+            // A placeholder the hint fills is text (a name); the others are key caps.
+            part.key && hintParams?.[part.key] != null ? (
+              <React.Fragment key={i}>{String(hintParams[part.key])}</React.Fragment>
+            ) : part.key ? (
               <kbd key={i} className={styles.kbd}>
                 {caps[part.key] || part.key}
               </kbd>

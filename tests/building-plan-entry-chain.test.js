@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { it } from 'vitest';
-import { doubleClickTarget, nextEntryStep } from '../src/building-plan/entry-chain.js';
+import { doubleClickTarget, isElsewhere, nextEntryStep } from '../src/building-plan/entry-chain.js';
 import { BuildingPlanCanvas } from '../src/building-plan/legacy/building-plan-canvas.js';
 
 // Opening entries by double-click (decided 2026-11-22).
@@ -115,4 +115,23 @@ it('a press on a locked canvas (a view-only entry, a read-only record) records t
   await canvas.handleMouseDown({ x: 10, y: 10, button: 0 });
   canvas.pendingFocus?.();
   assert.deepEqual(opened, [['door', 'D1']]);
+});
+
+// A double-click on what the entry can't open says where it opens (decided 2026-11-26): outside
+// the entry's reach is neither the entry, a parent of it, nor below it.
+it("tells a row outside an entry's reach from the entry, its parents and its rows", () => {
+  const floor = { key: 'floors', id: 'F' };
+  const room = { key: 'rooms', id: 'R1' };
+  const wall = [floor, room, { repeatableKey: 'walls', instanceId: 'W1' }];
+  const own = [floor, room, { key: 'walls', id: 'W1' }];
+  assert.equal(isElsewhere(wall, own), false, 'the entry');
+  assert.equal(isElsewhere(wall, [floor, room]), false, 'its room');
+  assert.equal(isElsewhere(wall, [...own, { key: 'doors', id: 'D1' }]), false, 'its door');
+  assert.equal(isElsewhere(wall, [floor, room, { key: 'columns', id: 'C1' }]), true, 'a column');
+  assert.equal(
+    isElsewhere(wall, [floor, room, { key: 'walls', id: 'W3' }, { key: 'doors', id: 'D2' }]),
+    true,
+    "another wall's door"
+  );
+  assert.equal(isElsewhere(wall, [floor, { key: 'rooms', id: 'R2' }]), true, 'another room');
 });

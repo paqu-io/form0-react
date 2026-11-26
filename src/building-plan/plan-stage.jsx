@@ -62,7 +62,9 @@ export function PlanStage({
       </div>
       <PlanStatus
         hintKey={status.hintKey}
-        noteKey={view ? lengthsNote : status.noteKey}
+        hintParams={status.hintParams}
+        // A hint naming elements stands alone, as the canvas drops its note under a hint.
+        noteKey={view && !status.hintParams ? lengthsNote : status.noteKey}
         messages={status.messages}
         index={status.index}
         codes={status.codes}

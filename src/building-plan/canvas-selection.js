@@ -4,7 +4,14 @@
  * view-only entry, a read-only record), the element a click picked (`pick`, decided 2026-11-26):
  * a click selects there as in a room's entry, nothing moving; a click on nothing goes back to the
  * entry's own element; a hovered list row replaces the pick; data refreshes keep it.
+ *
+ * OPTION, off by default (decided 2026-11-26): only with `lockedSelection` true, from
+ * `FormRenderer`'s `buildingPlanLockedSelection`; off, a locked canvas selects nothing by a click,
+ * as before (a selectable element looked openable, though an entry opens only its own rows).
  */
+
+/** Whether the canvas picks: locked, and the host turned picks on. */
+export const picksOn = (canvas) => Boolean(canvas.readOnly) && canvas.lockedSelection === true;
 
 /** The canvas's selection field per collection. */
 export const HIGHLIGHT_FIELDS = Object.freeze({
@@ -80,6 +87,7 @@ export function releaseLockedPress(canvas, point) {
   const pressed = canvas.lockedTarget;
   const from = canvas.pressPoint;
   canvas.lockedTarget = null;
+  if (!picksOn(canvas)) return;
   const zoom = canvas.zoomLevel || 1;
   if (from && point && Math.hypot(point.x - from.x, point.y - from.y) * zoom > PRESS_SLOP) return;
   pickElement(canvas, pressed);

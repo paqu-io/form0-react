@@ -41,7 +41,10 @@ async function listRows(label) {
 }
 const answer = (value) => ({ choice: [{ value, label: value }], other: [] });
 
-/** A Bedroom with the floor's lintel band at 1.9 m and a window up to 2.1 m on W1. */
+/**
+ * A Bedroom with the floor's lintel band at 1.9 m, a window up to 2.1 m on W1 and a column against
+ * W1.
+ */
 function fixture() {
   const schema = {
     form: {
@@ -101,6 +104,14 @@ function fixture() {
     sillHeight: 0.9,
     values: { window_label: 'Window A' },
   });
+  // A column of the room against W1, right of the window.
+  session.apply({
+    type: 'create_element',
+    floorId,
+    roomId: session.getSnapshot().floors[0].rooms[0].id,
+    collection: 'columns',
+    element: { position: { x: 4.4, y: 0.15 }, width: 0.3, height: 0.3 },
+  });
   const record = writeBuildingPlanRecord({ meta, plan: session.getSnapshot() });
   return { schema, snapshot: { raw_values: {}, repeatable: record.repeatable } };
 }
@@ -120,6 +131,7 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
       mode="edit"
       repeatableEntryMode="edit"
       buildingPlanDerivedCommands
+      buildingPlanLockedSelection
       engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
     />
   );
@@ -202,4 +214,64 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
   fireEvent.doubleClick(again.querySelector('[data-name="Lintel band"] rect'));
   await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(4));
   await dialog().findByLabelText(/Underside from floor/);
+});
+
+/** W1's entry, through the floor's and the Bedroom's, Front shown. */
+async function frontOfW1(props = {}) {
+  const f = fixture();
+  render(
+    <FormRenderer
+      schema={f.schema}
+      initialSnapshot={f.snapshot}
+      mode="edit"
+      repeatableEntryMode="edit"
+      buildingPlanDerivedCommands
+      engineOptions={{ events: { recordKind: 'existing' }, diagnostics: { console: false } }}
+      {...props}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'View', exact: true }));
+  fireEvent.click((await listRows('Floors'))[0]);
+  const section = (label) =>
+    screen.getAllByText(label, { exact: true }).at(-1).parentElement.parentElement;
+  const open = async (label, row = () => true) => {
+    await waitFor(() =>
+      expect(screen.getAllByText(label, { exact: true }).length).toBeGreaterThan(0)
+    );
+    fireEvent.click(within(section(label)).getByRole('button', { name: 'View', exact: true }));
+    fireEvent.click((await listRows(label)).find(row));
+  };
+  await open('Rooms');
+  await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+  await open('Walls', (button) => /^W1\b/.test(button.textContent));
+  await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
+  const entry = within(screen.getAllByRole('dialog').at(-1));
+  const front = views(entry).getByRole('button', { name: 'Front' });
+  await waitFor(() => expect(front.disabled).toBe(false));
+  fireEvent.click(front);
+  const svg = await entry.findByRole('img', { name: 'Front view of W1' });
+  return { entry, svg };
+}
+
+// A double-click on what the entry can't open says where it opens (decided 2026-11-26): a column
+// is the room's row, so W1's entry opens nothing and its status line names the room.
+it("a double-click on the room's column in a wall's entry says where it opens", async () => {
+  const { entry, svg } = await frontOfW1();
+  fireEvent.doubleClick(svg.querySelector('[data-name="C#1"] rect'));
+  const lines = () => entry.getAllByRole('status').map((line) => line.textContent);
+  await waitFor(() =>
+    expect(lines()).toContain("C#1 belongs to Bedroom: open it from Bedroom's entry")
+  );
+  expect(screen.getAllByRole('dialog')).toHaveLength(3);
+});
+
+// The option, off by default (decided 2026-11-26): without `buildingPlanLockedSelection` a click
+// selects nothing on a locked canvas, Front's included; the double-click opens as before.
+it('by default (the option off) a click in Front selects nothing; a double-click opens', async () => {
+  const { svg } = await frontOfW1();
+  fireEvent.click(svg.querySelector('[data-name="Window A"] rect'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(svg.querySelector('[data-selected]')).toBeNull();
+  fireEvent.doubleClick(svg.querySelector('[data-name="Lintel band"] rect'));
+  await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(4));
 });

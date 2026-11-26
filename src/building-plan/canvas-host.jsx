@@ -52,6 +52,8 @@ export function BuildingPlanCanvasHost({
   findingScope = null,
   // Refusals of values typed in the entry's form, shown in the status line (wall beams, 2026-11-24).
   issues = null,
+  // True: a click selects on a locked canvas (`canvas-selection.js`; an option, off by default).
+  lockedSelection = false,
 }) {
   const onSelectRef = useRef(onSelectElement);
   onSelectRef.current = onSelectElement;
@@ -136,6 +138,7 @@ export function BuildingPlanCanvasHost({
       toolbarState,
       derivedCommands,
       locked,
+      lockedSelection,
       refs: {
         repeatableRef,
         repeatableApiRef,
