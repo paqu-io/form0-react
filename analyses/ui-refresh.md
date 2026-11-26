@@ -2675,3 +2675,15 @@ nothing. Core 840 of 840, web 515 of 522 (known failures and flake). Details in
 
 Committed: core `f3db85a`, web `2ac3680`, `413c562`, `6dcbb7d`. To decide: the grab cursor looks
 coarser than the pointing hand.
+
+### A3: Front in a room's entry (2026-11-26, hand-tested, committed)
+
+Front in a room's entry: it opens on the selected wall or the Walls list's first, the wall line's
+arrows and Alt+Shift+←/→ step through the list's rows ("W2 · 2 of 5", round), each wall selected
+on the plan, the zoom kept; a click on a wall on the mini-map shows it; the tool rail disabled
+("Switch to Plan to edit"), Select back; Front's own status hint. Core (A3a) `rows` and `map.rows`;
+web (A3b) `use-front-view.js`, the wall line, the map's targets, the rail's hint. Core 842 of 842,
+web 516 of 523 (known failures and flake). Details in `building-plan-ui.md`.
+
+Committed: core `7bf48db`, web `65c0e9b`. G1 chosen for the grab cursor. Raised: a double-click
+in Front opening on Front, stepping in a geometric order, the Walls list's hover on the mini-map.

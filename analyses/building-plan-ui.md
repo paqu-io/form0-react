@@ -4673,6 +4673,76 @@ Hand-tested and committed (2026-11-26): core `f3db85a` and web `2ac3680` (the si
 `413c562` (View only), web `6dcbb7d` (cursors). Asked in the hand test: why the pointing hand looks
 more refined than the grab hand, and whether the grab can be improved (to decide).
 
+### A3: Front in a room's entry (2026-11-26, hand-tested, committed)
+
+Decided (2026-11-26, the proposal accepted as it stood):
+
+1. Front opens on the wall selected on the plan if it is the room's, else the Walls list's first
+   row.
+2. The wall line's arrows and Alt+Shift+←/→ step through the list's rows, free walls included,
+   "W2 · 2 of 5", round from the last to the first; the keys only in the top dialog; in wall and
+   element entries "1 of 1", the arrows disabled.
+3. Showing a wall selects it on the plan (its Walls row marked), as a click there does; a click in
+   Front selects as on the plan, a double-click opens.
+4. The zoom kept while stepping, the view re-centred.
+5. The mini-map in a room's entry: a click on a wall's face shows it, a hovered one lit, the
+   pointing hand; display only elsewhere.
+6. Front brings back the Select tool; the rail stays, disabled, its tooltip "Switch to Plan to
+   edit" (so Split's bar goes); Undo and Redo stay.
+7. The switch's tooltip where Front isn't there: "Front: open a room's or a wall's entry".
+
+Found on the page and added: Front's status line kept the Select tool's hint ("Drag a corner to
+reshape…") in a room's entry. It now has its own: "Double-click an element to open it · Alt Shift
+←/→ next wall" (wall entries keep "Double-click an element to open it · Shift-drag pans"). A first
+version with "· Shift-drag pans" wrapped to two lines in the entry's panel and reached the mini-map;
+the zoom pill's tooltip says how to pan.
+
+*A3a, core.* `front-view-refs.js`: `rows`, the room's wall rows in its Walls list's order (the
+snapshot's walls by `index`, free walls included), each `{ faceId, label, ref }`.
+`front-view.js`: every row's strip once (for the fit and the map); `front-view-map.js`:
+`map.rows`, each row's face as its own view's `shown`. Tests: `building-plan-front-view-rows.
+test.js` (new, 2: every row's face on the map as its own view shows it, W2 from its top end; the
+controller's rows in list order with a free wall, their refs and paths, the same from any row,
+Room 2's its own; failing before), the invariants (every row on the map, the shown one equal to
+`shown`), the controller test (`rows` dropped with the refs). Core 842 of 842.
+
+*A3b, web.* `use-front-view.js`: a room's entry (no `focus`, or the room in a read-only record;
+its room from the canvas's `scope`) steps: the start, `step`, `show` (re-centred, zoom kept, the
+wall selected through `selectElement`), `position`, Alt+Shift+←/→ (`ownsPlanKeyboard`), a row
+gone back to the first. `front-view.jsx` (the wall line's arrows), `front-map.js` (`rows` in
+px), `front-map-svg.jsx` (a wide target per row in a room's entry, `data-label`),
+`front-view.css.js` (`mapRow`: the accent at 30% when hovered), `plan-stage.jsx` (`position`,
+`step`, `show`; Front's hint), `canvas-host.jsx` (the hook's options, the rail disabled in Front
+with its hint, `onEnter` back to Select), `toolbar/building-plan-toolbar.jsx` (`disabledHint` on
+the rail, its disabled buttons letting the pointer through, `toolbar.css.js`), `plan-text.js`
+(`plan.view.frontUnavailable`, `plan.view.toolsInFront`, `plan.status.frontSteps`). The A2 form
+fixture moved to `tests/building-plan-front-fixture.js`. Tests: `building-plan-front-room.test.jsx`
+(new: Front in the Bedroom's entry "W1 · 1 of 4", the rail disabled with its tooltip, Front's hint;
+the arrows round, each wall's Walls row marked; Alt+Shift+←/→; a click on W4 on the map; back on
+Plan the tools, Front again on W4; failing with HEAD's `use-front-view.js`),
+`building-plan-front-view.test.jsx` (the switch on in a room's entry, its new tooltip),
+`building-plan-front-map.test.js` (the rows in px). Web 516 of 523 (the 6 known worker failures,
+the known flaky "keeps numeric setters numeric", passing alone).
+
+Headless on the test page (`state-a2-structure.json`, light and dark): the Bedroom's entry with
+Split on, Front: Select back, the rail disabled with its tooltip, "W1 · 1 of 5", Front's hint on
+one line; Next "W2 · 2 of 5", Alt+Shift+→ W3, three ← round to "W4 · 5 of 5"; W3.2 on the map lit
+when hovered, the pointing hand, a click "W3.2 · 4 of 5"; Plan: the tools back, W3.2 selected. No
+page errors.
+
+Pending from before: the grab cursor (G1 own SVG cursors, G2 `move`, G3 as it is), to decide.
+
+Hand-tested and committed (2026-11-26): core `7bf48db` (A3a), web `65c0e9b` (A3b). The grab
+cursor: G1 chosen. Raised in the hand test:
+
+- A double-click on a wall in a room's Front opens its entry on Plan; decided before (with A3 and
+  A4): an entry opened by double-click, and every dialog on the way, opens on the view
+  double-clicked in.
+- Stepping follows the Walls list's order, which is the order rows were made in: a new free wall
+  or a jog's new rows go at the end, so the clockwise order of the example is lost. Asked: step in
+  a geometric order.
+- Hovering a row of the Walls list (in a room's entry) could light that wall on the mini-map.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
