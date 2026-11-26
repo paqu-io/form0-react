@@ -4922,6 +4922,57 @@ with the note above the wall, the chains 3.00 and 5.00.
 Hand-tested (2026-11-26, "everything works very well") and committed: web `dbf2cdd`. A closes
 with it (A1 to A4), and with A the wall beams and bands round.
 
+### The header path ends where the dialog is (2026-11-26, hand-tested, committed)
+
+Raised by the user after A4 (2026-11-26): the header path felt lost. Checked on the page: a row's
+page and its parent's list of the same kind read the same ("Floors › Ground floor › Rooms ›
+Bedroom › Walls" on the Bedroom's Walls list and on W1's page; "… › W1 › Windows" on W1's Windows
+list and on W#1's page), told apart only by the buttons (Back and Add or Cancel and Save) and the
+row's title under the header; the EDITING badge followed the list.
+
+Decided (2026-11-26), for every RepeatableSection dialog (the user's call: general behaviour):
+
+1. The path ends where the dialog is: on a row's page its list then "this entry" ("… › Walls ›
+   this entry"; the user chose "this entry" over the row's name, which the title under the header
+   already shows, and asked for it set apart: italic); on one of its lists, its row and that list
+   as before. The list's part steps up as the other parts do (to the list, as Cancel would).
+2. First-level dialogs too: "Floors › this entry" (was "Floors").
+3. Narrow: the middle collapses as before ("Floors › … › Windows › this entry"), then to the last
+   two ("… › Windows › this entry"; was the last only).
+4. The title under the header stays.
+5. Rows in the title's colour, lists muted, so the path reads as list and row pairs.
+6. The "…" opens a menu of the parts it hides (asked by the user; it was inert text): in order,
+   lists and rows as in the path; picking one steps up to it as pressing that part does; the first
+   item focused, arrows, Home and End round; Esc closes it and goes no further (the dialog stays
+   open), as a press elsewhere, Tab or a resize does; marked as an open dropdown while open.
+
+Found on the page and fixed: a window narrowed while the whole path fitted didn't collapse it (the
+resize set the level to 0, which it already was, so React skipped the render and nothing measured
+until something else drew the dialog); the resize now measures again.
+
+Web (general form, not plan code): `dialog-path-parts.js` (`THIS_ENTRY`, each part's `kind`, the
+entry's `name`, `pathTitle`, the second collapse), `dialog-path.jsx` (kinds, "this entry" styled,
+the tooltip from `pathTitle` with the row's name, the "…" menu, the re-measure), `dialog-path-
+menu.jsx` (new), `dialog-path.css.js` (`root`, `row`, `entry`, `more`, `menu`, `menuItem`).
+`form-renderer.jsx` untouched. Mobile has its own headers: with step 5.
+
+Tests: `dialog-path.test.jsx` (the parts with "this entry" and kinds, the tooltip with the row's
+name, the collapses; a first-level dialog "rows › this entry", a nested one "rows › rows 1 ›
+children › this entry"; failing with HEAD's `dialog-path-parts.js`), `dialog-path-menu.test.jsx`
+(new, 4, widths stubbed: the "…" menu's items, kinds, focus and keys, a pick stepping up; Esc going
+no further, a press elsewhere; inert without steps up; a fitted path collapsing when its box
+narrows; failing with HEAD's `dialog-path.jsx`, the last one also before the re-measure),
+`building-plan-editor.test.jsx` (the wall's path). Web 534 of 540 (the 6 known worker failures).
+
+Headless on the test page (`state-a2-structure.json`, no page errors): the Floor "Floors › this
+entry"; the Bedroom "Floors › Ground floor › Rooms › this entry", its Walls list "… › Bedroom ›
+Walls"; W1 "… › Walls › this entry", its Windows list "… › W1 › Windows"; W#1 "… › W1 › Windows ›
+this entry" (italic 600), lists muted, rows dark, the tooltip ending "W#1"; narrowed to 760 px:
+"Floors › … › Windows › this entry", the "…" menu Ground floor, Rooms, Bedroom, Walls, W1 over the
+canvas; Esc closes it (4 dialogs stay); Bedroom lands on the Bedroom's page.
+
+Hand-tested (2026-11-26, "it works well") and committed: web `512db4d`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

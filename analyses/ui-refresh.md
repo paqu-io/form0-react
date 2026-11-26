@@ -2719,3 +2719,13 @@ Front; one Front can't draw (no height) is said above the wall. Web only (`use-f
 failures), core unchanged (846). Details in `building-plan-ui.md`.
 
 Committed: web `dbf2cdd`. A (the front view) is done, and with it the wall beams and bands round.
+
+### The header path ends where the dialog is (2026-11-26, hand-tested, committed)
+
+Every RepeatableSection dialog's header path now ends where the dialog is: on a row's page its
+list then "this entry" (italic; the row's name stays the title under the header), on one of its
+lists that list, so a row's page and its parent's list no longer read the same; first-level
+dialogs too ("Floors › this entry"); rows in the title's colour, lists muted; narrow paths
+collapse to the last two; the "…" opens a menu of the hidden parts that step up as the parts do.
+Fixed on the way: a window narrowed while the path fitted didn't collapse it. Web 534 of 540 (the
+6 known worker failures). Details in `building-plan-ui.md`. Committed: web `512db4d`.
