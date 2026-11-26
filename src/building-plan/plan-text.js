@@ -21,7 +21,10 @@ const TEXT = {
   'plan.front.heightUnknown': 'Height unknown',
   // The mini-map in Front (2026-11-26).
   'plan.front.map': 'Where {wall} is seen from',
+  // A canvas that edits nothing, said first in its status line (2026-11-26): an element's entry,
+  // or a read-only record.
   'plan.viewOnly': 'View only',
+  'plan.readOnly': 'Read only',
   'plan.floor.add': 'Add floor',
   'plan.floor.none': 'No floors yet',
   'plan.floor.tabs': 'Floors',

@@ -248,7 +248,6 @@ export function BuildingPlanCanvasHost({
               ? repeatableApi.addFloor
               : null
           }
-          viewOnly={viewOnly}
           layers={layers}
           onLayer={setLayer}
           inEntry={Boolean(scope.roomId)}
@@ -286,6 +285,7 @@ export function BuildingPlanCanvasHost({
           presentation={presentation}
           selection={selected}
           markers={planIssues.markers}
+          access={readOnly ? 'read' : viewOnly ? 'view' : null}
         />
       </div>
       <PlanTooltip hostRef={hostRef} />

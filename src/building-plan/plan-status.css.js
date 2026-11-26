@@ -39,6 +39,22 @@ export const icon = style({ flex: 'none' });
 
 export const text = style({ minWidth: 0, overflowWrap: 'anywhere' });
 
+// "View only" / "Read only" first in the line: a chip in the text colour, so it isn't lost in
+// the muted hint.
+export const access = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  marginRight: '7px',
+  padding: '1px 6px',
+  borderRadius: '5px',
+  background: derived.fillHover,
+  color: vars.color.foreground,
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  verticalAlign: 'bottom',
+});
+
 const button = {
   flex: 'none',
   display: 'inline-flex',

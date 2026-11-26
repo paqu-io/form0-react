@@ -21,7 +21,9 @@ import { FRONT_ZOOM } from './front/front-camera.js';
  *   presentation: object,
  *   selection: { collection: string, id: string } | null,
  *   markers: Array<Array<{ key: string, index: number }>>,
- * }} props `zoomLevel`, `tools`: the plan's zoom and the zoom pill's handlers for it
+ *   access?: 'view' | 'read' | null,
+ * }} props `zoomLevel`, `tools`: the plan's zoom and the zoom pill's handlers for it; `access`:
+ *   a canvas that edits nothing, said first in the status line
  */
 export function PlanStage({
   containerRef,
@@ -34,6 +36,7 @@ export function PlanStage({
   presentation,
   selection,
   markers,
+  access = null,
 }) {
   const format = useCallback((metres) => formatLength(metres, presentation), [presentation]);
   const view = front.view;
@@ -61,6 +64,7 @@ export function PlanStage({
         )}
       </div>
       <PlanStatus
+        access={access}
         hintKey={status.hintKey}
         hintParams={status.hintParams}
         // A hint naming elements stands alone, as the canvas drops its note under a hint.

@@ -18,7 +18,6 @@ import * as styles from './floor-tabs.css.js';
  *   onSelect: (index: number) => void,
  *   onAdd?: (() => void) | null,
  *   history?: { canUndo: boolean, canRedo: boolean, onUndo: () => void, onRedo: () => void } | null,
- *   viewOnly?: boolean,
  *   issues?: React.ReactNode,
  *   layers?: typeof DEFAULT_PLAN_LAYERS,
  *   onLayer?: ((key: string, on: boolean) => void) | null,
@@ -34,7 +33,6 @@ export function FloorTabs({
   onSelect,
   onAdd = null,
   history = null,
-  viewOnly = false,
   issues = null,
   layers = DEFAULT_PLAN_LAYERS,
   onLayer = null,
@@ -114,10 +112,9 @@ export function FloorTabs({
       {belowShown && (
         <span className={styles.below}>{planText('plan.floor.below', { floor: below })}</span>
       )}
-      {(viewSwitch || viewOnly || issues || show || history) && (
+      {(viewSwitch || issues || show || history) && (
         <div className={styles.end}>
           {viewSwitch}
-          {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
           {issues}
           {show && <PlanShowMenu items={layerItems} onToggle={onLayer} disabledHint={showHint} />}
           {history && (

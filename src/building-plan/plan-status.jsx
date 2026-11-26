@@ -1,5 +1,5 @@
 import React from 'react';
-import { CircleAlert, X } from 'lucide-react';
+import { CircleAlert, Lock, X } from 'lucide-react';
 import { planText, planTextParts } from './plan-text.js';
 import { isMacPlatform } from './plan-shortcuts.js';
 import * as styles from './plan-status.css.js';
@@ -18,8 +18,10 @@ export const NO_STATUS = Object.freeze({
  * refused an edit, why. A refusal is red, with "1 of 2" to step through several messages and ×
  * to dismiss them; the canvas draws its ghost and outline meanwhile. One live region throughout,
  * so a screen reader hears each change. A note follows the hint (step 2: the room's lengths'
- * unit, or that they show when zoomed in).
+ * unit, or that they show when zoomed in). A canvas that edits nothing says so first, "View
+ * only" or "Read only" (2026-11-26, in place of the floor row's badge).
  * @param {{
+ *   access?: 'view' | 'read' | null,
  *   hintKey?: string | null,
  *   noteKey?: string | null,
  *   messages?: string[],
@@ -30,6 +32,7 @@ export const NO_STATUS = Object.freeze({
  * }} props
  */
 export function PlanStatus({
+  access = null,
   hintKey = null,
   hintParams = null,
   noteKey = null,
@@ -100,9 +103,15 @@ export function PlanStatus({
     <div
       role="status"
       className={`${styles.line} ${refused ? styles.refusal : ''}`}
-      hidden={!content}
+      hidden={!content && !access}
       data-codes={refused && codes.length ? codes.join(' ') : undefined}
     >
+      {access && (
+        <span className={styles.access}>
+          <Lock size={12} strokeWidth={2.5} aria-hidden="true" />
+          {planText(access === 'read' ? 'plan.readOnly' : 'plan.viewOnly')}
+        </span>
+      )}
       {content}
     </div>
   );

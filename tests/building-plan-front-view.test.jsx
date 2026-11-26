@@ -176,6 +176,14 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
   expect(entry.getByText('W1', { selector: 'span' }).parentElement.textContent).toBe('W1 · 1 of 1');
   expect(entry.getByRole('button', { name: 'Previous wall' }).disabled).toBe(true);
   expect(entry.getByRole('button', { name: 'Next wall' }).disabled).toBe(true);
+  // View only: said first in the status line, no badge in the floor row (2026-11-26).
+  const statusLine = entry
+    .getAllByRole('status')
+    .find((line) => /View only/.test(line.textContent));
+  expect(statusLine.textContent).toMatch(/^View onlyDouble-click an element to open it/);
+  expect(entry.getByRole('group', { name: 'View' }).parentElement.textContent).not.toMatch(
+    /View only/
+  );
   // The mini-map (2026-11-26): the Bedroom's walls, W1 from its 0 end (its left, the plan's
   // left), the ring there, the cone it is seen from.
   const map = entry.getByRole('img', { name: 'Where W1 is seen from' });
@@ -271,8 +279,9 @@ it("a double-click on the room's column in a wall's entry says where it opens", 
   const { entry, svg } = await frontOfW1();
   fireEvent.doubleClick(svg.querySelector('[data-name="C#1"] rect'));
   const lines = () => entry.getAllByRole('status').map((line) => line.textContent);
+  // After "View only", which a wall's entry says first (2026-11-26).
   await waitFor(() =>
-    expect(lines()).toContain("C#1 belongs to Bedroom: open it from Bedroom's entry")
+    expect(lines()).toContain("View onlyC#1 belongs to Bedroom: open it from Bedroom's entry")
   );
   expect(screen.getAllByRole('dialog')).toHaveLength(3);
 });
