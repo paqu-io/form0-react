@@ -4743,6 +4743,110 @@ cursor: G1 chosen. Raised in the hand test:
   a geometric order.
 - Hovering a row of the Walls list (in a room's entry) could light that wall on the mini-map.
 
+### After A3: stepping order, a double-click opening on Front, the Walls hover, G1 (2026-11-26, hand-tested)
+
+Decided after A3's hand test (2026-11-26):
+
+- *Stepping order*: around the room, clockwise on the plan, from the Walls list's first wall, each
+  outline row where it starts (a row on several sides at its first part); free walls after, in
+  the list's order (asked: the list's order is the order rows were made in, so a jog's new rows
+  and new free walls came last). Only Front's stepping: the Walls list and the record keep their
+  order (Reform reads it).
+- *A double-click opens on the view it came from* (decided with A3 and A4, done now): an entry
+  opened by a double-click in Front, and every dialog opened on the way, opens on Front where it
+  has it (wall entries now; doors, windows, beams and bands with A4). One opened from a list keeps
+  its default.
+- *The Walls list's hover on the mini-map*: a hovered Walls row lights its wall on the map, as a
+  hovered target.
+- *G1, our own grab hands*: lucide's `hand` and `hand-grab`, white with a dark outline and a white
+  halo, 24 px at 1× and 2× (`image-set`), the browser's own as the fallback.
+
+*Stepping order, core.* `front-view.js`: `around`, the outline rows clockwise on the plan
+(reversed when the outline's area is negative), each once. `front-view-refs.js`: `rows` from the
+list's first outline row around, then the free walls. Tests: `building-plan-front-view-rows.
+test.js` (W3.2 dragged down: W8.1 stepped after W3, list indices 0 1 2 5 3 4; a room drawn
+counter-clockwise steps left, top, right, bottom; failing before), the invariants (`around` holds
+every outline row once). Core 844 of 844. The web steps through `view.rows` unchanged.
+
+*Opening on Front.* `plan-stage.jsx` (`openFromFront`: the canvas marks `openingFrom` while
+Front's double-click runs), `canvas-host-mount.js` (`focusRow` passes `{ view }`),
+`form-renderer.jsx` (wiring: the entry's `focusRow` takes `view` and gives the dialog
+`buildingPlanView`; the chained call passes it on; the host's `initialView`), `canvas-host.jsx`
+(`initialView`), `use-front-view.js` (on Front at once where available). Test:
+`building-plan-front-room.test.jsx` (a double-click on W4 in the room's Front opens W4's entry on
+Front, "1 of 1"; failing with HEAD's `plan-stage.jsx`).
+
+*Walls hover on the map.* `use-front-view.js` (`lit`, from the host's `highlight`, a hovered list
+row's), `plan-stage.jsx`, `front-view.jsx`, `front-map-svg.jsx` (the lit row drawn as a hovered
+target), `front-view.css.js` (`mapLit`). Test: the room test (W3's row hovered lights the map,
+left it doesn't; failing with HEAD's `front-map-svg.jsx`).
+
+*G1.* `cursor-images.js` (new: `cursorSvg`, `customCursor`, `cursorStyle`; the names
+`hoverCursor` and `dragCursor` give are kept), the legacy canvas sets `cursorStyle(…)` (hover,
+drag, pan), Front's pan too (`front-view.jsx`). Test: `building-plan-cursor-images.test.js` (new:
+`image-set` at 1× and 2× with its hotspot and the browser's hand after it; the fallbacks; the
+SVG; other cursors unchanged).
+
+Web 520 of 526 (the 6 known worker failures). Headless on the test page
+(`state-a2-structure.json`): the Floor entry's canvas over the Bedroom has our `image-set` cursor
+(computed as set), its images loading at 24 and 48 px; Front's Shift-drag pan ours too; in the
+Bedroom's entry with its Walls list and Front, W3's row hovered lights W3 on the map, off when
+left; a double-click on W1's face in Front opens W1's entry on Front; one on its window opens W1's
+entry (on the way) on Front and the window's on Plan (no Front for windows until A4). No page
+errors.
+
+Hand-tested (2026-11-26, "everything works"): committed core `a46f961` (stepping order), web
+`5a51299` (opening on Front and the Walls hover). G1 "way better" but its outline too heavy
+beside the arrow and the pointing hand: thinned, below, not committed yet. Raised: a free wall
+meeting a room wall isn't in that wall's Front.
+
+### G1 thinner; free walls in Front (2026-11-26, hand-tested, committed)
+
+*G1 thinner.* `cursor-images.js`: no white halo; the palm and fingers filled white from inside
+(the palm's shape and a 4-wide line down each finger), the outline 1.1 of the icon's 26 units
+(about 1 px at 24 px), as the system's arrow and pointing hand. Checked rendered beside a
+system-style arrow on white, a wall's grey and the dark ground. Test:
+`building-plan-cursor-images.test.js` (the fill, the 1.1 outline, no halo).
+
+*Free walls in Front*, as columns (taken as the default, to confirm in the hand test): a free wall
+of the room whose body touches the shown side's face (meeting it, set into it) is drawn floor to
+its height (unknown: its wall's drawn height, the top dashed), in the walls' own tone, named at its
+top when it fits, its edges in the bottom chain, no heights added; faded against the side's other
+row; a click selects it, a double-click opens its entry (on Front, from a room's Front) or says
+where it opens (from a wall's entry: "W9 belongs to Bedroom: open it from Bedroom's entry").
+
+Core: `front-view-structure.js` `frontViewFreeWalls` (the room's free walls' bodies,
+`freeWallSegmentBodies`, against the strip; `rowId` the free wall's row, `faceId` the row it
+stands against, `endOn`), `front-view.js` (`freeWalls`), `front-view-refs.js` (their canvas
+elements, `walls`). Tests: `building-plan-front-view-free-walls.test.js` (new, 2: W9 meeting W1,
+0.9..1.1 end on, in W1's Front, not W3's, a free wall standing free in none; unknown height to the
+drawn height, its ref through the controller; failing before), the invariants (a new plan, "a free
+wall meeting W1"; free walls inside their row, within the fit, from the floor), the controller test
+(refs dropped). Core 846 of 846. The invariants file is at 300 lines.
+
+Web: `front-shapes.js` (columns' and free walls' boxes from one `upright` maker), `front-svg.jsx`
+(`freeWall`), `front-chains.js` (their edges in the bottom chain), `front-view.jsx` (openable),
+`use-front-view.js` (an issue on one stays in Front), `front-view.css.js` (`freeWall`: the walls'
+face colour). Test: `building-plan-front-free-walls.test.js` (new, 2: to scale, selected, named
+when it fits; faded against the other row, its edges in the bottom chain; failing with HEAD's
+`front-shapes.js` and `front-chains.js`). Web 522 of 528 (the 6 known worker failures).
+
+Headless on the test page (`state-a3-free-wall.json`, new: the bands, W#1 on W1, W9 meeting W1 at
+x 3.5): the Bedroom's Front on W1 shows W9, the bottom chain 1.90 / 1.00 / 0.50 / 0.20 / 1.40; a
+double-click on it opens W9's entry on Front; W1's entry shows it, a double-click says where it
+opens. No page errors.
+
+Hand-tested and committed (2026-11-26): core `68e4aad` and web `e9cab2b` (free walls), web
+`d142a67` (G1). Raised in the hand test, to align on: "+ Add" in a plan list opens the new row's
+entry, while the toolbar's add (a column, a wall) leaves it on the canvas, selected, to move and
+open later. Asked: the same in a room's entry (whose canvas moves elements), Front switching to
+Plan; entering directly where the canvas can't move the element (a wall's entry: its openings,
+beams and bands). Found: the two take different paths ("+ Add": core's `editor.createOperation`,
+then the RepeatableSection's Add opening the row; the toolbar: the canvas controller's element
+create, its values worked out there), so one path would give the same element either way. It
+changes how Add behaves for these lists (decided 2026-11-22: plan RepeatableSections behave as any
+other unless agreed), so it is the user's call; proposed in the chat, before A4.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

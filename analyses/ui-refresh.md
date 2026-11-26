@@ -2687,3 +2687,18 @@ web 516 of 523 (known failures and flake). Details in `building-plan-ui.md`.
 
 Committed: core `7bf48db`, web `65c0e9b`. G1 chosen for the grab cursor. Raised: a double-click
 in Front opening on Front, stepping in a geometric order, the Walls list's hover on the mini-map.
+
+### After A3: stepping order, opening on Front, the Walls hover, G1 (2026-11-26, hand-tested)
+
+Front steps around the room clockwise from the Walls list's first wall, free walls last (core
+`around`, `rows`); an entry opened by a double-click in Front, and every dialog on the way, opens
+on Front where it has it; a hovered Walls row lights its wall on the mini-map; our own grab and
+grabbing hands (`cursor-images.js`, lucide's hands at 1× and 2×). Core 844 of 844, web 520 of
+526 (the 6 known worker failures). Details in `building-plan-ui.md`.
+
+Committed: core `a46f961`, web `5a51299`. G1 thinned after the hand test (a ~1 px outline, no
+halo); free walls meeting the shown wall drawn in Front, as columns (core `frontViewFreeWalls`,
+web `front-shapes.js`); to hand-test. Core 846 of 846, web 522 of 528.
+
+Committed: core `68e4aad`, web `e9cab2b` (free walls in Front), web `d142a67` (G1). Raised: "+ Add"
+in a room's lists should add on the canvas as the toolbar does (to align, before A4).
