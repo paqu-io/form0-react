@@ -4616,6 +4616,63 @@ Hand-tested (2026-11-26, "everything works very well") and committed: core `bf86
 Front shows (W3's map points at W3 only, W3.2 is in view too); the "View only" badge beside Show
 feels out of place: say the canvas is view only on the canvas itself (an overlay or else).
 
+### The side cone, "View only" in the status line, cursors C1 (2026-11-26, hand-tested, committed)
+
+Raised in the mini-map's hand test and decided (2026-11-26): a lighter cone for what Front shows
+beside the row; "View only" said on the canvas, not as a badge beside Show (V1: first in the status
+line, an icon rather than an emoji, visible enough not to be lost; for read-only records too);
+the plan page showed the arrow over rooms although a double-click opens them (asked if intended:
+it followed 3c-1b's "a cursor promises only what a press does", grab meaning drag, which said
+nothing about opening; the user chose C1). Three units, one hand test, separate commits.
+
+*The side cone.* Core `front-view-map.js`: `sideCone`, from the same eye to the ends of what
+Front shows (the side's, unfolded), when the side has other rows; empty for a row that is its whole
+side and for a free wall. Web: `front-map.js` (`sideCone` path), `front-map-svg.jsx` (under the
+row's cone), `front-view.css.js` (`mapSideCone`: the accent at 7%, no outline). Tests:
+`building-plan-front-view-map.test.js` (W3's side cone to x 5 and 0, 2.5 m², none for W1 or a
+free wall), the invariants (on the floor; present exactly when the side has other rows),
+`building-plan-front-map.test.js` (its path). Failing with HEAD's `front-view-map.js` and
+`front-map.js`.
+
+*View only in the status line.* `plan-status.jsx` (`access`: 'view' | 'read'): a chip first in
+the line, lucide's Lock (as the form's read-only fields) and "View only" or "Read only" in the text
+colour on a light fill (`plan-status.css.js` `access`); the line shows with it even without a
+hint. `plan-stage.jsx` passes it, `canvas-host.jsx` sets it (read-only record: "Read only", which
+wins over an element's entry; an element's entry: "View only"). The badge beside Show is gone
+(`floor-tabs.jsx`, `floor-tabs.css.js`); `plan.readOnly` in `plan-text.js`. Tests:
+`building-plan-plan-status.test.jsx` (new, 3: the chip and its icon before the hint, "Read only"
+alone, nothing on a canvas that edits; failing with HEAD's `plan-status.jsx`),
+`building-plan-front-view.test.jsx` (W1's status line starts with "View only", no badge in the
+floor row; the "open it from" line after the chip).
+
+*Cursors C1, one meaning each.* `canvas-cursors.js` `hoverCursor(hover, can, { opens })`: grab,
+move or a resize arrow where a press drags; the pointing hand where a press only selects and a
+double-click opens (a Floor canvas and the plan page, which open the room of anything inside it);
+the arrow where a press does nothing (the ground, faded elements, a room's floor in its own
+entry). On a locked canvas the canvas found no elements on hover (only faded or not), so
+`canvas-selection.js` `lockedCursor` asks what a double-click there does (`hitAt`, as a press):
+the pointing hand over what opens or says where it opens, the arrow over the ground, faded
+elements, the entry's own element and, scoped to a room, the room's floor (V1's grab before).
+Wiring in the legacy canvas (`updateCursor`, the locked hover). Tests:
+`building-plan-handles.test.js` (a Floor canvas and the plan page), `building-plan-locked-pick.
+test.js` (new: a door, a column, another wall, its own wall, its room's floor, a faded wall, the
+ground; a read-only floor's room), `building-plan-scope-levels.test.js` (the room's floor now the
+arrow). Failing with HEAD's `canvas-cursors.js` and legacy canvas.
+
+Core 840 of 840; web 515 of 522 (the 6 known worker failures and the known flaky "keeps numeric
+setters numeric", passing alone). Headless on the test page (`state-a2-structure.json`, light and
+dark, edit and `mode=readonly`): the plan page the pointing hand over the Bedroom and its walls,
+the arrow on the ground; the Floor entry grab over the Bedroom, the pointing hand over a wall;
+W1's entry the pointing hand over W#1, C#1, C#2, the free-standing column and W4, the arrow over W1,
+the Bedroom's floor, faded Room 2 and the ground; "View only" (edit) and "Read only" (read-only
+record, the plan page and its entries) first in the status line, no badge in the floor row; W3's
+map with its side cone to W3.2's far end, none on W1's. In dark the side cone is faint. No page
+errors.
+
+Hand-tested and committed (2026-11-26): core `f3db85a` and web `2ac3680` (the side cone), web
+`413c562` (View only), web `6dcbb7d` (cursors). Asked in the hand test: why the pointing hand looks
+more refined than the grab hand, and whether the grab can be improved (to decide).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

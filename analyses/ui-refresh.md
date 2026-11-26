@@ -2662,3 +2662,16 @@ failures). Details in `building-plan-ui.md`.
 
 Hand-tested and committed: core `bf86050`, web `3b90ba0`. To decide: a lighter cone to the side's
 other rows in view; where to say a canvas is view only instead of the badge beside Show.
+
+### The side cone, "View only" in the status line, cursors C1 (2026-11-26, hand-tested, committed)
+
+Three units from the mini-map's hand test. A lighter cone on the mini-map for what Front shows
+beside the row (core `sideCone`). "View only" / "Read only" first in the status line with a lock
+icon (`plan-status.jsx` `access`), the badge beside Show gone. Cursors with one meaning each (C1):
+grab where a press drags, the pointing hand where a double-click opens (the plan page, a Floor
+canvas's walls and openings, locked canvases via `lockedCursor`), the arrow where a press does
+nothing. Core 840 of 840, web 515 of 522 (known failures and flake). Details in
+`building-plan-ui.md`.
+
+Committed: core `f3db85a`, web `2ac3680`, `413c562`, `6dcbb7d`. To decide: the grab cursor looks
+coarser than the pointing hand.
