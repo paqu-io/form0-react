@@ -4973,6 +4973,35 @@ canvas; Esc closes it (4 dialogs stay); Bedroom lands on the Bedroom's page.
 
 Hand-tested (2026-11-26, "it works well") and committed: web `512db4d`.
 
+### Next (queue, updated 2026-11-26)
+
+Done since the queue of 2026-11-23: wall beams and bands (WB1 to WB10, bands units 1 to 5, D1a to
+D1c) and A, the read-only front view (A1 to A4, with the click selection option, the mini-map and
+its side cone, "View only" in the status line, cursors C1 and G1, columns, room beams and free
+walls in Front), then the header path ending where the dialog is. See each section above.
+
+Order proposed 2026-11-26 (to confirm at the start of the next round; each unit aligned first):
+
+1. **Step 4: lengths typed on the canvas** (clicking a length to type it) for openings, columns,
+   room beams and wall lengths; starting point the mockups page's "Handles · lengths (3)"
+   (https://claude.ai/artifact/GPW3m7Tiq9XvEERPMoxYVB). Its first part, refused typed values as
+   field errors, is done. With it: typed values round as the snapping does and core's contact
+   checks allow for it ("Typed values and rounding"); Split's typed distance reworked (pick the
+   wall, then type from its 0 end or click a length); column resize on the canvas (3-H4).
+2. **A drag's leftover** (core design round): see item 2 of the queue below; caps must follow
+   their source wall's drags first.
+3. **Step 5, mobile**: catch up everything web-only since the bands (their drawing, Front, the
+   click option, "View only", the header path), and settle "+ Add" (open question 4).
+4. **Step 6 proposals**; the plan system fields reviewed with
+   `reform-backend-nestjs/docs/building-plan-v2-system-fields.md`.
+
+Small, any time: the surfaces' invariants over the F4 corpus; surfaces in the derive output; Esc in
+the "n issues" list inside a dialog; the mobile fixture "Native titles a room screen with its
+position on the floor" (failing on HEAD too); an untouched new row's Cancel still asking (kept
+unless decided). Deferred: the adopt-on-publish typing race; rows applied whole ("Note for later,
+rows applied whole"); core's evaluation beside the record; reordering rows; a question's elements
+highlighted on the canvas (after mobile).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
