@@ -4847,6 +4847,81 @@ create, its values worked out there), so one path would give the same element ei
 changes how Add behaves for these lists (decided 2026-11-22: plan RepeatableSections behave as any
 other unless agreed), so it is the user's call; proposed in the chat, before A4.
 
+### "+ Add" parked (2026-11-26)
+
+Discussed before A4 (2026-11-26): "+ Add" like the toolbar (adding on the canvas where the entry's
+canvas places and moves the kind) is parked; "+ Add" keeps opening the new row's entry, as every
+RepeatableSection's Add (decided 2026-11-22). Disabling "+ Add" in plan lists, the alternative
+asked about, was set aside: wall beams have no tool (WB10; the toolbar creates none), nor do
+floors and objects; a wall's entry is view-only, so its doors and windows are added from its
+lists; it could only go in some lists (a room's columns, beams and free walls), a third behaviour;
+and lists are the path for mobile and the keyboard. The friction stays real (a column made with
+"+ Add" opens an entry whose canvas can't move it): an open question for step 5, which has to
+decide how adding works on mobile without a toolbar. See "Open questions".
+
+### A4: Front in element entries (2026-11-26, hand-tested, committed)
+
+Decided (2026-11-26, the proposal as it stood):
+
+1. Door, window, wall beam and band entries get Front; column and room beam entries keep the
+   switch disabled (a free-standing one has no wall to show).
+2. The element in the accent colour (the selection's style, its name in the accent); the shown
+   row's other elements (openings, beams, bands, columns, room beams, free walls) at half
+   strength, the wall itself in full (as round 3's W#1), the side's other row at its 0.32; a clash
+   area the element is in at full strength, the others at half; the "!" markers unchanged.
+3. Its own lengths: up the side the floor, its bottom and top and the wall's top (a window 0.90 /
+   2.10 / 3.00, a door its head and the top, a beam or band its underside, its top and the
+   wall's top), the whole height outside as before; along the bottom the row's ends and its own
+   (W#1: 1.90 / 1.20 / 1.90), the side under them by the usual rule (a band along the whole row:
+   the row's length only).
+4. Wall beams and bands open on Front, doors and windows on Plan, one opened by a double-click
+   in Front on Front (wired since the A3 follow-up); per dialog.
+5. An element Front can't draw (a wall beam added on a wall of unknown height has no underside):
+   Front stays, the rest at half strength, the wall's own lengths, and a note: "B#9 isn't drawn
+   until its height is known". Clearing a door's or window's height in its entry doesn't do it:
+   the field shows empty but the plan keeps its last height (checked on the page).
+6. The switch's tooltip where Front isn't there: "Front: open a room's or a wall's entry, or one
+   of its doors, windows or beams".
+7. Clicks as on the plan: the element is the entry's own (no pointing hand); a double-click on
+   another says where it opens; with the click option on, a pick is outlined, the element keeps
+   its accent. The mini-map as in a wall's entry.
+
+Found on the page and changed: in W3's band entry B#1 (a room beam, drawn after bands) covered
+the band in the accent; the element is now drawn last, under the clash areas only. The note, first
+inside the wall's top corner, sat on the ring beam: now just above the wall.
+
+Web only (core unchanged): `use-front-view.js` (element entries: the row from the canvas
+snapshot's entry, `wallId`, and its name, `displayLabel`, read in the controller's subscription;
+`subject`; wall beams and bands open on Front), `front-shapes.js` (`subjectPart`; each part's
+`subject` and `dimmed`, the problems' `dimmed`, `missing`), `front-chains.js` (the element's
+levels and bottom stops), `front-svg.jsx` (the parts in one draw order, the element last;
+`data-subject`; half strength; the note), `front-view.css.js` (`dimmed` 0.5, `subjectName`),
+`front-view.jsx` and `plan-stage.jsx` (`subject` passed on), `plan-text.js`
+(`plan.front.notDrawn`, the tooltip). `canvas-host.jsx` (299) and `form-renderer.jsx` untouched.
+
+Tests: `building-plan-front-element.test.js` (new, 5: the window in the accent, the rest at half
+strength, the other row faded, clash strengths; nothing dimmed outside an element entry; the
+window's lengths; a band's and a door's; the note above the wall, also on a wall of unknown
+height; failing with HEAD's `front-shapes.js` and `front-chains.js`),
+`building-plan-front-element.test.jsx` (new, 3: Window A's entry on Plan, its Front with the
+window in the accent and its own lengths, not the band's 1.90; the lintel band's entry on Front,
+drawn last; a double-click on the window in W1's Front opening its entry on Front; failing with
+HEAD's `use-front-view.js`), `building-plan-front-view.test.jsx` (the tooltip). Web 530 of 536
+(the 6 known worker failures; "keeps numeric setters numeric" flaked in an earlier run, passing
+alone).
+
+Headless on the test page (no page errors): `state-a2-structure.json`, W1's W#1 entry opens on
+Plan, Front enabled; Front: W#1 in the accent (light and dark), the bands, C#1, C#2 and B#1 at 0.5,
+the chains 0.90 / 2.10 / 3.00 and 1.90 / 1.00 / 2.10 (W#1 at 1.90, 1.00 wide in that capture), the
+side 5.00; the lintel band's entry opens on Front, 2.10 / 2.25 / 3.00, the row's 5.00.
+`state-d1c-problem.json`: W3's lintel band entry, the band over B#1, the clash with the Shared door
+in full, W3.2's bands at 0.32, W3's others and the door at 0.5. `state-a4-no-height.json` (new,
+built in node: the example's bands and B#9 on W1 with no underside): B#9's entry opens on Front
+with the note above the wall, the chains 3.00 and 5.00.
+
+Hand-tested (2026-11-26, "everything works very well") and committed: web `dbf2cdd`. A closes
+with it (A1 to A4), and with A the wall beams and bands round.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
@@ -5159,3 +5234,7 @@ one combined core operation is the clean way.
    the plan metadata marks it `outside`); (b) in core's example schema, "Room-side finish"
    becomes "Finish", since the form tags the side. Not proposed: core rewriting the copy's label
    in the contract (English text in the schema, shown twice next to the tag).
+4. "+ Add" in plan lists (raised 2026-11-26, parked): adding on the canvas as the toolbar does
+   where the entry's canvas places and moves the kind, or not. Kept as RepeatableSection's Add
+   (opens the new row's entry) until step 5 (mobile), which has to decide how adding works without
+   a toolbar. See '"+ Add" parked'.

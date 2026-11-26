@@ -2702,3 +2702,20 @@ web `front-shapes.js`); to hand-test. Core 846 of 846, web 522 of 528.
 
 Committed: core `68e4aad`, web `e9cab2b` (free walls in Front), web `d142a67` (G1). Raised: "+ Add"
 in a room's lists should add on the canvas as the toolbar does (to align, before A4).
+
+### "+ Add" parked; A4: Front in element entries (2026-11-26, hand-tested, committed)
+
+"+ Add" stays as RepeatableSection's (it opens the new row's entry); disabling it in plan lists
+was set aside (wall beams, floors and objects have no tool, a wall's entry has no toolbar, and
+lists are mobile's and the keyboard's path). Logged as an open question for step 5 (mobile), which
+has to decide how adding works without a toolbar.
+
+A4: door, window, wall beam and band entries get Front, their wall row from inside the room: the
+element in the accent colour and drawn over the rest, the wall's other elements and clash areas at
+half strength (the element's own clash in full), its own lengths only (the floor, its bottom and
+top and the wall's top; along the bottom the row's ends and its own); wall beams and bands open on
+Front; one Front can't draw (no height) is said above the wall. Web only (`use-front-view.js`,
+`front-shapes.js`, `front-chains.js`, `front-svg.jsx`). Web 530 of 536 (the 6 known worker
+failures), core unchanged (846). Details in `building-plan-ui.md`.
+
+Committed: web `dbf2cdd`. A (the front view) is done, and with it the wall beams and bands round.
