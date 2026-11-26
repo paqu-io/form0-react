@@ -50,6 +50,12 @@ globalStyle('.building-plan-toolbar-btn', {
   transition: 'background-color 0.12s ease, color 0.12s ease',
 });
 
+// A rail disabled with a reason (Front, A3): its buttons let the pointer through, so the rail's
+// tooltip says why.
+globalStyle('.building-plan-toolbar-float.is-hinted .building-plan-toolbar-btn:disabled', {
+  pointerEvents: 'none',
+});
+
 globalStyle('.building-plan-toolbar-btn:hover:not(:disabled)', {
   background: derived.fillHover,
 });

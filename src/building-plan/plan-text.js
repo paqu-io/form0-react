@@ -12,7 +12,9 @@ const TEXT = {
   'plan.view.plan': 'Plan',
   'plan.view.front': 'Front',
   'plan.view.frontHint': 'The wall seen from inside its room, heights from the floor',
-  'plan.view.frontUnavailable': "Front: open a wall's entry",
+  'plan.view.frontUnavailable': "Front: open a room's or a wall's entry",
+  // Front edits nothing (A3): the tool rail stays, disabled.
+  'plan.view.toolsInFront': 'Switch to Plan to edit',
   // The front view (A2): its wall line, "W1 · 1 of 1", and a wall of unknown height.
   'plan.front.label': 'Front view of {wall}',
   'plan.front.position': '{index} of {total}',
@@ -61,6 +63,10 @@ const TEXT = {
   'plan.history.redo': 'Redo',
   'plan.status.select': 'Drag a corner to reshape · {alt} moves it freely · {shift}-drag pans',
   'plan.status.view': 'Double-click an element to open it · {shift}-drag pans',
+  // Front in a room's entry (A3): it edits nothing and steps through the room's walls. Short
+  // enough for one line in an entry's panel (two would reach the mini-map); the zoom pill says
+  // how to pan.
+  'plan.status.frontSteps': 'Double-click an element to open it · {alt}{shift}←/→ next wall',
   'plan.status.split': 'Point at a wall and click, or type a distance from its 0 end',
   'plan.status.rejoin': 'Click an editing node to rejoin aligned portions',
   'plan.status.pin': 'Click a wall to pin or unpin it, then go back to Select',

@@ -19,11 +19,13 @@ const round = (value) => Math.round(value * 100) / 100;
  *   others: Array<Array<{x: number, y: number}>>, zero: {x: number, y: number},
  *   eye: {x: number, y: number}, cone: Array<{x: number, y: number}>,
  *   sideCone?: Array<{x: number, y: number}>,
+ *   rows?: Array<{ faceId: string, segments: Array<Array<{x: number, y: number}>> }>,
  *   bounds: { x: number, y: number, width: number, height: number },
  * }} map core's
  * @param {{ width: number, height: number, padding: number }} [card]
- * @returns {object} paths (`floor`, `walls`, `cone`, `sideCone`: '' when empty), segments (`lines`, `others`,
- *   `shown`: { x1, y1, x2, y2 }) and points (`zero`, `eye`), px in the card
+ * @returns {object} paths (`floor`, `walls`, `cone`, `sideCone`: '' when empty), segments
+ *   (`lines`, `others`, `shown`: { x1, y1, x2, y2 }), every row's (`rows`: { faceId, segments })
+ *   and points (`zero`, `eye`), px in the card
  */
 export function frontMapLayout(map, card = FRONT_MAP) {
   const room = { width: card.width - 2 * card.padding, height: card.height - 2 * card.padding };
@@ -53,6 +55,10 @@ export function frontMapLayout(map, card = FRONT_MAP) {
     sideCone: path([map.sideCone || []]),
     others: map.others.map(segment),
     shown: map.shown.map(segment),
+    rows: (map.rows || []).map((row) => ({
+      faceId: row.faceId,
+      segments: row.segments.map(segment),
+    })),
     zero: at(map.zero),
     eye: at(map.eye),
   };

@@ -13,8 +13,9 @@ import * as styles from './front-view.css.js';
  * place: the row seen from inside its room, from core's front view (`controller.frontView`).
  * Zoom (wheel, the zoom pill) and pan (Shift-drag, the middle button) are its own; a
  * double-click opens a part's entry as on the plan; the plan's selected element and its issues'
- * markers show here too. The wall line names the row: "W1 · 1 of 1" (its arrows step through a
- * room's walls, A3); the mini-map, bottom left, shows where it is seen from (2026-11-26).
+ * markers show here too. The wall line names the row: "W1 · 1 of 1", in a room's entry "W2 · 2 of
+ * 5" with arrows stepping through its walls (A3); the mini-map, bottom left, shows where it is seen
+ * from (2026-11-26), and in a room's entry a click on a wall there shows it.
  */
 
 const WHEEL = 0.002; // as the plan canvas
@@ -43,14 +44,17 @@ function useBoxSize(ref) {
   return size;
 }
 
-function WallLine({ label, index, total }) {
+function WallLine({ label, index, total, onStep }) {
+  const off = !onStep || total < 2;
   return (
     <div className={styles.wallLine}>
       <button
         type="button"
         className={styles.step}
-        disabled
+        disabled={off}
+        onClick={() => onStep(-1)}
         aria-label={planText('plan.front.previous')}
+        aria-keyshortcuts={off ? undefined : 'Alt+Shift+ArrowLeft'}
       >
         <ChevronLeft size={14} strokeWidth={2.25} aria-hidden="true" />
       </button>
@@ -61,8 +65,10 @@ function WallLine({ label, index, total }) {
       <button
         type="button"
         className={styles.step}
-        disabled
+        disabled={off}
+        onClick={() => onStep(1)}
         aria-label={planText('plan.front.next')}
+        aria-keyshortcuts={off ? undefined : 'Alt+Shift+ArrowRight'}
       >
         <ChevronRight size={14} strokeWidth={2.25} aria-hidden="true" />
       </button>
@@ -80,7 +86,11 @@ function WallLine({ label, index, total }) {
  *   format: (metres: number) => string,
  *   onOpen: (ref: { collection: string, id: string, path: object[] }) => void,
  *   onPick?: (ref: { collection: string, id: string } | null) => void,
- * }} props `onPick`: a click on a part selects it, on nothing the entry's own (2026-11-26)
+ *   position?: { index: number, total: number },
+ *   onStep?: ((by: number) => void) | null,
+ *   onShow?: ((faceId: string) => void) | null,
+ * }} props `onPick`: a click on a part selects it, on nothing the entry's own (2026-11-26);
+ *   `position`, `onStep`, `onShow`: a room's entry steps through its rows (A3)
  */
 export function FrontView({
   view,
@@ -91,6 +101,9 @@ export function FrontView({
   format,
   onOpen,
   onPick = () => {},
+  position = { index: 1, total: 1 },
+  onStep = null,
+  onShow = null,
 }) {
   const rootRef = useRef(null);
   const box = useBoxSize(rootRef);
@@ -177,8 +190,8 @@ export function FrontView({
       >
         <FrontSvg shapes={shapes} chains={chains} openable={openable} />
       </svg>
-      <WallLine label={own?.label || ''} index={1} total={1} />
-      <FrontMap map={view.map} wall={own?.label || ''} />
+      <WallLine label={own?.label || ''} {...position} onStep={onStep} />
+      <FrontMap map={view.map} wall={own?.label || ''} rows={view.rows} onShow={onShow} />
     </div>
   );
 }

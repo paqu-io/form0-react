@@ -46,6 +46,7 @@ function getIconComponent(iconName) {
  * @param {Record<string, string>} [props.unavailable] - Commands waiting for a selection, by id:
  *   the hint key saying what to select (the button stays focusable, so its tooltip says it)
  * @param {boolean} props.disabled - Whether the entire toolbar is disabled
+ * @param {string | null} [props.disabledHint] - Why, said by the rail's tooltip (Front, A3)
  */
 export function BuildingPlanToolbar({
   canvasMode = 'parent',
@@ -55,6 +56,7 @@ export function BuildingPlanToolbar({
   onCommand,
   unavailable = {},
   disabled = false,
+  disabledHint = null,
 }) {
   const rootRef = useRef(null);
   // Get buttons configured for this canvas mode
@@ -151,9 +153,10 @@ export function BuildingPlanToolbar({
   return (
     <div
       ref={rootRef}
-      className="building-plan-toolbar-float"
+      className={`building-plan-toolbar-float ${disabled && disabledHint ? 'is-hinted' : ''}`}
       role="toolbar"
       aria-label="Canvas tools"
+      data-tooltip={disabled && disabledHint ? disabledHint : undefined}
     >
       {groups.map((group, index) => (
         <React.Fragment key={group[0].group}>

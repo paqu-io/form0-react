@@ -43,6 +43,8 @@ export function PlanStage({
   // Front always shows lengths: the status line says their unit.
   const lengthsNote =
     presentation?.unitFor?.() === 'ft' ? 'plan.status.lengthsNote.ft' : 'plan.status.lengthsNote.m';
+  const frontHint =
+    view && !status.hintParams && (front.step ? 'plan.status.frontSteps' : 'plan.status.view');
   return (
     <>
       <div className="building-plan-canvas-stage" data-view={view ? 'front' : 'plan'}>
@@ -60,12 +62,16 @@ export function PlanStage({
             onPick={(ref) =>
               canvasRef.current?.pickElement?.(ref && { collection: ref.collection, id: ref.id })
             }
+            position={front.position}
+            onStep={front.step}
+            onShow={front.show}
           />
         )}
       </div>
       <PlanStatus
         access={access}
-        hintKey={status.hintKey}
+        // Front edits nothing: its own hint over the plan tool's (a room's entry steps, A3).
+        hintKey={frontHint || status.hintKey}
         hintParams={status.hintParams}
         // A hint naming elements stands alone, as the canvas drops its note under a hint.
         noteKey={view && !status.hintParams ? lengthsNote : status.noteKey}

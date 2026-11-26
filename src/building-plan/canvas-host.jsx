@@ -116,7 +116,10 @@ export function BuildingPlanCanvasHost({
 
   const tools = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
   const { layers, setLayer, layersRef } = usePlanLayers({ canvasRef, controllerRef }); // step 2
-  const front = useFrontView({ controllerRef, focus, buildingPlanMeta, section }); // A2
+  // Front (A2), stepping through a room's rows (A3); turning it on brings back the Select tool.
+  const frontOptions = { controllerRef, canvasRef, focus, scope, selected, section };
+  const onEnter = () => tools.handleModeChange(TOOL_MODES.SELECT);
+  const front = useFrontView({ ...frontOptions, buildingPlanMeta, onEnter });
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;
@@ -235,7 +238,8 @@ export function BuildingPlanCanvasHost({
           onClearSelection={tools.handleClearSelection}
           onCommand={tools.handleCommand}
           unavailable={waiting}
-          disabled={locked}
+          disabled={locked || Boolean(front.view)}
+          disabledHint={front.view ? planText('plan.view.toolsInFront') : null}
         />
       )}
       <div className="building-plan-canvas-panel-wrapper">

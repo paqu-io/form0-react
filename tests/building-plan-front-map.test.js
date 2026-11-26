@@ -33,6 +33,12 @@ describe('the mini-map', () => {
     expect(m.zero).toEqual({ x: 18, y: 12 });
     expect(m.eye).toEqual({ x: 68, y: 60 });
     expect(m.cone).toBe('M68 60L18 12L118 12Z');
+    // Every row's face, for a click in a room's entry (A3).
+    const rows = frontMapLayout(
+      bedroom({ rows: [{ faceId: 'f2', segments: [[p(5, 0), p(5, 3)]] }] })
+    ).rows;
+    expect(rows).toEqual([{ faceId: 'f2', segments: [{ x1: 118, y1: 12, x2: 118, y2: 72 }] }]);
+    expect(m.rows).toEqual([]);
   });
 
   it("draws the side's other rows and their cone, walls of unknown thickness as lines", () => {
