@@ -288,3 +288,113 @@ describe('the lengths (H1)', () => {
     ]);
   });
 });
+
+// Columns and room beams against the wall (decided 2026-11-26): core gives those touching the
+// side's face; a column from the floor to its top (unknown: its wall's drawn height), a room beam at
+// its underside and depth, `endOn` when it meets the wall across.
+describe('columns and room beams against the wall', () => {
+  const at = (key, index) => [...path(0, 0), { key, index }];
+  const withStructure = () =>
+    w1({
+      columns: [
+        {
+          subjectId: 'c1',
+          faceId: 'f1',
+          name: 'C#1',
+          from: 0.85,
+          to: 1.15,
+          bottom: 0,
+          top: 3,
+          height: 3,
+          ref: ref('columns', 'c1', at('columns', 0)),
+        },
+        {
+          subjectId: 'c2',
+          faceId: 'f2',
+          name: 'C#2',
+          from: 4.6,
+          to: 5,
+          bottom: 0,
+          top: 3,
+          height: null,
+          ref: ref('columns', 'c2', at('columns', 1)),
+        },
+      ],
+      roomBeams: [
+        {
+          subjectId: 'b1',
+          faceId: 'f1',
+          name: 'B#1',
+          from: 2.4,
+          to: 2.6,
+          bottom: 2.7,
+          top: 3,
+          endOn: true,
+          ref: ref('beams', 'b1', at('beams', 0)),
+        },
+        {
+          subjectId: 'b2',
+          faceId: 'f1',
+          name: 'B#2',
+          from: 0.2,
+          to: 1.6,
+          bottom: 1.5,
+          top: 1.75,
+          endOn: false,
+          ref: ref('beams', 'b2', at('beams', 1)),
+        },
+      ],
+    });
+
+  it('draws columns floor to top, named at the top, the side’s other row faded', () => {
+    const view = withStructure();
+    const s = frontShapes(view, frontTransform(view, BOX), {
+      selection: { collection: 'columns', id: 'c1' },
+    });
+    expect(s.columns.map(box)).toEqual([
+      [199, 48, 30, 300],
+      [574, 48, 40, 300],
+    ]);
+    expect(s.columns.map((c) => [c.faded, c.selected, c.unknown])).toEqual([
+      [false, true, false],
+      [true, false, true],
+    ]);
+    expect(s.columns[0].label).toEqual({ x: 214, y: 62, anchor: 'middle' });
+  });
+
+  it('draws room beams at their height: one end on named above it, one along named inside', () => {
+    const view = withStructure();
+    const s = frontShapes(view, frontTransform(view, BOX), {
+      markers: [at('beams', 0)],
+    });
+    expect(s.roomBeams.map((b) => [...box(b), b.endOn])).toEqual([
+      [354, 48, 20, 30, true],
+      [134, 173, 140, 25, false],
+    ]);
+    expect(s.roomBeams[0].label).toEqual({ x: 364, y: 44, anchor: 'middle' });
+    const label = s.roomBeams[1].label;
+    expect([round(label.x), round(label.y), label.anchor]).toEqual([204, 189, 'middle']);
+    // The end-on beam's "!" at its top right.
+    expect(s.markers.map((m) => [m.x, m.y])).toEqual([[385, 37]]);
+  });
+
+  it("adds the shown row's columns' edges to the bottom chain, no levels", () => {
+    const view = withStructure();
+    const c = frontChains(view, frontTransform(view, BOX), format);
+    expect(c.bottom.pills.map((pill) => pill.text)).toEqual([
+      '0.85',
+      '0.30',
+      '0.75',
+      '1.20',
+      '1.90',
+    ]);
+    expect(c.levels.map((level) => level.text)).toEqual([
+      '0.60',
+      '0.90',
+      '2.10',
+      '2.40',
+      '2.70',
+      '3.00',
+    ]);
+  });
+});

@@ -52,7 +52,13 @@ export function useFrontView({ controllerRef, focus, buildingPlanMeta, section }
     shows: (path) =>
       Boolean(
         shown &&
-        [...shown.pieces, ...shown.openings, ...shown.beams].some((part) => isAtPath(part, path))
+        [
+          ...shown.pieces,
+          ...shown.openings,
+          ...shown.beams,
+          ...(shown.columns || []),
+          ...(shown.roomBeams || []),
+        ].some((part) => isAtPath(part, path))
       ),
   };
 }

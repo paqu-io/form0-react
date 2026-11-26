@@ -8,6 +8,7 @@ import { planVars } from '../plan-tokens.css.js';
 const mix = (color, percent, base) => `color-mix(in srgb, ${color} ${percent}%, ${base})`;
 const face = createVar();
 const beamFill = createVar();
+const columnFill = createVar();
 const line = createVar();
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
@@ -16,6 +17,7 @@ export const root = style({
   vars: {
     [face]: mix(planVars.symbol, 10, planVars.room),
     [beamFill]: mix(planVars.symbol, 24, planVars.room),
+    [columnFill]: mix(planVars.symbol, 18, planVars.room),
     [line]: mix(planVars.symbol, 30, planVars.room),
   },
   position: 'absolute',
@@ -41,6 +43,16 @@ export const unknownTop = style({
   strokeDasharray: '6 4',
 });
 export const beam = style({ fill: beamFill, stroke: planVars.symbol, strokeWidth: 1 });
+// A column against the wall (2026-11-26): its outline in a tone of its own, as elevations draw
+// what stands in front of a wall; no cross (in an elevation it reads as an opening) and no
+// hatching (cut material), from the hand test.
+export const column = style({ fill: columnFill, stroke: planVars.symbol, strokeWidth: 1.5 });
+export const cross = style({
+  fill: 'none',
+  stroke: planVars.symbol,
+  strokeWidth: 0.75,
+  pointerEvents: 'none',
+});
 export const opening = style({ fill: planVars.room, stroke: planVars.symbol, strokeWidth: 1.25 });
 // A part that opens by double-click.
 export const openable = style({ cursor: 'pointer' });

@@ -1,7 +1,8 @@
 /**
  * What the front view (A2, decided 2026-11-26) draws for a wall row's side, in px: its walls
  * (the shown row's in full, the side's other rows faded), their doors, windows, wall beams and
- * bands, the problems' clash areas, folds, the floor line, the selected element and the "!"
+ * bands, the room's columns and beams against them (named at a column's top; a beam inside, or
+ * above it when it doesn't fit, as one seen end on), the problems' clash areas, folds, the floor line, the selected element and the "!"
  * markers of rows with issues. Core's front view gives the facts (`frontView`), in metres.
  */
 
@@ -86,6 +87,38 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
       ref: opening.ref,
     };
   });
+  const columns = (view.columns || []).map((column) => {
+    const box = rect(column.from, column.to, column.bottom, column.top);
+    const fits = box.w >= textWidth(column.name, 10) + 6 && box.h >= 24;
+    return {
+      key: `column:${column.subjectId}`,
+      ...box,
+      name: column.name,
+      faded: faded(column),
+      selected: isSelected(column, selection),
+      unknown: column.height === null,
+      label: fits ? { x: box.x + box.w / 2, y: box.y + 14, anchor: 'middle' } : null,
+      ref: column.ref,
+    };
+  });
+  const roomBeams = (view.roomBeams || []).map((beam) => {
+    const box = rect(beam.from, beam.to, beam.bottom, beam.top);
+    const inside = box.h >= BAND_LABEL_LEAST && box.w >= textWidth(beam.name, 10) + 12;
+    return {
+      key: `room-beam:${beam.subjectId}`,
+      ...box,
+      name: beam.name,
+      endOn: beam.endOn,
+      faded: faded(beam),
+      selected: isSelected(beam, selection),
+      label: {
+        x: box.x + box.w / 2,
+        y: inside ? box.y + box.h / 2 + 3.5 : box.y - 4,
+        anchor: 'middle',
+      },
+      ref: beam.ref,
+    };
+  });
   const problems = view.problems.map((problem) => ({
     key: `problem:${problem.id}`,
     id: problem.id,
@@ -103,11 +136,13 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     pieces,
     beams,
     openings,
+    columns,
+    roomBeams,
     problems,
     folds,
     floor: { x0: t.x(0) - 24, x1: t.x(view.length) + 24, y: t.y(0) },
     unknown: shown?.unknown && shown.w >= 110 ? { x: shown.x + 8, y: shown.y + 16 } : null,
-    markers: markersOf([...pieces, ...openings, ...beams], markers),
+    markers: markersOf([...pieces, ...openings, ...beams, ...columns, ...roomBeams], markers),
   };
 }
 

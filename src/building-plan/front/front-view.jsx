@@ -97,7 +97,13 @@ export function FrontView({
   const t = frontTransform(view, box, camera);
   const shapes = frontShapes(view, t, { selection, markers });
   const chains = frontChains(view, t, format);
-  const openable = [...shapes.pieces, ...shapes.openings, ...shapes.beams].filter((s) => s.ref);
+  const openable = [
+    ...shapes.pieces,
+    ...shapes.openings,
+    ...shapes.beams,
+    ...shapes.columns,
+    ...shapes.roomBeams,
+  ].filter((s) => s.ref);
   const own = view.pieces.find((piece) => piece.shown);
 
   // The wheel zooms about the pointer (a listener of its own: React's is passive).
