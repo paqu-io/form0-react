@@ -36,17 +36,22 @@ function Piece({ piece, part }) {
   );
 }
 
-/** A part: its box, a diagonal cross (a room beam seen end on), its name. */
+/**
+ * A part: its box, a diagonal cross (a room beam seen end on), its name. An element's entry's own
+ * (A4) in the accent, not pointing (the entry's own, as on the plan); the rest at half strength.
+ */
 function Element({ shape, className, labelClass, part, cross = false }) {
   const { x, y, w, h } = shape;
+  const strength = shape.faded ? styles.faded : shape.dimmed ? styles.dimmed : undefined;
   return (
     <g
-      className={shape.faded ? styles.faded : undefined}
+      className={strength}
       data-name={shape.name}
       data-selected={shape.selected || undefined}
+      data-subject={shape.subject || undefined}
     >
       <rect
-        className={`${className} ${styles.openable}`}
+        className={shape.subject ? className : `${className} ${styles.openable}`}
         x={x}
         y={y}
         width={w}
@@ -60,10 +65,12 @@ function Element({ shape, className, labelClass, part, cross = false }) {
         />
       )}
       {shape.unknown && <line className={styles.unknownTop} x1={x} y1={y} x2={x + w} y2={y} />}
-      {shape.selected && <rect className={styles.selected} x={x} y={y} width={w} height={h} />}
+      {(shape.selected || shape.subject) && (
+        <rect className={styles.selected} x={x} y={y} width={w} height={h} />
+      )}
       {shape.label && (
         <text
-          className={labelClass}
+          className={shape.subject ? `${labelClass} ${styles.subjectName}` : labelClass}
           x={shape.label.x}
           y={shape.label.y}
           textAnchor={shape.label.anchor}
@@ -85,7 +92,19 @@ export function FrontSvg({ shapes, chains, openable }) {
     return index >= 0 ? { 'data-part': index } : {};
   };
   const { pieces, beams, openings, columns, roomBeams, freeWalls, problems, folds } = shapes;
-  const { floor, unknown, markers } = shapes;
+  const { floor, unknown, missing, markers } = shapes;
+  // In draw order; an element's entry's own (A4) last, over the rest, under the clash areas.
+  const elements = [
+    ...beams.map((shape) => [shape, styles.beam, styles.name]),
+    ...columns.map((shape) => [shape, styles.column, styles.name]),
+    ...(freeWalls || []).map((shape) => [shape, styles.freeWall, styles.name]),
+    ...roomBeams.map((shape) => [shape, styles.beam, styles.name, shape.endOn]),
+    ...openings.map((shape) => [shape, styles.opening, styles.openingName]),
+  ];
+  const ordered = [
+    ...elements.filter(([shape]) => !shape.subject),
+    ...elements.filter(([shape]) => shape.subject),
+  ];
   return (
     <>
       <g className={styles.faded}>
@@ -113,56 +132,20 @@ export function FrontSvg({ shapes, chains, openable }) {
             data-selected-wall={piece.label}
           />
         ))}
-      {beams.map((shape) => (
+      {ordered.map(([shape, className, labelClass, cross]) => (
         <Element
           key={shape.key}
           shape={shape}
-          className={styles.beam}
-          labelClass={styles.name}
+          className={className}
+          labelClass={labelClass}
           part={part(shape)}
-        />
-      ))}
-      {columns.map((shape) => (
-        <Element
-          key={shape.key}
-          shape={shape}
-          className={styles.column}
-          labelClass={styles.name}
-          part={part(shape)}
-        />
-      ))}
-      {(freeWalls || []).map((shape) => (
-        <Element
-          key={shape.key}
-          shape={shape}
-          className={styles.freeWall}
-          labelClass={styles.name}
-          part={part(shape)}
-        />
-      ))}
-      {roomBeams.map((shape) => (
-        <Element
-          key={shape.key}
-          shape={shape}
-          className={styles.beam}
-          labelClass={styles.name}
-          part={part(shape)}
-          cross={shape.endOn}
-        />
-      ))}
-      {openings.map((shape) => (
-        <Element
-          key={shape.key}
-          shape={shape}
-          className={styles.opening}
-          labelClass={styles.openingName}
-          part={part(shape)}
+          cross={Boolean(cross)}
         />
       ))}
       {problems.map((problem) => (
         <rect
           key={problem.key}
-          className={styles.problem}
+          className={problem.dimmed ? `${styles.problem} ${styles.dimmed}` : styles.problem}
           x={problem.x}
           y={problem.y}
           width={problem.w}
@@ -183,6 +166,11 @@ export function FrontSvg({ shapes, chains, openable }) {
       {unknown && (
         <text className={styles.note} x={unknown.x} y={unknown.y}>
           {planText('plan.front.heightUnknown')}
+        </text>
+      )}
+      {missing && (
+        <text className={styles.note} x={missing.x} y={missing.y}>
+          {planText('plan.front.notDrawn', { name: missing.name })}
         </text>
       )}
       <FrontChains chains={chains} />

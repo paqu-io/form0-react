@@ -78,6 +78,7 @@ export function PlanStage({
             lit={front.lit}
             onStep={front.step}
             onShow={front.show}
+            subject={front.subject}
           />
         )}
       </div>

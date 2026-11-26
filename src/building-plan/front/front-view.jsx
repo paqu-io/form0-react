@@ -91,9 +91,10 @@ function WallLine({ label, index, total, onStep }) {
  *   onStep?: ((by: number) => void) | null,
  *   onShow?: ((faceId: string) => void) | null,
  *   lit?: string | null,
+ *   subject?: { collection: string, id: string, name?: string } | null,
  * }} props `onPick`: a click on a part selects it, on nothing the entry's own (2026-11-26);
  *   `position`, `onStep`, `onShow`: a room's entry steps through its rows (A3); `lit`: the wall
- *   a hovered Walls row names, lit on the mini-map
+ *   a hovered Walls row names, lit on the mini-map; `subject`: an element's entry's element (A4)
  */
 export function FrontView({
   view,
@@ -108,13 +109,14 @@ export function FrontView({
   onStep = null,
   onShow = null,
   lit = null,
+  subject = null,
 }) {
   const rootRef = useRef(null);
   const box = useBoxSize(rootRef);
   const [panning, setPanning] = useState(null);
   const t = frontTransform(view, box, camera);
-  const shapes = frontShapes(view, t, { selection, markers });
-  const chains = frontChains(view, t, format);
+  const shapes = frontShapes(view, t, { selection, markers, subject });
+  const chains = frontChains(view, t, format, subject);
   const openable = [
     ...shapes.pieces,
     ...shapes.openings,

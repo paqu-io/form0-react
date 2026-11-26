@@ -35,6 +35,8 @@ export const svg = style({ display: 'block', width: '100%', height: '100%' });
 export const panning = style({ cursor: 'grabbing' });
 
 export const faded = style({ opacity: 0.32 });
+// An element's entry (A4): the wall's other elements at half strength.
+export const dimmed = style({ opacity: 0.5 });
 export const wallFace = style({ fill: face, stroke: planVars.symbol, strokeWidth: 1.25 });
 export const wallEdge = style({ fill: 'none', stroke: planVars.symbol, strokeWidth: 1.25 });
 export const unknownTop = style({
@@ -85,6 +87,8 @@ export const openingName = style({
   font: `600 11px ${vars.fontFamily.base}`,
   pointerEvents: 'none',
 });
+// An element's entry's own name, in the accent with its box (A4); after the names it overrides.
+export const subjectName = style({ fill: planVars.accent });
 export const note = style({ fill: planVars.labelMuted, font: `600 11px ${vars.fontFamily.base}` });
 export const marker = style({ fill: planVars.error, stroke: planVars.ground, strokeWidth: 1.5 });
 export const markerText = style({

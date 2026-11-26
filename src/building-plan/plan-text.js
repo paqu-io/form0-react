@@ -7,12 +7,14 @@ const TEXT = {
   'plan.zoom.panHint': 'Pan: Shift-drag or the middle mouse button',
   'plan.zoom.fit': 'Fit plan',
   'plan.zoom.fitFront': 'Fit view',
-  // The Plan | Front switch in the floor row (A2): Front works in a wall's entry for now.
+  // The Plan | Front switch in the floor row (A2): Front works in a room's, a wall's and an
+  // element's entry (A3, A4).
   'plan.view.label': 'View',
   'plan.view.plan': 'Plan',
   'plan.view.front': 'Front',
   'plan.view.frontHint': 'The wall seen from inside its room, heights from the floor',
-  'plan.view.frontUnavailable': "Front: open a room's or a wall's entry",
+  'plan.view.frontUnavailable':
+    "Front: open a room's or a wall's entry, or one of its doors, windows or beams",
   // Front edits nothing (A3): the tool rail stays, disabled.
   'plan.view.toolsInFront': 'Switch to Plan to edit',
   // The front view (A2): its wall line, "W1 · 1 of 1", and a wall of unknown height.
@@ -21,6 +23,8 @@ const TEXT = {
   'plan.front.previous': 'Previous wall',
   'plan.front.next': 'Next wall',
   'plan.front.heightUnknown': 'Height unknown',
+  // An element's entry (A4) whose element Front can't draw.
+  'plan.front.notDrawn': "{name} isn't drawn until its height is known",
   // The mini-map in Front (2026-11-26).
   'plan.front.map': 'Where {wall} is seen from',
   // A canvas that edits nothing, said first in its status line (2026-11-26): an element's entry,

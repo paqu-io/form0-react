@@ -4,7 +4,10 @@
  * bands, the room's columns, beams and free walls against them (named at a column's or a free
  * wall's top; a beam inside, or above it when it doesn't fit, as one seen end on), the problems'
  * clash areas, folds, the floor line, the selected element and the "!"
- * markers of rows with issues. Core's front view gives the facts (`frontView`), in metres.
+ * markers of rows with issues. In an element's entry (A4) the element (`subject`) in the accent
+ * colour and the wall's other elements and clash areas at half strength (the wall in full, the
+ * side's other row faded as before); one Front can't draw is said in the view. Core's front view
+ * gives the facts (`frontView`), in metres.
  */
 
 const MARKER_OFFSET = 11; // px up and to the right of an element's top right corner, as on the plan
@@ -28,15 +31,20 @@ const isSelected = (part, selection) =>
     selection && part.ref?.collection === selection.collection && part.ref.id === selection.id
   );
 
+/** The view's part an element's entry is about (A4), or null when Front doesn't draw it. */
+export const subjectPart = (view, subject) =>
+  (subject && [...view.openings, ...view.beams].find((part) => isSelected(part, subject))) || null;
+
 /**
  * @param {object} view core's front view, with each part's `ref`
  * @param {{ scale: number, x: (m: number) => number, y: (m: number) => number }} t
  * @param {{ selection?: { collection: string, id: string } | null,
- *   markers?: Array<Array<{ key: string, index: number }>> }} [marks] the plan's selected element
- *   (the shown wall's isn't drawn: in a wall's entry it is the entry's own) and the rows with
- *   issues
+ *   markers?: Array<Array<{ key: string, index: number }>>,
+ *   subject?: { collection: string, id: string, name?: string } | null }} [marks] the plan's
+ *   selected element (the shown wall's isn't drawn: in a wall's entry it is the entry's own), the
+ *   rows with issues and an element's entry's element (A4)
  */
-export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
+export function frontShapes(view, t, { selection = null, markers = [], subject = null } = {}) {
   const rect = (from, to, bottom, top) => ({
     x: t.x(from),
     y: t.y(top),
@@ -44,6 +52,12 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     h: (top - bottom) * t.scale,
   });
   const faded = (part) => part.faceId !== view.faceId;
+  // An element's entry (A4): the element in the accent, the rest of the wall at half strength.
+  const own = subjectPart(view, subject);
+  const emphasis = (part) => {
+    const lit = Boolean(subject) && isSelected(part, subject);
+    return { subject: lit, dimmed: Boolean(subject) && !lit && !faded(part) };
+  };
 
   const pieces = view.pieces.map((piece, index) => ({
     key: `piece:${index}`,
@@ -64,6 +78,7 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
       name: beam.name,
       band: beam.band,
       faded: faded(beam),
+      ...emphasis(beam),
       selected: isSelected(beam, selection),
       // A band names itself at its right end, a beam added by hand in its middle.
       label: !fits
@@ -83,6 +98,7 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
       kind: opening.kind,
       name: opening.name,
       faded: faded(opening),
+      ...emphasis(opening),
       selected: isSelected(opening, selection),
       label: fits ? { x: box.x + box.w / 2, y: box.y + box.h / 2 + 4, anchor: 'middle' } : null,
       ref: opening.ref,
@@ -97,6 +113,7 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
       ...box,
       name: column.name,
       faded: faded(column),
+      ...emphasis(column),
       selected: isSelected(column, selection),
       unknown: column.height === null,
       label: fits ? { x: box.x + box.w / 2, y: box.y + 14, anchor: 'middle' } : null,
@@ -114,6 +131,7 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
       name: beam.name,
       endOn: beam.endOn,
       faded: faded(beam),
+      ...emphasis(beam),
       selected: isSelected(beam, selection),
       label: {
         x: box.x + box.w / 2,
@@ -127,6 +145,8 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     key: `problem:${problem.id}`,
     id: problem.id,
     ...rect(problem.from, problem.to, problem.bottom, problem.top),
+    // In an element's entry, a clash the element isn't in at half strength (A4).
+    dimmed: Boolean(subject) && !(own && problem.elementIds?.includes(own.subjectId)),
   }));
   const top = Math.max(...view.pieces.map((piece) => piece.drawnHeight));
   const folds = view.folds.map((at) => ({
@@ -136,6 +156,7 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     y1: t.y(top),
   }));
   const shown = pieces.find((piece) => piece.shown);
+  const unknown = shown?.unknown && shown.w >= 110 ? { x: shown.x + 8, y: shown.y + 16 } : null;
   return {
     pieces,
     beams,
@@ -146,7 +167,10 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     problems,
     folds,
     floor: { x0: t.x(0) - 24, x1: t.x(view.length) + 24, y: t.y(0) },
-    unknown: shown?.unknown && shown.w >= 110 ? { x: shown.x + 8, y: shown.y + 16 } : null,
+    unknown,
+    // An element Front can't draw (its height unknown, A4): said just above the wall.
+    missing:
+      subject && !own && shown ? { x: shown.x, y: shown.y - 10, name: subject.name || '' } : null,
     markers: markersOf(
       [...pieces, ...openings, ...beams, ...columns, ...roomBeams, ...freeWalls],
       markers

@@ -40,7 +40,7 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
   // A floor's entry: there, disabled, saying where it works.
   await waitFor(() => expect(isOff(dialog())).toBe(true));
   expect(dialog().getByRole('group', { name: 'View' }).dataset.tooltip).toBe(
-    "Front: open a room's or a wall's entry"
+    "Front: open a room's or a wall's entry, or one of its doors, windows or beams"
   );
   const section = (label) =>
     screen.getAllByText(label, { exact: true }).at(-1).parentElement.parentElement;

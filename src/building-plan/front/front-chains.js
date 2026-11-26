@@ -1,12 +1,14 @@
 import { PILL_HEIGHT } from '../draw/dimension-layout.js';
-import { textWidth } from './front-shapes.js';
+import { subjectPart, textWidth } from './front-shapes.js';
 
 /**
  * The front view's lengths (A2; H1, agreed 2026-11-25), in px: the shown row's levels from the
  * floor on the left; on the right a chain of the partial lengths between them, a pill too long
  * for its stretch stepped aside, alternating, with a leader, and the row's whole height outside
  * it when known; along the bottom the row's ends, its openings', columns' and free walls' edges
- * (2026-11-26), the whole side under them.
+ * (2026-11-26), the whole side under them. In an element's entry (A4) the element's own only: up
+ * the side the floor, its bottom and top and the wall's top; along the bottom the row's ends and
+ * its own.
  */
 
 const PILL_FONT = 11; // the plan's pill text, monospace
@@ -26,25 +28,36 @@ const near = (a, b) => Math.abs(a - b) < 1e-6;
  * @param {object} view core's front view
  * @param {{ scale: number, x: (m: number) => number, y: (m: number) => number }} t
  * @param {(metres: number) => string} format the plan's length text
+ * @param {{ collection: string, id: string } | null} [subject] an element's entry's element (A4)
  */
-export function frontChains(view, t, format) {
+export function frontChains(view, t, format, subject = null) {
   const right = t.x(view.length);
   const left = t.x(0);
   const own = view.pieces.find((piece) => piece.shown);
+  const element = subjectPart(view, subject);
+  const levels = subject ? elementLevels(own?.height, element) : view.levels;
   return {
-    levels: levelLabels(view.levels, t, left, format),
-    height: heightChain(view.levels, t, right, format),
+    levels: levelLabels(levels, t, left, format),
+    height: heightChain(levels, t, right, format),
     whole:
       own?.height == null
         ? null
         : {
-            x: right + CHAIN_GAP + wholeOffset(view.levels, format),
+            x: right + CHAIN_GAP + wholeOffset(levels, format),
             y0: t.y(0),
             y1: t.y(own.height),
             pill: { text: format(own.height), width: pillWidth(format(own.height)) },
           },
-    ...bottomChains(view, t, format),
+    ...bottomChains(view, t, format, subject ? element || {} : null),
   };
+}
+
+/** An element's levels (A4): the floor, its bottom and top when drawn, the wall's top if known. */
+function elementLevels(top, element) {
+  return [0, element?.bottom, element?.top, top]
+    .filter((level) => typeof level === 'number' && Number.isFinite(level))
+    .sort((a, b) => a - b)
+    .filter((level, i, all) => i === 0 || !near(level, all[i - 1]));
 }
 
 /** The levels above (and below) the floor, labelled left of the side, kept apart going up. */
@@ -107,14 +120,18 @@ function heightChain(levels, t, right, format) {
   };
 }
 
-/** Along the bottom: the shown row's ends and its openings', stepped when short; the side under. */
-function bottomChains(view, t, format) {
+/**
+ * Along the bottom: the shown row's ends and its openings', stepped when short; the side under.
+ * `element`: an element's entry's part (A4; `{}` when not drawn), whose ends replace the openings'.
+ */
+function bottomChains(view, t, format, element = null) {
   const floor = t.y(0);
+  const parts = element
+    ? [element].filter((part) => part.faceId)
+    : [...view.openings, ...(view.columns || []), ...(view.freeWalls || [])];
   const stops = [
     ...view.pieces.filter((piece) => piece.shown).flatMap((piece) => [piece.from, piece.to]),
-    ...[...view.openings, ...(view.columns || []), ...(view.freeWalls || [])]
-      .filter((part) => part.faceId === view.faceId)
-      .flatMap((part) => [part.from, part.to]),
+    ...parts.filter((part) => part.faceId === view.faceId).flatMap((part) => [part.from, part.to]),
   ]
     .sort((a, b) => a - b)
     .filter((stop, i, all) => i === 0 || !near(stop, all[i - 1]));

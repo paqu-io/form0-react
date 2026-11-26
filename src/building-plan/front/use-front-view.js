@@ -12,10 +12,12 @@ import { isAtPath } from './front-shapes.js';
  * row; the wall line's arrows and Alt+Shift+←/→ step through the list's rows (free walls
  * included), round from the last to the first, and a click on a wall on the mini-map shows it.
  * Showing a wall selects it on the plan, as a click there does, so its row is marked in the Walls
- * list; the zoom is kept and the view re-centred. Elsewhere the switch stays on Plan, disabled.
- * Per dialog: every entry opens on Plan. While on, the view follows every canvas update (the
- * entry's unsaved values included), from core (`controller.frontView`). Its zoom and pan are its
- * own and kept while the dialog is open, so the plan keeps its zoom too.
+ * list; the zoom is kept and the view re-centred. An element's entry (A4: a door's, a window's, a
+ * wall beam's or a band's) shows its wall row, the element its `subject`. Elsewhere the switch
+ * stays on Plan, disabled. Per dialog: wall beams and bands open on Front, every other entry on
+ * Plan. While on, the view follows every canvas update (the entry's unsaved values included), from
+ * core (`controller.frontView`). Its zoom and pan are its own and kept while the dialog is open, so
+ * the plan keeps its zoom too.
  * @param {{
  *   controllerRef: { current: object | null },
  *   canvasRef: { current: object | null },
@@ -34,6 +36,13 @@ import { isAtPath } from './front-shapes.js';
  *   Select); `initialView`: 'front' for a dialog opened by a double-click in Front (2026-11-26),
  *   which opens on Front where it has it
  */
+// Entries about an element on a wall (A4): its row from the canvas snapshot's entry.
+const ELEMENTS = new Set(['doors', 'windows', 'wallBeams']);
+
+/** The element's snapshot entry: its row (`wallId`) and its name. */
+const entryOf = (snapshot, element) =>
+  snapshot?.[element.collection]?.find?.((entry) => entry.id === element.id) || null;
+
 export function useFrontView({
   controllerRef,
   canvasRef,
@@ -51,13 +60,15 @@ export function useFrontView({
     [buildingPlanMeta, section]
   );
   const wallFace = derived && focus?.collection === 'walls' ? focus.id : null;
+  const element = derived && ELEMENTS.has(focus?.collection) ? focus : null;
   const roomEntry = !focus || focus.collection === 'rooms';
   const roomId = derived && roomEntry ? scope?.roomId || null : null;
   const [stepped, setStepped] = useState(null);
   const faceId = wallFace || (roomId ? stepped : null);
   const [chosen, setChosen] = useState(false);
-  const on = chosen && Boolean(faceId);
+  const on = chosen && Boolean(faceId || element);
   const [view, setView] = useState(null);
+  const [subjectName, setSubjectName] = useState('');
   const [camera, setCamera] = useState(FRONT_FIT);
 
   /** The room's rows in its Walls list's order, from the canvas snapshot. */
@@ -72,13 +83,16 @@ export function useFrontView({
       setView(null);
       return undefined;
     }
-    return controller.subscribe(() => {
-      const next = controller.frontView(faceId);
+    return controller.subscribe((snapshot) => {
+      const entry = element && entryOf(snapshot, element);
+      if (element) setSubjectName(entry?.displayLabel || '');
+      const face = element ? entry?.wallId : faceId;
+      const next = face ? controller.frontView(face) : null;
       // A row gone (undone, removed): back to the list's first.
       if (!next && roomId) setStepped(roomRows()[0]?.id || null);
       else setView(next);
     });
-  }, [on, faceId, roomId, roomRows]);
+  }, [on, faceId, roomId, roomRows, element?.collection, element?.id]);
 
   const setOn = useCallback(
     (next) => {
@@ -93,14 +107,16 @@ export function useFrontView({
     [roomId, roomRows, selected, onEnter]
   );
 
-  // Opened by a double-click in Front: on Front at once, where this canvas has it.
+  // Opened by a double-click in Front, or a wall beam's or band's entry (A4): on Front at once,
+  // where this canvas has it.
   const started = useRef(false);
-  const available = Boolean(wallFace || roomId);
+  const available = Boolean(wallFace || roomId || element);
+  const opensOnFront = initialView === 'front' || element?.collection === 'wallBeams';
   useEffect(() => {
-    if (started.current || initialView !== 'front' || !available) return;
+    if (started.current || !opensOnFront || !available) return;
     started.current = true;
     setOn(true);
-  }, [available, initialView, setOn]);
+  }, [available, opensOnFront, setOn]);
 
   const shown = on ? view : null;
   const rows = roomId && shown?.rows?.length ? shown.rows : null;
@@ -143,6 +159,8 @@ export function useFrontView({
     zoomIn: () => zoomBy(FRONT_ZOOM.step),
     zoomOut: () => zoomBy(1 / FRONT_ZOOM.step),
     fit: () => setCamera(FRONT_FIT),
+    /** An element's entry's element (A4), drawn in the accent; its name for when Front can't. */
+    subject: element ? { collection: element.collection, id: element.id, name: subjectName } : null,
     /** The wall a hovered Walls row names, lit on the mini-map. */
     lit: highlight?.collection === 'walls' ? highlight.id : null,
     /** The wall line's "n of N" (1 of 1 outside a room's entry). */
