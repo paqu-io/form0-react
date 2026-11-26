@@ -120,6 +120,7 @@ export function FrontView({
     ...shapes.beams,
     ...shapes.columns,
     ...shapes.roomBeams,
+    ...shapes.freeWalls,
   ].filter((s) => s.ref);
   const own = view.pieces.find((piece) => piece.shown);
 

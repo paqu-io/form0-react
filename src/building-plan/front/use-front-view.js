@@ -161,6 +161,7 @@ export function useFrontView({
           ...shown.beams,
           ...(shown.columns || []),
           ...(shown.roomBeams || []),
+          ...(shown.freeWalls || []),
         ].some((part) => isAtPath(part, path))
       ),
   };

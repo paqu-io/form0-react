@@ -47,6 +47,8 @@ export const beam = style({ fill: beamFill, stroke: planVars.symbol, strokeWidth
 // what stands in front of a wall; no cross (in an elevation it reads as an opening) and no
 // hatching (cut material), from the hand test.
 export const column = style({ fill: columnFill, stroke: planVars.symbol, strokeWidth: 1.5 });
+// A free wall meeting the wall (2026-11-26): in the walls' own tone.
+export const freeWall = style({ fill: face, stroke: planVars.symbol, strokeWidth: 1.5 });
 export const cross = style({
   fill: 'none',
   stroke: planVars.symbol,

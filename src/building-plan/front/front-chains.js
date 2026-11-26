@@ -5,7 +5,7 @@ import { textWidth } from './front-shapes.js';
  * The front view's lengths (A2; H1, agreed 2026-11-25), in px: the shown row's levels from the
  * floor on the left; on the right a chain of the partial lengths between them, a pill too long
  * for its stretch stepped aside, alternating, with a leader, and the row's whole height outside
- * it when known; along the bottom the row's ends, its openings' and its columns' edges
+ * it when known; along the bottom the row's ends, its openings', columns' and free walls' edges
  * (2026-11-26), the whole side under them.
  */
 
@@ -112,7 +112,7 @@ function bottomChains(view, t, format) {
   const floor = t.y(0);
   const stops = [
     ...view.pieces.filter((piece) => piece.shown).flatMap((piece) => [piece.from, piece.to]),
-    ...[...view.openings, ...(view.columns || [])]
+    ...[...view.openings, ...(view.columns || []), ...(view.freeWalls || [])]
       .filter((part) => part.faceId === view.faceId)
       .flatMap((part) => [part.from, part.to]),
   ]

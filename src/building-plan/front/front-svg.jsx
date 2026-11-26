@@ -84,8 +84,8 @@ export function FrontSvg({ shapes, chains, openable }) {
     const index = openable.indexOf(shape);
     return index >= 0 ? { 'data-part': index } : {};
   };
-  const { pieces, beams, openings, columns, roomBeams, problems, folds, floor, unknown, markers } =
-    shapes;
+  const { pieces, beams, openings, columns, roomBeams, freeWalls, problems, folds } = shapes;
+  const { floor, unknown, markers } = shapes;
   return (
     <>
       <g className={styles.faded}>
@@ -127,6 +127,15 @@ export function FrontSvg({ shapes, chains, openable }) {
           key={shape.key}
           shape={shape}
           className={styles.column}
+          labelClass={styles.name}
+          part={part(shape)}
+        />
+      ))}
+      {(freeWalls || []).map((shape) => (
+        <Element
+          key={shape.key}
+          shape={shape}
+          className={styles.freeWall}
           labelClass={styles.name}
           part={part(shape)}
         />
