@@ -4553,6 +4553,69 @@ the hint, the next press the usual one; by default a click on W#1 on the plan an
 and marks nothing, its double-click opens it; with `&lockedSelection=on` the click selects it and
 marks its row; no page errors. Committed: web `971f709`.
 
+### The mini-map in Front (2026-11-26, hand-tested, committed)
+
+Decided with mockup round 4 (https://claude.ai/artifact/Dbk7tXCWjNRQWDGmuh4peb) and built as
+decided: P2 (bottom left), V1 (a cone to the shown row's ends from in front of its middle, along its
+inward normal, half its length in, at most 80% of the way to the first wall ahead, clipped to the
+floor; a row on several sides from its longest part, a free wall from its row's side), O1 (as the
+plan, not turned), a ring at the row's 0 end (its left end seen from inside, WB3), the room only,
+display only. Details taken as defaults at the unit's start (the user: proceed unless questions):
+
+- *Walls*: the plan's wall material (the canvas's footprints, openings cut) kept to the room: its
+  floor and, outside each edge, a band as deep as the wall bound to it (a cap's: its source wall),
+  mitred at outer corners. Neighbours' walls are left out, a corner they share is drawn; walls of
+  unknown thickness are the plan's lines.
+- *The first wall ahead*: the room's outline and its free walls (not the one shown).
+- *The card*: 136 × 84 px; columns and room beams not drawn (not in the decided contents).
+
+Found on the page: the status line sits in the panel's bottom-left corner (28 px tall, 8 px up;
+the mockup had it below the panel) and covered the card. The card now sits above it (46 px up)
+and the fit's bottom margin grows from 100 to 136 px, so the card stays under the floor line. No cost
+for a wall that fits across, the usual case in an entry's tall panel; in a view fitted up it also
+keeps the side's length pill off the status line. The left margin grows from 64 to 160 px (the card
+plus 14 px): W1 at 94 px/m in a wall entry's 826 × 747 panel, was 112 (16% smaller, as the mockup
+showed for P2).
+
+Core: `front-view-map.js` (new): the front view's `map`, plan metres: `outline`, `walls`, `lines`,
+`shown`, `others`, `zero`, `eye`, `cone`, `bounds`. `front-view-map-walls.js` (new): the room's
+walls, `buildingPlanFootprints` clipped to the room's region (`clipToConvex`). Wiring:
+`footprints.js` exports `halfPlane`; `front-view.js` gives `map`. Tests:
+`building-plan-front-view-map.test.js` (new, 4: W1 seen from 2.4 m in, 80% of the 3 m to W3, the
+room's walls and corners, the window and the Shared door as gaps, Room 2's walls left out; W3 with
+W3.2 as the side's other row, 1 m in, half its length, and from Room 2 its own map; a free wall
+seen from its row's side, and as the first wall ahead of W1, 1.12 m in; a bump in a room's outline
+that clips the cone; walls of unknown thickness as lines) and the invariants (11 plans: the eye
+and the cone on the floor, the row shown whole from its 0 end, the walls within the room's bounds
+plus the thickest wall). Failing with HEAD's `front-view.js` (no map). Core 840 of 840.
+
+Web: `front-map.js` (new: `FRONT_MAP`, the card's size and place; `frontMapLayout`, the map fitted
+in the card, px), `front-map-svg.jsx` (new: the card: floor, cone, walls, lines, the side's other
+rows, the shown row, the eye, the ring; `data-map` on each), `front-view.jsx` (the card after the
+wall line), `front-camera.js` (margins left 160, bottom 136), `front-view.css.js` (the card on the
+plan tokens: walls in `wallFaint` as in the mockup, the shown row, eye and cone in the accent),
+`plan-text.js` (`plan.front.map`, "Where {wall} is seen from"). Tests:
+`building-plan-front-map.test.js` (new, 3: W1's map in its card at 20 px/m; the side's other row,
+lines, no cone; the card clear of the wall, the floor line and the status line),
+`building-plan-front-layout.test.js` (its panel widened and heightened by the margins' growth, so
+the drawing area and every y stay; every x +96), `building-plan-front-view.test.jsx` (W1's entry in
+Front shows the map: W1 from its 0 end, the ring there, the cone and the walls). Failing with HEAD's
+`front-camera.js` (15 layout tests) and with core's `front-view.js` without the map (the form
+test). Web 512 of 518 (the 6 known worker failures).
+
+Headless on the test page (`state-a2-structure.json`, light and dark): W1's and W3's entries in
+Front; the card bottom left, 10 px above the status line, under the floor line, the wall right of
+it. W1's map: its window a gap, the cone to its ends from 2.4 m in. W3's map: W3 in the accent from
+its ring at x 5, W3.2 grey, the Shared door a gap, the cone from 1 m in. No page errors.
+
+Noticed, from the columns unit (not changed here): in W3's Front, B#1 seen end on covers the
+middle of the ring beam's name ("Ri⊠eam").
+
+Hand-tested (2026-11-26, "everything works very well") and committed: core `bf86050`, web
+`3b90ba0`. Raised in the hand test, to decide: a lighter cone also to the side's other rows that
+Front shows (W3's map points at W3 only, W3.2 is in view too); the "View only" badge beside Show
+feels out of place: say the canvas is view only on the canvas itself (an overlay or else).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

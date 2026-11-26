@@ -2649,3 +2649,16 @@ locked canvases; off: the old behaviour, a click selects nothing there); the tes
 an entry can't open (a room's column from a wall's entry) says where it opens in the status line:
 "C#1 belongs to Bedroom: open it from Bedroom's entry". Web 509 of 515 (the 6 known worker
 failures). Details in `building-plan-ui.md`.
+
+### The mini-map in Front (2026-11-26, hand-tested, committed)
+
+A card at Front's bottom left, above the status line: the room in plan as the plan draws it (its
+walls with openings as gaps), the shown row in the accent colour from a ring at its 0 end, the
+side's other rows grey, and a cone to its ends from in front of its middle (half its length in, at
+most 80% of the way to the first wall ahead, clipped to the floor). Core `front-view-map.js` and
+`front-view-map-walls.js` (new); web `front-map.js` and `front-map-svg.jsx` (new); the fit's margins
+grow (left 64 to 160, bottom 100 to 136). Core 840 of 840, web 512 of 518 (the 6 known worker
+failures). Details in `building-plan-ui.md`.
+
+Hand-tested and committed: core `bf86050`, web `3b90ba0`. To decide: a lighter cone to the side's
+other rows in view; where to say a canvas is view only instead of the badge beside Show.
