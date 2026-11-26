@@ -38,6 +38,7 @@ import { drawInsertionMark } from '../draw/insertion-mark.js';
 import { freeWallSide } from '../free-wall-side.js';
 import { planText } from '../plan-text.js';
 import { dragCursor, hoverCursor } from '../canvas-cursors.js';
+import { cursorStyle } from '../cursor-images.js';
 import { ownsPlanKeyboard } from '../plan-keyboard.js';
 import { DIMENSION_OFFSET, drawDimensions, formatLength } from '../draw/dimensions.js';
 import { PILL_HEIGHT } from '../draw/dimension-layout.js';
@@ -1634,9 +1635,12 @@ export class BuildingPlanCanvas {
     }
     // A Floor canvas and the plan page open the room of anything inside it (2026-11-22).
     const opens = !this.controller?.scope?.roomId;
-    this.canvas.style.cursor = this.gestureRunning()
-      ? dragCursor(this.pressCursor)
-      : hoverCursor(this.hoverState, getCapabilities(this.controller), { opens });
+    // Our own grab hands (G1, `cursor-images.js`).
+    this.canvas.style.cursor = cursorStyle(
+      this.gestureRunning()
+        ? dragCursor(this.pressCursor)
+        : hoverCursor(this.hoverState, getCapabilities(this.controller), { opens })
+    );
   }
 
   /**
@@ -1888,7 +1892,7 @@ export class BuildingPlanCanvas {
       this.isPanning = true;
       this.panStartPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
       this.panStartOffset = { ...this.panOffset };
-      this.canvas.style.cursor = 'grabbing';
+      this.canvas.style.cursor = cursorStyle('grabbing');
       return;
     }
 

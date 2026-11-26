@@ -6,6 +6,7 @@ import { frontShapes } from './front-shapes.js';
 import { frontChains } from './front-chains.js';
 import { FrontSvg } from './front-svg.jsx';
 import { FrontMap } from './front-map-svg.jsx';
+import { cursorStyle } from '../cursor-images.js';
 import * as styles from './front-view.css.js';
 
 /**
@@ -183,6 +184,7 @@ export function FrontView({
     <div ref={rootRef} className={styles.root}>
       <svg
         className={`${styles.svg} ${panning ? styles.panning : ''}`}
+        style={panning ? { cursor: cursorStyle('grabbing') } : undefined}
         role="img"
         aria-label={planText('plan.front.label', { wall: own?.label || '' })}
         onPointerDown={onPointerDown}
