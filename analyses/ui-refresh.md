@@ -2610,3 +2610,33 @@ view-only entries (next unit); a double-click opens on the view it came from (wi
 mini-map in Front (bottom left, a cone to the shown wall, drawn as the plan, a ring at the 0 end),
 the cone's start in an irregular room to confirm at the start of its unit. Order: the click
 selection, the mini-map, A3, A4. Details in `building-plan-ui.md`, "A2".
+
+### A click selects on locked canvases (2026-11-26, to hand-test)
+
+View-only entries and read-only records select what a click hits, in Plan and Front, as a room's
+entry does, nothing moving; a click on nothing goes back to the entry's own element; the pick stays
+through updates and a hovered list row replaces it. Web `canvas-selection.js` (new), the legacy
+canvas wired to it, `form-renderer.jsx` (the own element clears the list's marked row). Web 502 of
+508 (the 6 known worker failures). Details in `building-plan-ui.md`.
+
+Click selection hand-tested and committed: web `616231c`.
+
+### Lintel and sill bands 150 mm deep by default (core, 2026-11-26, hand-tested, committed)
+
+Until the floor's depth is typed, lintel and sill bands are 150 mm deep (was 300; the ring beam
+stays 300), the sill band's top still at 0.9 m (underside 0.75). Core `band-rows.js`. Core 835 of
+835, web 502 of 508 (the 6 known worker failures). Details in `building-plan-ui.md`.
+
+### Columns and room beams in Front (2026-11-26, hand-tested, committed)
+
+Front draws the room's columns and room beams touching the shown side's face (none free-standing):
+columns floor to top with the plan's column symbol, beams at their height, a section cross when
+seen end on; columns' edges in the bottom chain, no heights added. Core `front-view-structure.js`
+(new), web `front-shapes.js`, `front-chains.js`, `front-svg.jsx`, `front-chains-svg.jsx` (new).
+Core 836 of 836, web 504 of 511 (known failures and flakes). The mini-map waits for the cone's start
+to be confirmed (mockup round 4, an L-shaped room added). Details in `building-plan-ui.md`.
+
+Hand-tested and committed: core `0ddd98b` (band default), core `3e36596` and web `fa34673`
+(columns and room beams; columns drawn as toned outlines, the cross dropped in the hand test). The
+mini-map's cone rule confirmed. To decide: a code switch for the click selection on locked
+canvases, double-click on columns and room beams from a wall's entry.

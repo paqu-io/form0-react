@@ -4414,6 +4414,107 @@ Decided after it (2026-11-26):
   part, a free wall from its row's side.
 - Order: the click selection, the mini-map, A3, A4.
 
+### A click selects on locked canvases (2026-11-26, to hand-test)
+
+Decided (2026-11-26): every locked plan canvas (view-only entries: a wall's, a door's, a window's,
+a column's, a beam's; a read-only record's floor and room entries) selects what a click hits, as
+a room's entry does, nothing moving: on a canvas scoped to a room a door, window, column, room
+beam or wall (nothing in a faded room; wall beams and bands not by a plan press, WB10), on a
+floor's canvas the room of what the click hits (as an editable Floor canvas does). A click on
+nothing goes back to the entry's own element (a read-only floor or room entry: nothing); a drag
+picks nothing; data refreshes keep the pick; a hovered list row replaces it, as in a room's entry.
+In Front a click picks a door, window, band, beam or the side's other wall (outlined then), in
+both views; on nothing, the entry's own wall.
+
+Web: `canvas-selection.js` (new): the selection fields (moved out of the legacy canvas), what a
+locked press hits and what a double-click opens (`lockedPress`, the old locked press's order), a
+click's release (moved under 4 px at screen scale), the pick kept ahead of the highlight
+(`applyMarks`), a new highlight dropping it (`setMarks`). The legacy canvas wires them: the
+locked press, the locked release, `setHighlight`/`applyHighlight`, `selectElement` on a locked
+canvas a pick (an issue, a dialog opened on the way now stay selected through updates), and
+`pickElement` for Front (`plan-stage.jsx` `onPick`; `front-view.jsx` `onClick`; `front-shapes.js`
+the side's other wall `selected`). `form-renderer.jsx` (one line): the entry's own element now
+clears its list's marked row (it kept it: a view-only entry reselected its element on every
+update, which dropped the row marked on the way; picks keep their selection, so nothing does).
+
+Tests: `building-plan-locked-pick.test.js` (8, stubbed canvases: a click picks a door, a column,
+a wall; kept through refreshes; nothing or a faded room back to the own element; a drag picks
+nothing; a hovered row replaces it; an issue's band kept, none or one not shown the own element; a
+read-only floor picks rooms; the double-click still opens); `building-plan-front-view.test.jsx`
+(a click on the window selects it in Front, on nothing the own wall). Failing with HEAD's legacy
+canvas (4 of 8 and the Front test; the other 4 hold there too, nothing being picked). Web 502 of
+508 (the 6 known worker failures). Headless on the test page: W3's entry with its Doors list, a
+click on the Shared door selects it and marks its row, on the floor clears both, a drag from the
+door picks nothing; in Front the door and the lintel band, the band then selected on the plan with
+its height line; a read-only record's Bedroom entry with its Walls list, a click on W1 marks it, on
+the floor clears it; no page errors.
+
+Click selection hand-tested and committed: web `616231c` (2026-11-26).
+
+### Lintel and sill bands 150 mm deep by default (core, 2026-11-26, hand-tested, committed)
+
+Asked by the user (2026-11-26): until the floor's depth is typed (it is required once a band is
+Yes), a lintel or sill band is 150 mm deep, not 300; the ring beam stays 300 mm, as a beam added by
+hand (`NEW_BEAM_DEPTH`). The sill band keeps its top at a new window's sill (0.9 m), so its
+default underside is 0.75 m (was 0.60); the lintel band's stays 2.10 m (a new window's head). A
+floor with typed depths is unchanged; one left empty (a draft) shows the new depth at its next
+update. Core `band-rows.js` (`BAND_DEPTH`). Tests: `building-plan-band-rows.test.js` (new: without
+the floor's depths, lintel and sill 150 mm at 2.10 and 0.75, the ring beam 300 mm at 2.70; failing
+before), and the expectations that read the old default (`building-plan-front-view.test.js`:
+W1's levels now 0 / 0.75 / 0.9 / 2.1 / 2.25 / 2.7 / 3, unknown heights drawn to 2.75 then 3.10,
+the window's clash 1.90 to 2.05, the band above W2 to 3.55; the split's rows and a face's band in
+`building-plan-band-rows` and `building-plan-canvas-wall-beams`). Core 835 of 835; web 502 of 508
+(the 6 known worker failures; none read the default).
+
+### Columns and room beams in Front (2026-11-26, hand-tested, committed)
+
+Decided (2026-11-26): Front draws the room's columns and room beams whose footprint or body
+touches the shown side's face (within 1 mm, standing against it or set into it); no free-standing
+ones. A column from the floor to its height (unknown: its wall's drawn height, the top dashed),
+over the bands, outlined (1.5 px) in a tone of its own (the hand test dropped the plan's diagonal
+cross: in an elevation a cross reads as an opening or void and hatching as cut material, while
+elevations draw what stands in front of a wall by its outline); a room beam at its underside and
+depth (unknown: not drawn), with a section cross when it meets the wall across (seen end on), plain
+when it lies along it; those of the side's other row faded. Columns add their edges to the bottom
+chain; no heights in the chains (beam undersides left out, the user: too much). Clicks as for every
+part (a click selects; a double-click opens a room row where the entry allows it: from a room's
+entry, not a wall's). Done before the mini-map, which waits for the cone's start to be confirmed
+(mockup round 4 updated with an L-shaped room).
+
+Core: `front-view-structure.js` (new): the columns and room beams against a strip (a column's box
+turned by its rotation, a beam's body from `beamOutline`, cut along the faces it stops on; touching
+a part's face from the room's side; their stretch along the strip and the row they stand
+against), and the room's columns' and beams' tops, which now count toward its highest level (the
+fit, a wall of unknown height). `front-view.js` gives `columns` and `roomBeams`;
+`front-view-refs.js` their canvas elements (`columns`, `beams`). Tests: `building-plan-front-view.
+test.js` (new: C#1 against W1 and C#2 set into it, a free-standing column left out; B#1 across from
+W1 to W3.2 end on, on both sides; B#2 along W4 side on; their refs through the controller) and
+the invariants (a plan with columns and beams: inside their rows, from the floor, within the fit).
+Failing with HEAD's `front-view.js`. Core 836 of 836.
+
+Web: `front-shapes.js` (columns named at the top when they fit; room beams named inside, or above
+when they don't, as one seen end on), `front-chains.js` (the shown row's columns' edges along the
+bottom), `front-svg.jsx` (`Element` with a diagonal cross and a dashed unknown top), the chains'
+drawing moved to `front-chains-svg.jsx` (new), `front-view.css.js` (a column's fill), the parts
+open and pick (`front-view.jsx`), an issue on one stays in Front (`use-front-view.js`). Tests:
+`building-plan-front-layout.test.js` (3 new: columns to scale, faded, selected, unknown; room
+beams end on and along with their names and a marker; the columns' edges in the bottom chain, no
+levels; failing before). Web 504 of 511 (the 6 known worker failures and the known flaky "keeps
+numeric setters numeric"; a run before had the reset test flake instead, passing alone). Headless on
+the test page (`state-a2-structure.json`, built in node: the bands, W#1, two columns against W1,
+one free-standing, a beam across and one along W4): W1 shows C#1, C#2 and B#1 end on, the bottom
+chain 0.85 / 0.30 / 0.75 / 1.00 / 0.90 / 0.40 / 0.80, the bands at 150 mm; W3 the beam's other
+end; W4 the beam along it; the free-standing column nowhere; a click selects C#1, a double-click
+opens nothing from a wall's entry; no page errors.
+
+Hand-tested (2026-11-26), the columns' cross dropped as above, and committed: core `0ddd98b`
+(the band default), core `3e36596` and web `fa34673` (columns and room beams). The mini-map's
+cone confirmed as proposed (in front of the shown wall's middle, half its length in, at most 80% of
+the way to the first wall ahead, clipped to the floor). Raised in the same hand test, to decide: a
+switch in code for the click selection on locked canvases (new or old behaviour), and double-click
+on columns and room beams from a wall's entry (they open only from their room's entry, as every
+entry opens only its own rows, 2026-11-22).
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
