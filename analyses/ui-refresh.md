@@ -2640,3 +2640,12 @@ Hand-tested and committed: core `0ddd98b` (band default), core `3e36596` and web
 (columns and room beams; columns drawn as toned outlines, the cross dropped in the hand test). The
 mini-map's cone rule confirmed. To decide: a code switch for the click selection on locked
 canvases, double-click on columns and room beams from a wall's entry.
+
+### The click selection's switch and "open it from" (2026-11-26, hand-tested, committed)
+
+`FormRenderer`'s `buildingPlanLockedSelection`, an option off by default (on: a click selects on
+locked canvases; off: the old behaviour, a click selects nothing there); the test page's
+`&lockedSelection=on`. Committed: web `971f709`. A double-click on what
+an entry can't open (a room's column from a wall's entry) says where it opens in the status line:
+"C#1 belongs to Bedroom: open it from Bedroom's entry". Web 509 of 515 (the 6 known worker
+failures). Details in `building-plan-ui.md`.

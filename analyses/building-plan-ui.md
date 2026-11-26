@@ -4515,6 +4515,44 @@ switch in code for the click selection on locked canvases (new or old behaviour)
 on columns and room beams from a wall's entry (they open only from their room's entry, as every
 entry opens only its own rows, 2026-11-22).
 
+### The click selection's switch and "open it from" (2026-11-26, hand-tested, committed)
+
+Decided (2026-11-26): the click selection on locked canvases becomes an option in code only,
+**off by default** (flipped after the hand test, so a selectable element doesn't suggest it opens):
+`FormRenderer`'s `buildingPlanLockedSelection` (true turns it on; off gives the old behaviour
+exactly: a click selects nothing, an issue's selection isn't kept through updates, a click in Front
+does nothing, the list's marked row stays when the entry's own element comes back; the
+double-click as before). The confusion the user met: a selectable element looked openable, but an
+entry opens only its own rows (2026-11-22), so a column or room beam doesn't open from a wall's
+entry. Kept as it is (not opened on top of W1's entry, whose dialogs underneath wouldn't be its
+parents; not by leaving W1's entry), and said: a double-click on a row outside the entry's reach
+(neither the entry, a parent of it, nor below it) shows "C#1 belongs to Bedroom: open it from
+Bedroom's entry" in the status line (its row's parent), until the next press; in Plan and Front.
+
+Web: `FormRenderer` prop through the dialogs (beside `buildingPlanDerivedCommands`) and the plan
+page (`section-view.jsx`) to `BuildingPlanCanvasHost` `lockedSelection`, set on the canvas at
+mount; `canvas-selection.js` `picksOn` (locked and not switched off) gates a click's release,
+`selectElement`'s pick and `pickElement`; `form-renderer.jsx` `markPlanRow` keeps its early return
+when off; `entry-chain.js` `isElsewhere`; the entry's `focusRow` returns `{ elsewhere: { name,
+owner } }` (row titles) when it opens nothing for such a row, `canvas-host-mount.js` shows it as
+the hint `plan.status.openElsewhere`; hints carry parameters (`showHint(key, params)`, the status
+`hintParams`, `plan-status.jsx` filling a placeholder the hint names, the others key caps); Front
+drops its lengths note under such a hint, as the canvas does. The test page: `&lockedSelection=on`
+(harness `preview.mjs`, README). Comments marking the option: the prop in `form-renderer.jsx`,
+`canvas-selection.js`.
+
+Tests: `building-plan-entry-chain.test.js` (`isElsewhere`: the entry, its room, its door, a
+column, another wall's door, another room), `building-plan-locked-pick.test.js` (switched off: a
+click selects nothing, the double-click opens, an issue's band not kept through a refresh),
+`building-plan-front-view.test.jsx` (a column against W1 in its fixture; a double-click on it in
+Front says where it opens, no dialog; by default, a click in Front selects nothing and a
+double-click opens; the Front test turns the option on for its clicks). Failing with HEAD's `form-renderer.jsx` (the two form cases) and legacy
+canvas (the switched-off case). Web 509 of 515 (the 6 known worker failures). Headless on the test
+page (`state-a2-structure.json`): W1's entry, a double-click on C#1 on the plan and in Front shows
+the hint, the next press the usual one; by default a click on W#1 on the plan and in Front selects
+and marks nothing, its double-click opens it; with `&lockedSelection=on` the click selects it and
+marks its row; no page errors. Committed: web `971f709`.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a
