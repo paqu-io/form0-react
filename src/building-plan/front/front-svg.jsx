@@ -31,11 +31,22 @@ function Pill({ x, y, text, width }) {
 
 function Piece({ piece, part }) {
   const { x, y, w, h } = piece;
+  // The side's other wall picks by a click.
+  const pickable = piece.shown ? '' : ` ${styles.openable}`;
   if (!piece.unknown)
-    return <rect className={styles.wallFace} x={x} y={y} width={w} height={h} {...part} />;
+    return (
+      <rect
+        className={`${styles.wallFace}${pickable}`}
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        {...part}
+      />
+    );
   // Its height unknown: three sides drawn, the top dashed.
   return (
-    <g {...part}>
+    <g className={pickable || undefined} {...part}>
       <rect className={styles.wallFace} x={x} y={y} width={w} height={h} stroke="none" />
       <path className={styles.wallEdge} d={`M${x} ${y} V${y + h} H${x + w} V${y}`} />
       <line className={styles.unknownTop} x1={x} y1={y} x2={x + w} y2={y} />
@@ -151,6 +162,19 @@ export function FrontSvg({ shapes, chains, openable }) {
         .filter((piece) => piece.shown)
         .map((piece) => (
           <Piece key={piece.key} piece={piece} part={part(piece)} />
+        ))}
+      {pieces
+        .filter((piece) => piece.selected)
+        .map((piece) => (
+          <rect
+            key={`selected:${piece.key}`}
+            className={styles.selected}
+            x={piece.x}
+            y={piece.y}
+            width={piece.w}
+            height={piece.h}
+            data-selected-wall={piece.label}
+          />
         ))}
       {beams.map((shape) => (
         <Element

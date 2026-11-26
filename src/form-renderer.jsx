@@ -5894,9 +5894,8 @@ function RepeatableEntryModal({
       // The list's own row, or for an element one level below it (a window under the Walls
       // list), the nearest row the list holds (its wall).
       const listed = inEntry ? idPath[context.path.length] : null;
-      // The entry's own element says nothing about its lists: a view-only entry (a wall) selects
-      // its element again on every update, which would drop the row marked on the way.
-      if (inEntry && !listed) return;
+      // The entry's own element marks none of its rows (a click on nothing in a view-only entry;
+      // its pick now stays through updates, 2026-11-26, so nothing reselects it on the way).
       setPlanMarkedRowId(listed?.key === planListKey ? listed.id : null);
     },
     [modal.buildingPlan, planListKey]

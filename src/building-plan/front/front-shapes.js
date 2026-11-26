@@ -31,7 +31,8 @@ const isSelected = (part, selection) =>
  * @param {{ scale: number, x: (m: number) => number, y: (m: number) => number }} t
  * @param {{ selection?: { collection: string, id: string } | null,
  *   markers?: Array<Array<{ key: string, index: number }>> }} [marks] the plan's selected element
- *   (a wall's isn't drawn: in a wall's entry it is the wall shown) and the rows with issues
+ *   (the shown wall's isn't drawn: in a wall's entry it is the entry's own) and the rows with
+ *   issues
  */
 export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
   const rect = (from, to, bottom, top) => ({
@@ -48,6 +49,8 @@ export function frontShapes(view, t, { selection = null, markers = [] } = {}) {
     label: piece.label,
     shown: piece.shown,
     unknown: piece.height === null,
+    // The side's other wall, picked (a click in Front, 2026-11-26).
+    selected: !piece.shown && isSelected(piece, selection),
     ref: piece.ref,
   }));
   const beams = view.beams.map((beam) => {

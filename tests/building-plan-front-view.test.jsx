@@ -13,7 +13,7 @@ import {
 // working in a wall's entry (disabled elsewhere, saying where it works). In Front: the wall seen
 // from inside its room with its lengths, the wall line "1 of 1", Show disabled, the status line
 // on lengths, a zoom of its own (the plan keeps its zoom), double-click to open as on the plan,
-// and an issue selected there when Front shows it.
+// and an issue selected there when Front shows it; a click selects a part (2026-11-26).
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -167,6 +167,11 @@ it('Front in a wall entry: its lengths, its own zoom, Show off, double-click and
   // Its bands, its window and its lengths: the wall's 3.00 m, the window's 1.00 m along it.
   const texts = () => [...svg.querySelectorAll('text')].map((text) => text.textContent);
   expect(texts()).toEqual(expect.arrayContaining(['Lintel band', 'Window A', '3.00', '1.00']));
+  // A click selects a part, as on the plan (2026-11-26); one on nothing, the entry's own wall.
+  fireEvent.click(svg.querySelector('[data-name="Window A"] rect'));
+  await waitFor(() => expect(svg.querySelector('[data-selected]')?.dataset.name).toBe('Window A'));
+  fireEvent.click(svg);
+  await waitFor(() => expect(svg.querySelector('[data-selected]')).toBeNull());
   // Show doesn't apply; the status line names the lengths' unit; the pill fits the view.
   expect(show().disabled).toBe(true);
   expect(show().parentElement.dataset.tooltip).toBe('Front always shows bands, beams and lengths');

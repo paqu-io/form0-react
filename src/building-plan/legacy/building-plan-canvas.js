@@ -52,6 +52,14 @@ import {
 } from '../content-lengths.js';
 import { drawFloorBelow } from '../draw/floor-below.js';
 import { drawGuides } from '../draw/guides.js';
+import {
+  HIGHLIGHT_FIELDS,
+  applyMarks,
+  lockedPress,
+  pickElement,
+  releaseLockedPress,
+  setMarks,
+} from '../canvas-selection.js';
 import { clipInside, clipOutside, drawPlasterBands, plasterBands } from '../draw/plaster-bands.js';
 import { plasterLabel } from '../plaster-values.js';
 import {
@@ -137,18 +145,6 @@ const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
 // Multiplicative, so each click is proportionate across the whole zoom range.
 const ZOOM_STEP = 1.25;
 const ZOOM_WHEEL_SENSITIVITY = 0.002;
-
-// The selection field each highlighted collection sets.
-const HIGHLIGHT_FIELDS = {
-  rooms: 'selectedRoomId',
-  walls: 'selectedWallId',
-  doors: 'selectedDoorId',
-  windows: 'selectedWindowId',
-  columns: 'selectedColumnId',
-  beams: 'selectedBeamId',
-  // A wall beam or band (D1c): selected from its entry or a problem, never by a press.
-  wallBeams: 'selectedWallBeamId',
-};
 
 const DEFAULT_LABEL_SETTINGS = {
   rooms: true,
@@ -929,6 +925,8 @@ export class BuildingPlanCanvas {
    * @returns {boolean} false when the canvas doesn't show it
    */
   selectElement(target) {
+    // A locked canvas keeps it as a click's pick (`canvas-selection.js`).
+    if (this.readOnly) return pickElement(this, target);
     const field = target && HIGHLIGHT_FIELDS[target.collection];
     const entry = field && (this[target.collection] || []).find((item) => item.id === target.id);
     if (!entry) return false;
@@ -1556,24 +1554,17 @@ export class BuildingPlanCanvas {
   }
 
   setHighlight(highlight) {
-    const previous = this.highlight;
-    this.highlight = highlight || null;
-    if (!this.highlight && previous) {
-      const field = HIGHLIGHT_FIELDS[previous.collection];
-      if (field && this[field] === previous.id) this[field] = null;
-    }
-    this.applyHighlight();
-    this.render();
+    setMarks(this, highlight);
   }
 
   applyHighlight() {
-    const highlight = this.highlight;
-    const field = highlight && HIGHLIGHT_FIELDS[highlight.collection];
-    if (!field || !(this[highlight.collection] || []).some((entry) => entry.id === highlight.id))
-      return;
-    for (const other of Object.values(HIGHLIGHT_FIELDS))
-      if (other !== 'selectedRoomId') this[other] = null;
-    this[field] = highlight.id;
+    applyMarks(this);
+  }
+
+  /** The front view's click (A2): picks an element, or none (the entry's own again). */
+  pickElement(target) {
+    if (this.readOnly) return pickElement(this, target);
+    return target ? this.selectElement(target) : false;
   }
 
   /**
@@ -1894,29 +1885,12 @@ export class BuildingPlanCanvas {
     }
 
     // Block all other interactions in read-only mode
+    // A locked canvas (a view-only entry, a read-only record): what a double-click opens, and
+    // what a click picks when released (`canvas-selection.js`, 2026-11-26).
     if (this.readOnly) {
-      const point = this.getCanvasPoint(event);
-      const opening = this.findOpeningNearPoint(point);
-      const column = this.findColumnHit(point)?.column;
-      const beam = this.findBeamHit(point)?.beam;
-      const wall = this.findWallNearPoint(point)?.wall;
-      const room = this.findRoomAtPoint(point);
-      // `findOpeningNearPoint` names the opening `openingId` (an `opening.opening.id` here opened
-      // nothing, so no door or window opened from a read-only canvas; fixed 2026-11-22).
-      this.pendingFocus = opening
-        ? () =>
-            this.controller?.[opening.type === 'door' ? 'focusDoor' : 'focusWindow']?.(
-              opening.openingId
-            )
-        : column
-          ? () => this.controller?.focusColumn?.(column.id)
-          : beam
-            ? () => this.controller?.focusBeam?.(beam.id)
-            : wall
-              ? () => this.controller?.focusWall?.(wall.id)
-              : room
-                ? () => this.controller?.focusRoom?.(room.id)
-                : null;
+      const press = lockedPress(this, this.getCanvasPoint(event));
+      this.pendingFocus = press.open;
+      this.lockedTarget = press.target;
       return;
     }
 
@@ -2758,8 +2732,8 @@ export class BuildingPlanCanvas {
       return;
     }
 
-    // Block all other interactions in read-only mode
-    if (this.readOnly) return;
+    // A locked canvas: a click picks what it pressed.
+    if (this.readOnly) return releaseLockedPress(this, this.getCanvasPoint(event));
 
     const point = this.getCanvasPoint(event);
     if (['split', 'rejoin'].includes(this.mode)) {

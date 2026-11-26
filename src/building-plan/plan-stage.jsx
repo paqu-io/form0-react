@@ -52,8 +52,11 @@ export function PlanStage({
             selection={selection}
             markers={markers}
             format={format}
-            // A double-click opens a part's entry as on the plan.
+            // A double-click opens a part's entry as on the plan; a click selects it.
             onOpen={(ref) => controllerRef.current?.focus?.(ref.collection, ref.id)}
+            onPick={(ref) =>
+              canvasRef.current?.pickElement?.(ref && { collection: ref.collection, id: ref.id })
+            }
           />
         )}
       </div>

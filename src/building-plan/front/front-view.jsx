@@ -78,7 +78,8 @@ function WallLine({ label, index, total }) {
  *   markers?: Array<Array<{ key: string, index: number }>>,
  *   format: (metres: number) => string,
  *   onOpen: (ref: { collection: string, id: string, path: object[] }) => void,
- * }} props
+ *   onPick?: (ref: { collection: string, id: string } | null) => void,
+ * }} props `onPick`: a click on a part selects it, on nothing the entry's own (2026-11-26)
  */
 export function FrontView({
   view,
@@ -88,6 +89,7 @@ export function FrontView({
   markers = [],
   format,
   onOpen,
+  onPick = () => {},
 }) {
   const rootRef = useRef(null);
   const box = useBoxSize(rootRef);
@@ -139,10 +141,17 @@ export function FrontView({
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     setPanning(null);
   };
+  const partAt = (event) => {
+    const index = event.target.closest?.('[data-part]')?.getAttribute('data-part');
+    return index == null ? null : openable[Number(index)];
+  };
+  const onClick = (event) => {
+    if (event.shiftKey || event.button !== 0) return;
+    onPick(partAt(event)?.ref || null);
+  };
   const onDoubleClick = (event) => {
     if (event.shiftKey) return;
-    const index = event.target.closest?.('[data-part]')?.getAttribute('data-part');
-    const part = index == null ? null : openable[Number(index)];
+    const part = partAt(event);
     if (part?.ref) onOpen(part.ref);
   };
 
@@ -156,6 +165,7 @@ export function FrontView({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onClick={onClick}
         onDoubleClick={onDoubleClick}
       >
         <FrontSvg shapes={shapes} chains={chains} openable={openable} />
