@@ -35,7 +35,7 @@ describe('the mini-map', () => {
     expect(m.cone).toBe('M68 60L18 12L118 12Z');
   });
 
-  it("draws the side's other rows, walls of unknown thickness as lines, no cone when empty", () => {
+  it("draws the side's other rows and their cone, walls of unknown thickness as lines", () => {
     const m = frontMapLayout(
       bedroom({
         walls: [],
@@ -44,12 +44,16 @@ describe('the mini-map', () => {
         others: [[p(3, 3), p(0, 3)]],
         zero: p(5, 3),
         cone: [],
+        sideCone: [p(4, 2), p(5, 3), p(0, 3)],
       })
     );
     expect(m.shown).toEqual([{ x1: 118, y1: 72, x2: 78, y2: 72 }]);
     expect(m.others).toEqual([{ x1: 78, y1: 72, x2: 18, y2: 72 }]);
     expect(m.lines).toEqual([{ x1: 18, y1: 12, x2: 118, y2: 12 }]);
     expect([m.walls, m.cone]).toEqual(['', '']);
+    // The side cone, to the side's ends (W3.2 is in Front beside W3).
+    expect(m.sideCone).toBe('M98 52L118 72L18 72Z');
+    expect(frontMapLayout(bedroom()).sideCone).toBe('');
   });
 
   it('keeps the card clear of the wall: left of it, under the floor line, above the status', () => {

@@ -18,10 +18,11 @@ const round = (value) => Math.round(value * 100) / 100;
  *   lines: Array<Array<{x: number, y: number}>>, shown: Array<Array<{x: number, y: number}>>,
  *   others: Array<Array<{x: number, y: number}>>, zero: {x: number, y: number},
  *   eye: {x: number, y: number}, cone: Array<{x: number, y: number}>,
+ *   sideCone?: Array<{x: number, y: number}>,
  *   bounds: { x: number, y: number, width: number, height: number },
  * }} map core's
  * @param {{ width: number, height: number, padding: number }} [card]
- * @returns {object} paths (`floor`, `walls`, `cone`: '' when empty), segments (`lines`, `others`,
+ * @returns {object} paths (`floor`, `walls`, `cone`, `sideCone`: '' when empty), segments (`lines`, `others`,
  *   `shown`: { x1, y1, x2, y2 }) and points (`zero`, `eye`), px in the card
  */
 export function frontMapLayout(map, card = FRONT_MAP) {
@@ -49,6 +50,7 @@ export function frontMapLayout(map, card = FRONT_MAP) {
     walls: path(map.walls),
     lines: map.lines.map(segment),
     cone: path([map.cone]),
+    sideCone: path([map.sideCone || []]),
     others: map.others.map(segment),
     shown: map.shown.map(segment),
     zero: at(map.zero),

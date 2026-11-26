@@ -142,6 +142,8 @@ export const mapCone = style({
   strokeOpacity: 0.5,
   strokeWidth: 1,
 });
+// What Front shows beside the row (the side's other rows), lighter, under the row's cone.
+export const mapSideCone = style({ fill: planVars.accent, fillOpacity: 0.07 });
 export const mapEye = style({ fill: planVars.accent });
 export const mapZero = style({
   fill: vars.color.background,
