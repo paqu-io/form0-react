@@ -6,6 +6,19 @@
 const TEXT = {
   'plan.zoom.panHint': 'Pan: Shift-drag or the middle mouse button',
   'plan.zoom.fit': 'Fit plan',
+  'plan.zoom.fitFront': 'Fit view',
+  // The Plan | Front switch in the floor row (A2): Front works in a wall's entry for now.
+  'plan.view.label': 'View',
+  'plan.view.plan': 'Plan',
+  'plan.view.front': 'Front',
+  'plan.view.frontHint': 'The wall seen from inside its room, heights from the floor',
+  'plan.view.frontUnavailable': "Front: open a wall's entry",
+  // The front view (A2): its wall line, "W1 · 1 of 1", and a wall of unknown height.
+  'plan.front.label': 'Front view of {wall}',
+  'plan.front.position': '{index} of {total}',
+  'plan.front.previous': 'Previous wall',
+  'plan.front.next': 'Next wall',
+  'plan.front.heightUnknown': 'Height unknown',
   'plan.viewOnly': 'View only',
   'plan.floor.add': 'Add floor',
   'plan.floor.none': 'No floors yet',
@@ -29,6 +42,7 @@ const TEXT = {
   'plan.show.beamsHint': 'Room beams and beams added to walls',
   'plan.show.bands': 'Bands',
   'plan.show.bandsHint': "Every wall's ring beam, lintel and sill bands",
+  'plan.show.front': 'Front always shows bands, beams and lengths',
   // A selected wall beam or band's name and height (D1c): "Lintel band · 2.45 m from floor".
   'plan.beam.height': '{name} · {height} from floor',
   // With the selected wall's name (step 2, S6): its face's plaster and the face across.

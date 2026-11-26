@@ -22,10 +22,12 @@ export function ownsHistory(editor, scopeId, direction) {
  * Alt+Shift+Z and Alt+Shift+Y shortcuts (moved out of `canvas-host.jsx`). A refused one shows its
  * message on the canvas.
  * @param {{ repeatableApi: object, repeatableApiRef: { current: object },
- *   canvasRef: { current: object }, locked: boolean }} options
- * @returns {{ editor: object | null, undo: () => void, redo: () => void }}
+ *   canvasRef: { current: object }, readOnly: boolean, viewOnly: boolean }} options
+ * @returns {{ history: { canUndo: boolean, canRedo: boolean, onUndo: () => void,
+ *   onRedo: () => void } | null }} the floor row's Undo / Redo, null where the canvas doesn't edit
  */
-export function usePlanHistory({ repeatableApi, repeatableApiRef, canvasRef, locked }) {
+export function usePlanHistory({ repeatableApi, repeatableApiRef, canvasRef, readOnly, viewOnly }) {
+  const locked = readOnly || viewOnly;
   const editor = repeatableApi.editor || null;
   const step = useCallback((direction) => {
     const api = repeatableApiRef.current;
@@ -51,5 +53,14 @@ export function usePlanHistory({ repeatableApi, repeatableApiRef, canvasRef, loc
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [editor, locked, undo, redo]);
-  return { editor, undo, redo };
+  const history =
+    editor && !viewOnly
+      ? {
+          canUndo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'undo'),
+          canRedo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'redo'),
+          onUndo: undo,
+          onRedo: redo,
+        }
+      : null;
+  return { history };
 }

@@ -23,7 +23,10 @@ import * as styles from './floor-tabs.css.js';
  *   layers?: typeof DEFAULT_PLAN_LAYERS,
  *   onLayer?: ((key: string, on: boolean) => void) | null,
  *   inEntry?: boolean,
- * }} props `inEntry`: a room's or an element's entry (its room's lengths show)
+ *   viewSwitch?: React.ReactNode,
+ *   showHint?: string | null,
+ * }} props `inEntry`: a room's or an element's entry (its room's lengths show); `viewSwitch`:
+ *   Plan | Front (A2), first at the end; `showHint`: Show doesn't apply (Front), why
  */
 export function FloorTabs({
   tabs,
@@ -36,6 +39,8 @@ export function FloorTabs({
   layers = DEFAULT_PLAN_LAYERS,
   onLayer = null,
   inEntry = false,
+  viewSwitch = null,
+  showHint = null,
 }) {
   const belowShown = Boolean(below) && layers.floorBelow !== false;
   // The Show menu's layers (step 2, S2); one this floor doesn't have is listed disabled.
@@ -109,11 +114,12 @@ export function FloorTabs({
       {belowShown && (
         <span className={styles.below}>{planText('plan.floor.below', { floor: below })}</span>
       )}
-      {(viewOnly || issues || show || history) && (
+      {(viewSwitch || viewOnly || issues || show || history) && (
         <div className={styles.end}>
+          {viewSwitch}
           {viewOnly && <span className={styles.viewOnly}>{planText('plan.viewOnly')}</span>}
           {issues}
-          {show && <PlanShowMenu items={layerItems} onToggle={onLayer} />}
+          {show && <PlanShowMenu items={layerItems} onToggle={onLayer} disabledHint={showHint} />}
           {history && (
             <div className={styles.history}>
               <button

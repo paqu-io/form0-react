@@ -49,6 +49,20 @@ globalStyle('.building-plan-canvas-panel-wrapper > .building-plan-zoom-controls'
   bottom: '19px',
 });
 
+// The canvas's panel and, in Front (A2), the front view over it; the canvas stays, hidden, so the
+// plan keeps its zoom and nothing moves. It sizes as the panel did before it: an entry's layout
+// stretches both (plan-entry-layout.css.js).
+globalStyle('.building-plan-canvas-stage', {
+  position: 'relative',
+  flex: '0 0 auto',
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+});
+globalStyle('.building-plan-canvas-stage[data-view="front"] > .building-plan-canvas-panel', {
+  visibility: 'hidden',
+});
+
 globalStyle('.building-plan-canvas-panel', {
   vars: { '--building-plan-canvas-aspect-ratio': '16 / 9' },
   flex: '0 0 auto',

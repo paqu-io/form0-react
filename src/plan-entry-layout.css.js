@@ -96,6 +96,12 @@ globalStyle(`${canvasColumn} .building-plan-canvas-panel`, {
   '@media': { [THREE_COLUMNS]: { flex: '1 1 auto', minHeight: 0 } },
 });
 
+// The panel's stage (A2) stretches with it, or the panel takes its content's height and the
+// canvas, sized to it, grows a border's width at each resize (found in the A2 hand test).
+globalStyle(`${canvasColumn} .building-plan-canvas-stage`, {
+  '@media': { [THREE_COLUMNS]: { flex: '1 1 auto', minHeight: 0 } },
+});
+
 // A list row whose element is selected on the plan (repeatable-list-parts, data-plan-marked).
 globalStyle('[data-plan-marked="true"]', {
   background: derived.primarySoft,

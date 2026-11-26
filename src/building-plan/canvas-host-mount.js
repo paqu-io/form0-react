@@ -67,7 +67,7 @@ function capturePlan(controller, read) {
  *   canvasRef, presentationRef, highlightRef, focusRef, findingMarkersRef, onSelectRef,
  *   layersRef (the Show menu's layers, step 2)
  * @param {Record<string, Function>} options.on setFloorTabs, setStatus, setActiveToolMode,
- *   setZoomLevel, setSelected (the selected element's collection), reportProblems (the
+ *   setZoomLevel, setSelected (the selected element, { collection, id }), reportProblems (the
  *   snapshot's problems to fix before saving, bands 4a)
  * @returns {{ controller: object, canvas: object }}
  */
@@ -196,7 +196,7 @@ export function mountPlanCanvas({
   applyPlanLayers(layersRef?.current || DEFAULT_PLAN_LAYERS, canvas, controller);
   canvas.onSelect = (selection) => {
     onSelectRef.current?.(selection);
-    setSelected?.(selection?.collection || null);
+    setSelected?.(selection ? { collection: selection.collection, id: selection.entry.id } : null);
   };
   const changeMode = canvas.setMode.bind(canvas);
   canvas.setMode = (nextMode) => {

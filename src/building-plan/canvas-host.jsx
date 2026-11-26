@@ -1,14 +1,13 @@
 import { useBuildingPlanPresentation } from './presentation.jsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BuildingPlanToolbar } from './toolbar/building-plan-toolbar.jsx';
-import { ZoomControls } from './zoom-controls.jsx';
 import { TOOL_MODES } from './toolbar/toolbar-config.js';
 import { PlanTooltip } from './plan-tooltip.jsx';
 import { FloorTabs } from './floor-tabs.jsx';
-import { NO_STATUS, PlanStatus } from './plan-status.jsx';
+import { NO_STATUS } from './plan-status.jsx';
 import { PlanIssueList } from './plan-issue-list.jsx';
 import { usePlanIssues } from './use-plan-issues.js';
-import { ownsHistory, usePlanHistory } from './use-plan-history.js';
+import { usePlanHistory } from './use-plan-history.js';
 import { usePlanKeyboard } from './plan-keyboard.js';
 import { usePlanTools } from './use-plan-tools.js';
 import { usePlanScope } from './use-plan-scope.js';
@@ -18,6 +17,10 @@ import { mountPlanCanvas } from './canvas-host-mount.js';
 import { waitingCommands } from './add-elements.js';
 import { resolvePlanTheme } from './draw/plan-theme.js';
 import { planTokens, planVars } from './plan-tokens.css.js';
+import { planText } from './plan-text.js';
+import { PlanStage } from './plan-stage.jsx';
+import { useFrontView } from './front/use-front-view.js';
+import { ViewSwitch } from './front/view-switch.jsx';
 import { useThemeClass } from '../theme-context.jsx';
 import './canvas-host.css.js';
 
@@ -85,9 +88,13 @@ export function BuildingPlanCanvasHost({
   const [status, setStatus] = useState(NO_STATUS);
   // The floors the canvas shows, reported by the canvas for the tab row.
   const [floorTabs, setFloorTabs] = useState({ tabs: [], below: null });
-  // The selected element's collection, for the commands that need one (3b: a door needs a wall).
+  // The selected element, { collection, id }: the commands that need one (3b: a door needs a
+  // wall) read its collection; the front view marks it (A2).
   const [selected, setSelected] = useState(null);
-  const waiting = useMemo(() => waitingCommands(selected), [selected]);
+  const waiting = useMemo(
+    () => waitingCommands(selected?.collection || null),
+    [selected?.collection]
+  );
   const waitingRef = useRef(waiting);
   waitingRef.current = waiting;
 
@@ -105,15 +112,9 @@ export function BuildingPlanCanvasHost({
   const findingMarkersRef = useRef(planIssues.markers);
   findingMarkersRef.current = planIssues.markers;
 
-  const {
-    handleModeChange,
-    handleClearSelection,
-    handleCommand,
-    handleZoomIn,
-    handleZoomOut,
-    handleZoomReset,
-  } = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
+  const tools = usePlanTools({ canvasRef, setActiveToolMode, waitingRef });
   const { layers, setLayer, layersRef } = usePlanLayers({ canvasRef, controllerRef }); // step 2
+  const front = useFrontView({ controllerRef, focus, buildingPlanMeta, section }); // A2
 
   useEffect(() => {
     repeatableApiRef.current = repeatableApi;
@@ -189,11 +190,12 @@ export function BuildingPlanCanvasHost({
   useEntryIssues({ canvasRef, issues });
 
   // Undo / Redo of the entry's plan edits (floor and room entries carry an editor).
-  const { editor, undo, redo } = usePlanHistory({
+  const { history } = usePlanHistory({
     repeatableApi,
     repeatableApiRef,
     canvasRef,
-    locked,
+    readOnly,
+    viewOnly,
   });
 
   useEffect(() => {
@@ -226,9 +228,9 @@ export function BuildingPlanCanvasHost({
         <BuildingPlanToolbar
           canvasMode={mode}
           activeToolMode={activeToolMode}
-          onModeChange={handleModeChange}
-          onClearSelection={handleClearSelection}
-          onCommand={handleCommand}
+          onModeChange={tools.handleModeChange}
+          onClearSelection={tools.handleClearSelection}
+          onCommand={tools.handleCommand}
           unavailable={waiting}
           disabled={locked}
         />
@@ -247,11 +249,19 @@ export function BuildingPlanCanvasHost({
           layers={layers}
           onLayer={setLayer}
           inEntry={Boolean(scope.roomId)}
+          viewSwitch={
+            <ViewSwitch available={front.available} front={front.on} onChange={front.setOn} />
+          }
+          showHint={front.view ? planText('plan.show.front') : null}
           issues={
             planIssues.items.length > 0 ? (
               <PlanIssueList
                 items={planIssues.items}
-                onSelect={(item) => canvasRef.current?.selectRow(item.indexPath)}
+                onSelect={(item) => {
+                  canvasRef.current?.selectRow(item.indexPath);
+                  // Selected in Front too; one it doesn't show, on the plan.
+                  if (front.view && !front.shows(item.indexPath)) front.setOn(false);
+                }}
                 onOpen={(item) =>
                   repeatableApiRef.current.focusRow?.(item.indexPath, {
                     validationFocus: item.fieldName ? { fieldName: item.fieldName } : null,
@@ -260,32 +270,19 @@ export function BuildingPlanCanvasHost({
               />
             ) : null
           }
-          history={
-            editor && !viewOnly
-              ? {
-                  canUndo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'undo'),
-                  canRedo: !readOnly && ownsHistory(editor, repeatableApi.scopeId, 'redo'),
-                  onUndo: undo,
-                  onRedo: redo,
-                }
-              : null
-          }
+          history={history}
         />
-        <div ref={containerRef} className="building-plan-canvas-panel" />
-        <PlanStatus
-          hintKey={status.hintKey}
-          noteKey={status.noteKey}
-          messages={status.messages}
-          index={status.index}
-          codes={status.codes}
-          onStep={() => canvasRef.current?.showMessage(status.index + 1)}
-          onDismiss={() => canvasRef.current?.dismissMessages()}
-        />
-        <ZoomControls
+        <PlanStage
+          containerRef={containerRef}
+          canvasRef={canvasRef}
+          controllerRef={controllerRef}
+          front={front}
+          status={status}
           zoomLevel={zoomLevel}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onReset={handleZoomReset}
+          tools={tools}
+          presentation={presentation}
+          selection={selected}
+          markers={planIssues.markers}
         />
       </div>
       <PlanTooltip hostRef={hostRef} />

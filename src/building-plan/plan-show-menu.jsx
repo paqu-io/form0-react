@@ -19,9 +19,11 @@ import * as styles from './plan-show-menu.css.js';
  *     offByDefault?: boolean,
  *   }>,
  *   onToggle: (key: string, on: boolean) => void,
- * }} props
+ *   disabledHint?: string | null,
+ * }} props `disabledHint`: the menu doesn't apply here (Front, A2): the button disabled, this
+ *   its tooltip
  */
-export function PlanShowMenu({ items, onToggle }) {
+export function PlanShowMenu({ items, onToggle, disabledHint = null }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const id = useId();
@@ -48,17 +50,24 @@ export function PlanShowMenu({ items, onToggle }) {
 
   if (!items.length) return null;
   const someOff = items.some((item) => !item.on && !item.disabled && !item.offByDefault);
-  const usable = items.some((item) => !item.disabled);
+  const usable = !disabledHint && items.some((item) => !item.disabled);
   const title = planText('plan.show.title');
   return (
-    <div ref={rootRef} className={styles.root} {...(open ? { [OPEN_ATTRIBUTE]: '' } : {})}>
+    <div
+      ref={rootRef}
+      className={styles.root}
+      data-tooltip={disabledHint || undefined}
+      {...(open ? { [OPEN_ATTRIBUTE]: '' } : {})}
+    >
       <button
         type="button"
         className={styles.button}
         aria-expanded={open}
         aria-controls={`${id}-menu`}
         aria-label={someOff ? `${title} · ${planText('plan.show.someOff')}` : title}
-        data-tooltip={title}
+        data-tooltip={disabledHint ? undefined : title}
+        // Its root shows the tooltip of a menu that doesn't apply.
+        style={disabledHint ? { pointerEvents: 'none' } : undefined}
         disabled={!usable}
         onClick={() => setOpen((value) => !value)}
       >

@@ -4,8 +4,6 @@ import { BUILDING_PLAN_ZOOM_LIMITS } from 'form0-core';
 import { planText } from './plan-text.js';
 import './zoom-controls.css.js';
 
-const { min: MIN_ZOOM, max: MAX_ZOOM } = BUILDING_PLAN_ZOOM_LIMITS;
-
 /**
  * Format zoom level for display (e.g., 1 -> "100%", 0.5 -> "50%")
  */
@@ -23,10 +21,20 @@ function formatZoomLevel(zoom) {
  * @param {Function} props.onZoomOut - Callback to zoom out
  * @param {Function} props.onReset - Callback that fits the plan in the view
  * @param {boolean} props.disabled - Whether controls are disabled
+ * @param {{ min: number, max: number }} [props.limits] the plan's, or the front view's (A2)
+ * @param {string} [props.fitLabel] the fit button's name: "Fit plan", or "Fit view" in Front
  */
-export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disabled = false }) {
-  const canZoomIn = !disabled && zoomLevel < MAX_ZOOM;
-  const canZoomOut = !disabled && zoomLevel > MIN_ZOOM;
+export function ZoomControls({
+  zoomLevel = 1,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  disabled = false,
+  limits = BUILDING_PLAN_ZOOM_LIMITS,
+  fitLabel = planText('plan.zoom.fit'),
+}) {
+  const canZoomIn = !disabled && zoomLevel < limits.max;
+  const canZoomOut = !disabled && zoomLevel > limits.min;
   const canFit = !disabled;
 
   return (
@@ -68,8 +76,8 @@ export function ZoomControls({ zoomLevel = 1, onZoomIn, onZoomOut, onReset, disa
         className="building-plan-zoom-btn"
         onClick={onReset}
         disabled={!canFit}
-        data-tooltip={planText('plan.zoom.fit')}
-        aria-label={planText('plan.zoom.fit')}
+        data-tooltip={fitLabel}
+        aria-label={fitLabel}
       >
         <Maximize2 />
       </button>
