@@ -4273,6 +4273,147 @@ elsewhere), the wall line "1 of 1"; **A3** the room entry's arrows (Alt+Shift+�
 plan's shortcuts); **A4** element entries, beams and bands opening on Front. Web only; mobile with
 step 5.
 
+Confirmed at the start of A (2026-11-25):
+
+- The switch always in view and disabled where unused; "W1 · 1 of 1" as an overlay (the fit
+  leaves room at the top so it never covers the top level); wall beams and bands open on Front,
+  every other entry on Plan.
+- *One scale per room*, fitted to the room's longest row (a side, or a free wall: a diagonal one
+  can be longer than any side) and its tallest wall as drawn; core gives the fit with every view.
+- *Unknown height*: neither "the floor's height" nor "the room's" can apply: a wall's height is
+  inherited (floor, room clear height, wall), so it is unknown only when all three are (checked in
+  node: W4's height cleared with the floor at 3 m comes back 3; a shared wall between rooms of
+  different heights asks which applies). Every wall of unknown height in a room is drawn to the
+  room's highest level (its walls' known tops, openings' heads, beams' tops) plus 0.5 m, at least
+  1 m: one height per room, so a side of two such rows has no stepped top and stepping through
+  the walls doesn't move it.
+- A door, window, beam or band of unknown height isn't drawn in Front (it shows on the plan and
+  in its entry).
+- *A row on several sides* (a jog): unfolded, its sides one after another with a fold at each
+  corner. Not seen in practice: the example, the contact-jog test's wrapped plan and every row of
+  each room dragged ±0.4 m all keep each row on one side (a step is a row of its own).
+
+### A1: the front view of a wall row (core, 2026-11-25, hand-tested with A2, committed)
+
+`front-view.js` (new): `buildingPlanFrontView(floor, faceId)`, display only, in metres from the
+left end of the row's side as seen from inside its room (WB3: a row on its segment's side +1 sees
+the segment's start on its left). It gives `pieces` (the side's rows corner to corner, the shown
+one marked, each with `height`, null when unknown, and `drawnHeight`), `folds`, `openings` and
+`beams` of every row on the side (`from`, `to`, `bottom`, `top`, the row's `faceId`, a door's or
+window's `kind`, a band's `band`, `name`), `problems` (the clash areas, ids as the floor's
+problems), the shown row's `levels` and the room's `fit` (`length`, `height`). A free wall is seen
+from its row's side, its own length. `front-view-strip.js` (new): the parts a view is laid along
+(a room row's sides, a free wall's stretches), left to right. `front-view-problems.js` (new): the
+clash areas (an opening and a band, two bands: their overlap; a band above its wall: from the
+wall's top; below the floor: to the floor). Wiring: `room-sides.js` gives each side its `edgeIds`
+(a row's bindings name theirs); `canvas-controller.js` `frontView(faceId)` for the floor shown,
+computed when asked. Tests `building-plan-front-view.test.js` (7: W1 with its bands and a window,
+levels 0 / 0.6 / 0.9 / 2.1 / 2.4 / 2.7 / 3; the W3 / W3.2 side from either row, the Shared door
+0.5 m in from the Bedroom and 0.6 m from Room 2, as their entries say; a free wall; unknown
+heights, 2.90 then 3.25 for every wall of the Bedroom, 1 m for an empty room, no ring beam; the
+overlap of a window and the lintel band, a band above its wall and the fit over it; a row on two
+sides unfolded, read the same from an outline wound either way; the controller) and
+`building-plan-front-view-invariants.test.js` (11 plans: one fit per room, the pieces end to end
+and the row shown whole, what the canvas puts on each row in its view inside the row and the fit,
+levels rising from the floor, one drawn height per room above every level). Failing with HEAD's
+`room-sides.js` (5 of 7) and `canvas-controller.js` (the controller test); the unfold case fails
+without the reversal for an outline wound the other way. Core 834 of 834. Nothing to see on the
+test page until A2.
+
+### A2: the front view in a wall's entry (web, 2026-11-26, hand-tested, committed)
+
+Decided at its start (2026-11-26): zoom and pan in Front now, not later (Front opens at the room's
+fit, 100%; wheel, the zoom pill and Shift-drag or the middle button act on Front only; each view
+keeps its zoom while the dialog is open; "Fit view" returns to the fit); Show disabled in Front,
+its tooltip "Front always shows bands, beams and lengths" (disable rather than hide, replacing
+round 3's "hidden"); the status line keeps the plan's hint, so a double-click opens a part's entry
+in Front as on the plan (the user's point: in a view-only entry a click selects nothing, a
+double-click opens the door, window, wall beam or band; another room's or the entry's own wall
+opens nothing, as on the plan), its note "lengths in metres" (feet) as Front always shows them; an
+issue picked in the "n issues" list is selected in both views: Front marks it in the accent colour
+when it shows its element, else Front switches to Plan, where the issue is selected (the user
+asked for both views; one Front can't show has nowhere to be marked there).
+
+Core: `front-view-refs.js` (new): `canvasController.frontView` gives each piece, opening and beam
+its canvas element, `ref: { collection, id, path }` (found in the snapshot by subject and row, so
+the web doesn't rebuild ids), for a double-click (`controller.focus`), the plan's selection and
+the issues' markers. Test: the controller case of `building-plan-front-view.test.js` checks every
+part's ref against the snapshot (failing without the refs).
+
+Web, `src/building-plan/front/` (new): `front-camera.js` (one scale per room, fitted in the panel
+less 64 / 200 / 48 / 100 px for the levels, the chains, the wall line and the bottom lengths; zoom
+0.5 to 8 times the fit about a point; the room's fitted height centred, so every wall of a room
+stands on one floor line), `front-shapes.js` (walls, the side's other rows at 0.32, elements with
+names inside when they fit, a band's at its right end, clash areas, folds, the selected element,
+a "!" on each element with an issue at its top right), `front-chains.js` (H1: levels on the left,
+kept 12 px apart; the partial lengths on the right, a pill longer than its stretch stepped aside in
+two columns with a leader; the whole height outside when known; along the bottom the row's ends
+and its openings', a short pill stepped up then down; the whole side under them when there is
+more than one stretch), `front-svg.jsx`, `front-view.jsx` (measured box, wheel, pan,
+double-click, the wall line "‹ W1 · 1 of 1 ›" with its arrows disabled), `view-switch.jsx` (Plan |
+Front, disabled with "Front: open a wall's entry" where unused), `use-front-view.js` (per dialog,
+on Plan at first; while on, follows every canvas update), `front-view.css.js` (plan tokens; the
+wall's face and a beam mixed from them). `plan-stage.jsx` (new): the canvas panel with Front over
+it (the canvas kept, hidden, so nothing moves: measured on the page, the frame matches the canvas
+to the pixel, switching changes no height), the status line and the zoom pill (Front's limits and
+"Fit view" in Front). Wiring: `canvas-host.jsx` (291 lines: the history props moved into
+`use-plan-history.js`, the panel into `plan-stage.jsx`), the selected element kept whole
+(`canvas-host-mount.js`), `floor-tabs.jsx` (the switch first at the end; Show's hint),
+`plan-show-menu.jsx` (`disabledHint`), `zoom-controls.jsx` (`limits`, `fitLabel`), texts in
+`plan-text.js`.
+
+Tests: `building-plan-front-layout.test.js` (17: the fit, a shorter wall on the same floor line,
+zoom about a point and its limits; W1's shapes to scale, names inside, a thin band unnamed, a hand
+beam named in its middle, faded rows, the selection and markers, unknown height, folds and clash
+areas; levels, the partial chain, stepped pills, no whole height when unknown, the bottom chain,
+the side under it or not, a side of two rows, short bottom pills stepped) and
+`building-plan-front-view.test.jsx` (the switch disabled in the floor's and room's entries, Front
+in W1's entry: its bands, window and lengths, the wall line, Show disabled, the status note, its
+own zoom kept across switches, the issue selected in Front, a double-click opening the band's
+entry). Failing with HEAD's `canvas-host.jsx` (no switch) and with core's `frontView` without
+refs (the issue not selected in Front). Web 494 of 500 (the 6 known worker failures), core 834 of
+834. Checked headless on the test page (`state-d1c-problem.json`, light and dark): the switch
+disabled on the floors page and in the Bedroom's entry, W2 and W3 in Front (W3: the Shared door,
+B#1 over it, the clash with the lintel band, W3.2 faded, stepped pills 0.10 / 0.15 / 0.10), the
+issue selected in Front, zoom 125% then 228% with the plan kept at 106%, a double-click on the
+lintel band opening its entry; no page errors.
+
+Hand test, first round (2026-11-26): every entry's canvas started short and grew for seconds
+(Plan and Front; not the plan page), and the form felt slower. Cause: in a three-column entry
+`plan-entry-layout.css.js` stretches `.building-plan-canvas-panel` to its card; A2 put it inside a
+stage that didn't stretch, so the panel took its content's height and the canvas, sized to its
+container, added the container's border at each resize (393 to 551 px in 4 s, measured headless;
+749 px at once with HEAD's host). Fix: the stage is `.building-plan-canvas-stage` (in
+`canvas-host.css.js`, sized as the panel was) and the entry layout stretches it as it does the
+panel; measured again: 749 px from the first frame in the room's and W3's entries, Plan and Front,
+the plan page unchanged. Raised in the same hand test, to decide: a click selecting in a wall's
+entry (view-only canvases take no press but the double-click's, since 1d; the room's entry edits,
+so a click selects there), an entry opened by double-click opening on the view it came from (with
+A3 and A4), and a mini-map in Front (mockup round 4:
+https://claude.ai/artifact/Dbk7tXCWjNRQWDGmuh4peb).
+
+Hand test, second round (2026-11-26): the canvas no longer grows and the form isn't slow. Committed:
+core `55a9075` (A1 and the parts' canvas elements), web `95b0363`.
+
+Decided after it (2026-11-26):
+
+- *A click selects in view-only entries* (a wall's, a door's…), in Plan and Front as in the room's
+  entry: the element selected and its row marked in the entry's list, a click on nothing back to
+  the entry's own element, nothing dragged. Its own unit, next.
+- *A double-click opens on the view it came from*: an entry opened by double-click, and every
+  dialog opened on the way to it, opens on the view double-clicked in; one opened from a list
+  keeps its default (wall beams and bands on Front, the rest on Plan). With A3 and A4.
+- *A mini-map in Front*, as recommended in round 4: P2 (bottom left; the fit reserves a wider left
+  margin), V1 (a cone to the shown wall's ends), O1 (drawn as the plan), a ring at the wall's 0
+  end, the room only, display only in a wall's entry (a click shows a wall in a room's, A3); core
+  gives its facts. Its own unit after the click selection. The user asked where the cone starts in
+  a very irregular room: proposed, to confirm at the start of that unit (shown on an L-shaped room
+  in the mockup), in front of the shown wall's middle along its inward normal, half the wall's
+  length away (a cone of about 90°) but no further than 80% of the free distance to the first wall
+  that normal meets, the cone clipped to the room's floor; a row on several sides from its longest
+  part, a free wall from its row's side.
+- Order: the click selection, the mini-map, A3, A4.
+
 ### Next (queue, updated 2026-11-23)
 
 Done this round: the room tool's start preview (`40f827d`); the navigation unit, decided with a

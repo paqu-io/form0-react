@@ -2573,3 +2573,40 @@ plan's selected wall, element entries in A (last unit), Show hidden in Front, un
 a dashed top, free walls included. Proposed, to confirm: the switch always in view (disabled where
 unused), "W1 · 1 of 1" kept as an overlay, beams and bands opening on Front, one scale per room.
 Details in `building-plan-ui.md`, "A: the read-only front view".
+
+Confirmed at the start of A: the switch always in view, "W1 · 1 of 1" as an overlay, beams and
+bands opening on Front, one scale per room (its longest row, free walls included, and tallest wall
+as drawn); a wall of unknown height drawn to its room's highest level + 0.5 m (at least 1 m), the
+same for every such wall of the room (the floor's or room's height can't apply: the wall inherits
+them); elements of unknown height not drawn in Front; a row on several sides unfolded.
+
+### A1: the front view of a wall row (core, 2026-11-25, hand-tested with A2, committed)
+
+Core `front-view.js` (with `front-view-strip.js`, `front-view-problems.js`): one wall row's
+front view in metres from its side's left end as seen from inside the room (WB3), free walls from
+their row's side: the side's rows, openings, wall beams and bands, problem areas, the shown row's
+levels and the room's fit; `canvasController.frontView(faceId)`. Core 834 of 834. Nothing to see
+until A2. Details in `building-plan-ui.md`, "A1".
+
+### A2: the front view in a wall's entry (web, 2026-11-26, hand-tested, committed)
+
+Decided at its start: zoom and pan in Front now (the room's fit at 100%, Front's own zoom, the
+plan keeps its own); Show disabled in Front with a tooltip; Front's status line as the plan's
+("Double-click an element to open it · Shift-drag pans · lengths in metres"), a double-click opening
+a part's entry as on the plan; an issue selected in Front when Front shows its element, else on
+the plan (Front switches to it). Web: `front/` (camera, shapes, chains, the SVG, the view, the
+switch, its state hook), `plan-stage.jsx` (the panel, the Front over it, status, zoom pill); core:
+each part of a front view with its canvas element (`front-view-refs.js`). Web 494 of 500 (the 6
+known worker failures), core 834 of 834. Details in `building-plan-ui.md`, "A2".
+
+A2 hand test, first round: entry canvases grew for seconds after opening (A2's stage around the
+canvas panel didn't stretch in the entry layout, so the canvas grew a border's width per resize);
+fixed with a `.building-plan-canvas-stage` the entry layout stretches. Raised, to decide: a click
+selecting in view-only entries, double-click opening on the view it came from, a mini-map in Front
+(mockup round 4: https://claude.ai/artifact/Dbk7tXCWjNRQWDGmuh4peb).
+
+Hand-tested again and committed: core `55a9075`, web `95b0363`. Decided: a click selects in
+view-only entries (next unit); a double-click opens on the view it came from (with A3 and A4); a
+mini-map in Front (bottom left, a cone to the shown wall, drawn as the plan, a ring at the 0 end),
+the cone's start in an irregular room to confirm at the start of its unit. Order: the click
+selection, the mini-map, A3, A4. Details in `building-plan-ui.md`, "A2".
